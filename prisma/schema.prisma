@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Item {
+  id          String   @id @default(uuid())
+  userId      String   
+  layer       Int      // 1: Why, 2: Quest, 3: Milestone, 4: Win, 5: Deed
+  parentId    String?
+  parent      Item?    @relation("ItemToItem", fields: [parentId], references: [id])
+  children    Item[]   @relation("ItemToItem")
+  
+  title       String
+  description String?
+  weight      Int      @default(1)
+  status      String   @default("backlog") // backlog, this_period, in_progress, done
+  completed   Boolean  @default(false)
+  category    String?
+  
+  // Specific to layers
+  startDate   DateTime?
+  endDate     DateTime?
+  theme       String?
+  focusQuestion String?
+  anchorScripture String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  notes       Note[]
+  reviews     Review[]
+  partnerLinks PartnerLink[]
+  financialEntries FinancialEntry[]
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  userId    String
+  itemId    String?
+  item      Item?    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  userId      String
+  itemId      String?
+  item        Item?    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  periodType  String   // daily, weekly, monthly, quarterly, yearly
+  periodStart DateTime
+  mood        Int?     // 1-4
+  energy      Int?     // 0-10
+  reflection  String?
+  wins        String?
+  misses      String?
+  tomorrowTop3 Json?
+  partnerNotes String?
+  stats       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Partner {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  email     String
+  role      String   // accountability, mentor, collaborator
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partnerLinks PartnerLink[]
+  nudges       Nudge[]
+}
+
+model PartnerLink {
+  id        String   @id @default(uuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([itemId, partnerId])
+}
+
+model Nudge {
+  id         String   @id @default(uuid())
+  partnerId  String
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  senderId   String   
+  receiverId String   
+  message    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model UserCategory {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  color     String
+  icon      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Event {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  score     Int?     // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files     EventFile[]
+}
+
+model EventFile {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  fileName  String
+  filePath  String
+  fileSize  Int
+  createdAt DateTime @default(now())
+}
+
+model FinancialEntry {
+  id          String   @id @default(uuid())
+  userId      String
+  deedId      String?
+  deed        Item?    @relation(fields: [deedId], references: [id], onDelete: SetNull)
+  entryDate   DateTime
+  type        String   // income, expense
+  amount      Float
+  currency    String   @default("USD") // NGN, USD
+  category    String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserToken {
+  id           String   @id @default(uuid())
+  userId       String
+  provider     String
+  accessToken  String
+  refreshToken String?
+  expiryDate   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([userId, provider])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PendingSuggestion {
+  id             String   @id @default(uuid())
+  fromUserId     String
+  toUserId       String
+  itemId         String?
+  suggestedTitle String
+  status         String   @default("pending") // pending, accepted, rejected
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

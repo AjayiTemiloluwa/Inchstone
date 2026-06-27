@@ -1,0 +1,159 @@
+'use client'
+
+import { useUser } from '@clerk/nextjs'
+import { Card } from '@/components/ui/Card'
+import { PushNotificationManager } from '@/components/items/PushNotificationManager'
+import { useState, useEffect } from 'react'
+import { Calendar, CheckCircle, XCircle, ExternalLink } from 'lucide-react'
+
+export default function SettingsPage() {
+  const { user, isLoaded } = useUser()
+  const [calConnected, setCalConnected] = useState<boolean | null>(null)
+  const [checkingCal, setCheckingCal] = useState(true)
+
+  useEffect(() => {
+    checkCalendarStatus()
+  }, [])
+
+  const checkCalendarStatus = async () => {
+    setCheckingCal(true)
+    try {
+      const res = await fetch('/api/calendar/events?timeMin=2026-01-01T00:00:00.000Z&timeMax=2026-01-02T00:00:00.000Z')
+      const data = await res.json()
+      if (data.needsAuth) {
+        setCalConnected(false)
+      } else if (data.error === 'Calendar not connected') {
+        setCalConnected(false)
+      } else {
+        setCalConnected(true)
+      }
+    } catch {
+      setCalConnected(false)
+    } finally {
+      setCheckingCal(false)
+    }
+  }
+
+  const handleConnectCalendar = async () => {
+    try {
+      const res = await fetch('/api/calendar/auth')
+      const data = await res.json()
+      if (data.url) {
+        window.open(data.url, '_blank')
+      }
+    } catch (err) {
+      console.error('Failed to get auth URL', err)
+    }
+  }
+
+  const [calError, setCalError] = useState<string | null>(null)
+
+  const handleDisconnectCalendar = async () => {
+    setCalError(null)
+    try {
+      const res = await fetch('/api/calendar/disconnect', { method: 'POST' })
+      if (res.ok) {
+        setCalConnected(false)
+      } else {
+        setCalError('Failed to disconnect calendar.')
+      }
+    } catch {
+      setCalError('Network error. Please try again.')
+    }
+  }
+
+  if (!isLoaded) {
+    return <div className="flex justify-center items-center h-full">Loading...</div>
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 pb-12">
+      <h1 className="text-2xl font-display font-bold text-ink">Settings</h1>
+
+      {/* Profile Section */}
+      <Card className="space-y-6">
+        <h2 className="text-lg font-bold text-ink">Profile</h2>
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 bg-mist rounded-full flex items-center justify-center text-2xl font-bold text-ink/50 overflow-hidden">
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              user?.firstName?.charAt(0) || '?'
+            )}
+          </div>
+          <div>
+            <p className="font-bold text-ink">{user?.fullName || 'User'}</p>
+            <p className="text-sm text-ink/70">
+              {user?.primaryEmailAddress?.emailAddress || 'No email'}
+            </p>
+            <p className="text-xs text-ink/50 mt-1">
+              Account managed via Clerk
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Calendar Integration */}
+      <Card className="space-y-6">
+        <h2 className="text-lg font-bold text-ink flex items-center space-x-2">
+          <Calendar className="w-5 h-5 text-gold" />
+          <span>Google Calendar</span>
+        </h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-ink">Calendar Integration</p>
+            <p className="text-sm text-ink/70 mt-1">
+              Connect your Google Calendar to view events alongside your daily deeds.
+            </p>
+          </div>
+          <div className="flex items-center space-x-3">
+            {checkingCal ? (
+              <span className="text-sm text-ink/50">Checking...</span>
+            ) : calConnected ? (
+              <>
+                <span className="flex items-center space-x-1 text-sm text-sage font-medium">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Connected</span>
+                </span>
+                <button
+                  onClick={handleDisconnectCalendar}
+                  className="px-3 py-1.5 text-sm border border-coral/30 text-coral rounded-lg hover:bg-coral/5 transition"
+                >
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="flex items-center space-x-1 text-sm text-ink/50">
+                  <XCircle className="w-4 h-4" />
+                  <span>Not connected</span>
+                </span>
+                <button
+                  onClick={handleConnectCalendar}
+                  className="px-3 py-1.5 text-sm bg-gold text-surface rounded-lg hover:bg-gold/90 transition flex items-center space-x-1"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Connect</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Notifications */}
+      <Card className="space-y-6">
+        <h2 className="text-lg font-bold text-ink">Notifications</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-ink">Push Notifications</p>
+            <p className="text-sm text-ink/70 mt-1">
+              Receive notifications for nudge messages and reminders.
+            </p>
+          </div>
+          <PushNotificationManager />
+        </div>
+      </Card>
+    </div>
+  )
+}
