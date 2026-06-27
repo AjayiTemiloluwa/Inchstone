@@ -45,7 +45,9 @@ export function DayModal({ deedId, onClose }: DayModalProps) {
 
   // Reflection state
   const [mood, setMood] = useState<number | null>(null)
+  const [energy, setEnergy] = useState<number | null>(null)
   const [reflection, setReflection] = useState('')
+  const [tomorrowTop3, setTomorrowTop3] = useState('')
   const [savingReflection, setSavingReflection] = useState(false)
   const [reflectionSaved, setReflectionSaved] = useState(false)
 
@@ -167,7 +169,9 @@ export function DayModal({ deedId, onClose }: DayModalProps) {
           periodType: 'daily',
           periodStart: deed?.startDate,
           mood,
+          energy,
           reflection,
+          tomorrowTop3: tomorrowTop3 ? tomorrowTop3.split('\n').filter(Boolean) : null,
         }),
       })
       if (res.ok) {
@@ -181,7 +185,7 @@ export function DayModal({ deedId, onClose }: DayModalProps) {
     }
   }
 
-  const moodLabels = ['Low', 'Okay', 'Good', 'Great']
+  const moodLabels = ['🙁 Low', '😐 Okay', '🙂 Good', '😄 Great']
   const moodColors = ['bg-coral/20 text-coral', 'bg-gold/20 text-gold', 'bg-sage/20 text-sage', 'bg-sage text-surface']
   const totalIncome = financialEntries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0)
   const totalExpense = financialEntries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0)
@@ -348,6 +352,17 @@ export function DayModal({ deedId, onClose }: DayModalProps) {
                         className="w-full rounded border border-mist p-1.5 text-xs bg-paper" placeholder="0.00"
                       />
                     </div>
+                    <div className="w-16">
+                      <label className="text-[10px] font-bold text-ink/50 block mb-0.5">Currency</label>
+                      <select
+                        value={newTransaction.currency}
+                        onChange={e => setNewTransaction(prev => ({ ...prev, currency: e.target.value }))}
+                        className="w-full rounded border border-mist p-1.5 text-xs bg-paper"
+                      >
+                        <option value="USD">$</option>
+                        <option value="NGN">₦</option>
+                      </select>
+                    </div>
                     <div className="flex-1">
                       <label className="text-[10px] font-bold text-ink/50 block mb-0.5">Category</label>
                       <select
@@ -412,12 +427,33 @@ export function DayModal({ deedId, onClose }: DayModalProps) {
                   </div>
                 </div>
                 <div>
+                  <label className="text-xs font-bold text-ink/70 mb-1 block">Energy (0-10)</label>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="range" min="0" max="10"
+                      value={energy ?? 5}
+                      onChange={e => setEnergy(parseInt(e.target.value))}
+                      className="flex-1 accent-gold"
+                    />
+                    <span className="text-sm font-mono font-bold text-ink/70 w-6 text-center">{energy ?? 5}</span>
+                  </div>
+                </div>
+                <div>
                   <label className="text-xs font-bold text-ink/70 mb-1 block">Notes</label>
                   <textarea
                     value={reflection}
                     onChange={e => setReflection(e.target.value)}
                     className="w-full rounded border border-mist p-2 text-sm bg-paper h-24 resize-none"
                     placeholder="How did today go?"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-ink/70 mb-1 block">Tomorrow's Top 3 (one per line)</label>
+                  <textarea
+                    value={tomorrowTop3}
+                    onChange={e => setTomorrowTop3(e.target.value)}
+                    className="w-full rounded border border-mist p-2 text-sm bg-paper h-20 resize-none"
+                    placeholder="1.&#10;2.&#10;3."
                   />
                 </div>
                 <button

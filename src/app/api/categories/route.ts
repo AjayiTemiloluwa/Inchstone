@@ -7,18 +7,14 @@ export async function GET() {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const partners = await prisma.partner.findMany({
+    const categories = await prisma.userCategory.findMany({
       where: { userId },
-      include: {
-        partnerLinks: {
-          include: { item: { select: { id: true, title: true, layer: true } } }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { name: 'asc' }
     })
 
-    return NextResponse.json({ partners })
+    return NextResponse.json({ categories })
   } catch (error) {
+    console.error('Failed to fetch categories', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
@@ -29,47 +25,24 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { name, email, role } = body
+    const { name, color, icon } = body
 
-    const partner = await prisma.partner.create({
+    if (!name) {
+      return NextResponse.json({ error: 'name is required' }, { status: 400 })
+    }
+
+    const category = await prisma.userCategory.create({
       data: {
         userId,
         name,
-        email,
-        role
+        color: color || '#D4AF37',
+        icon: icon || 'folder',
       }
     })
 
-    return NextResponse.json({ success: true, partner })
+    return NextResponse.json({ success: true, category })
   } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-  }
-}
-
-export async function PUT(req: Request) {
-  try {
-    const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const body = await req.json()
-    const { id, name, email, role } = body
-
-    if (!id) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    }
-
-    const updateData: any = {}
-    if (name !== undefined) updateData.name = name
-    if (email !== undefined) updateData.email = email
-    if (role !== undefined) updateData.role = role
-
-    await prisma.partner.updateMany({
-      where: { id, userId },
-      data: updateData
-    })
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
+    console.error('Failed to create category', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
@@ -86,12 +59,13 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    await prisma.partner.deleteMany({
+    await prisma.userCategory.deleteMany({
       where: { id, userId }
     })
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    console.error('Failed to delete category', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
