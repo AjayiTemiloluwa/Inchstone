@@ -4,14 +4,26 @@ import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useHierarchyStore } from '@/store/hierarchyStore'
-import { Activity, Target, Flame, Calendar, CheckCircle } from 'lucide-react'
+import { Activity, Target, Flame, Calendar, CheckCircle, ListTodo } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { format } from 'date-fns'
 
 export default function DashboardPage() {
   const router = useRouter()
   const { items, completionMap, setItems, setUserCategories } = useHierarchyStore()
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
+  const [dailyScore, setDailyScore] = useState<{ totalTasks: number, completedTasks: number, score: number } | null>(null)
+
+  useEffect(() => {
+    const today = new Date().toISOString()
+    fetch(`/api/daily-score?date=${today}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.dailyScore) setDailyScore(data.dailyScore)
+      })
+      .catch(() => { })
+  }, [])
 
   useEffect(() => {
     fetch('/api/items')
@@ -22,7 +34,7 @@ export default function DashboardPage() {
           const itemMap = new Map()
           data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [] }))
           const tree: any[] = []
-          
+
           data.items.forEach((item: any) => {
             if (item.parentId) {
               const parent = itemMap.get(item.parentId)
@@ -31,7 +43,7 @@ export default function DashboardPage() {
               tree.push(itemMap.get(item.id))
             }
           })
-          
+
           setItems(tree)
         }
         if (data.categories) setUserCategories(data.categories)
@@ -58,7 +70,7 @@ export default function DashboardPage() {
       <div className="flex flex-col items-center justify-center h-full space-y-6">
         <h1 className="text-3xl font-display font-bold text-gold">Welcome to Inchstone</h1>
         <p className="text-ink/70 max-w-md text-center">Your daily deeds flow from your yearly vision. Seed the 2026 framework to get started on your journey.</p>
-        <button 
+        <button
           onClick={handleSeed}
           disabled={seeding}
           className="px-6 py-3 bg-gold text-surface font-semibold rounded-lg shadow-sm hover:bg-gold/90 transition disabled:opacity-50"
@@ -72,7 +84,7 @@ export default function DashboardPage() {
   // Calculate stats
   const whyItem = items.find(i => i.layer === 1)
   const totalCompletion = whyItem ? completionMap[whyItem.id] || 0 : 0
-  
+
   // Find today's deeds (layer 5 where startDate is today)
   // For demo purposes, we'll just grab the first 5 incomplete deeds from layer 5
   const allDeeds: any[] = []
@@ -83,13 +95,13 @@ export default function DashboardPage() {
     })
   }
   collectDeeds(items)
-  
+
   const pendingDeeds = allDeeds.filter(d => !d.completed).slice(0, 5)
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-display font-bold text-ink">Dashboard</h1>
-      
+
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="flex items-center space-x-4">
@@ -120,12 +132,14 @@ export default function DashboardPage() {
           </div>
         </Card>
         <Card className="flex items-center space-x-4">
-          <div className="p-3 bg-ink/10 rounded-full text-ink">
-            <Calendar className="w-6 h-6" />
+          <div className="p-3 bg-sage/20 rounded-full text-sage">
+            <ListTodo className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm text-ink/70">Due This Week</p>
-            <p className="text-xl font-bold">12</p>
+            <p className="text-sm text-ink/70">Today's Tasks</p>
+            <p className="text-xl font-bold">
+              {dailyScore ? `${dailyScore.completedTasks}/${dailyScore.totalTasks} (${dailyScore.score}%)` : '—'}
+            </p>
           </div>
         </Card>
       </div>
@@ -135,17 +149,17 @@ export default function DashboardPage() {
         <div className="col-span-2 space-y-4">
           <h2 className="text-lg font-bold text-ink">Goal Hierarchy</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-             {/* Render some hierarchy progress cards */}
-             {whyItem && (
-               <Card className="flex justify-between items-center cursor-pointer hover:bg-mist/30 transition-colors"
-                     onClick={() => router.push('/year')}>
-                 <div>
-                   <p className="text-xs font-mono text-gold mb-1">LAYER 1: WHY</p>
-                   <p className="font-bold">{whyItem.title}</p>
-                 </div>
-                 <ProgressRing progress={completionMap[whyItem.id] || 0} size={50} />
-               </Card>
-             )}
+            {/* Render some hierarchy progress cards */}
+            {whyItem && (
+              <Card className="flex justify-between items-center cursor-pointer hover:bg-mist/30 transition-colors"
+                onClick={() => router.push('/year')}>
+                <div>
+                  <p className="text-xs font-mono text-gold mb-1">LAYER 1: WHY</p>
+                  <p className="font-bold">{whyItem.title}</p>
+                </div>
+                <ProgressRing progress={completionMap[whyItem.id] || 0} size={50} />
+              </Card>
+            )}
           </div>
         </div>
 
@@ -173,7 +187,7 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="p-3 bg-surface border-t border-mist text-center">
-              <button 
+              <button
                 onClick={() => router.push('/year')}
                 className="text-xs text-gold font-semibold hover:underline"
               >

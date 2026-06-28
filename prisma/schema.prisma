@@ -7,33 +7,33 @@ datasource db {
 }
 
 model Item {
-  id          String   @id @default(uuid())
-  userId      String   
-  layer       Int      // 1: Why, 2: Quest, 3: Milestone, 4: Win, 5: Deed
-  parentId    String?
-  parent      Item?    @relation("ItemToItem", fields: [parentId], references: [id])
-  children    Item[]   @relation("ItemToItem")
-  
+  id       String  @id @default(uuid())
+  userId   String
+  layer    Int // 1: Why, 2: Quest, 3: Milestone, 4: Win, 5: Deed
+  parentId String?
+  parent   Item?   @relation("ItemToItem", fields: [parentId], references: [id])
+  children Item[]  @relation("ItemToItem")
+
   title       String
   description String?
-  weight      Int      @default(1)
-  status      String   @default("backlog") // backlog, this_period, in_progress, done
-  completed   Boolean  @default(false)
+  weight      Int     @default(1)
+  status      String  @default("backlog") // backlog, this_period, in_progress, done
+  completed   Boolean @default(false)
   category    String?
-  
-  // Specific to layers
-  startDate   DateTime?
-  endDate     DateTime?
-  theme       String?
-  focusQuestion String?
-  anchorScripture String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  notes       Note[]
-  reviews     Review[]
-  partnerLinks PartnerLink[]
+  // Specific to layers
+  startDate       DateTime?
+  endDate         DateTime?
+  theme           String?
+  focusQuestion   String?
+  anchorScripture String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notes            Note[]
+  reviews          Review[]
+  partnerLinks     PartnerLink[]
   financialEntries FinancialEntry[]
 }
 
@@ -49,22 +49,22 @@ model Note {
 }
 
 model Review {
-  id          String   @id @default(uuid())
-  userId      String
-  itemId      String?
-  item        Item?    @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  periodType  String   // daily, weekly, monthly, quarterly, yearly
-  periodStart DateTime
-  mood        Int?     // 1-4
-  energy      Int?     // 0-10
-  reflection  String?
-  wins        String?
-  misses      String?
+  id           String   @id @default(uuid())
+  userId       String
+  itemId       String?
+  item         Item?    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  periodType   String // daily, weekly, monthly, quarterly, yearly
+  periodStart  DateTime
+  mood         Int? // 1-4
+  energy       Int? // 0-10
+  reflection   String?
+  wins         String?
+  misses       String?
   tomorrowTop3 Json?
   partnerNotes String?
-  stats       Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  stats        Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Partner {
@@ -72,7 +72,7 @@ model Partner {
   userId    String
   name      String
   email     String
-  role      String   // accountability, mentor, collaborator
+  role      String // accountability, mentor, collaborator
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -95,8 +95,8 @@ model Nudge {
   id         String   @id @default(uuid())
   partnerId  String
   partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  senderId   String   
-  receiverId String   
+  senderId   String
+  receiverId String
   message    String
   read       Boolean  @default(false)
   createdAt  DateTime @default(now())
@@ -113,17 +113,20 @@ model UserCategory {
 }
 
 model Event {
-  id        String   @id @default(uuid())
-  userId    String
-  title     String
-  startTime DateTime
-  endTime   DateTime
-  score     Int?     // 1-5
-  comment   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(uuid())
+  userId        String
+  title         String
+  startTime     DateTime
+  endTime       DateTime
+  type          String    @default("event") // "event" or "task"
+  completed     Boolean   @default(false)
+  scheduledTime DateTime? // optional time for tasks
+  score         Int? // 1-5
+  comment       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  files     EventFile[]
+  files EventFile[]
 }
 
 model EventFile {
@@ -143,7 +146,7 @@ model FinancialEntry {
   deedId      String?
   deed        Item?    @relation(fields: [deedId], references: [id], onDelete: SetNull)
   entryDate   DateTime
-  type        String   // income, expense
+  type        String // income, expense
   amount      Float
   currency    String   @default("USD") // NGN, USD
   category    String
@@ -153,15 +156,15 @@ model FinancialEntry {
 }
 
 model UserToken {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   userId       String
   provider     String
   accessToken  String
   refreshToken String?
   expiryDate   DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
   @@unique([userId, provider])
 }
 
@@ -184,4 +187,17 @@ model PendingSuggestion {
   status         String   @default("pending") // pending, accepted, rejected
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model DailyScore {
+  id             String   @id @default(uuid())
+  userId         String
+  date           DateTime
+  totalTasks     Int      @default(0)
+  completedTasks Int      @default(0)
+  score          Float    @default(0) // percentage 0-100
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, date])
 }
