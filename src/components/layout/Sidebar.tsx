@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { Home, Calendar, Users, FileText, Settings } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings } from 'lucide-react'
 
 export function Sidebar() {
   const links = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Calendar', href: '/calendar', icon: CalendarDays },
     { name: 'Year View', href: '/year', icon: Calendar },
     { name: 'Partners', href: '/partners', icon: Users },
     { name: 'Notes', href: '/notes', icon: FileText },

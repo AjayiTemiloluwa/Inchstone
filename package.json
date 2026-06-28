@@ -10,10 +10,6 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.8",
-    "@fullcalendar/daygrid": "^6.1.21",
-    "@fullcalendar/interaction": "^6.1.21",
-    "@fullcalendar/react": "^6.1.21",
-    "@fullcalendar/timegrid": "^6.1.21",
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -24,7 +20,6 @@
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "recharts": "^3.9.0",
     "tailwind-merge": "^3.6.0",
     "web-push": "^3.6.7",
     "ws": "^8.21.0",
