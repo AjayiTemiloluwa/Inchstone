@@ -16,12 +16,44 @@ export async function GET(req: Request) {
         }
 
         const events = await getCalendarEvents(userId, new Date(timeMin), new Date(timeMax))
-        return NextResponse.json({ events })
+
+        // Map Google Calendar response to our format
+        const mapped = events.map((event: any) => ({
+            id: event.id,
+            summary: event.summary || '(No title)',
+            description: event.description || '',
+            start: event.start || {},
+            end: event.end || {},
+            source: 'google',
+        }))
+
+        return NextResponse.json({ events: mapped })
     } catch (error: any) {
-        if (error.message === 'Google Calendar not connected') {
+        console.error('Failed to fetch calendar events:', error?.message || error)
+
+        if (error?.message === 'Google Calendar not connected') {
             return NextResponse.json({ error: 'Calendar not connected', needsAuth: true }, { status: 400 })
         }
-        console.error('Failed to fetch calendar events', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+
+        if (error?.message?.includes('invalid_grant') || error?.message?.includes('Token has been expired')) {
+            return NextResponse.json({
+                error: 'Google Calendar token expired. Please disconnect and reconnect.',
+                needsAuth: true,
+                tokenExpired: true,
+            }, { status: 401 })
+        }
+
+        if (error?.message?.includes('Error during token refresh')) {
+            return NextResponse.json({
+                error: 'Google Calendar token refresh failed. Please reconnect.',
+                needsAuth: true,
+                tokenExpired: true,
+            }, { status: 401 })
+        }
+
+        return NextResponse.json({
+            error: error?.message || 'Failed to fetch Google Calendar events',
+            details: error?.toString(),
+        }, { status: 500 })
     }
 }

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   ChevronLeft, ChevronRight, RefreshCw, Calendar as CalendarIcon,
   ListTodo, ListChecks, Plus, Trash2, CheckCircle2, Circle, Clock,
-  ExternalLink, Eye, EyeOff
+  ExternalLink, Eye, EyeOff, AlertCircle, CheckCircle2 as CheckIcon
 } from 'lucide-react'
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
@@ -22,6 +22,8 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [googleConnected, setGoogleConnected] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
+  const [googleStatus, setGoogleStatus] = useState<string>('checking')
+  const [googleError, setGoogleError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [dayGoals, setDayGoals] = useState<Map<string, DayGoal>>(new Map())
@@ -46,36 +48,106 @@ export default function CalendarPage() {
     monthDates.push(addDays(monthDates[monthDates.length - 1], 1))
   }
 
-  // Google Calendar auth check
+  // Check Google Calendar connection status on load
   useEffect(() => {
-    fetch('/api/calendar/events?timeMin=2000-01-01T00:00:00Z&timeMax=2100-01-01T00:00:00Z')
-      .then(r => r.json()).then(d => {
-        if (d.needsAuth) setGoogleConnected(false)
-        else { setGoogleConnected(true); setEvents(d.events || []) }
+    const checkStatus = async () => {
+      try {
+        const r = await fetch('/api/calendar/status')
+        const data = await r.json()
+        if (data.connected) {
+          setGoogleConnected(true)
+          setGoogleStatus('connected')
+          if (data.status === 'token_expired') {
+            setGoogleError('Token expired — try refreshing')
+          }
+          // Fetch events
+          const start = startOfMonth(currentMonth)
+          const end = endOfMonth(currentMonth)
+          const eventsRes = await fetch(`/api/calendar/events?timeMin=${start.toISOString()}&timeMax=${end.toISOString()}`)
+          if (eventsRes.ok) {
+            const eventsData = await eventsRes.json()
+            if (eventsData.events) {
+              setEvents(p => {
+                const local = p.filter(e => e.source !== 'google')
+                const google = eventsData.events.map((e: any) => ({
+                  id: e.id || `g-${Date.now()}`,
+                  title: e.summary || '(No title)',
+                  start: e.start?.dateTime || e.start?.date,
+                  end: e.end?.dateTime || e.end?.date,
+                  source: 'google' as const,
+                  description: e.description || ''
+                }))
+                return [...local, ...google].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+              })
+              setGoogleError(null)
+            }
+          } else {
+            const errData = await eventsRes.json()
+            if (errData.tokenExpired) {
+              setGoogleError('Token expired. Please disconnect and reconnect.')
+              setGoogleConnected(false)
+            } else if (errData.needsAuth) {
+              setGoogleConnected(false)
+            } else {
+              setGoogleError(errData.error || 'Failed to fetch events')
+              setGoogleConnected(false)
+            }
+          }
+        } else {
+          setGoogleConnected(false)
+          setGoogleStatus('not_connected')
+        }
         setCheckingAuth(false)
-      }).catch(() => { setGoogleConnected(false); setCheckingAuth(false) })
-  }, [])
+      } catch (err) {
+        console.error('Status check failed:', err)
+        setGoogleConnected(false)
+        setGoogleStatus('not_connected')
+        setCheckingAuth(false)
+      }
+    }
+    checkStatus()
+  }, [currentMonth])
 
   const fetchGoogleEvents = useCallback(async () => {
     if (!googleConnected) return
+    setLoading(true)
+    setGoogleError(null)
     const start = startOfMonth(currentMonth)
     const end = endOfMonth(currentMonth)
-    const r = await fetch(`/api/calendar/events?timeMin=${start.toISOString()}&timeMax=${end.toISOString()}`)
-    const d = await r.json()
-    if (!d.needsAuth) {
-      setEvents(p => {
-        const local = p.filter(e => e.source !== 'google')
-        const google = (d.events || []).map((e: any) => ({
-          id: e.id || `g-${Date.now()}`,
-          title: e.summary || '(No title)',
-          start: e.start?.dateTime || e.start?.date,
-          end: e.end?.dateTime || e.end?.date,
-          source: 'google' as const,
-          description: e.description || ''
-        }))
-        return [...local, ...google].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-      })
-      setGoogleConnected(true)
+    try {
+      const r = await fetch(`/api/calendar/events?timeMin=${start.toISOString()}&timeMax=${end.toISOString()}`)
+      if (r.ok) {
+        const d = await r.json()
+        if (d.events) {
+          setEvents(p => {
+            const local = p.filter(e => e.source !== 'google')
+            const google = d.events.map((e: any) => ({
+              id: e.id || `g-${Date.now()}`,
+              title: e.summary || '(No title)',
+              start: e.start?.dateTime || e.start?.date,
+              end: e.end?.dateTime || e.end?.date,
+              source: 'google' as const,
+              description: e.description || ''
+            }))
+            return [...local, ...google].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+          })
+          setGoogleError(null)
+        }
+      } else {
+        const errData = await r.json()
+        if (errData.tokenExpired) {
+          setGoogleError('Token expired — disconnect and reconnect')
+          setGoogleConnected(false)
+        } else if (errData.needsAuth) {
+          setGoogleConnected(false)
+        } else {
+          setGoogleError(errData.error || 'Failed to sync')
+        }
+      }
+    } catch (err: any) {
+      setGoogleError(err.message || 'Network error')
+    } finally {
+      setLoading(false)
     }
   }, [currentMonth, googleConnected])
 
@@ -100,7 +172,6 @@ export default function CalendarPage() {
           scheduledTime: e.scheduledTime, score: e.score
         }))
       setEvents(p => [...p.filter(e => e.source !== 'local'), ...local].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()))
-      // Group tasks by date
       const taskMap = new Map<string, CalendarEvent[]>()
       taskEvents.forEach(t => {
         const key = format(new Date(t.start), 'yyyy-MM-dd')
@@ -113,9 +184,8 @@ export default function CalendarPage() {
   }, [currentMonth])
 
   useEffect(() => {
-    if (googleConnected) fetchGoogleEvents()
     fetchLocalEvents()
-  }, [currentMonth, googleConnected, fetchGoogleEvents, fetchLocalEvents])
+  }, [currentMonth, fetchLocalEvents])
 
   // Fetch daily scores for visible month
   useEffect(() => {
@@ -146,19 +216,26 @@ export default function CalendarPage() {
   const goToToday = () => setCurrentMonth(new Date())
 
   const connectGoogle = () => {
-    // Fetch auth URL from server then redirect
     fetch('/api/calendar/auth')
       .then(r => r.json())
       .then(data => {
-        if (data.url) window.location.href = data.url
+        if (data.url) {
+          window.location.href = data.url
+        } else {
+          setGoogleError('Failed to get Google auth URL')
+        }
       })
-      .catch(console.error)
+      .catch(err => {
+        setGoogleError('Network error connecting to Google')
+      })
   }
 
   const disconnectGoogle = async () => {
     if (!confirm('Disconnect Google Calendar?')) return
     await fetch('/api/calendar/disconnect', { method: 'POST' })
     setGoogleConnected(false)
+    setGoogleStatus('not_connected')
+    setGoogleError(null)
     setEvents(p => p.filter(e => e.source !== 'google'))
   }
 
@@ -167,6 +244,7 @@ export default function CalendarPage() {
       if (e.source === 'google' && !showGoogle) return false
       if (e.source === 'local' && !showLocal) return false
       if (e.type === 'task' && !showTasks) return false
+      if (e.type === 'task') return false // never show tasks in events mode
       const s = new Date(e.start), en = new Date(e.end)
       const ds = new Date(date); ds.setHours(0, 0, 0, 0)
       const de = new Date(ds); de.setDate(de.getDate() + 1)
@@ -183,7 +261,6 @@ export default function CalendarPage() {
     if (!newTaskText.trim()) return
     const ds = new Date(date); ds.setHours(0, 0, 0, 0)
     const de = new Date(ds); de.setDate(de.getDate() + 1)
-
     let scheduledTime: string | undefined
     if (newTaskTime) {
       const [hours, minutes] = newTaskTime.split(':')
@@ -191,26 +268,16 @@ export default function CalendarPage() {
       st.setHours(parseInt(hours), parseInt(minutes), 0, 0)
       scheduledTime = st.toISOString()
     }
-
     try {
-      const r = await fetch('/api/events', {
+      await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newTaskText.trim(),
-          startTime: ds.toISOString(),
-          endTime: de.toISOString(),
-          type: 'task',
-          scheduledTime,
-        })
+        body: JSON.stringify({ title: newTaskText.trim(), startTime: ds.toISOString(), endTime: de.toISOString(), type: 'task', scheduledTime })
       })
-      const data = await r.json()
-      if (data.success) {
-        setNewTaskText('')
-        setNewTaskTime('')
-        setAddingTaskFor(null)
-        await fetchLocalEvents()
-      }
+      setNewTaskText('')
+      setNewTaskTime('')
+      setAddingTaskFor(null)
+      await fetchLocalEvents()
     } catch (e) { console.error(e) }
   }
 
@@ -277,8 +344,7 @@ export default function CalendarPage() {
   const ToggleSwitch = ({ label, checked, onChange, color }: { label: string; checked: boolean; onChange: (v: boolean) => void; color: string }) => (
     <button
       onClick={() => onChange(!checked)}
-      className={`flex items-center space-x-2 w-full px-3 py-2 rounded-lg text-sm transition ${checked ? `${color} font-medium` : 'text-ink/50 hover:text-ink'
-        }`}
+      className={`flex items-center space-x-2 w-full px-3 py-2 rounded-lg text-sm transition ${checked ? `${color} font-medium` : 'text-ink/50 hover:text-ink'}`}
     >
       <div className={`w-8 h-4 rounded-full relative transition-colors ${checked ? 'bg-gold' : 'bg-mist'}`}>
         <div className={`w-3 h-3 rounded-full bg-white absolute top-0.5 transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -287,6 +353,10 @@ export default function CalendarPage() {
       <span className="ml-auto text-xs">{checked ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}</span>
     </button>
   )
+
+  const totalGoogleEvents = events.filter(e => e.source === 'google').length
+  const totalLocalEvents = events.filter(e => e.source === 'local' && e.type !== 'task').length
+  const totalTaskCount = Array.from(tasks.values()).reduce((sum, arr) => sum + arr.length, 0)
 
   return (
     <div className="flex h-full">
@@ -311,16 +381,14 @@ export default function CalendarPage() {
         <div className="flex rounded-lg border border-mist overflow-hidden mb-4">
           <button
             onClick={() => setViewMode('events')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2 text-sm font-medium transition ${viewMode === 'events' ? 'bg-gold text-surface' : 'bg-surface text-ink hover:bg-mist'
-              }`}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 text-sm font-medium transition ${viewMode === 'events' ? 'bg-gold text-surface' : 'bg-surface text-ink hover:bg-mist'}`}
           >
             <CalendarIcon className="w-4 h-4" />
             <span>Events</span>
           </button>
           <button
             onClick={() => setViewMode('tasks')}
-            className={`flex-1 flex items-center justify-center space-x-2 py-2 text-sm font-medium transition ${viewMode === 'tasks' ? 'bg-gold text-surface' : 'bg-surface text-ink hover:bg-mist'
-              }`}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 text-sm font-medium transition ${viewMode === 'tasks' ? 'bg-gold text-surface' : 'bg-surface text-ink hover:bg-mist'}`}
           >
             <ListTodo className="w-4 h-4" />
             <span>Tasks</span>
@@ -330,24 +398,9 @@ export default function CalendarPage() {
         {/* Source toggles */}
         <div className="border-t border-mist pt-4 space-y-1">
           <p className="text-xs font-semibold text-ink/50 uppercase tracking-wider mb-2 px-3">Show Sources</p>
-          <ToggleSwitch
-            label="Google Calendar"
-            checked={showGoogle}
-            onChange={setShowGoogle}
-            color="text-blue-600"
-          />
-          <ToggleSwitch
-            label="Local Events"
-            checked={showLocal}
-            onChange={setShowLocal}
-            color="text-gold"
-          />
-          <ToggleSwitch
-            label="Tasks"
-            checked={showTasks}
-            onChange={setShowTasks}
-            color="text-sage"
-          />
+          <ToggleSwitch label="Google Calendar" checked={showGoogle} onChange={setShowGoogle} color="text-blue-600" />
+          <ToggleSwitch label="Local Events" checked={showLocal} onChange={setShowLocal} color="text-gold" />
+          <ToggleSwitch label="Tasks" checked={showTasks} onChange={setShowTasks} color="text-sage" />
         </div>
 
         {/* Google Calendar connect */}
@@ -356,7 +409,12 @@ export default function CalendarPage() {
             <>
               <p className="text-xs text-ink/60 px-3">Connect to see your real Google Calendar events</p>
               <button onClick={connectGoogle} className="w-full py-2 text-sm font-medium text-white bg-[#4285F4] rounded-lg hover:opacity-90 transition flex items-center justify-center space-x-2">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="white">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
                 <span>Connect Google Calendar</span>
               </button>
             </>
@@ -366,41 +424,55 @@ export default function CalendarPage() {
                 <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
                 <span className="font-medium">Google Calendar connected</span>
               </div>
+              <div className="text-[10px] text-ink/40">
+                {totalGoogleEvents} event{totalGoogleEvents !== 1 ? 's' : ''} loaded
+              </div>
               <div className="flex space-x-2">
-                <button onClick={fetchGoogleEvents} className="flex-1 flex items-center justify-center space-x-1 py-1.5 text-xs border border-mist rounded-lg hover:bg-mist transition">
-                  <RefreshCw className="w-3 h-3" />
-                  <span>Refresh</span>
+                <button onClick={fetchGoogleEvents} disabled={loading} className="flex-1 flex items-center justify-center space-x-1 py-1.5 text-xs border border-mist rounded-lg hover:bg-mist transition disabled:opacity-50">
+                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Sync</span>
                 </button>
                 <button onClick={disconnectGoogle} className="flex-1 py-1.5 text-xs text-coral border border-coral/30 rounded-lg hover:bg-coral/10 transition">
                   Disconnect
                 </button>
               </div>
+              {googleError && (
+                <div className="flex items-start space-x-1.5 p-2 bg-coral/10 border border-coral/30 rounded text-[10px] text-coral">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span>{googleError}</span>
+                </div>
+              )}
             </div>
           )}
+        </div>
+
+        {/* Monthly summary */}
+        <div className="mt-auto pt-4 border-t border-mist">
+          <div className="text-[10px] text-ink/40 space-y-1 px-3">
+            <div className="flex justify-between"><span>Google events</span><span className="font-medium">{totalGoogleEvents}</span></div>
+            <div className="flex justify-between"><span>Local events</span><span className="font-medium">{totalLocalEvents}</span></div>
+            <div className="flex justify-between"><span>Total tasks</span><span className="font-medium">{totalTaskCount}</span></div>
+          </div>
         </div>
       </div>
 
       {/* Main calendar area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Month header */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-mist bg-surface">
           <div className="flex items-center space-x-4">
             <h2 className="text-xl font-display font-bold text-ink">{monthLabel}</h2>
             <div className="flex items-center space-x-1">
-              <button onClick={() => navigate('prev')} className="p-2 hover:bg-mist rounded-full transition">
-                <ChevronLeft className="w-5 h-5 text-ink/70" />
-              </button>
-              <button onClick={() => navigate('next')} className="p-2 hover:bg-mist rounded-full transition">
-                <ChevronRight className="w-5 h-5 text-ink/70" />
-              </button>
+              <button onClick={() => navigate('prev')} className="p-2 hover:bg-mist rounded-full transition"><ChevronLeft className="w-5 h-5 text-ink/70" /></button>
+              <button onClick={() => navigate('next')} className="p-2 hover:bg-mist rounded-full transition"><ChevronRight className="w-5 h-5 text-ink/70" /></button>
             </div>
-            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/10 transition">
-              Today
-            </button>
+            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/10 transition">Today</button>
           </div>
           <div className="flex items-center space-x-3 text-sm">
-            <span className="text-ink/60">{viewMode === 'events' ? 'Calendar Events' : 'Daily Tasks'}</span>
-            {/* Active filters indicator */}
+            <span className="text-ink/60">
+              {viewMode === 'events'
+                ? `${totalGoogleEvents + totalLocalEvents} events`
+                : `${totalTaskCount} tasks`}
+            </span>
             <div className="flex space-x-1">
               {!showGoogle && <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">G off</span>}
               {!showLocal && <span className="text-[10px] px-1.5 py-0.5 bg-gold/20 text-ink rounded">L off</span>}
@@ -409,18 +481,13 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* Calendar grid */}
         <div className="flex-1 overflow-y-auto p-4">
-          {/* Day headers */}
           <div className="grid grid-cols-7 mb-2">
             {weekDays.map(d => (
-              <div key={d} className="text-center text-xs font-semibold text-ink/50 uppercase tracking-wider py-2">
-                {d}
-              </div>
+              <div key={d} className="text-center text-xs font-semibold text-ink/50 uppercase tracking-wider py-2">{d}</div>
             ))}
           </div>
 
-          {/* Month grid */}
           <div className="grid grid-cols-7 gap-px bg-mist/30 rounded-xl overflow-hidden border border-mist/30">
             {monthDates.map((date, i) => {
               const key = format(date, 'yyyy-MM-dd')
@@ -435,17 +502,13 @@ export default function CalendarPage() {
               return (
                 <div
                   key={i}
-                  className={`min-h-[120px] bg-surface p-2 border-b border-r border-mist/20 transition-colors cursor-pointer hover:bg-mist/10 ${!inMonth ? 'opacity-40' : ''
-                    } ${isSelected ? 'ring-2 ring-gold ring-inset' : ''}`}
+                  className={`min-h-[120px] bg-surface p-2 border-b border-r border-mist/20 transition-colors cursor-pointer hover:bg-mist/10 ${!inMonth ? 'opacity-40' : ''} ${isSelected ? 'ring-2 ring-gold ring-inset' : ''}`}
                   onClick={() => !isAdding && openDayPanel(date)}
                 >
-                  {/* Date header */}
                   <div className="flex items-start justify-between mb-1">
-                    <div className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full ${today ? 'bg-gold text-surface' : 'text-ink'
-                      }`}>
+                    <div className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full ${today ? 'bg-gold text-surface' : 'text-ink'}`}>
                       {format(date, 'd')}
                     </div>
-                    {/* Daily score indicator for tasks mode */}
                     {viewMode === 'tasks' && score && score.totalTasks > 0 && (
                       <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${dayScoreColor(score.score)}`}>
                         {score.score}%
@@ -460,46 +523,29 @@ export default function CalendarPage() {
                           key={evt.id}
                           className={`text-[11px] px-1.5 py-0.5 rounded truncate ${evt.source === 'google'
                               ? 'bg-blue-50 text-blue-700 border-l-2 border-blue-500'
-                              : evt.type === 'task'
-                                ? 'bg-sage/20 text-sage-700 border-l-2 border-sage'
-                                : 'bg-gold/20 text-ink border-l-2 border-gold'
+                              : 'bg-gold/20 text-ink border-l-2 border-gold'
                             }`}
                           title={evt.title}
                         >
-                          {evt.source === 'google' && format(new Date(evt.start), 'h:mm') + ' '}
+                          {evt.source === 'google' && evt.start && format(new Date(evt.start), 'h:mm') + ' '}
                           {evt.title}
                         </div>
                       ))}
                       {dayEvents.length > 3 && (
-                        <div className="text-[10px] text-ink/50 pl-1.5">
-                          +{dayEvents.length - 3} more
-                        </div>
+                        <div className="text-[10px] text-ink/50 pl-1.5">+{dayEvents.length - 3} more</div>
                       )}
                       {dayEvents.length === 0 && (
-                        <div className="text-[10px] text-ink/20 pl-1.5" onClick={(e) => { e.stopPropagation(); handleAddEvent(date) }}>
-                          + Add event
-                        </div>
+                        <div className="text-[10px] text-ink/20 pl-1.5" onClick={(e) => { e.stopPropagation(); handleAddEvent(date) }}>+ Add event</div>
                       )}
                     </div>
                   ) : (
                     <div className="space-y-0.5">
                       {isAdding ? (
                         <div className="space-y-1" onClick={e => e.stopPropagation()}>
-                          <input
-                            value={newTaskText}
-                            onChange={e => setNewTaskText(e.target.value)}
-                            placeholder="Task..."
-                            className="w-full text-[11px] px-1.5 py-1 bg-paper border border-mist rounded focus:outline-none focus:border-gold"
-                            autoFocus
-                            onKeyDown={e => { if (e.key === 'Enter') handleAddTask(date); if (e.key === 'Escape') { setAddingTaskFor(null); setNewTaskText(''); setNewTaskTime('') } }}
-                          />
+                          <input value={newTaskText} onChange={e => setNewTaskText(e.target.value)} placeholder="Task..." className="w-full text-[11px] px-1.5 py-1 bg-paper border border-mist rounded focus:outline-none focus:border-gold" autoFocus
+                            onKeyDown={e => { if (e.key === 'Enter') handleAddTask(date); if (e.key === 'Escape') { setAddingTaskFor(null); setNewTaskText(''); setNewTaskTime('') } }} />
                           <div className="flex items-center space-x-1">
-                            <input
-                              type="time"
-                              value={newTaskTime}
-                              onChange={e => setNewTaskTime(e.target.value)}
-                              className="text-[10px] px-1 py-0.5 bg-paper border border-mist rounded w-16 focus:outline-none focus:border-gold"
-                            />
+                            <input type="time" value={newTaskTime} onChange={e => setNewTaskTime(e.target.value)} className="text-[10px] px-1 py-0.5 bg-paper border border-mist rounded w-16 focus:outline-none focus:border-gold" />
                             <button onClick={() => handleAddTask(date)} className="text-[10px] px-1.5 py-0.5 bg-gold text-surface rounded">Add</button>
                             <button onClick={() => { setAddingTaskFor(null); setNewTaskText(''); setNewTaskTime('') }} className="text-[10px] px-1.5 py-0.5 text-ink/50 hover:text-ink">X</button>
                           </div>
@@ -507,45 +553,20 @@ export default function CalendarPage() {
                       ) : (
                         <>
                           {dayTasks.slice(0, 3).map(task => (
-                            <div
-                              key={task.id}
-                              className="flex items-center space-x-1 group"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              <button
-                                onClick={() => handleToggleTask(task.id!, task.completed!)}
-                                className="shrink-0"
-                              >
-                                {task.completed ? (
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-sage" />
-                                ) : (
-                                  <Circle className="w-3.5 h-3.5 text-ink/40 group-hover:text-gold" />
-                                )}
+                            <div key={task.id} className="flex items-center space-x-1 group" onClick={e => e.stopPropagation()}>
+                              <button onClick={() => handleToggleTask(task.id!, task.completed!)} className="shrink-0">
+                                {task.completed ? <CheckCircle2 className="w-3.5 h-3.5 text-sage" /> : <Circle className="w-3.5 h-3.5 text-ink/40 group-hover:text-gold" />}
                               </button>
                               <span className={`text-[11px] flex-1 truncate ${task.completed ? 'line-through text-ink/40' : 'text-ink'}`}>
                                 {task.scheduledTime && format(new Date(task.scheduledTime), 'h:mm') + ' '}
                                 {task.title}
                               </span>
-                              <button
-                                onClick={() => handleDeleteTask(task.id!)}
-                                className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-coral transition"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
+                              <button onClick={() => handleDeleteTask(task.id!)} className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-coral transition"><Trash2 className="w-3 h-3" /></button>
                             </div>
                           ))}
-                          {dayTasks.length > 3 && (
-                            <div className="text-[10px] text-ink/50 pl-5">
-                              +{dayTasks.length - 3} more
-                            </div>
-                          )}
+                          {dayTasks.length > 3 && <div className="text-[10px] text-ink/50 pl-5">+{dayTasks.length - 3} more</div>}
                           {dayTasks.length === 0 && (
-                            <div
-                              className="text-[10px] text-ink/20 pl-1.5 hover:text-gold"
-                              onClick={e => { e.stopPropagation(); setAddingTaskFor(key); setNewTaskText(''); setNewTaskTime('') }}
-                            >
-                              + Add task
-                            </div>
+                            <div className="text-[10px] text-ink/20 pl-1.5 hover:text-gold" onClick={e => { e.stopPropagation(); setAddingTaskFor(key); setNewTaskText(''); setNewTaskTime('') }}>+ Add task</div>
                           )}
                         </>
                       )}
@@ -558,7 +579,6 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Day Panel */}
       {selectedDay && (
         <DayPanel
           date={selectedDay}
