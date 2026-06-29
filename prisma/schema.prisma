@@ -43,7 +43,8 @@ model Item {
   reviews          Review[]
   partnerLinks     PartnerLink[]
   financialEntries FinancialEntry[]
-  tasks            Task[]
+  tasks            Task[] // tasks assigned to this deed
+  taskItems        Task[]           @relation("TaskItem") // tasks linked to this goal
 }
 
 model Task {
@@ -51,11 +52,15 @@ model Task {
   userId            String
   deedId            String
   deed              Item      @relation(fields: [deedId], references: [id], onDelete: Cascade)
+  itemId            String? // optional link to any Item (goal) in hierarchy
+  item              Item?     @relation("TaskItem", fields: [itemId], references: [id], onDelete: SetNull)
   title             String
   weight            Float     @default(1.0)
   progress          Float     @default(0)
   completed         Boolean   @default(false)
   date              DateTime
+  startTime         DateTime? // 24h scheduling start
+  endTime           DateTime? // 24h scheduling end
   scheduledTime     DateTime?
   isRecurring       Boolean   @default(false)
   recurrencePattern String?

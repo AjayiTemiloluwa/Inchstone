@@ -9,7 +9,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         const { id: taskId } = await params
         const body = await req.json()
-        const { title, weight, progress, completed, scheduledTime } = body
+        const { title, weight, progress, completed, scheduledTime, startTime, endTime, itemId } = body
 
         const task = await prisma.task.findFirst({
             where: { id: taskId, userId },
@@ -22,6 +22,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (progress !== undefined) updateData.progress = progress
         if (completed !== undefined) updateData.completed = completed
         if (scheduledTime !== undefined) updateData.scheduledTime = new Date(scheduledTime)
+        if (startTime !== undefined) updateData.startTime = new Date(startTime)
+        if (endTime !== undefined) updateData.endTime = new Date(endTime)
+        if (itemId !== undefined) updateData.itemId = itemId
 
         await prisma.task.update({
             where: { id: taskId },

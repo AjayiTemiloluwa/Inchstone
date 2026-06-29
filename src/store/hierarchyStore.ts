@@ -28,11 +28,14 @@ export type Task = {
   id: string
   userId: string
   deedId: string
+  itemId: string | null
   title: string
   weight: number
   progress: number // 0-100
   completed: boolean
   date: string
+  startTime: string | null
+  endTime: string | null
   scheduledTime: string | null
   isRecurring: boolean
   recurrencePattern: string | null
@@ -101,38 +104,48 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
     const { items } = get()
     const completionMap: Record<string, number> = {}
     const completedMap: Record<string, boolean> = {}
+    // Map of tasks by itemId for any-level linking
+    const tasksByItemId: Record<string, Task[]> = {}
+    const collectAllTasks = (nodes: Item[]) => {
+      nodes.forEach(n => {
+        if (n.tasks) n.tasks.forEach(t => {
+          if (t.itemId) {
+            if (!tasksByItemId[t.itemId]) tasksByItemId[t.itemId] = []
+            tasksByItemId[t.itemId].push(t)
+          }
+        })
+        if (n.children) collectAllTasks(n.children)
+      })
+    }
+    collectAllTasks(items)
 
     const calculateForNode = (node: Item): { weightedScore: number; totalWeight: number } => {
       const children = node.children || []
-      const tasks = node.tasks || []
+      const directTasks = node.tasks || []
+      const linkedTasks = tasksByItemId[node.id] || []
+      const allTasks = [...directTasks, ...linkedTasks]
 
-      if (node.layer === 5) {
-        // Daily Deed: score = weighted average of tasks
-        if (tasks.length > 0) {
-          const totalTaskWeight = tasks.reduce((sum, t) => sum + t.weight, 0)
-          const weightedSum = tasks.reduce((sum, t) => sum + (t.progress * t.weight), 0)
-          const score = totalTaskWeight > 0 ? (weightedSum / totalTaskWeight) : 0
-          completionMap[node.id] = score
-          completedMap[node.id] = score >= 100
-          return { weightedScore: score * (node.weight || 1), totalWeight: node.weight || 1 }
-        }
-        // No tasks: use progress field directly
+      // Any node with tasks: score = weighted avg of its tasks
+      if (allTasks.length > 0) {
+        const totalTaskWeight = allTasks.reduce((sum, t) => sum + t.weight, 0)
+        const weightedSum = allTasks.reduce((sum, t) => sum + (t.progress * t.weight), 0)
+        const score = totalTaskWeight > 0 ? (weightedSum / totalTaskWeight) : 0
+        completionMap[node.id] = score
+        completedMap[node.id] = score >= 100
+        return { weightedScore: score * (node.weight || 1), totalWeight: node.weight || 1 }
+      }
+
+      // Leaf nodes (no children)
+      if (children.length === 0) {
         const pct = node.progress || 0
         completionMap[node.id] = pct
         completedMap[node.id] = pct >= 100
         return { weightedScore: pct * (node.weight || 1), totalWeight: node.weight || 1 }
       }
 
-      // Layers 1-4: Calculate based on children
-      if (children.length === 0) {
-        completionMap[node.id] = 0
-        completedMap[node.id] = false
-        return { weightedScore: 0, totalWeight: 0 }
-      }
-
+      // Layers 1-5: weighted avg of children
       let totalWeightedScore = 0
       let totalChildWeight = 0
-
       children.forEach(child => {
         const { weightedScore, totalWeight } = calculateForNode(child)
         totalWeightedScore += weightedScore

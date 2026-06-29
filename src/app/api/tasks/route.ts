@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await req.json()
-        const { deedId, title, date, scheduledTime } = body
+        const { deedId, title, date, scheduledTime, startTime, endTime, itemId } = body
 
         if (!deedId || !title || !date) {
             return NextResponse.json({ error: 'deedId, title, and date are required' }, { status: 400 })
@@ -77,6 +77,9 @@ export async function POST(req: Request) {
                 completed: false,
                 date: new Date(date),
                 scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
+                startTime: startTime ? new Date(startTime) : null,
+                endTime: endTime ? new Date(endTime) : null,
+                itemId: itemId || null,
             },
         })
 
