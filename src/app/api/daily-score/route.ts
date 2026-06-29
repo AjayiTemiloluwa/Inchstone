@@ -19,15 +19,49 @@ export async function GET(req: Request) {
         const nextDay = new Date(date)
         nextDay.setDate(nextDay.getDate() + 1)
 
-        // Get tasks for the day
-        const tasks = await prisma.event.findMany({
+        // Get tasks for the day from Task model
+        const tasks = await prisma.task.findMany({
             where: {
                 userId,
-                type: 'task',
-                startTime: { gte: date, lt: nextDay },
+                date: { gte: date, lt: nextDay },
             },
             orderBy: { scheduledTime: 'asc' },
         })
+
+        // Get deeds for the day with their tasks
+        const deeds = await prisma.item.findMany({
+            where: {
+                userId,
+                layer: 5,
+                startDate: { gte: date, lt: nextDay },
+            },
+            include: {
+                tasks: {
+                    where: { date: { gte: date, lt: nextDay } },
+                },
+            },
+        })
+
+        // Calculate weighted daily score
+        let totalWeightedScore = 0
+        let totalWeight = 0
+        for (const deed of deeds) {
+            const deedTasks = deed.tasks || []
+            if (deedTasks.length > 0) {
+                const taskTotalWeight = deedTasks.reduce((s, t) => s + t.weight, 0)
+                const taskWeightedScore = deedTasks.reduce((s, t) => s + (t.progress * t.weight), 0)
+                const deedScore = taskTotalWeight > 0 ? (taskWeightedScore / taskTotalWeight) : 0
+                totalWeightedScore += deedScore * (deed.weight || 1)
+                totalWeight += deed.weight || 1
+            } else {
+                totalWeightedScore += (deed.progress || 0) * (deed.weight || 1)
+                totalWeight += deed.weight || 1
+            }
+        }
+
+        const score = totalWeight > 0 ? Math.round((totalWeightedScore / totalWeight)) : 0
+        const totalTasks = tasks.length
+        const completedTasks = tasks.filter(t => t.completed).length
 
         // Get or create daily score
         let dailyScore = await prisma.dailyScore.findUnique({
@@ -39,208 +73,44 @@ export async function GET(req: Request) {
                 data: {
                     userId,
                     date,
-                    totalTasks: tasks.length,
-                    completedTasks: tasks.filter(t => t.completed).length,
-                    score: tasks.length > 0
-                        ? Math.round((tasks.filter(t => t.completed).length / tasks.length) * 100)
-                        : 0,
+                    totalTasks,
+                    completedTasks,
+                    score,
                 },
+            })
+        } else {
+            dailyScore = await prisma.dailyScore.update({
+                where: { userId_date: { userId, date } },
+                data: { totalTasks, completedTasks, score },
             })
         }
 
         return NextResponse.json({
             tasks: tasks.map(t => ({
                 id: t.id,
+                deedId: t.deedId,
                 title: t.title,
+                weight: t.weight,
+                progress: t.progress,
                 scheduledTime: t.scheduledTime?.toISOString() || null,
                 completed: t.completed,
-                score: t.score,
+            })),
+            deeds: deeds.map(d => ({
+                id: d.id,
+                title: d.title,
+                weight: d.weight,
+                progress: d.progress,
+                completed: d.completed,
+                tasks: d.tasks,
             })),
             dailyScore: {
-                totalTasks: dailyScore.totalTasks,
-                completedTasks: dailyScore.completedTasks,
-                score: dailyScore.score,
+                totalTasks,
+                completedTasks,
+                score,
             },
         })
     } catch (error) {
         console.error('Failed to fetch daily score', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-    }
-}
-
-export async function POST(req: Request) {
-    try {
-        const { userId } = await auth()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-        const body = await req.json()
-        const { title, scheduledTime, date } = body
-
-        if (!title || !date) {
-            return NextResponse.json({ error: 'title and date are required' }, { status: 400 })
-        }
-
-        const startDate = new Date(date)
-        startDate.setHours(0, 0, 0, 0)
-        const endDate = new Date(startDate)
-        endDate.setDate(endDate.getDate() + 1)
-
-        const event = await prisma.event.create({
-            data: {
-                userId,
-                title,
-                type: 'task',
-                startTime: startDate,
-                endTime: endDate,
-                scheduledTime: scheduledTime ? new Date(scheduledTime) : null,
-                completed: false,
-            },
-        })
-
-        // Update daily score
-        const tasks = await prisma.event.findMany({
-            where: {
-                userId,
-                type: 'task',
-                startTime: { gte: startDate, lt: endDate },
-            },
-        })
-
-        const totalTasks = tasks.length
-        const completedTasks = tasks.filter(t => t.completed).length
-        const score = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-
-        await prisma.dailyScore.upsert({
-            where: { userId_date: { userId, date: startDate } },
-            update: { totalTasks, completedTasks, score },
-            create: { userId, date: startDate, totalTasks, completedTasks, score },
-        })
-
-        return NextResponse.json({
-            success: true,
-            task: {
-                id: event.id,
-                title: event.title,
-                scheduledTime: event.scheduledTime?.toISOString() || null,
-                completed: event.completed,
-            },
-            dailyScore: { totalTasks, completedTasks, score },
-        })
-    } catch (error) {
-        console.error('Failed to create task', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-    }
-}
-
-export async function PUT(req: Request) {
-    try {
-        const { userId } = await auth()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-        const body = await req.json()
-        const { id, completed, title, scheduledTime } = body
-
-        if (!id) {
-            return NextResponse.json({ error: 'id is required' }, { status: 400 })
-        }
-
-        const updateData: any = {}
-        if (completed !== undefined) updateData.completed = completed
-        if (title !== undefined) updateData.title = title
-        if (scheduledTime !== undefined) updateData.scheduledTime = new Date(scheduledTime)
-
-        const updated = await prisma.event.updateMany({
-            where: { id, userId, type: 'task' },
-            data: updateData,
-        })
-
-        if (updated.count > 0) {
-            // Recalculate daily score
-            const task = await prisma.event.findUnique({ where: { id } })
-            if (task) {
-                const date = new Date(task.startTime)
-                date.setHours(0, 0, 0, 0)
-                const nextDay = new Date(date)
-                nextDay.setDate(nextDay.getDate() + 1)
-
-                const tasks = await prisma.event.findMany({
-                    where: {
-                        userId,
-                        type: 'task',
-                        startTime: { gte: date, lt: nextDay },
-                    },
-                })
-
-                const totalTasks = tasks.length
-                const completedTasks = tasks.filter(t => t.completed).length
-                const score = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-
-                await prisma.dailyScore.upsert({
-                    where: { userId_date: { userId, date } },
-                    update: { totalTasks, completedTasks, score },
-                    create: { userId, date, totalTasks, completedTasks, score },
-                })
-
-                return NextResponse.json({
-                    success: true,
-                    dailyScore: { totalTasks, completedTasks, score },
-                })
-            }
-        }
-
-        return NextResponse.json({ success: true })
-    } catch (error) {
-        console.error('Failed to update task', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-    }
-}
-
-export async function DELETE(req: Request) {
-    try {
-        const { userId } = await auth()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-        const body = await req.json()
-        const { id } = body
-
-        if (!id) {
-            return NextResponse.json({ error: 'id is required' }, { status: 400 })
-        }
-
-        const task = await prisma.event.findUnique({ where: { id } })
-        if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-
-        await prisma.event.deleteMany({
-            where: { id, userId, type: 'task' },
-        })
-
-        // Recalculate daily score
-        const date = new Date(task.startTime)
-        date.setHours(0, 0, 0, 0)
-        const nextDay = new Date(date)
-        nextDay.setDate(nextDay.getDate() + 1)
-
-        const tasks = await prisma.event.findMany({
-            where: {
-                userId,
-                type: 'task',
-                startTime: { gte: date, lt: nextDay },
-            },
-        })
-
-        const totalTasks = tasks.length
-        const completedTasks = tasks.filter(t => t.completed).length
-        const score = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-
-        await prisma.dailyScore.upsert({
-            where: { userId_date: { userId, date } },
-            update: { totalTasks, completedTasks, score },
-            create: { userId, date, totalTasks, completedTasks, score },
-        })
-
-        return NextResponse.json({ success: true, dailyScore: { totalTasks, completedTasks, score } })
-    } catch (error) {
-        console.error('Failed to delete task', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }

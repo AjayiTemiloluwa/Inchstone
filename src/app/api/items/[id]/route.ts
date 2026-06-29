@@ -12,13 +12,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     // Build update payload dynamically (only include provided fields)
     const updateData: any = {}
-    const allowedFields = ['title', 'description', 'weight', 'status', 'completed', 'category', 'layer', 'parentId', 'startDate', 'endDate', 'theme', 'focusQuestion', 'anchorScripture']
+    const allowedFields = ['title', 'description', 'weight', 'status', 'completed', 'progress', 'category', 'layer', 'parentId', 'startDate', 'endDate', 'theme', 'focusQuestion', 'anchorScripture', 'isRecurring', 'recurrencePattern', 'recurrenceEnd']
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
-        if (field === 'weight' || field === 'layer') {
+        if (field === 'layer') {
           updateData[field] = parseInt(body[field])
-        } else if ((field === 'startDate' || field === 'endDate') && body[field]) {
+        } else if (field === 'weight' || field === 'progress') {
+          updateData[field] = parseFloat(body[field])
+        } else if ((field === 'startDate' || field === 'endDate' || field === 'recurrenceEnd') && body[field]) {
           updateData[field] = new Date(body[field])
         } else {
           updateData[field] = body[field]

@@ -3,20 +3,40 @@ import { create } from 'zustand'
 export type Item = {
   id: string
   userId: string
-  layer: number
+  layer: number // 1: Yearly, 2: Quarterly, 3: Monthly, 4: Weekly, 5: Daily
   parentId: string | null
   title: string
   description: string | null
   weight: number
   status: string
   completed: boolean
+  progress: number // 0-100
   category: string | null
   startDate: string | null
   endDate: string | null
+  isRecurring: boolean
+  recurrencePattern: string | null
+  recurrenceEnd: string | null
   theme: string | null
   focusQuestion: string | null
   anchorScripture: string | null
   children?: Item[]
+  tasks?: Task[]
+}
+
+export type Task = {
+  id: string
+  userId: string
+  deedId: string
+  title: string
+  weight: number
+  progress: number // 0-100
+  completed: boolean
+  date: string
+  scheduledTime: string | null
+  isRecurring: boolean
+  recurrencePattern: string | null
+  recurrenceEnd: string | null
 }
 
 export type UserCategory = {
@@ -29,13 +49,14 @@ export type UserCategory = {
 
 type HierarchyState = {
   items: Item[]
-  completionMap: Record<string, number>
+  completionMap: Record<string, number> // 0-100 weighted completion
   completedMap: Record<string, boolean>
   userCategories: UserCategory[]
-  
+
   setItems: (items: Item[]) => void
   setUserCategories: (categories: UserCategory[]) => void
-  toggleDeed: (id: string, completed: boolean) => void
+  updateItem: (id: string, updates: Partial<Item>) => void
+  updateTask: (deedId: string, taskId: string, updates: Partial<Task>) => void
   recalculateRollups: () => void
 }
 
@@ -52,17 +73,27 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
 
   setUserCategories: (userCategories) => set({ userCategories }),
 
-  toggleDeed: (id, completed) => {
-    // Optimistic update
-    const newItems = updateItemInTree(get().items, id, { completed })
+  updateItem: (id, updates) => {
+    const newItems = updateItemInTree(get().items, id, updates)
     set({ items: newItems })
     get().recalculateRollups()
-    
-    // In a real implementation we would also fire an API call here to persist it.
+
     fetch(`/api/items/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completed })
+      body: JSON.stringify(updates)
+    }).catch(console.error)
+  },
+
+  updateTask: (deedId, taskId, updates) => {
+    const newItems = updateTaskInTree(get().items, deedId, taskId, updates)
+    set({ items: newItems })
+    get().recalculateRollups()
+
+    fetch(`/api/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
     }).catch(console.error)
   },
 
@@ -71,63 +102,50 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
     const completionMap: Record<string, number> = {}
     const completedMap: Record<string, boolean> = {}
 
-    // Calculate completions recursively from bottom (layer 5) to top (layer 1)
-    const calculateForNode = (node: Item): { completedWeight: number; totalWeight: number; completed: boolean } => {
-      let totalW = 0
-      let compW = 0
-      
+    const calculateForNode = (node: Item): { weightedScore: number; totalWeight: number } => {
+      const children = node.children || []
+      const tasks = node.tasks || []
+
       if (node.layer === 5) {
-        // Deed layer
-        totalW = node.weight || 1
-        compW = node.completed ? totalW : 0
-        completedMap[node.id] = node.completed
-        completionMap[node.id] = node.completed ? 100 : 0
-        return { completedWeight: compW, totalWeight: totalW, completed: node.completed }
+        // Daily Deed: score = weighted average of tasks
+        if (tasks.length > 0) {
+          const totalTaskWeight = tasks.reduce((sum, t) => sum + t.weight, 0)
+          const weightedSum = tasks.reduce((sum, t) => sum + (t.progress * t.weight), 0)
+          const score = totalTaskWeight > 0 ? (weightedSum / totalTaskWeight) : 0
+          completionMap[node.id] = score
+          completedMap[node.id] = score >= 100
+          return { weightedScore: score * (node.weight || 1), totalWeight: node.weight || 1 }
+        }
+        // No tasks: use progress field directly
+        const pct = node.progress || 0
+        completionMap[node.id] = pct
+        completedMap[node.id] = pct >= 100
+        return { weightedScore: pct * (node.weight || 1), totalWeight: node.weight || 1 }
       }
 
       // Layers 1-4: Calculate based on children
-      const children = node.children || []
       if (children.length === 0) {
         completionMap[node.id] = 0
         completedMap[node.id] = false
-        return { completedWeight: 0, totalWeight: 0, completed: false }
+        return { weightedScore: 0, totalWeight: 0 }
       }
+
+      let totalWeightedScore = 0
+      let totalChildWeight = 0
 
       children.forEach(child => {
-        const { completedWeight, totalWeight } = calculateForNode(child)
-        // If it's a win (layer 4), we sum the weights of deeds
-        // If it's a higher layer, we average the completion percentages
-        // Actually PRD says:
-        // 1. Win completion = sum of deed weights completed / total deed weights
-        // 2. Milestone completion = average of win completions
-        // 3. Quest completion = average of milestone completions  
-        // 4. Why completion = average of quest completions
-        if (node.layer === 4) {
-          totalW += totalWeight
-          compW += completedWeight
-        }
+        const { weightedScore, totalWeight } = calculateForNode(child)
+        totalWeightedScore += weightedScore
+        totalChildWeight += totalWeight
       })
 
-      if (node.layer === 4) {
-        const pct = totalW > 0 ? (compW / totalW) * 100 : 0
-        completionMap[node.id] = pct
-        completedMap[node.id] = pct === 100
-        return { completedWeight: compW, totalWeight: totalW, completed: pct === 100 }
-      } else {
-        // Layers 1-3: Average of children completions
-        let sumPct = 0
-        children.forEach(child => {
-          sumPct += completionMap[child.id] || 0
-        })
-        const pct = children.length > 0 ? sumPct / children.length : 0
-        completionMap[node.id] = pct
-        completedMap[node.id] = pct === 100
-        return { completedWeight: 0, totalWeight: 0, completed: pct === 100 }
-      }
+      const pct = totalChildWeight > 0 ? (totalWeightedScore / totalChildWeight) : 0
+      completionMap[node.id] = pct
+      completedMap[node.id] = pct >= 100
+      return { weightedScore: pct * (node.weight || 1), totalWeight: node.weight || 1 }
     }
 
     items.forEach(item => calculateForNode(item))
-    
     set({ completionMap, completedMap })
   }
 }))
@@ -140,6 +158,22 @@ function updateItemInTree(nodes: Item[], id: string, updates: Partial<Item>): It
     }
     if (node.children) {
       return { ...node, children: updateItemInTree(node.children, id, updates) }
+    }
+    return node
+  })
+}
+
+// Helper to immutably update a task within a deed
+function updateTaskInTree(nodes: Item[], deedId: string, taskId: string, updates: Partial<Task>): Item[] {
+  return nodes.map(node => {
+    if (node.id === deedId && node.tasks) {
+      return {
+        ...node,
+        tasks: node.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t)
+      }
+    }
+    if (node.children) {
+      return { ...node, children: updateTaskInTree(node.children, deedId, taskId, updates) }
     }
     return node
   })

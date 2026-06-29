@@ -12,7 +12,12 @@ export async function GET() {
       orderBy: [
         { layer: 'asc' },
         { startDate: 'asc' }
-      ]
+      ],
+      include: {
+        tasks: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
     })
 
     const categories = await prisma.userCategory.findMany({
@@ -34,22 +39,25 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { layer, parentId, title, description, weight, status, category, startDate, endDate, theme, focusQuestion, anchorScripture } = body
 
-    if (!layer || !title) {
-      return NextResponse.json({ error: 'layer and title are required' }, { status: 400 })
+    if (!title) {
+      return NextResponse.json({ error: 'title is required' }, { status: 400 })
     }
 
     const item = await prisma.item.create({
       data: {
         userId,
-        layer: parseInt(layer),
+        layer: parseInt(layer || '5'),
         parentId: parentId || null,
         title,
         description: description || null,
-        weight: weight ? parseInt(weight) : 1,
-        status: status || 'backlog',
+        weight: weight !== undefined ? parseFloat(weight) : 1,
+        status: status || 'active',
+        progress: 0,
+        completed: false,
         category: category || null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
+        isRecurring: false,
         theme: theme || null,
         focusQuestion: focusQuestion || null,
         anchorScripture: anchorScripture || null,

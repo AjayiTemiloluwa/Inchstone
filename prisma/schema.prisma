@@ -9,21 +9,29 @@ datasource db {
 model Item {
   id       String  @id @default(uuid())
   userId   String
-  layer    Int // 1: Why, 2: Quest, 3: Milestone, 4: Win, 5: Deed
+  layer    Int // 1: Yearly (Yearning), 2: Quarterly (Quest), 3: Monthly (Milestone), 4: Weekly (Win), 5: Daily (Deed)
   parentId String?
   parent   Item?   @relation("ItemToItem", fields: [parentId], references: [id])
   children Item[]  @relation("ItemToItem")
 
   title       String
   description String?
-  weight      Int     @default(1)
-  status      String  @default("backlog") // backlog, this_period, in_progress, done
+  weight      Float   @default(1.0) // percentage weight for weighted scoring
+  status      String  @default("active") // active, archived
   completed   Boolean @default(false)
+  progress    Float   @default(0) // 0-100 partial progress
   category    String?
 
-  // Specific to layers
-  startDate       DateTime?
-  endDate         DateTime?
+  // Date ranges for calendar periods
+  startDate DateTime?
+  endDate   DateTime?
+
+  // Recurrence
+  isRecurring       Boolean   @default(false)
+  recurrencePattern String? // "daily", "weekly", "monthly", "yearly"
+  recurrenceEnd     DateTime?
+
+  // Layer-specific metadata
   theme           String?
   focusQuestion   String?
   anchorScripture String?
@@ -35,6 +43,25 @@ model Item {
   reviews          Review[]
   partnerLinks     PartnerLink[]
   financialEntries FinancialEntry[]
+  tasks            Task[]
+}
+
+model Task {
+  id                String    @id @default(uuid())
+  userId            String
+  deedId            String
+  deed              Item      @relation(fields: [deedId], references: [id], onDelete: Cascade)
+  title             String
+  weight            Float     @default(1.0) // relative weight among siblings
+  progress          Float     @default(0) // 0-100
+  completed         Boolean   @default(false)
+  date              DateTime // the day this task belongs to
+  scheduledTime     DateTime?
+  isRecurring       Boolean   @default(false)
+  recurrencePattern String?
+  recurrenceEnd     DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model Note {
@@ -113,31 +140,30 @@ model UserCategory {
 }
 
 model Event {
-  id            String    @id @default(uuid())
-  userId        String
-  title         String
-  startTime     DateTime
-  endTime       DateTime
-  type          String    @default("event") // "event" or "task"
-  completed     Boolean   @default(false)
-  scheduledTime DateTime? // optional time for tasks
-  score         Int? // 1-5
-  comment       String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  files EventFile[]
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  type      String   @default("event") // "event" only (no more "task")
+  completed Boolean  @default(false)
+  score     Int?
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-model EventFile {
-  id        String   @id @default(uuid())
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  userId    String
-  fileName  String
-  filePath  String
-  fileSize  Int
-  createdAt DateTime @default(now())
+model DailyScore {
+  id             String   @id @default(uuid())
+  userId         String
+  date           DateTime
+  totalTasks     Int      @default(0)
+  completedTasks Int      @default(0)
+  score          Float    @default(0) // percentage 0-100
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, date])
 }
 
 model FinancialEntry {
@@ -148,7 +174,7 @@ model FinancialEntry {
   entryDate   DateTime
   type        String // income, expense
   amount      Float
-  currency    String   @default("USD") // NGN, USD
+  currency    String   @default("USD")
   category    String
   description String?
   createdAt   DateTime @default(now())
@@ -187,17 +213,4 @@ model PendingSuggestion {
   status         String   @default("pending") // pending, accepted, rejected
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-}
-
-model DailyScore {
-  id             String   @id @default(uuid())
-  userId         String
-  date           DateTime
-  totalTasks     Int      @default(0)
-  completedTasks Int      @default(0)
-  score          Float    @default(0) // percentage 0-100
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@unique([userId, date])
 }

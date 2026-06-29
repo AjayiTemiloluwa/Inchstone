@@ -10,7 +10,7 @@ interface DayModalProps {
 }
 
 export function DayModal({ deedId, onClose }: DayModalProps) {
-    const { items, completedMap, toggleDeed } = useHierarchyStore()
+    const { items, completionMap, updateItem } = useHierarchyStore()
     const [deed, setDeed] = useState<any>(null)
     const [note, setNote] = useState('')
     const [saving, setSaving] = useState(false)
@@ -42,10 +42,10 @@ export function DayModal({ deedId, onClose }: DayModalProps) {
         )
     }
 
-    const isCompleted = completedMap[deedId] || false
+    const isCompleted = (completionMap[deedId] || 0) >= 100
 
     const handleToggle = () => {
-        toggleDeed(deedId, !isCompleted)
+        updateItem(deedId, { completed: !isCompleted, progress: isCompleted ? 0 : 100 })
     }
 
     return (
