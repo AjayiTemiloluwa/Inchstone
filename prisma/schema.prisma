@@ -28,7 +28,7 @@ model Item {
 
   // Recurrence
   isRecurring       Boolean   @default(false)
-  recurrencePattern String? // "daily", "weekly", "monthly", "yearly"
+  recurrencePattern String?
   recurrenceEnd     DateTime?
 
   // Layer-specific metadata
@@ -52,10 +52,10 @@ model Task {
   deedId            String
   deed              Item      @relation(fields: [deedId], references: [id], onDelete: Cascade)
   title             String
-  weight            Float     @default(1.0) // relative weight among siblings
-  progress          Float     @default(0) // 0-100
+  weight            Float     @default(1.0)
+  progress          Float     @default(0)
   completed         Boolean   @default(false)
-  date              DateTime // the day this task belongs to
+  date              DateTime
   scheduledTime     DateTime?
   isRecurring       Boolean   @default(false)
   recurrencePattern String?
@@ -80,10 +80,10 @@ model Review {
   userId       String
   itemId       String?
   item         Item?    @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  periodType   String // daily, weekly, monthly, quarterly, yearly
+  periodType   String
   periodStart  DateTime
-  mood         Int? // 1-4
-  energy       Int? // 0-10
+  mood         Int?
+  energy       Int?
   reflection   String?
   wins         String?
   misses       String?
@@ -99,7 +99,7 @@ model Partner {
   userId    String
   name      String
   email     String
-  role      String // accountability, mentor, collaborator
+  role      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -145,7 +145,7 @@ model Event {
   title     String
   startTime DateTime
   endTime   DateTime
-  type      String   @default("event") // "event" only (no more "task")
+  type      String   @default("event")
   completed Boolean  @default(false)
   score     Int?
   comment   String?
@@ -159,7 +159,7 @@ model DailyScore {
   date           DateTime
   totalTasks     Int      @default(0)
   completedTasks Int      @default(0)
-  score          Float    @default(0) // percentage 0-100
+  score          Float    @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -172,7 +172,7 @@ model FinancialEntry {
   deedId      String?
   deed        Item?    @relation(fields: [deedId], references: [id], onDelete: SetNull)
   entryDate   DateTime
-  type        String // income, expense
+  type        String
   amount      Float
   currency    String   @default("USD")
   category    String
@@ -210,7 +210,7 @@ model PendingSuggestion {
   toUserId       String
   itemId         String?
   suggestedTitle String
-  status         String   @default("pending") // pending, accepted, rejected
+  status         String   @default("pending")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
