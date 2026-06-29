@@ -34,8 +34,8 @@ export async function GET(req: Request) {
             },
         })
 
-        // Redirect user back to the app
-        return NextResponse.redirect(new URL('/dashboard', req.url))
+        // Redirect user back to the calendar page
+        return NextResponse.redirect(new URL('/calendar', req.url))
     } catch (error) {
         console.error('OAuth callback failed', error)
         return NextResponse.json({ error: 'OAuth failed' }, { status: 500 })
