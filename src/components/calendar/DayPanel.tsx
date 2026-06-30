@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
+import { useHierarchyStore, Item } from '@/store/hierarchyStore'
 
 type Task = {
   id: string;
@@ -13,13 +14,8 @@ type Task = {
   recurrenceEnd?: string;
 };
 
-type Category = {
-  id: string;
-  title: string;
-};
-
-export function DayPanel({ date, categories }: { date: Date; categories: Category[] }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deeds: Item[]; onClose: () => void; onRefresh: () => void }) {
+  const { updateItem } = useHierarchyStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({
     title: '',
@@ -27,46 +23,50 @@ export function DayPanel({ date, categories }: { date: Date; categories: Categor
     isRecurring: false
   });
 
-  // Calculate total weight for adjustments
-  const totalWeight = tasks.reduce((sum, task) => sum + task.weight, 0);
+  const totalWeight = deeds.reduce((sum, d) => sum + (d.weight || 0), 0);
 
-  // Automatically adjust weights to maintain 100% total
-  useEffect(() => {
-    if (totalWeight > 100) {
-      const adjustedTasks = tasks.map(task => ({
-        ...task,
-        weight: Math.round((task.weight / totalWeight) * 100)
-      }));
-      setTasks(adjustedTasks);
-    }
-  }, [tasks, totalWeight]);
+  const saveTask = async () => {
+    if (!newTask.title || !newTask.weight || deeds.length === 0) return;
 
-  const saveTask = () => {
-    if (!newTask.title || !newTask.weight) return;
+    const parentDeed = deeds[0];
+    const startTimeISO = newTask.startTime ? new Date(`${format(date, 'yyyy-MM-dd')}T${newTask.startTime}:00`).toISOString() : null
+    const endTimeISO = newTask.endTime ? new Date(`${format(date, 'yyyy-MM-dd')}T${newTask.endTime}:00`).toISOString() : null
 
-    const task: Task = {
-      id: `task-${Date.now()}`,
-      title: newTask.title,
-      weight: Number(newTask.weight),
-      categoryId: newTask.categoryId,
-      startTime: newTask.startTime,
-      endTime: newTask.endTime,
-      isRecurring: newTask.isRecurring || false,
-      recurrencePattern: newTask.recurrencePattern,
-      recurrenceEnd: newTask.recurrenceEnd
-    };
+    const existingTasks = parentDeed.tasks || []
+    const totalExistingWeight = existingTasks.reduce((sum, t) => sum + t.weight, 0)
+    const remaining = Math.max(0, 100 - totalExistingWeight)
+    const calculatedWeight = existingTasks.length > 0 ? remaining / (existingTasks.length + 1) : 100
+    const finalWeight = calculatedWeight > 0 ? calculatedWeight : 1
 
-    setTasks([...tasks, task]);
+    await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        goalId: parentDeed.id,
+        title: newTask.title.trim(),
+        date: format(date, 'yyyy-MM-dd'),
+        startTime: startTimeISO,
+        endTime: endTimeISO,
+        weight: finalWeight,
+        categoryId: newTask.categoryId || null,
+      })
+    })
+
     setIsModalOpen(false);
     setNewTask({ title: '', weight: 0, isRecurring: false });
-
-    // TODO: Implement API call to save task to backend
+    onRefresh();
   };
 
-  const handleWeightChange = (taskId: string, newWeight: number) => {
-    setTasks(tasks.map(task =>
-      task.id === taskId ? { ...task, weight: newWeight } : task
-    ));
+  const handleWeightChange = async (taskId: string, newWeight: number) => {
+    const parentDeed = deeds[0]
+    if (!parentDeed) return
+
+    await fetch(`/api/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weight: newWeight })
+    })
+    onRefresh()
   };
 
   return (
@@ -82,33 +82,37 @@ export function DayPanel({ date, categories }: { date: Date; categories: Categor
       </div>
 
       <div className="tasks-list space-y-2">
-        {tasks.map(task => (
-          <div key={task.id} className="task-item p-3 border border-mist rounded-lg bg-surface">
-            <div className="task-title font-semibold text-ink">{task.title}</div>
-            <div className="task-meta text-xs text-ink/50">
-              {task.startTime && `From ${task.startTime}`}
-              {task.endTime && ` To ${task.endTime}`}
-            </div>
-            <div className="task-weight flex items-center space-x-2 mt-1">
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={task.weight}
-                onChange={(e) => handleWeightChange(task.id, Number(e.target.value))}
-                className="w-16 px-2 py-1 text-sm bg-paper border border-mist rounded focus:outline-none focus:ring-2 focus:ring-gold/30"
-              />
-              <span className="text-xs text-ink/50">% weight</span>
-            </div>
-            {task.categoryId && (
-              <div className="task-category mt-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-gold/20 text-gold px-2 py-0.5 rounded">
-                  {categories.find(c => c.id === task.categoryId)?.title || 'Uncategorized'}
-                </span>
+        {deeds.map(deed => {
+          const tasks = deed.tasks || []
+          const pct = 0 // no completionMap here; kept minimal
+          return (
+            <div key={deed.id} className="task-item p-3 border border-mist rounded-lg bg-surface">
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-semibold text-ink truncate pr-4">{deed.title}</div>
+                <span className="text-[10px] font-mono text-ink/50">{Math.round(deed.weight || 0)}%</span>
               </div>
-            )}
-          </div>
-        ))}
+              {tasks.map(task => (
+                <div key={task.id} className="flex items-center justify-between py-1 border-t border-mist/40">
+                  <div className="text-sm text-ink truncate pr-2">{task.title}</div>
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={task.weight}
+                      onChange={(e) => handleWeightChange(task.id, Number(e.target.value))}
+                      className="w-12 px-1 py-0.5 text-xs bg-paper border border-mist rounded focus:outline-none focus:ring-2 focus:ring-gold/30"
+                    />
+                    <span className="text-[10px] text-ink/40">%</span>
+                  </div>
+                </div>
+              ))}
+              {tasks.length === 0 && (
+                <div className="text-[11px] text-ink/40 italic mt-1">No tasks yet</div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {isModalOpen && (
@@ -154,7 +158,6 @@ export function DayPanel({ date, categories }: { date: Date; categories: Categor
                   className="w-full px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30"
                 >
                   <option value="">Select category</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                 </select>
               </div>
 
