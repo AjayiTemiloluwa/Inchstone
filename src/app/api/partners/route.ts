@@ -2,96 +2,70 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 
-export async function GET() {
-  try {
-    const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: Request) {
+    try {
+        const { userId } = await auth()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const partners = await prisma.partner.findMany({
-      where: { userId },
-      include: {
-        partnerLinks: {
-          include: { item: { select: { id: true, title: true, layer: true } } }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
+        // Find partners owned by this user
+        const partners = await prisma.partner.findMany({
+            where: { userId },
+            include: { partnerLinks: true }
+        })
 
-    return NextResponse.json({ partners })
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-  }
+        return NextResponse.json({ success: true, partners })
+    } catch (error) {
+        console.error('Failed to get partners:', error)
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    }
 }
 
 export async function POST(req: Request) {
-  try {
-    const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    try {
+        const { userId } = await auth()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await req.json()
-    const { name, email, role } = body
+        const { name, email, role } = await req.json()
 
-    const partner = await prisma.partner.create({
-      data: {
-        userId,
-        name,
-        email,
-        role
-      }
-    })
+        if (!name || !email) {
+            return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
+        }
 
-    return NextResponse.json({ success: true, partner })
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-  }
-}
+        const partner = await prisma.partner.create({
+            data: {
+                userId,
+                name,
+                email,
+                role: role || 'Accountability Partner'
+            }
+        })
 
-export async function PUT(req: Request) {
-  try {
-    const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const body = await req.json()
-    const { id, name, email, role } = body
-
-    if (!id) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 })
+        return NextResponse.json({ success: true, partner })
+    } catch (error) {
+        console.error('Failed to create partner:', error)
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
-
-    const updateData: any = {}
-    if (name !== undefined) updateData.name = name
-    if (email !== undefined) updateData.email = email
-    if (role !== undefined) updateData.role = role
-
-    await prisma.partner.updateMany({
-      where: { id, userId },
-      data: updateData
-    })
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-  }
 }
 
 export async function DELETE(req: Request) {
-  try {
-    const { userId } = await auth()
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    try {
+        const { userId } = await auth()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await req.json()
-    const { id } = body
+        const { searchParams } = new URL(req.url)
+        const partnerId = searchParams.get('id')
 
-    if (!id) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 })
+        if (!partnerId) {
+            return NextResponse.json({ error: 'Partner ID is required' }, { status: 400 })
+        }
+
+        await prisma.partner.delete({
+            where: { id: partnerId, userId }
+        })
+
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        console.error('Failed to delete partner:', error)
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
-
-    await prisma.partner.deleteMany({
-      where: { id, userId }
-    })
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-  }
 }

@@ -12,7 +12,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     // Build update payload dynamically (only include provided fields)
     const updateData: any = {}
-    const allowedFields = ['title', 'description', 'weight', 'status', 'completed', 'progress', 'category', 'layer', 'parentId', 'startDate', 'endDate', 'theme', 'focusQuestion', 'anchorScripture', 'isRecurring', 'recurrencePattern', 'recurrenceEnd']
+    const allowedFields = ['title', 'description', 'weight', 'status', 'completed', 'progress', 'category', 'layer', 'parentId', 'startDate', 'endDate', 'theme', 'focusQuestion', 'anchorScripture', 'isRecurring', 'recurrencePattern', 'recurrenceEnd', 'reflection']
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
@@ -22,6 +22,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           updateData[field] = parseFloat(body[field])
         } else if ((field === 'startDate' || field === 'endDate' || field === 'recurrenceEnd') && body[field]) {
           updateData[field] = new Date(body[field])
+        } else if (field === 'parentId') {
+          if (body[field]) {
+            updateData.parent = { connect: { id: body[field] } }
+          } else if (body[field] === null) {
+            updateData.parent = { disconnect: true }
+          }
         } else {
           updateData[field] = body[field]
         }
@@ -38,6 +44,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     console.error('Failed to update item', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
+}
+
+// PATCH is an alias for PUT – allows partial field updates
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return PUT(req, ctx)
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {

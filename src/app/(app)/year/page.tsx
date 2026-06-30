@@ -1,162 +1,463 @@
 'use client'
 
+import { useEffect, useState, useCallback } from 'react'
 import { useHierarchyStore, Item } from '@/store/hierarchyStore'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter } from 'next/navigation'
+import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen } from 'lucide-react'
 import { format } from 'date-fns'
 
 export default function YearPage() {
   const router = useRouter()
-  const { items, completionMap } = useHierarchyStore()
+  const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
+  const [loading, setLoading] = useState(true)
+  const [lockedWeights, setLockedWeights] = useState<Record<string, boolean>>({})
+  const [categoryWeights, setCategoryWeights] = useState<Record<string, number>>({})
+  const [addingGoal, setAddingGoal] = useState<string | null>(null)
+  const [newGoalTitle, setNewGoalTitle] = useState('')
+  const [addingCategory, setAddingCategory] = useState(false)
+  const [newCategoryTitle, setNewCategoryTitle] = useState('')
+  const [reflectionText, setReflectionText] = useState('')
+  const [reflectionTimer, setReflectionTimer] = useState<NodeJS.Timeout | null>(null)
 
-  const yearItem = items.find(i => i.layer === 1)
+  // Fetch items
+  const fetchItems = useCallback(async () => {
+    const res = await fetch('/api/items?t=' + Date.now())
+    const data = await res.json()
+    if (data.items) {
+      const itemMap = new Map()
+      data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+      const tree: any[] = []
+      data.items.forEach((item: any) => {
+        if (item.parentId) {
+          const parent = itemMap.get(item.parentId)
+          if (parent) parent.children.push(itemMap.get(item.id))
+        } else {
+          tree.push(itemMap.get(item.id))
+        }
+      })
+      setItems(tree)
+    }
+  }, [setItems])
 
-  if (!yearItem) {
-    return <div className="p-6">Please seed the framework from the Dashboard first.</div>
+  useEffect(() => {
+    fetchItems().finally(() => setLoading(false))
+  }, [fetchItems])
+
+  // Layer references
+  const flatItems = getFlatItems()
+  const yearItem = flatItems.find(i => i.layer === 0)
+  const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
+  const yearlyGoals = flatItems.filter(i => i.layer === 2)
+  const quarters = flatItems.filter(i => i.layer === 3)
+
+  // Initialize category weights from data
+  useEffect(() => {
+    if (categories.length > 0 && Object.keys(categoryWeights).length === 0) {
+      const w: Record<string, number> = {}
+      categories.forEach(c => { w[c.id] = c.weight })
+      setCategoryWeights(w)
+    }
+  }, [categories, categoryWeights])
+
+  // Initialize reflection text
+  useEffect(() => {
+    if (yearItem?.reflection && reflectionText === '') {
+      setReflectionText(yearItem.reflection)
+    }
+  }, [yearItem, reflectionText])
+
+  // Auto-save reflection with debounce
+  const saveReflection = useCallback((text: string) => {
+    if (!yearItem) return
+    if (reflectionTimer) clearTimeout(reflectionTimer)
+    const timer = setTimeout(() => {
+      updateItem(yearItem.id, { reflection: text })
+    }, 800)
+    setReflectionTimer(timer)
+  }, [yearItem, updateItem, reflectionTimer])
+
+  // Category weight slider logic
+  const handleWeightChange = (catId: string, newVal: number) => {
+    const newWeights = { ...categoryWeights }
+    newWeights[catId] = newVal
+
+    const newLocked = { ...lockedWeights, [catId]: true }
+    setLockedWeights(newLocked)
+
+    const lockedSum = Object.entries(newWeights)
+      .filter(([id]) => newLocked[id])
+      .reduce((sum, [, w]) => sum + w, 0)
+
+    if (lockedSum > 100) {
+      newWeights[catId] = newVal - (lockedSum - 100)
+      return
+    }
+
+    const unlockedIds = categories.filter(c => !newLocked[c.id]).map(c => c.id)
+    const remainder = 100 - lockedSum
+    const perUnlocked = unlockedIds.length > 0 ? remainder / unlockedIds.length : 0
+
+    unlockedIds.forEach(id => {
+      newWeights[id] = Math.round(perUnlocked * 10) / 10
+    })
+
+    setCategoryWeights(newWeights)
+
+    Object.entries(newWeights).forEach(([id, w]) => {
+      updateItem(id, { weight: w })
+    })
   }
 
-  const quarters = items.filter(i => i.layer === 2)
-  const allMonths = items.filter(i => i.layer === 3)
-  const allWeeks = items.filter(i => i.layer === 4)
-  const allDeeds = items.filter(i => i.layer === 5)
+  const resetWeights = () => {
+    const equal = Math.round((100 / categories.length) * 10) / 10
+    const newWeights: Record<string, number> = {}
+    categories.forEach(c => { newWeights[c.id] = equal })
+    setCategoryWeights(newWeights)
+    setLockedWeights({})
+    Object.entries(newWeights).forEach(([id, w]) => {
+      updateItem(id, { weight: w })
+    })
+  }
+
+  const toggleLock = (catId: string) => {
+    setLockedWeights(prev => ({ ...prev, [catId]: !prev[catId] }))
+  }
+
+  const handleAddGoal = async (categoryId: string) => {
+    if (!newGoalTitle.trim()) return
+    try {
+      const existingGoals = yearlyGoals.filter(g => g.parentId === categoryId)
+      const newCount = existingGoals.length + 1
+      const equalWeight = Math.round((100 / newCount) * 10) / 10
+
+      const goalRes = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          layer: 2,
+          parentId: categoryId,
+          title: newGoalTitle.trim(),
+          weight: equalWeight,
+          startDate: yearItem?.startDate || new Date().toISOString(),
+          endDate: yearItem?.endDate || new Date().toISOString(),
+        })
+      })
+      const goalData = await goalRes.json()
+
+      const allGoals = [...existingGoals]
+      if (goalData.success && goalData.item) {
+        allGoals.push(goalData.item)
+      }
+      const perGoal = Math.round((100 / allGoals.length) * 10) / 10
+      allGoals.forEach(g => {
+        updateItem(g.id, { weight: perGoal })
+      })
+
+      if (goalData.success && goalData.item) {
+        const quartersToCreate = [
+          { title: 'Q1 Objective', startMonth: 0, endMonth: 2 },
+          { title: 'Q2 Objective', startMonth: 3, endMonth: 5 },
+          { title: 'Q3 Objective', startMonth: 6, endMonth: 8 },
+          { title: 'Q4 Objective', startMonth: 9, endMonth: 11 },
+        ]
+        const year = new Date(yearItem?.startDate || new Date()).getFullYear()
+        await Promise.all(quartersToCreate.map(q => {
+          const qStart = new Date(year, q.startMonth, 1)
+          const qEnd = new Date(year, q.endMonth + 1, 0)
+          return fetch('/api/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              layer: 3, parentId: goalData.item.id, title: q.title, weight: 25,
+              startDate: qStart.toISOString(), endDate: qEnd.toISOString(),
+            })
+          })
+        }))
+      }
+
+      const res = await fetch('/api/items')
+      const data = await res.json()
+      if (data.items) {
+        const itemMap = new Map()
+        data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+        const tree: any[] = []
+        data.items.forEach((item: any) => {
+          if (item.parentId) {
+            const parent = itemMap.get(item.parentId)
+            if (parent) parent.children.push(itemMap.get(item.id))
+          } else { tree.push(itemMap.get(item.id)) }
+        })
+        setItems(tree)
+      }
+      setNewGoalTitle('')
+      setAddingGoal(null)
+    } catch (e) { console.error(e) }
+  }
+
+  const handleAddCategory = async () => {
+    if (!newCategoryTitle.trim() || !yearItem) return
+    try {
+      const resPost = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          layer: 1, parentId: yearItem.id, title: newCategoryTitle.trim(), weight: 0,
+          startDate: yearItem.startDate || new Date().toISOString(),
+          endDate: yearItem.endDate || new Date().toISOString(),
+        })
+      })
+      const postData = await resPost.json()
+      if (!resPost.ok || !postData.success) {
+        alert('Failed to add category: ' + (postData.error || 'Unknown error'))
+        return
+      }
+      const res = await fetch('/api/items?t=' + Date.now())
+      const data = await res.json()
+      if (data.items) {
+        const itemMap = new Map()
+        data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+        const tree: any[] = []
+        data.items.forEach((item: any) => {
+          if (item.parentId) {
+            const parent = itemMap.get(item.parentId)
+            if (parent) parent.children.push(itemMap.get(item.id))
+          } else { tree.push(itemMap.get(item.id)) }
+        })
+        setItems(tree)
+        setCategoryWeights(prev => ({ ...prev, [postData.item.id]: 0 }))
+      }
+      setNewCategoryTitle('')
+      setAddingCategory(false)
+    } catch (e) { console.error(e); alert('Error adding category.') }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this? All nested goals will also be deleted.')) return
+    try {
+      const goalToDelete = yearlyGoals.find(g => g.id === id)
+      const parentCategoryId = goalToDelete?.parentId
+      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
+      if (!res.ok) { alert('Failed to delete item') }
+      else {
+        await fetchItems()
+        if (parentCategoryId) {
+          const remainingGoals = yearlyGoals.filter(g => g.parentId === parentCategoryId && g.id !== id)
+          if (remainingGoals.length > 0) {
+            const perGoal = Math.round((100 / remainingGoals.length) * 10) / 10
+            remainingGoals.forEach(g => updateItem(g.id, { weight: perGoal }))
+          }
+        }
+      }
+    } catch (e) { console.error(e) }
+  }
+
+  if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+  if (!yearItem) return <div className="p-6 text-ink/60">Please seed the framework first from the dashboard.</div>
+
+  // Group quarters by label for the quarters section
+  const quarterLabels = ['Q1', 'Q2', 'Q3', 'Q4']
+  const quarterGroups = quarterLabels.map(label => {
+    const qItems = quarters.filter(q => q.title.includes(label))
+    const avgScore = qItems.length > 0 ? qItems.reduce((s, q) => s + (completionMap[q.id] || 0), 0) / qItems.length : 0
+    return { label, items: qItems, avgScore }
+  })
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-12">
+    <div className="space-y-8 max-w-full pb-12">
       {/* Year Vision Banner */}
-      <div className="bg-surface border-y border-mist p-8 text-center -mx-6 mb-8">
-        <h1 className="text-3xl font-display font-bold text-ink mb-2">{yearItem.title}</h1>
-        <p className="text-lg text-gold font-serif italic mb-4">"{yearItem.anchorScripture}"</p>
-        <p className="text-sm font-mono text-ink/70 max-w-xl mx-auto">{yearItem.description}</p>
-        <p className="mt-4 text-xs font-bold uppercase tracking-widest text-sage">Focus: {yearItem.focusQuestion}</p>
+      <div className="bg-surface border border-mist rounded-2xl p-8 text-center">
+        <h1 className="text-4xl font-display font-bold text-ink mb-2">{yearItem.title || new Date().getFullYear()}</h1>
+        {yearItem.theme && <p className="text-lg text-gold font-serif italic mb-2">"{yearItem.theme}"</p>}
+        {yearItem.anchorScripture && <p className="text-sm text-ink/50 font-mono mb-4">{yearItem.anchorScripture}</p>}
+        <p className="text-sm text-ink/70 max-w-xl mx-auto">{yearItem.description}</p>
         <div className="max-w-md mx-auto mt-6">
-          <ProgressBar progress={completionMap[yearItem.id] || 0} showLabel />
+          <div className="flex justify-between items-end mb-1">
+            <span className="text-xs font-bold uppercase text-ink/60">Overall Progress</span>
+            <span className="text-xl font-bold font-mono">{Math.round(completionMap[yearItem.id] || 0)}%</span>
+          </div>
+          <ProgressBar progress={completionMap[yearItem.id] || 0} />
         </div>
       </div>
 
-      {/* Quarters Section */}
-      <div className="space-y-8">
-        {quarters.map(quarter => {
-          const months = allMonths.filter(m => m.parentId === quarter.id)
-          return (
-            <div key={quarter.id} className="space-y-6">
-              <div className="flex items-center justify-between border-b border-mist pb-2">
-                <div>
-                  <h2 className="text-2xl font-display font-bold text-ink">{quarter.title}</h2>
-                  {quarter.startDate && (
-                    <p className="text-xs text-ink/50">
-                      {format(new Date(quarter.startDate), 'MMM d')} — {quarter.endDate && format(new Date(quarter.endDate), 'MMM d, yyyy')}
-                    </p>
+      {/* Categories with Goals */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-display font-bold text-ink">Categories & Goals</h2>
+          <div className="flex items-center space-x-4">
+            <button onClick={() => setAddingCategory(!addingCategory)} className="flex items-center space-x-1.5 text-xs text-ink/50 hover:text-gold transition">
+              {addingCategory ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              <span>{addingCategory ? 'Cancel' : 'Add Category'}</span>
+            </button>
+            <button onClick={resetWeights} className="flex items-center space-x-1.5 text-xs text-gold hover:text-gold/80 transition">
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Equal</span>
+            </button>
+          </div>
+        </div>
+
+        {addingCategory && (
+          <div className="flex items-center space-x-2 mb-4">
+            <input type="text" value={newCategoryTitle} onChange={e => setNewCategoryTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+              placeholder="New category..." className="flex-1 px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" autoFocus />
+            <button onClick={handleAddCategory} className="px-3 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Add</button>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {categories.map(category => {
+            const w = categoryWeights[category.id] ?? category.weight
+            const isLocked = lockedWeights[category.id] || false
+            const catScore = completionMap[category.id] || 0
+            const categoryGoals = yearlyGoals.filter(g => g.parentId === category.id)
+            const goalWeightSum = categoryGoals.reduce((s, g) => s + (g.weight || 0), 0)
+
+            return (
+              <Card key={category.id} className="p-5 space-y-4">
+                {/* Category Header */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => toggleLock(category.id)} className="p-1 hover:bg-mist rounded transition" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
+                        {isLocked ? <Lock className="w-3.5 h-3.5 text-gold" /> : <Unlock className="w-3.5 h-3.5 text-ink/30" />}
+                      </button>
+                      <h3 className="text-lg font-bold text-ink">{category.title}</h3>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-1">
+                        <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
+                        <input type="number" min="0" max="100" value={Math.round(catScore)}
+                          onChange={e => updateItem(category.id, { progress: parseFloat(e.target.value) || 0 })}
+                          className="w-12 px-1 py-0.5 text-[9px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
+                        <span className="text-[9px] text-ink/50">%</span>
+                      </div>
+                      <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(w)}%</span>
+                      <button onClick={(e) => handleDelete(e, category.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500" title="Delete Category">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <input type="range" min={0} max={100} step={1} value={w}
+                    onChange={(e) => handleWeightChange(category.id, parseFloat(e.target.value))}
+                    className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
+                  <ProgressBar progress={catScore} colorClass="bg-sage" />
+                </div>
+
+                {/* Goals */}
+                <div className="space-y-3 pt-2 border-t border-mist">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-ink/50">Goals</span>
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
+                        Total: {Math.round(goalWeightSum)}%
+                      </span>
+                      <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-1 hover:bg-mist rounded-lg transition text-ink/50 hover:text-gold">
+                        {addingGoal === category.id ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {addingGoal === category.id && (
+                    <div className="flex items-center space-x-2">
+                      <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)}
+                        placeholder="New annual goal..." className="flex-1 px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" autoFocus />
+                      <button onClick={() => handleAddGoal(category.id)} className="px-3 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Add</button>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {categoryGoals.map(goal => {
+                      const gScore = completionMap[goal.id] || 0
+                      return (
+                        <Card key={goal.id} className="p-4 hover:border-gold transition-colors group relative">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-bold text-ink text-sm truncate pr-6">{goal.title}</h4>
+                            <div className="flex items-center space-x-2">
+                              <ProgressRing progress={gScore} size={32} />
+                              <span className="text-base font-mono font-bold">{Math.round(gScore)}%</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex-1">
+                              <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight</span>
+                              <input type="range" min="0" max="100" step={1} value={goal.weight}
+                                onChange={e => updateItem(goal.id, { weight: parseFloat(e.target.value) || 0 })}
+                                className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
+                              <span className="text-[9px] font-mono text-ink/50">{Math.round(goal.weight)}%</span>
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
+                              <input type="range" min="0" max="100" step={1} value={Math.round(gScore)}
+                                onChange={e => updateItem(goal.id, { progress: parseFloat(e.target.value) || 0 })}
+                                className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
+                              <span className="text-[9px] font-mono text-ink/50">{Math.round(gScore)}%</span>
+                            </div>
+                          </div>
+                          <button onClick={(e) => handleDelete(e, goal.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete Goal">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                  {categoryGoals.length === 0 && !addingGoal && (
+                    <p className="text-xs text-ink/40 italic">No goals yet. Click + to add one.</p>
                   )}
                 </div>
-                <ProgressRing progress={completionMap[quarter.id] || 0} size={48} />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {months.map(month => {
-                  const weeks = allWeeks.filter(w => w.parentId === month.id)
-                  return (
-                    <Card key={month.id} className="space-y-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <div>
-                          <h3 className="font-bold">{month.title}</h3>
-                          {month.startDate && (
-                            <p className="text-[10px] text-ink/50">
-                              {format(new Date(month.startDate), 'MMM d')} — {month.endDate && format(new Date(month.endDate), 'MMM d')}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-xs font-mono">{Math.round(completionMap[month.id] || 0)}%</span>
-                      </div>
-                      <ProgressBar progress={completionMap[month.id] || 0} colorClass="bg-sage" />
-
-                      {/* Weeks nested inside */}
-                      <div className="space-y-3 mt-4">
-                        {weeks.map(week => {
-                          const deeds = allDeeds.filter(d => d.parentId === week.id)
-                          return (
-                            <div key={week.id} className="border border-mist rounded-lg p-3 bg-paper">
-                              <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-xs font-bold text-ink/70 uppercase">{week.title}</h4>
-                                <ProgressRing progress={completionMap[week.id] || 0} size={28} strokeWidth={3} />
-                              </div>
-
-                              {/* 7-Day grid for deeds */}
-                              <div className="grid grid-cols-7 gap-1">
-                                {deeds.map(deed => {
-                                  const pct = completionMap[deed.id] || 0
-                                  const tasks = deed.tasks || []
-                                  return (
-                                    <button
-                                      key={deed.id}
-                                      onClick={() => router.push('/calendar')}
-                                      className={`aspect-square rounded-md flex flex-col items-center justify-center border transition-all ${pct >= 100
-                                          ? 'bg-sage text-surface border-sage'
-                                          : pct > 0
-                                            ? 'bg-gold/20 text-ink border-gold/40'
-                                            : 'bg-surface border-mist hover:border-gold'
-                                        }`}
-                                      title={`${deed.title} (${Math.round(pct)}%)`}
-                                    >
-                                      <span className="text-[9px] font-mono">
-                                        {deed.startDate ? format(new Date(deed.startDate), 'd') : '?'}
-                                      </span>
-                                      {tasks.length > 0 && (
-                                        <span className="text-[7px] opacity-60">
-                                          {tasks.filter(t => t.completed).length}/{tasks.length}
-                                        </span>
-                                      )}
-                                    </button>
-                                  )
-                                })}
-                                {deeds.length === 0 && (
-                                  <div className="col-span-7 text-[10px] text-ink/30 text-center py-2">
-                                    No deeds
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                        {weeks.length === 0 && (
-                          <p className="text-xs text-ink/40 text-center py-2">No weekly goals defined</p>
-                        )}
-                      </div>
-                    </Card>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
+              </Card>
+            )
+          })}
+          {categories.length === 0 && <p className="text-sm text-ink/50">No categories. Seed the framework first.</p>}
+        </div>
       </div>
 
-      {/* Summary stats */}
-      <div className="border-t border-mist pt-6 mt-8">
-        <div className="grid grid-cols-5 gap-4 text-center">
-          <div>
-            <div className="text-2xl font-bold text-gold">{quarters.length}</div>
-            <div className="text-xs text-ink/50">Quarters</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gold">{allMonths.length}</div>
-            <div className="text-xs text-ink/50">Months</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gold">{allWeeks.length}</div>
-            <div className="text-xs text-ink/50">Weeks</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gold">{allDeeds.length}</div>
-            <div className="text-xs text-ink/50">Deeds</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gold">
-              {allDeeds.filter(d => (completionMap[d.id] || 0) >= 100).length}
-            </div>
-            <div className="text-xs text-ink/50">Done</div>
-          </div>
+      {/* Year Reflection - single section below all categories */}
+      <div>
+        <div className="flex items-center space-x-2 mb-4">
+          <BookOpen className="w-5 h-5 text-gold" />
+          <h2 className="text-2xl font-display font-bold text-ink">Year Reflection</h2>
+        </div>
+        <Card className="p-5">
+          <textarea value={reflectionText}
+            onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
+            placeholder="Reflect on your year so far... What's working? What needs to change?"
+            className="w-full h-48 bg-paper border border-mist rounded-lg p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
+          <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
+        </Card>
+      </div>
+
+      {/* Quarters Section - below reflection */}
+      <div>
+        <h2 className="text-2xl font-display font-bold text-ink mb-4">Quarters</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quarterGroups.map(({ label, items: qItems, avgScore }) => {
+            const firstQ = qItems[0]
+            return (
+              <Card key={label} className={`p-5 transition-colors group ${firstQ ? 'hover:border-gold cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                onClick={() => { if (firstQ) router.push(`/year/${label}`) }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-gold">{label}</p>
+                    <p className="text-[10px] text-ink/40 mt-0.5">
+                      {label === 'Q1' ? 'Jan–Mar' : label === 'Q2' ? 'Apr–Jun' : label === 'Q3' ? 'Jul–Sep' : 'Oct–Dec'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-end justify-between">
+                  <ProgressRing progress={avgScore} size={48} />
+                  <div className="text-right">
+                    <p className="text-xl font-mono font-bold">{Math.round(avgScore)}%</p>
+                    <p className="text-[10px] text-ink/40">{qItems.length} goals</p>
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
         </div>
       </div>
     </div>

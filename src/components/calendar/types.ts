@@ -1,8 +1,13 @@
-export interface DayGoal {
-  itemId: string
-  title: string
-  description?: string
-}
-
-// Keep for backward compatibility with the calendar types used elsewhere
-export type { Item, Task } from '@/store/hierarchyStore'
+export type Task = {
+  id: string;
+  title: string;
+  weight: number;
+  categoryId?: string;
+  startTime?: string;
+  endTime?: string;
+  isRecurring: boolean;
+  recurrencePattern?: 'daily' | 'weekly' | 'monthly';
+  recurrenceEnd?: string;
+  completed?: boolean;
+  progress?: number;
+};

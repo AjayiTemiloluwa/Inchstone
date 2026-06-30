@@ -20,9 +20,7 @@ export async function GET() {
       },
     })
 
-    const categories = await prisma.userCategory.findMany({
-      where: { userId }
-    })
+    const categories: any[] = []
 
     return NextResponse.json({ items, categories })
   } catch (error) {
@@ -37,7 +35,7 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { layer, parentId, title, description, weight, status, category, startDate, endDate, theme, focusQuestion, anchorScripture } = body
+    const { layer, parentId, title, description, weight, status, category, startDate, endDate, theme, focusQuestion, anchorScripture, reflection } = body
 
     if (!title) {
       return NextResponse.json({ error: 'title is required' }, { status: 400 })
@@ -47,7 +45,7 @@ export async function POST(req: Request) {
       data: {
         userId,
         layer: parseInt(layer || '5'),
-        parentId: parentId || null,
+        ...(parentId ? { parent: { connect: { id: parentId } } } : {}),
         title,
         description: description || null,
         weight: weight !== undefined ? parseFloat(weight) : 1,
@@ -61,13 +59,14 @@ export async function POST(req: Request) {
         theme: theme || null,
         focusQuestion: focusQuestion || null,
         anchorScripture: anchorScripture || null,
+        reflection: reflection || null,
       }
     })
 
     return NextResponse.json({ success: true, item })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create item', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'Internal Server Error', stack: error.stack }, { status: 500 })
   }
 }
 

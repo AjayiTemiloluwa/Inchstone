@@ -4,16 +4,24 @@ import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useHierarchyStore } from '@/store/hierarchyStore'
-import { Activity, Target, Flame, BarChart3, CheckCircle, ListTodo } from 'lucide-react'
+import { Activity, Target, Flame, BarChart3, CheckCircle, ListTodo, MessageSquare, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 
+interface Nudge {
+  id: string
+  message: string
+  partner: { name: string }
+  createdAt: string
+}
+
 export default function DashboardPage() {
   const router = useRouter()
-  const { items, completionMap, setItems, setUserCategories } = useHierarchyStore()
+  const { items, completionMap, setItems, getFlatItems } = useHierarchyStore()
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [dailyScore, setDailyScore] = useState<{ totalTasks: number, completedTasks: number, score: number } | null>(null)
+  const [nudges, setNudges] = useState<Nudge[]>([])
 
   useEffect(() => {
     const today = new Date().toISOString()
@@ -21,6 +29,14 @@ export default function DashboardPage() {
       .then(r => r.json())
       .then(data => {
         if (data.dailyScore) setDailyScore(data.dailyScore)
+      })
+      .catch(() => { })
+
+    // Fetch nudges
+    fetch('/api/nudges')
+      .then(r => r.json())
+      .then(data => {
+        if (data.nudges) setNudges(data.nudges)
       })
       .catch(() => { })
   }, [])
@@ -43,10 +59,9 @@ export default function DashboardPage() {
           })
           setItems(tree)
         }
-        if (data.categories) setUserCategories(data.categories)
       })
       .finally(() => setLoading(false))
-  }, [setItems, setUserCategories])
+  }, [setItems])
 
   const handleSeed = async () => {
     setSeeding(true)
@@ -79,27 +94,67 @@ export default function DashboardPage() {
   }
 
   // Calculate cascading stats
-  const whyItem = items.find(i => i.layer === 1)
+  const flatItems = getFlatItems()
+  const whyItem = flatItems.find(i => i.layer === 1)
   const totalCompletion = whyItem ? completionMap[whyItem.id] || 0 : 0
 
-  const countByLayer = (layer: number) => items.filter(i => i.layer === layer).length
-  const completeByLayer = (layer: number) => items.filter(i => i.layer === layer && (completionMap[i.id] || 0) >= 100).length
+  const countByLayer = (layer: number) => flatItems.filter(i => i.layer === layer).length
+  const completeByLayer = (layer: number) => flatItems.filter(i => i.layer === layer && (completionMap[i.id] || 0) >= 100).length
 
   const getChildren = (parentId: string) => {
-    const result: any[] = []
-    const collect = (nodes: any[]) => {
-      nodes.forEach(n => {
-        if (n.parentId === parentId) result.push(n)
-        if (n.children) collect(n.children)
-      })
-    }
-    collect(items)
-    return result
+    return flatItems.filter(n => n.parentId === parentId)
   }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-display font-bold text-ink">Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-display font-bold text-ink">Dashboard</h1>
+        <button onClick={() => router.push('/partners')} className="text-sm font-semibold text-sage hover:text-sage/80 transition">
+          Manage Partners
+        </button>
+      </div>
+
+      {/* Incoming Nudges */}
+      {nudges.length > 0 && (
+        <div className="space-y-2">
+          {nudges.map(nudge => (
+            <div key={nudge.id} className="bg-sage/10 border border-sage/30 rounded-xl p-4 flex items-start justify-between">
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-sage/20 rounded-full text-sage shrink-0 mt-0.5">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-ink mb-1">
+                    Nudge from {nudge.partner?.name || 'a partner'}
+                  </p>
+                  <p className="text-sm text-ink/70">"{nudge.message}"</p>
+                  <p className="text-[10px] text-ink/40 mt-1 font-mono">
+                    {format(new Date(nudge.createdAt), 'MMM d, h:mm a')}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={async () => {
+                  try {
+                    await fetch('/api/nudges', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ nudgeId: nudge.id, read: true })
+                    })
+                    setNudges(prev => prev.filter(n => n.id !== nudge.id))
+                  } catch (e) {
+                    console.error(e)
+                  }
+                }}
+                className="p-1.5 text-ink/30 hover:text-ink hover:bg-mist rounded transition"
+                title="Mark as read"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -162,7 +217,7 @@ export default function DashboardPage() {
               </Card>
             )}
             {/* Quarterly cards */}
-            {items.filter(i => i.layer === 2).slice(0, 4).map(q => (
+            {flatItems.filter(i => i.layer === 2).slice(0, 4).map(q => (
               <Card key={q.id} className="flex justify-between items-center cursor-pointer hover:bg-mist/30 transition-colors"
                 onClick={() => router.push('/year')}>
                 <div>
@@ -177,7 +232,7 @@ export default function DashboardPage() {
           {/* Monthly breakdown */}
           <h2 className="text-lg font-bold text-ink mt-6">Monthly Milestones</h2>
           <div className="space-y-3">
-            {items.filter(i => i.layer === 3).slice(0, 6).map(ms => (
+            {flatItems.filter(i => i.layer === 3).slice(0, 6).map(ms => (
               <Card key={ms.id} className="flex items-center justify-between">
                 <div className="flex items-center space-x-3 flex-1">
                   <div className={`w-3 h-3 rounded-full ${(completionMap[ms.id] || 0) >= 100 ? 'bg-sage' : 'bg-gold'}`} />
@@ -210,7 +265,7 @@ export default function DashboardPage() {
           <Card className="p-0 overflow-hidden">
             <div className="divide-y divide-mist">
               {/* Daily deeds for today */}
-              {items.filter(i => i.layer === 5 && i.startDate && format(new Date(i.startDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')).slice(0, 5).map(deed => {
+              {flatItems.filter(i => i.layer === 5 && i.startDate && format(new Date(i.startDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')).slice(0, 5).map(deed => {
                 const pct = completionMap[deed.id] || 0
                 const tasks = deed.tasks || []
                 const doneTasks = tasks.filter(t => t.completed).length
@@ -241,7 +296,7 @@ export default function DashboardPage() {
                   </div>
                 )
               })}
-              {items.filter(i => i.layer === 5 && i.startDate && format(new Date(i.startDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')).length === 0 && (
+              {flatItems.filter(i => i.layer === 5 && i.startDate && format(new Date(i.startDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')).length === 0 && (
                 <div className="p-4 text-center text-ink/60 text-sm">No deeds for today</div>
               )}
             </div>

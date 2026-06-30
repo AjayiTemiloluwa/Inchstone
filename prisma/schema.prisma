@@ -9,20 +9,22 @@ datasource db {
 model Item {
   id       String  @id @default(uuid())
   userId   String
-  layer    Int // 1: Yearly (Yearning), 2: Quarterly (Quest), 3: Monthly (Milestone), 4: Weekly (Win), 5: Daily (Deed)
+  // 0: Year, 1: Category, 2: Yearly Goal, 3: Quarterly Goal, 4: Monthly Goal, 5: Weekly Goal, 6: Daily Goal
+  layer    Int     
+  
   parentId String?
-  parent   Item?   @relation("ItemToItem", fields: [parentId], references: [id])
+  parent   Item?   @relation("ItemToItem", fields: [parentId], references: [id], onDelete: Cascade)
   children Item[]  @relation("ItemToItem")
 
   title       String
   description String?
-  weight      Float   @default(1.0) // percentage weight for weighted scoring
+  weight      Float   @default(1.0) // percentage weight
   status      String  @default("active") // active, archived
   completed   Boolean @default(false)
-  progress    Float   @default(0) // 0-100 partial progress
-  category    String?
+  progress    Float   @default(0) // 0-100 score/progress
+  category    String? // Keep for legacy string categories if needed, but Category is now a node in the tree
 
-  // Date ranges for calendar periods
+  // Date ranges for calendar periods (e.g., for quarters, months, weeks, days)
   startDate DateTime?
   endDate   DateTime?
 
@@ -35,6 +37,7 @@ model Item {
   theme           String?
   focusQuestion   String?
   anchorScripture String?
+  reflection      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -43,28 +46,37 @@ model Item {
   reviews          Review[]
   partnerLinks     PartnerLink[]
   financialEntries FinancialEntry[]
-  tasks            Task[] // tasks assigned to this deed
-  taskItems        Task[]           @relation("TaskItem") // tasks linked to this goal
+  
+  tasks            Task[] @relation("GoalTasks")
 }
 
 model Task {
   id                String    @id @default(uuid())
   userId            String
-  deedId            String
-  deed              Item      @relation(fields: [deedId], references: [id], onDelete: Cascade)
-  itemId            String? // optional link to any Item (goal) in hierarchy
-  item              Item?     @relation("TaskItem", fields: [itemId], references: [id], onDelete: SetNull)
+  
+  goalId            String
+  goal              Item      @relation("GoalTasks", fields: [goalId], references: [id], onDelete: Cascade)
+  
+  categoryId        String?   // Denormalized reference to the Category item
+  
   title             String
   weight            Float     @default(1.0)
   progress          Float     @default(0)
   completed         Boolean   @default(false)
-  date              DateTime
+  
+  date              DateTime  // Target execution date
   startTime         DateTime? // 24h scheduling start
   endTime           DateTime? // 24h scheduling end
-  scheduledTime     DateTime?
+  estimatedDuration Int?      // in minutes
+  actualDuration    Int?      // in minutes
+  priority          String?   // "high", "medium", "low"
+  
+  scheduledTime     DateTime? // Legacy field, keeping in case used elsewhere
   isRecurring       Boolean   @default(false)
   recurrencePattern String?
   recurrenceEnd     DateTime?
+  reflection        String?
+  
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }
@@ -134,15 +146,7 @@ model Nudge {
   createdAt  DateTime @default(now())
 }
 
-model UserCategory {
-  id        String   @id @default(uuid())
-  userId    String
-  name      String
-  color     String
-  icon      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+// UserCategory is removed since Layer 1 Items will now handle categories.
 
 model Event {
   id        String   @id @default(uuid())
@@ -174,8 +178,8 @@ model DailyScore {
 model FinancialEntry {
   id          String   @id @default(uuid())
   userId      String
-  deedId      String?
-  deed        Item?    @relation(fields: [deedId], references: [id], onDelete: SetNull)
+  itemId      String?
+  item        Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
   entryDate   DateTime
   type        String
   amount      Float

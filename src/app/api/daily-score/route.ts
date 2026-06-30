@@ -88,7 +88,6 @@ export async function GET(req: Request) {
         return NextResponse.json({
             tasks: tasks.map(t => ({
                 id: t.id,
-                deedId: t.deedId,
                 title: t.title,
                 weight: t.weight,
                 progress: t.progress,

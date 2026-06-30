@@ -1,24 +1,22 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
-import { sendNudgeNotification } from '@/lib/pushNotifications'
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
         const { userId } = await auth()
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+        // Find incoming nudges for the logged in user
         const nudges = await prisma.nudge.findMany({
-            where: { receiverId: userId },
-            include: {
-                partner: { select: { id: true, name: true } },
-            },
-            orderBy: { createdAt: 'desc' },
+            where: { receiverId: userId, read: false },
+            include: { partner: true },
+            orderBy: { createdAt: 'desc' }
         })
 
-        return NextResponse.json({ nudges })
+        return NextResponse.json({ success: true, nudges })
     } catch (error) {
-        console.error('Failed to fetch nudges', error)
+        console.error('Failed to get nudges:', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }
@@ -28,46 +26,25 @@ export async function POST(req: Request) {
         const { userId } = await auth()
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        const body = await req.json()
-        const { partnerId, message } = body
+        const { partnerId, receiverId, message } = await req.json()
 
-        if (!partnerId || !message) {
-            return NextResponse.json({ error: 'partnerId and message are required' }, { status: 400 })
+        if (!partnerId || !receiverId || !message) {
+            return NextResponse.json({ error: 'partnerId, receiverId, and message are required' }, { status: 400 })
         }
 
-        // Verify the partner belongs to this user
-        const partner = await prisma.partner.findFirst({
-            where: { id: partnerId, userId },
-        })
-
-        if (!partner) {
-            return NextResponse.json({ error: 'Partner not found' }, { status: 404 })
-        }
-
-        // Get the current user's name (from the partner system we store name, but we need the sender's name)
-        // For now, we'll use a default
-        const senderName = 'Your Partner'
-
-        // Create the nudge
         const nudge = await prisma.nudge.create({
             data: {
                 partnerId,
                 senderId: userId,
-                receiverId: partner.userId, // The partner's user ID is stored in partner.userId
+                receiverId,
                 message,
-            },
+                read: false
+            }
         })
-
-        // Send push notification to the partner if they have subscriptions
-        // Note: The receiver is the actual user of the partner, so we look up their subscriptions
-        // In a real impl, we'd need a user-to-user relationship. For now, nudges are stored.
-        // The receiver ID should be looked up from the partner's user field.
-        // Since partners are created by a user, the "other person" isn't actually in our system.
-        // This is a simplified version that stores nudges for the partner system.
 
         return NextResponse.json({ success: true, nudge })
     } catch (error) {
-        console.error('Failed to create nudge', error)
+        console.error('Failed to create nudge:', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }
@@ -77,21 +54,20 @@ export async function PATCH(req: Request) {
         const { userId } = await auth()
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        const body = await req.json()
-        const { nudgeId, read } = body
+        const { nudgeId, read } = await req.json()
 
         if (!nudgeId) {
             return NextResponse.json({ error: 'nudgeId is required' }, { status: 400 })
         }
 
-        const updated = await prisma.nudge.updateMany({
+        const nudge = await prisma.nudge.update({
             where: { id: nudgeId, receiverId: userId },
-            data: { read },
+            data: { read }
         })
 
-        return NextResponse.json({ success: true, updated: updated.count > 0 })
+        return NextResponse.json({ success: true, nudge })
     } catch (error) {
-        console.error('Failed to update nudge', error)
+        console.error('Failed to update nudge:', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
     }
 }

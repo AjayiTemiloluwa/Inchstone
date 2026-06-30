@@ -12,7 +12,7 @@ import { useHierarchyStore, Item, Task } from '@/store/hierarchyStore'
 import { DayPanel } from '@/components/calendar/DayPanel'
 
 export default function CalendarPage() {
-  const { items, completionMap, setItems, setUserCategories } = useHierarchyStore()
+  const { items, completionMap, setItems, getFlatItems } = useHierarchyStore()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
@@ -47,10 +47,9 @@ export default function CalendarPage() {
         })
         setItems(tree)
       }
-      if (data.categories) setUserCategories(data.categories)
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [currentMonth, setItems, setUserCategories])
+  }, [currentMonth, setItems])
 
   // Get deeds for a specific day
   const getDeedsForDay = useCallback((date: Date): Item[] => {
@@ -71,20 +70,14 @@ export default function CalendarPage() {
 
   // Get monthly milestone for this month
   const getMonthlyMilestones = useCallback((): Item[] => {
-    const result: Item[] = []
-    const collect = (nodes: Item[]) => {
-      nodes.forEach(n => {
-        if (n.layer === 3) result.push(n)
-        if (n.children) collect(n.children)
-      })
-    }
-    collect(items)
-    return result
-  }, [items])
+    const flatItems = getFlatItems()
+    return flatItems.filter(n => n.layer === 3)
+  }, [getFlatItems])
 
+  const flatItems = getFlatItems()
   const monthlyMilestones = getMonthlyMilestones()
-  const totalDeedCount = items.filter(i => i.layer === 5).length
-  const completedDeedCount = items.filter(i => i.layer === 5 && (completionMap[i.id] || 0) >= 100).length
+  const totalDeedCount = flatItems.filter(i => i.layer === 5).length
+  const completedDeedCount = flatItems.filter(i => i.layer === 5 && (completionMap[i.id] || 0) >= 100).length
 
   const navigate = (dir: 'prev' | 'next') => {
     setCurrentMonth(dir === 'next' ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1))

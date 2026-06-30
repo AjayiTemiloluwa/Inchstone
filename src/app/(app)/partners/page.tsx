@@ -1,204 +1,196 @@
 'use client'
 
-import { Card } from '@/components/ui/Card'
-import { NudgeModal } from '@/components/items/NudgeModal'
 import { useState, useEffect } from 'react'
-import { Plus, Bell, X } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
+import { Plus, X, Users, Mail, Loader2, Link as LinkIcon, Trash2 } from 'lucide-react'
+
+interface Partner {
+  id: string
+  name: string
+  email: string
+  role: string
+  partnerLinks: any[]
+}
 
 export default function PartnersPage() {
-  const [partners, setPartners] = useState<any[]>([])
-  const [nudges, setNudges] = useState<any[]>([])
-  const [nudgeTarget, setNudgeTarget] = useState<{ id: string; name: string } | null>(null)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newPartner, setNewPartner] = useState({ name: '', email: '', role: 'accountability' })
+  const [partners, setPartners] = useState<Partner[]>([])
+  const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newRole, setNewRole] = useState('Accountability Partner')
+  const [saving, setSaving] = useState(false)
 
-  const fetchPartners = () => {
-    fetch('/api/partners').then(r => r.json()).then(data => setPartners(data.partners || []))
-  }
-
-  const fetchNudges = () => {
-    fetch('/api/nudges').then(r => r.json()).then(data => setNudges(data.nudges || []))
+  const fetchPartners = async () => {
+    try {
+      const res = await fetch('/api/partners')
+      const data = await res.json()
+      if (data.partners) {
+        setPartners(data.partners)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     fetchPartners()
-    fetchNudges()
   }, [])
 
-  const handleAddPartner = async () => {
-    if (!newPartner.name || !newPartner.email) return
-    setAdding(true)
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newName || !newEmail) return
+
+    setSaving(true)
     try {
       const res = await fetch('/api/partners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPartner),
+        body: JSON.stringify({ name: newName, email: newEmail, role: newRole })
       })
       if (res.ok) {
-        setShowAddForm(false)
-        setNewPartner({ name: '', email: '', role: 'accountability' })
-        fetchPartners()
+        setNewName('')
+        setNewEmail('')
+        setAdding(false)
+        await fetchPartners()
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed to add partner')
       }
-    } catch (err) {
-      console.error('Failed to add partner', err)
+    } catch (e) {
+      console.error(e)
     } finally {
-      setAdding(false)
+      setSaving(false)
     }
   }
 
-  const unreadCount = nudges.filter(n => !n.read).length
-
-  const handleMarkRead = async (nudgeId: string) => {
-    await fetch('/api/nudges', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nudgeId, read: true }),
-    })
-    fetchNudges()
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this partner?')) return
+    try {
+      const res = await fetch(`/api/partners?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setPartners(partners.filter(p => p.id !== id))
+      }
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-display font-bold text-ink">Accountability Partners</h1>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-4 py-2 bg-ink text-surface rounded hover:bg-ink/90 font-medium flex items-center space-x-2"
+    <div className="space-y-8 max-w-4xl pb-12">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-sage/20 rounded-xl">
+            <Users className="w-6 h-6 text-sage" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-display font-bold text-ink">Partners</h1>
+            <p className="text-ink/60 mt-1">Manage your accountability partners</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => setAdding(!adding)}
+          className="flex items-center space-x-2 px-4 py-2 bg-ink text-surface rounded-lg hover:bg-ink/80 transition"
         >
-          <Plus className="w-4 h-4" />
-          <span>Add Partner</span>
+          {adding ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          <span>{adding ? 'Cancel' : 'Add Partner'}</span>
         </button>
       </div>
 
-      {/* Nudge Inbox */}
-      {nudges.length > 0 && (
-        <Card className="border-gold/30">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-ink flex items-center space-x-2">
-              <Bell className="w-4 h-4 text-gold" />
-              <span>Nudge Inbox</span>
-              {unreadCount > 0 && (
-                <span className="px-2 py-0.5 bg-coral/20 text-coral text-xs font-bold rounded-full">
-                  {unreadCount} new
-                </span>
-              )}
-            </h3>
-          </div>
-          <div className="space-y-2">
-            {nudges.slice(0, 5).map(nudge => (
-              <div
-                key={nudge.id}
-                className={`flex items-start justify-between p-3 rounded-lg ${!nudge.read ? 'bg-gold/5 border border-gold/20' : 'bg-surface'}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink">{nudge.message}</p>
-                  <p className="text-xs text-ink/50 mt-1">
-                    From {nudge.partner?.name || 'a partner'} &middot; {new Date(nudge.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                {!nudge.read && (
-                  <button
-                    onClick={() => handleMarkRead(nudge.id)}
-                    className="ml-2 p-1 text-ink/40 hover:text-ink transition-colors"
-                    title="Mark as read"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+      {adding && (
+        <Card className="p-6 border-gold/50 bg-gold/5">
+          <form onSubmit={handleAdd} className="space-y-4">
+            <h3 className="font-bold text-ink mb-2">Invite a new partner</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-ink/70 mb-1">Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newName} 
+                  onChange={e => setNewName(e.target.value)}
+                  className="w-full px-3 py-2 bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  placeholder="Jane Doe"
+                />
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Add Partner Form */}
-      {showAddForm && (
-        <Card className="border-gold">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-ink">New Partner</h3>
-            <button onClick={() => setShowAddForm(false)} className="p-1 hover:bg-mist rounded-full">
-              <X className="w-5 h-5 text-ink/60" />
-            </button>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-bold text-ink/70 mb-1 block">Name</label>
-              <input
-                type="text"
-                value={newPartner.name}
-                onChange={e => setNewPartner(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full rounded-lg border border-mist p-2.5 text-sm bg-paper"
-                placeholder="Partner's name"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-ink/70 mb-1 block">Email</label>
-              <input
-                type="email"
-                value={newPartner.email}
-                onChange={e => setNewPartner(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full rounded-lg border border-mist p-2.5 text-sm bg-paper"
-                placeholder="partner@example.com"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-ink/70 mb-1 block">Role</label>
-              <select
-                value={newPartner.role}
-                onChange={e => setNewPartner(prev => ({ ...prev, role: e.target.value }))}
-                className="w-full rounded-lg border border-mist p-2.5 text-sm bg-paper"
-              >
-                <option value="accountability">Accountability</option>
-                <option value="mentor">Mentor</option>
-                <option value="collaborator">Collaborator</option>
-              </select>
-            </div>
-            <button
-              onClick={handleAddPartner}
-              disabled={adding || !newPartner.name || !newPartner.email}
-              className="w-full py-2.5 bg-gold text-surface font-semibold rounded-lg hover:bg-gold/90 transition disabled:opacity-50"
-            >
-              {adding ? 'Adding...' : 'Add Partner'}
-            </button>
-          </div>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {partners.length === 0 && !showAddForm ? (
-          <p className="text-ink/60 p-4 border border-dashed border-mist rounded text-center col-span-2">No partners added yet.</p>
-        ) : (
-          partners.map(partner => (
-            <Card key={partner.id} className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-mist rounded-full flex items-center justify-center font-bold text-ink/50 text-xl shrink-0">
-                {partner.name.charAt(0)}
+              <div>
+                <label className="block text-xs font-bold text-ink/70 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  required
+                  value={newEmail} 
+                  onChange={e => setNewEmail(e.target.value)}
+                  className="w-full px-3 py-2 bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  placeholder="jane@example.com"
+                />
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-ink truncate">{partner.name}</h3>
-                <p className="text-xs text-ink/70 truncate">{partner.email}</p>
-                <span className="inline-block mt-2 px-2 py-1 bg-gold/10 text-gold rounded text-[10px] font-bold uppercase">
-                  {partner.role}
-                </span>
-              </div>
-              <button
-                onClick={() => setNudgeTarget({ id: partner.id, name: partner.name })}
-                className="text-xs font-bold text-coral hover:underline shrink-0"
+            </div>
+            <div className="flex justify-end pt-2">
+              <button 
+                type="submit" 
+                disabled={saving}
+                className="px-6 py-2 bg-gold text-surface font-semibold rounded-lg hover:bg-gold/90 transition disabled:opacity-50 flex items-center space-x-2"
               >
-                Nudge
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>Add Partner</span>
               </button>
-            </Card>
-          ))
-        )}
-      </div>
+            </div>
+          </form>
+        </Card>
+      )}
 
-      {nudgeTarget && (
-        <NudgeModal
-          partnerId={nudgeTarget.id}
-          partnerName={nudgeTarget.name}
-          onClose={() => setNudgeTarget(null)}
-          onSent={fetchNudges}
-        />
+      {loading ? (
+        <div className="flex justify-center p-12">
+          <Loader2 className="w-8 h-8 animate-spin text-sage" />
+        </div>
+      ) : partners.length === 0 ? (
+        <div className="text-center p-12 border-2 border-dashed border-mist rounded-2xl">
+          <Users className="w-12 h-12 text-ink/20 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-ink/70">No partners yet</h3>
+          <p className="text-sm text-ink/50 mt-2 max-w-md mx-auto">
+            Add accountability partners to share your goals with. They'll be able to send you nudges and track your progress.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {partners.map(partner => (
+            <Card key={partner.id} className="p-5 flex flex-col justify-between hover:border-sage transition-colors">
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-sage/20 flex items-center justify-center text-sage font-bold text-lg">
+                    {partner.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-ink">{partner.name}</h3>
+                    <p className="text-xs text-ink/50 flex items-center mt-0.5">
+                      <Mail className="w-3 h-3 mr-1" />
+                      {partner.email}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => handleDelete(partner.id)}
+                  className="p-1.5 text-ink/30 hover:text-red-500 hover:bg-red-50 rounded transition"
+                  title="Remove Partner"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="pt-4 border-t border-mist mt-auto">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-ink/60 font-semibold">{partner.role}</span>
+                  <span className="text-sage flex items-center bg-sage/10 px-2 py-1 rounded-full text-xs font-bold">
+                    <LinkIcon className="w-3 h-3 mr-1" />
+                    {partner.partnerLinks?.length || 0} Linked Goals
+                  </span>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   )

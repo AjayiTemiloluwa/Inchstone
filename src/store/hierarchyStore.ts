@@ -3,7 +3,7 @@ import { create } from 'zustand'
 export type Item = {
   id: string
   userId: string
-  layer: number // 1: Yearly, 2: Quarterly, 3: Monthly, 4: Weekly, 5: Daily
+  layer: number // 0: Year, 1: Category, 2: Yearly, 3: Quarterly, 4: Monthly, 5: Weekly, 6: Daily
   parentId: string | null
   title: string
   description: string | null
@@ -11,7 +11,7 @@ export type Item = {
   status: string
   completed: boolean
   progress: number // 0-100
-  category: string | null
+  category: string | null // Legacy
   startDate: string | null
   endDate: string | null
   isRecurring: boolean
@@ -20,6 +20,7 @@ export type Item = {
   theme: string | null
   focusQuestion: string | null
   anchorScripture: string | null
+  reflection: string | null
   children?: Item[]
   tasks?: Task[]
 }
@@ -27,8 +28,8 @@ export type Item = {
 export type Task = {
   id: string
   userId: string
-  deedId: string
-  itemId: string | null
+  goalId: string
+  categoryId: string | null
   title: string
   weight: number
   progress: number // 0-100
@@ -37,44 +38,48 @@ export type Task = {
   startTime: string | null
   endTime: string | null
   scheduledTime: string | null
+  estimatedDuration: number | null
+  actualDuration: number | null
+  priority: string | null
   isRecurring: boolean
   recurrencePattern: string | null
   recurrenceEnd: string | null
-}
-
-export type UserCategory = {
-  id: string
-  userId: string
-  name: string
-  color: string
-  icon: string
+  reflection: string | null
 }
 
 type HierarchyState = {
   items: Item[]
   completionMap: Record<string, number> // 0-100 weighted completion
   completedMap: Record<string, boolean>
-  userCategories: UserCategory[]
 
   setItems: (items: Item[]) => void
-  setUserCategories: (categories: UserCategory[]) => void
   updateItem: (id: string, updates: Partial<Item>) => void
-  updateTask: (deedId: string, taskId: string, updates: Partial<Task>) => void
+  updateTask: (goalId: string, taskId: string, updates: Partial<Task>) => void
   recalculateRollups: () => void
+  getFlatItems: () => Item[]
 }
 
 export const useHierarchyStore = create<HierarchyState>((set, get) => ({
   items: [],
   completionMap: {},
   completedMap: {},
-  userCategories: [],
+
+  getFlatItems: () => {
+    const result: Item[] = []
+    const traverse = (nodes: Item[]) => {
+      nodes.forEach(n => {
+        result.push(n)
+        if (n.children) traverse(n.children)
+      })
+    }
+    traverse(get().items)
+    return result
+  },
 
   setItems: (items) => {
     set({ items })
     get().recalculateRollups()
   },
-
-  setUserCategories: (userCategories) => set({ userCategories }),
 
   updateItem: (id, updates) => {
     const newItems = updateItemInTree(get().items, id, updates)
@@ -88,8 +93,8 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
     }).catch(console.error)
   },
 
-  updateTask: (deedId, taskId, updates) => {
-    const newItems = updateTaskInTree(get().items, deedId, taskId, updates)
+  updateTask: (goalId, taskId, updates) => {
+    const newItems = updateTaskInTree(get().items, goalId, taskId, updates)
     set({ items: newItems })
     get().recalculateRollups()
 
@@ -104,58 +109,55 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
     const { items } = get()
     const completionMap: Record<string, number> = {}
     const completedMap: Record<string, boolean> = {}
-    // Map of tasks by itemId for any-level linking
-    const tasksByItemId: Record<string, Task[]> = {}
-    const collectAllTasks = (nodes: Item[]) => {
-      nodes.forEach(n => {
-        if (n.tasks) n.tasks.forEach(t => {
-          if (t.itemId) {
-            if (!tasksByItemId[t.itemId]) tasksByItemId[t.itemId] = []
-            tasksByItemId[t.itemId].push(t)
-          }
-        })
-        if (n.children) collectAllTasks(n.children)
-      })
-    }
-    collectAllTasks(items)
 
-    const calculateForNode = (node: Item): { weightedScore: number; totalWeight: number } => {
+    // Tasks are mapped to their goalId directly now.
+    
+    const calculateForNode = (node: Item): { earnedScore: number; totalWeight: number } => {
       const children = node.children || []
-      const directTasks = node.tasks || []
-      const linkedTasks = tasksByItemId[node.id] || []
-      const allTasks = [...directTasks, ...linkedTasks]
+      const tasks = node.tasks || []
 
-      // Any node with tasks: score = weighted avg of its tasks
-      if (allTasks.length > 0) {
-        const totalTaskWeight = allTasks.reduce((sum, t) => sum + t.weight, 0)
-        const weightedSum = allTasks.reduce((sum, t) => sum + (t.progress * t.weight), 0)
-        const score = totalTaskWeight > 0 ? (weightedSum / totalTaskWeight) : 0
-        completionMap[node.id] = score
-        completedMap[node.id] = score >= 100
-        return { weightedScore: score * (node.weight || 1), totalWeight: node.weight || 1 }
+      let earnedScore = 0
+      let totalWeight = 0
+
+      // If it has tasks directly linked
+      if (tasks.length > 0) {
+        tasks.forEach(t => {
+          totalWeight += t.weight
+          earnedScore += t.completed ? t.weight : (t.progress / 100) * t.weight
+        })
       }
 
-      // Leaf nodes (no children)
-      if (children.length === 0) {
-        const pct = node.progress || 0
-        completionMap[node.id] = pct
-        completedMap[node.id] = pct >= 100
-        return { weightedScore: pct * (node.weight || 1), totalWeight: node.weight || 1 }
+      // Layer children
+      if (children.length > 0) {
+        children.forEach(child => {
+          const childResult = calculateForNode(child)
+          totalWeight += child.weight
+          // child progress acts as the percentage completion of its weight
+          const childProgress = childResult.totalWeight > 0 
+                                ? (childResult.earnedScore / childResult.totalWeight) 
+                                : (completionMap[child.id] || 0) / 100
+          earnedScore += childProgress * child.weight
+        })
       }
 
-      // Layers 1-5: weighted avg of children
-      let totalWeightedScore = 0
-      let totalChildWeight = 0
-      children.forEach(child => {
-        const { weightedScore, totalWeight } = calculateForNode(child)
-        totalWeightedScore += weightedScore
-        totalChildWeight += totalWeight
-      })
+      let pct = node.progress || 0
+      
+      if (totalWeight > 0) {
+        pct = (earnedScore / totalWeight) * 100
+      } else if (node.completed) {
+        pct = 100
+      }
 
-      const pct = totalChildWeight > 0 ? (totalWeightedScore / totalChildWeight) : 0
       completionMap[node.id] = pct
       completedMap[node.id] = pct >= 100
-      return { weightedScore: pct * (node.weight || 1), totalWeight: node.weight || 1 }
+
+      // The node's internal state doesn't instantly dictate what we pass up, 
+      // but rather we calculate what this node earned and its total weight
+      // wait, the parent just looks at this node's weight and completion pct.
+      // So returning earnedScore and totalWeight isn't really needed for the parent to read, 
+      // the parent recalculates based on its children's completionMap percentage.
+      
+      return { earnedScore, totalWeight }
     }
 
     items.forEach(item => calculateForNode(item))
@@ -176,17 +178,17 @@ function updateItemInTree(nodes: Item[], id: string, updates: Partial<Item>): It
   })
 }
 
-// Helper to immutably update a task within a deed
-function updateTaskInTree(nodes: Item[], deedId: string, taskId: string, updates: Partial<Task>): Item[] {
+// Helper to immutably update a task within a goal
+function updateTaskInTree(nodes: Item[], goalId: string, taskId: string, updates: Partial<Task>): Item[] {
   return nodes.map(node => {
-    if (node.id === deedId && node.tasks) {
+    if (node.id === goalId && node.tasks) {
       return {
         ...node,
         tasks: node.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t)
       }
     }
     if (node.children) {
-      return { ...node, children: updateTaskInTree(node.children, deedId, taskId, updates) }
+      return { ...node, children: updateTaskInTree(node.children, goalId, taskId, updates) }
     }
     return node
   })
