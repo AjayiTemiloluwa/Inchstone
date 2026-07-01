@@ -71,8 +71,8 @@ model Task {
   estimatedDuration Int? // in minutes
   actualDuration    Int? // in minutes
   priority          String? // "high", "medium", "low"
-  isFrog            Boolean @default(false)
-  isHabit           Boolean @default(false)
+  isFrog            Boolean   @default(false)
+  isHabit           Boolean   @default(false)
 
   scheduledTime     DateTime? // Legacy field, keeping in case used elsewhere
   isRecurring       Boolean   @default(false)
@@ -214,6 +214,18 @@ model PushSubscription {
   auth      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Tracker {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  date      DateTime
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
 }
 
 model PendingSuggestion {

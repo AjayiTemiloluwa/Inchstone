@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat } from 'lucide-react'
+import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import dynamic from 'next/dynamic'
 
@@ -45,6 +45,9 @@ export default function DayPage() {
   const [dayNotes, setDayNotes] = useState<any[]>([])
   const [showNoteModal, setShowNoteModal] = useState(false)
   const [editingNote, setEditingNote] = useState<any>(null)
+  const [trackers, setTrackers] = useState<any[]>([])
+  const [trackerHistory, setTrackerHistory] = useState<any[]>([])
+  const [newTrackerTitle, setNewTrackerTitle] = useState('')
 
   const categories = items.filter(i => i.layer === 1)
   const currentDate = parseISO(dateStr)
@@ -114,6 +117,80 @@ export default function DayPage() {
   useEffect(() => {
     fetchDayNotes()
   }, [dateStr])
+
+  const fetchTrackers = async () => {
+    try {
+      const res = await fetch(`/api/trackers?date=${dateStr}`)
+      if (res.ok) {
+        const data = await res.json()
+        setTrackers(data.trackers || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch trackers', e)
+    }
+  }
+
+  const fetchTrackerHistory = async () => {
+    try {
+      const res = await fetch('/api/trackers?range=week')
+      if (res.ok) {
+        const data = await res.json()
+        setTrackerHistory(data.trackers || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch tracker history', e)
+    }
+  }
+
+  useEffect(() => {
+    fetchTrackers()
+    fetchTrackerHistory()
+  }, [dateStr])
+
+  const handleAddTracker = async () => {
+    if (!newTrackerTitle.trim()) return
+    try {
+      const res = await fetch('/api/trackers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTrackerTitle.trim(), date: dateStr }),
+      })
+      if (res.ok) {
+        setNewTrackerTitle('')
+        fetchTrackers()
+        fetchTrackerHistory()
+        showToast('Tracker added', 'success')
+      }
+    } catch (e) {
+      console.error('Failed to add tracker', e)
+    }
+  }
+
+  const handleToggleTracker = async (id: string, completed: boolean) => {
+    try {
+      await fetch(`/api/trackers/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !completed }),
+      })
+      fetchTrackers()
+      fetchTrackerHistory()
+    } catch (e) {
+      console.error('Failed to toggle tracker', e)
+    }
+  }
+
+  const handleDeleteTracker = async (id: string) => {
+    if (!(await confirm('Delete this tracker?'))) return
+    try {
+      await fetch(`/api/trackers/${id}`, { method: 'DELETE' })
+      fetchTrackers()
+      fetchTrackerHistory()
+      showToast('Tracker deleted', 'success')
+    } catch (e) {
+      console.error('Failed to delete tracker', e)
+    }
+  }
 
   const handleGridClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('.task-block')) return
@@ -601,6 +678,98 @@ export default function DayPage() {
             ))}
           </div>
         )}
+      </Card>
+
+      {/* Daily Tracker Section */}
+      <Card className="p-5 border border-gold/30 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Activity className="w-24 h-24 text-gold" />
+        </div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-display font-bold text-ink flex items-center space-x-2">
+                <Activity className="w-5 h-5 text-gold" />
+                <span>Daily Tracker</span>
+              </h2>
+              <p className="text-xs text-ink/60 mt-1">Quick items to track throughout the day.</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={newTrackerTitle}
+                onChange={e => setNewTrackerTitle(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddTracker() }}
+                placeholder="New tracker..."
+                className="px-3 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 w-40"
+              />
+              <button onClick={handleAddTracker} className="px-3 py-2 text-xs font-bold bg-gold text-paper rounded-lg hover:bg-gold-glow transition flex items-center space-x-1">
+                <Plus className="w-3 h-3" />
+                <span>Add</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {trackers.map(tracker => (
+              <div key={tracker.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${tracker.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
+                <div className="flex items-center space-x-3 flex-1">
+                  <button onClick={() => handleToggleTracker(tracker.id, tracker.completed)} className="shrink-0">
+                    {tracker.completed ? <CheckCircle2 className="w-5 h-5 text-sage" /> : <Circle className="w-5 h-5 text-ink/30" />}
+                  </button>
+                  <span className={`font-bold text-sm ${tracker.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{tracker.title}</span>
+                </div>
+                <button onClick={() => handleDeleteTracker(tracker.id)} className="p-1.5 hover:bg-red-500/10 rounded-lg transition text-ink/30 hover:text-red-500" title="Delete">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            {trackers.length === 0 && (
+              <p className="text-xs text-ink/40 text-center py-4">Add tracker items to keep tabs on what matters today.</p>
+            )}
+          </div>
+
+          {/* Tracker History Graph */}
+          {trackerHistory.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-white/10">
+              <div className="flex items-center space-x-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-gold" />
+                <h3 className="text-xs font-bold uppercase text-ink/50">Weekly Completion</h3>
+              </div>
+              <div className="flex items-end space-x-1.5 h-24">
+                {(() => {
+                  // Group by date
+                  const byDate: Record<string, { total: number; done: number }> = {}
+                  trackerHistory.forEach(t => {
+                    const d = new Date(t.date).toISOString().substring(0, 10)
+                    if (!byDate[d]) byDate[d] = { total: 0, done: 0 }
+                    byDate[d].total++
+                    if (t.completed) byDate[d].done++
+                  })
+                  const dates = Object.keys(byDate).sort().slice(-7)
+                  const maxTotal = Math.max(...dates.map(d => byDate[d].total), 1)
+                  return dates.map(date => {
+                    const { total, done } = byDate[date]
+                    const pct = total > 0 ? (done / total) * 100 : 0
+                    const dayName = format(new Date(date + 'T12:00:00'), 'EEE')
+                    return (
+                      <div key={date} className="flex-1 flex flex-col items-center space-y-1">
+                        <span className="text-[9px] font-mono text-ink/50">{done}/{total}</span>
+                        <div className="w-full rounded-lg overflow-hidden" style={{ height: `${Math.max(4, (total / maxTotal) * 80)}px` }}>
+                          <div
+                            className="h-full bg-gradient-to-t from-gold to-gold-glow rounded-lg transition-all"
+                            style={{ width: '100%', height: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[8px] text-ink/40 font-mono">{dayName}</span>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
       </Card>
 
       <div className="flex items-center space-x-4">
