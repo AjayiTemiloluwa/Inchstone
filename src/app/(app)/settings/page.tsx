@@ -4,16 +4,34 @@ import { useUser } from '@clerk/nextjs'
 import { Card } from '@/components/ui/Card'
 import { PushNotificationManager } from '@/components/items/PushNotificationManager'
 import { useState, useEffect } from 'react'
-import { Calendar, CheckCircle, XCircle, ExternalLink } from 'lucide-react'
+import { Calendar, CheckCircle, XCircle, ExternalLink, Sun, Moon } from 'lucide-react'
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser()
   const [calConnected, setCalConnected] = useState<boolean | null>(null)
   const [checkingCal, setCheckingCal] = useState(true)
+  const [darkMode, setDarkMode] = useState(false)
 
   useEffect(() => {
     checkCalendarStatus()
+    loadTheme()
   }, [])
+
+  const loadTheme = () => {
+    const stored = localStorage.getItem('theme')
+    if (stored) {
+      setDarkMode(stored === 'dark')
+    } else {
+      setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches)
+    }
+  }
+
+  const toggleTheme = () => {
+    const newTheme = !darkMode
+    setDarkMode(newTheme)
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light')
+    document.documentElement.classList.toggle('dark', newTheme)
+  }
 
   const checkCalendarStatus = async () => {
     setCheckingCal(true)
@@ -152,6 +170,26 @@ export default function SettingsPage() {
             </p>
           </div>
           <PushNotificationManager />
+        </div>
+      </Card>
+
+      {/* Appearance */}
+      <Card className="space-y-6">
+        <h2 className="text-lg font-bold text-ink">Appearance</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-ink">Theme</p>
+            <p className="text-sm text-ink/70 mt-1">
+              Switch between dark and light mode.
+            </p>
+          </div>
+          <button
+            onClick={toggleTheme}
+            className="px-4 py-2 bg-gold text-paper rounded-lg hover:bg-gold-glow transition flex items-center space-x-2"
+          >
+            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+          </button>
         </div>
       </Card>
     </div>

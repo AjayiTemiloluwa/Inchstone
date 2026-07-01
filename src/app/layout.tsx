@@ -34,6 +34,7 @@ export default function RootLayout({
       <html
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} h-full antialiased`}
+        suppressHydrationWarning
       >
         <head />
         <body className="min-h-full flex flex-col bg-paper text-ink font-sans">

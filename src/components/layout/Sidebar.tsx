@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, Menu, X, Trophy, Flame } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, Menu, X, Flame, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 export function Sidebar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   // Close on route change
   useEffect(() => { setOpen(false) }, [pathname])
@@ -37,38 +38,24 @@ export function Sidebar() {
 
   const navContent = (
     <>
-      {/* Logo */}
-      <div className="p-6 pb-2">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gold to-gold/60 flex items-center justify-center shadow-lg shadow-gold/20">
-            <Trophy className="w-5 h-5 text-paper" />
-          </div>
-          <div>
-            <h1 className="text-xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">
-              Inchstone
-            </h1>
-            <p className="text-[9px] uppercase tracking-[0.2em] text-ink/30 font-bold">Goals & Cascades</p>
-          </div>
-        </div>
+      {/* Collapse Button - Desktop Only */}
+      <div className="hidden lg:flex justify-end px-4 pt-3">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="p-1.5 hover:bg-white/[0.06] rounded-lg transition text-ink/40 hover:text-ink"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
       </div>
 
-      {/* Streak / XP Section */}
-      <div className="px-6 py-3">
-        <div className="glass-gold rounded-xl p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Flame className="w-4 h-4 text-coral" />
-              <span className="text-xs font-bold text-ink/70">Streak</span>
-            </div>
-            <span className="streak-badge">🔥 0 days</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-[10px] text-ink/40 font-mono">Level 1</span>
-            <span className="xp-badge">✦ 0 XP</span>
-          </div>
-          <div className="mt-2 w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-gold to-gold-glow rounded-full" style={{ width: '0%' }} />
-          </div>
+      {/* Identity Section */}
+      <div className="px-6 py-4">
+        <div className="glass-gold rounded-xl p-4">
+          <h2 className="text-sm font-bold text-ink mb-1">2026 Identity</h2>
+          <p className="text-xs text-gold font-serif italic mb-2">"The Year of Discipline"</p>
+          <p className="text-[10px] text-ink/50 font-mono">Proverbs 16:3</p>
+          <p className="text-[10px] text-ink/60 mt-2 leading-relaxed">I am a disciplined steward of my time, talents, and treasure.</p>
         </div>
       </div>
 
@@ -88,21 +75,24 @@ export function Sidebar() {
                   : 'text-ink/50 hover:text-ink hover:bg-white/[0.04]'
                 }
               `}
+              title={collapsed ? link.name : undefined}
             >
               {active && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gold rounded-r-full" />
               )}
-              <Icon className={`w-5 h-5 mr-3 transition-transform duration-200 group-hover:scale-110 ${active ? 'text-gold' : ''}`} />
-              <span className="text-sm">{link.name}</span>
+              <Icon className={`w-5 h-5 ${collapsed ? '' : 'mr-3'} transition-transform duration-200 group-hover:scale-110 ${active ? 'text-gold' : ''}`} />
+              {!collapsed && <span className="text-sm">{link.name}</span>}
             </Link>
           )
         })}
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-white/[0.06]">
-        <p className="text-[10px] text-ink/20 text-center font-mono">v1.0 · Built with purpose</p>
-      </div>
+      {!collapsed && (
+        <div className="p-4 border-t border-white/[0.06]">
+          <p className="text-[10px] text-ink/20 text-center font-mono">v1.0 · Built with purpose</p>
+        </div>
+      )}
     </>
   )
 
@@ -139,9 +129,11 @@ export function Sidebar() {
         {navContent}
       </div>
 
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:flex w-64 h-full glass-strong flex-col shrink-0">
-        {navContent}
+      {/* Desktop Sidebar - Collapsible */}
+      <div className={`hidden lg:flex h-full glass-strong flex-col shrink-0 transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'}`}>
+        <div className="flex flex-col h-full py-2">
+          {navContent}
+        </div>
       </div>
     </>
   )
