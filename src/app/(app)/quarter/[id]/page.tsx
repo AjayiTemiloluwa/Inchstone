@@ -14,7 +14,7 @@ export default function QuarterPage() {
   const params = useParams()
   const quarterId = params.id as string
 
-  const { items, completionMap, setItems, updateItem } = useHierarchyStore()
+  const { items, completionMap, setItems, updateItem, updateItemScoreMode } = useHierarchyStore()
   const [loading, setLoading] = useState(true)
   const [addingMonth, setAddingMonth] = useState(false)
   const [newMonthTitle, setNewMonthTitle] = useState('')
@@ -62,7 +62,7 @@ export default function QuarterPage() {
   const monthlyGoals = quarterItem?.children?.filter(c => c.layer === 4) || []
   const parentYearlyGoal = quarterItem?.parentId ? findItem(quarterItem.parentId) : undefined
   const parentCategory = parentYearlyGoal?.parentId ? findItem(parentYearlyGoal.parentId) : undefined
-  
+
   // Initialize month weights from data
   useEffect(() => {
     if (monthlyGoals.length > 0 && Object.keys(monthWeights).length === 0) {
@@ -102,6 +102,10 @@ export default function QuarterPage() {
     })
   }
 
+  const handleScoreChange = (monthId: string, newScore: number) => {
+    updateItemScoreMode(monthId, 'manual', newScore)
+  }
+
   const resetWeights = () => {
     const equal = Math.round((100 / monthlyGoals.length) * 10) / 10
     const newWeights: Record<string, number> = {}
@@ -111,6 +115,10 @@ export default function QuarterPage() {
     Object.entries(newWeights).forEach(([id, w]) => {
       updateItem(id, { weight: w })
     })
+  }
+
+  const resetScores = () => {
+    monthlyGoals.forEach(m => updateItemScoreMode(m.id, 'auto'))
   }
 
   const toggleLock = (monthId: string) => {
@@ -162,7 +170,7 @@ export default function QuarterPage() {
           else { tree.push(itemMap.get(item.id)) }
         })
         setItems(tree)
-        
+
         // Reset month weights state so it reinitializes
         setMonthWeights({})
       }
@@ -245,6 +253,7 @@ export default function QuarterPage() {
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset Equal</span>
             </button>
+            <button onClick={resetScores} className="text-xs text-sage hover:text-sage/80 transition">Auto Scores</button>
           </div>
         </div>
 
@@ -269,7 +278,7 @@ export default function QuarterPage() {
                   <div className="flex items-center space-x-1">
                     <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
                     <input type="number" min="0" max="100" value={Math.round(qScore)}
-                      onChange={e => updateItem(quarterItem.id, { progress: parseFloat(e.target.value) || 0 })}
+                      onChange={e => updateItemScoreMode(quarterItem.id, 'manual', parseFloat(e.target.value) || 0)}
                       className="w-12 px-1 py-0.5 text-[9px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
                     <span className="text-[9px] text-ink/50">%</span>
                   </div>
@@ -277,10 +286,10 @@ export default function QuarterPage() {
                 </div>
               </div>
               <div className="flex-1">
-                 <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Quarter Weight (Relative to Year)</span>
-                 <input type="range" min={0} max={100} step={1} value={quarterItem.weight || 0}
-                   onChange={(e) => updateItem(quarterItem.id, { weight: parseFloat(e.target.value) || 0 })}
-                   className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
+                <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Quarter Weight (Relative to Year)</span>
+                <input type="range" min={0} max={100} step={1} value={quarterItem.weight || 0}
+                  onChange={(e) => updateItem(quarterItem.id, { weight: parseFloat(e.target.value) || 0 })}
+                  className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
               </div>
               <ProgressBar progress={qScore} colorClass="bg-sage" />
             </div>
@@ -299,7 +308,7 @@ export default function QuarterPage() {
                   const mScore = completionMap[month.id] || 0
                   const w = monthWeights[month.id] ?? month.weight ?? 0
                   const isLocked = lockedWeights[month.id] || false
-                  
+
                   return (
                     <Card key={month.id} className="p-4 hover:border-gold transition-colors group relative cursor-pointer" onClick={() => router.push(`/month/${month.id}`)}>
                       <div className="flex items-center justify-between mb-2">
@@ -325,7 +334,7 @@ export default function QuarterPage() {
                         <div className="flex-1">
                           <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
                           <input type="range" min="0" max="100" step={1} value={Math.round(mScore)}
-                            onChange={e => updateItem(month.id, { progress: parseFloat(e.target.value) || 0 })}
+                            onChange={e => handleScoreChange(month.id, parseFloat(e.target.value) || 0)}
                             className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
                           <span className="text-[9px] font-mono text-ink/50">{Math.round(mScore)}%</span>
                         </div>

@@ -49,7 +49,24 @@ export default function DayPage() {
   const [trackerHistory, setTrackerHistory] = useState<any[]>([])
   const [newTrackerTitle, setNewTrackerTitle] = useState('')
 
-  const categories = items.filter(i => i.layer === 1)
+  const activeCategories = items.filter(i => i.layer === 1).filter(category => {
+    const categoryGoals = items.filter(item => item.layer === 2 && item.parentId === category.id)
+    return categoryGoals.some(goal => {
+      const hasWeekInCurrentDate = (nodes: Item[]): boolean => {
+        for (const n of nodes) {
+          if (n.layer === 6 && n.startDate) {
+            const goalDateStr = typeof n.startDate === 'string'
+              ? n.startDate.substring(0, 10)
+              : new Date(n.startDate).toISOString().substring(0, 10)
+            if (goalDateStr === dateStr) return true
+          }
+          if (n.children && hasWeekInCurrentDate(n.children)) return true
+        }
+        return false
+      }
+      return hasWeekInCurrentDate(goal.children || [])
+    })
+  })
   const currentDate = parseISO(dateStr)
   const [nowLineTop, setNowLineTop] = useState<number | null>(null)
   const prevAddingDeed = useRef(addingDeed)
@@ -803,7 +820,7 @@ export default function DayPage() {
               className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
             <select value={newDeedCategory} onChange={e => setNewDeedCategory(e.target.value)} className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80">
               <option value="">No tag</option>
-              {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
+              {activeCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
             </select>
             <div className="flex space-x-2">
               <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}

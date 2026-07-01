@@ -151,6 +151,14 @@ export default function WeekPage() {
     setLockedWeights(prev => ({ ...prev, [dayId]: !prev[dayId] }))
   }
 
+  const handleScoreChange = (dayId: string, newScore: number) => {
+    updateItemScoreMode(dayId, 'manual', newScore)
+  }
+
+  const resetScores = () => {
+    dailyGoals.forEach(d => updateItemScoreMode(d.id, 'auto'))
+  }
+
   useEffect(() => {
     if (weekItem?.reflection && reflectionText === '') {
       setReflectionText(weekItem.reflection)
@@ -257,6 +265,7 @@ export default function WeekPage() {
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset Equal</span>
             </button>
+            <button onClick={resetScores} className="text-xs text-sage hover:text-sage/80 transition">Auto Scores</button>
           </div>
         </div>
 
@@ -346,7 +355,7 @@ export default function WeekPage() {
                             <div>
                               <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
                               <input type="range" min="0" max="100" step={1} value={Math.round(dScore)}
-                                onChange={e => updateItem(dayGoal.id, { progress: parseFloat(e.target.value) || 0 })}
+                                onChange={e => handleScoreChange(dayGoal!.id, parseFloat(e.target.value) || 0)}
                                 className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
                               <span className="text-[9px] font-mono text-ink/50">{Math.round(dScore)}%</span>
                             </div>

@@ -15,7 +15,7 @@ export default function MonthPage() {
   const params = useParams()
   const monthId = params.id as string
 
-  const { items, completionMap, setItems, updateItem } = useHierarchyStore()
+  const { items, completionMap, setItems, updateItem, updateItemScoreMode } = useHierarchyStore()
   const [loading, setLoading] = useState(true)
   const [reflectionPopup, setReflectionPopup] = useState<string | null>(null)
   const [reflectionText, setReflectionText] = useState('')
@@ -52,7 +52,7 @@ export default function MonthPage() {
   const parentQuarter = monthItem?.parentId ? findItem(monthItem.parentId) : undefined
   const parentYearlyGoal = parentQuarter?.parentId ? findItem(parentQuarter.parentId) : undefined
   const parentCategory = parentYearlyGoal?.parentId ? findItem(parentYearlyGoal.parentId) : undefined
-  
+
   // Auto-create weeks if none exist
   const ensureWeeks = useCallback(async () => {
     if (!monthItem || weeklyGoals.length > 0) return
@@ -131,6 +131,10 @@ export default function MonthPage() {
     })
   }
 
+  const handleScoreChange = (weekId: string, newScore: number) => {
+    updateItemScoreMode(weekId, 'manual', newScore)
+  }
+
   const resetWeights = () => {
     const equal = Math.round((100 / weeklyGoals.length) * 10) / 10
     const newWeights: Record<string, number> = {}
@@ -140,6 +144,10 @@ export default function MonthPage() {
     Object.entries(newWeights).forEach(([id, w]) => {
       updateItem(id, { weight: w })
     })
+  }
+
+  const resetScores = () => {
+    weeklyGoals.forEach(m => updateItemScoreMode(m.id, 'auto'))
   }
 
   const toggleLock = (weekId: string) => {
@@ -227,6 +235,7 @@ export default function MonthPage() {
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset Equal</span>
             </button>
+            <button onClick={resetScores} className="text-xs text-sage hover:text-sage/80 transition">Auto Scores</button>
           </div>
         </div>
 
@@ -250,10 +259,10 @@ export default function MonthPage() {
                 </div>
               </div>
               <div className="flex-1">
-                 <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Month Weight (Relative to Quarter)</span>
-                 <input type="range" min={0} max={100} step={1} value={monthItem.weight || 0}
-                   onChange={(e) => updateItem(monthItem.id, { weight: parseFloat(e.target.value) || 0 })}
-                   className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
+                <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Month Weight (Relative to Quarter)</span>
+                <input type="range" min={0} max={100} step={1} value={monthItem.weight || 0}
+                  onChange={(e) => updateItem(monthItem.id, { weight: parseFloat(e.target.value) || 0 })}
+                  className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
               </div>
               <ProgressBar progress={mScore} colorClass="bg-sage" />
             </div>
@@ -272,7 +281,7 @@ export default function MonthPage() {
                   const wScore = completionMap[week.id] || 0
                   const w = weekWeights[week.id] ?? week.weight ?? 0
                   const isLocked = lockedWeights[week.id] || false
-                  
+
                   return (
                     <Card key={week.id} className="p-4 hover:border-gold transition-colors group relative cursor-pointer" onClick={() => router.push(`/week/${week.id}`)}>
                       <div className="flex items-center justify-between mb-2">
@@ -298,7 +307,7 @@ export default function MonthPage() {
                         <div className="flex-1">
                           <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
                           <input type="range" min="0" max="100" step={1} value={Math.round(wScore)}
-                            onChange={e => updateItem(week.id, { progress: parseFloat(e.target.value) || 0 })}
+                            onChange={e => handleScoreChange(week.id, parseFloat(e.target.value) || 0)}
                             className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
                           <span className="text-[9px] font-mono text-ink/50">{Math.round(wScore)}%</span>
                         </div>
