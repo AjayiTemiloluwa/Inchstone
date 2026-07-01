@@ -49,16 +49,6 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Identity Section */}
-      <div className="px-6 py-4">
-        <div className="glass-gold rounded-xl p-4">
-          <h2 className="text-sm font-bold text-ink mb-1">2026 Identity</h2>
-          <p className="text-xs text-gold font-serif italic mb-2">"The Year of Discipline"</p>
-          <p className="text-[10px] text-ink/50 font-mono">Proverbs 16:3</p>
-          <p className="text-[10px] text-ink/60 mt-2 leading-relaxed">I am a disciplined steward of my time, talents, and treasure.</p>
-        </div>
-      </div>
-
       {/* Nav Links */}
       <nav className="flex-1 px-4 space-y-1 mt-2">
         {links.map((link) => {
