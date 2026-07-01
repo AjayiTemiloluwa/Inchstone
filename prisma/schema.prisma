@@ -7,11 +7,11 @@ datasource db {
 }
 
 model Item {
-  id       String  @id @default(uuid())
-  userId   String
+  id     String @id @default(uuid())
+  userId String
   // 0: Year, 1: Category, 2: Yearly Goal, 3: Quarterly Goal, 4: Monthly Goal, 5: Weekly Goal, 6: Daily Goal
-  layer    Int     
-  
+  layer  Int
+
   parentId String?
   parent   Item?   @relation("ItemToItem", fields: [parentId], references: [id], onDelete: Cascade)
   children Item[]  @relation("ItemToItem")
@@ -22,6 +22,7 @@ model Item {
   status      String  @default("active") // active, archived
   completed   Boolean @default(false)
   progress    Float   @default(0) // 0-100 score/progress
+  scoreMode   String  @default("auto") // "auto" | "manual" - whether score is calculated from children or manually set
   category    String? // Keep for legacy string categories if needed, but Category is now a node in the tree
 
   // Date ranges for calendar periods (e.g., for quarters, months, weeks, days)
@@ -46,39 +47,39 @@ model Item {
   reviews          Review[]
   partnerLinks     PartnerLink[]
   financialEntries FinancialEntry[]
-  
-  tasks            Task[] @relation("GoalTasks")
+
+  tasks Task[] @relation("GoalTasks")
 }
 
 model Task {
-  id                String    @id @default(uuid())
-  userId            String
-  
-  goalId            String
-  goal              Item      @relation("GoalTasks", fields: [goalId], references: [id], onDelete: Cascade)
-  
-  categoryId        String?   // Denormalized reference to the Category item
-  
-  title             String
-  weight            Float     @default(1.0)
-  progress          Float     @default(0)
-  completed         Boolean   @default(false)
-  
-  date              DateTime  // Target execution date
+  id     String @id @default(uuid())
+  userId String
+
+  goalId String
+  goal   Item   @relation("GoalTasks", fields: [goalId], references: [id], onDelete: Cascade)
+
+  categoryId String? // Denormalized reference to the Category item
+
+  title     String
+  weight    Float   @default(1.0)
+  progress  Float   @default(0)
+  completed Boolean @default(false)
+
+  date              DateTime // Target execution date
   startTime         DateTime? // 24h scheduling start
   endTime           DateTime? // 24h scheduling end
-  estimatedDuration Int?      // in minutes
-  actualDuration    Int?      // in minutes
-  priority          String?   // "high", "medium", "low"
-  
+  estimatedDuration Int? // in minutes
+  actualDuration    Int? // in minutes
+  priority          String? // "high", "medium", "low"
+
   scheduledTime     DateTime? // Legacy field, keeping in case used elsewhere
   isRecurring       Boolean   @default(false)
   recurrencePattern String?
   recurrenceEnd     DateTime?
   reflection        String?
-  
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Note {

@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, Plus, X, Trash2, BookOpen } from 'lucide-react'
+import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
 import { format } from 'date-fns'
 
 export default function QuarterPage() {
@@ -21,6 +21,9 @@ export default function QuarterPage() {
   const [reflectionPopup, setReflectionPopup] = useState<string | null>(null)
   const [reflectionText, setReflectionText] = useState('')
   const [reflectionTimer, setReflectionTimer] = useState<NodeJS.Timeout | null>(null)
+
+  const [lockedWeights, setLockedWeights] = useState<Record<string, boolean>>({})
+  const [monthWeights, setMonthWeights] = useState<Record<string, number>>({})
 
   useEffect(() => {
     fetch('/api/items')
@@ -59,32 +62,59 @@ export default function QuarterPage() {
   const monthlyGoals = quarterItem?.children?.filter(c => c.layer === 4) || []
   const parentYearlyGoal = quarterItem?.parentId ? findItem(quarterItem.parentId) : undefined
   const parentCategory = parentYearlyGoal?.parentId ? findItem(parentYearlyGoal.parentId) : undefined
-  const monthWeightSum = monthlyGoals.reduce((s, m) => s + (m.weight || 0), 0)
-
-  // Find all categories
-  const categories = items.filter(i => i.layer === 1)
-
-  // Find annual goals (layer 2) in the same category
-  const annualGoals = items.filter(c => c.layer === 2 && c.parentId === parentCategory?.id)
-
-  // Group annual goals by category
-  const goalsByCategory: Record<string, Item[]> = {}
-  annualGoals.forEach(goal => {
-    const category = findCategoryForGoal(goal)
-    if (category) {
-      if (!goalsByCategory[category.id]) {
-        goalsByCategory[category.id] = []
-      }
-      goalsByCategory[category.id].push(goal)
+  
+  // Initialize month weights from data
+  useEffect(() => {
+    if (monthlyGoals.length > 0 && Object.keys(monthWeights).length === 0) {
+      const w: Record<string, number> = {}
+      monthlyGoals.forEach(m => { w[m.id] = m.weight || 0 })
+      setMonthWeights(w)
     }
-  })
+  }, [monthlyGoals, monthWeights])
 
-  function findCategoryForGoal(goal: Item): Item | undefined {
-    if (goal.layer === 1) return goal
-    if (goal.parentId) {
-      return findCategoryForGoal(findItem(goal.parentId)!)
+  const handleWeightChange = (monthId: string, newVal: number) => {
+    const newWeights = { ...monthWeights }
+    newWeights[monthId] = newVal
+
+    const newLocked = { ...lockedWeights, [monthId]: true }
+    setLockedWeights(newLocked)
+
+    const lockedSum = Object.entries(newWeights)
+      .filter(([id]) => newLocked[id])
+      .reduce((sum, [, w]) => sum + w, 0)
+
+    if (lockedSum > 100) {
+      newWeights[monthId] = newVal - (lockedSum - 100)
+      return
     }
-    return undefined
+
+    const unlockedIds = monthlyGoals.filter(m => !newLocked[m.id]).map(m => m.id)
+    const remainder = 100 - lockedSum
+    const perUnlocked = unlockedIds.length > 0 ? remainder / unlockedIds.length : 0
+
+    unlockedIds.forEach(id => {
+      newWeights[id] = Math.round(perUnlocked * 10) / 10
+    })
+
+    setMonthWeights(newWeights)
+    Object.entries(newWeights).forEach(([id, w]) => {
+      updateItem(id, { weight: w })
+    })
+  }
+
+  const resetWeights = () => {
+    const equal = Math.round((100 / monthlyGoals.length) * 10) / 10
+    const newWeights: Record<string, number> = {}
+    monthlyGoals.forEach(m => { newWeights[m.id] = equal })
+    setMonthWeights(newWeights)
+    setLockedWeights({})
+    Object.entries(newWeights).forEach(([id, w]) => {
+      updateItem(id, { weight: w })
+    })
+  }
+
+  const toggleLock = (monthId: string) => {
+    setLockedWeights(prev => ({ ...prev, [monthId]: !prev[monthId] }))
   }
 
   useEffect(() => {
@@ -132,6 +162,9 @@ export default function QuarterPage() {
           else { tree.push(itemMap.get(item.id)) }
         })
         setItems(tree)
+        
+        // Reset month weights state so it reinitializes
+        setMonthWeights({})
       }
       setNewMonthTitle('')
       setAddingMonth(false)
@@ -157,11 +190,7 @@ export default function QuarterPage() {
                 else { tree.push(itemMap.get(item.id)) }
               })
               setItems(tree)
-              const remaining = data.items.filter((i: any) => i.parentId === quarterId)
-              if (remaining.length > 0) {
-                const eqWeight = Math.round((100 / remaining.length) * 10) / 10
-                remaining.forEach((m: any) => updateItem(m.id, { weight: eqWeight }))
-              }
+              setMonthWeights({})
             }
           })
         }
@@ -173,6 +202,7 @@ export default function QuarterPage() {
   if (!quarterItem) return <div className="p-6 text-ink/60">Quarter not found.</div>
 
   const qScore = completionMap[quarterItem.id] || 0
+  const monthWeightSum = monthlyGoals.reduce((s, m) => s + (monthWeights[m.id] ?? m.weight ?? 0), 0)
 
   return (
     <div className="space-y-8 max-w-full pb-12">
@@ -181,6 +211,7 @@ export default function QuarterPage() {
         <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
         <ChevronRight className="w-3 h-3" />
         {parentCategory && <><span>{parentCategory.title}</span><ChevronRight className="w-3 h-3" /></>}
+        {parentYearlyGoal && <><span>{parentYearlyGoal.title}</span><ChevronRight className="w-3 h-3" /></>}
         <span className="text-ink font-bold">{quarterItem.title}</span>
       </div>
 
@@ -201,109 +232,20 @@ export default function QuarterPage() {
         </div>
       </div>
 
-      {/* Categories & Goals Section */}
-      <div>
-        <div className="mb-4">
-          <h2 className="text-2xl font-display font-bold text-ink">Categories & Goals</h2>
-        </div>
-
-        <div className="space-y-6">
-          {categories.map(category => {
-            const catGoals = goalsByCategory[category.id] || []
-            const catScore = completionMap[category.id] || 0
-            const goalWeightSum = catGoals.reduce((s, g) => s + (g.weight || 0), 0)
-
-            return (
-              <Card key={category.id} className="p-5 space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <h3 className="text-lg font-bold text-ink">{category.title}</h3>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-1">
-                        <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
-                        <input type="number" min="0" max="100" value={Math.round(catScore)}
-                          onChange={e => updateItem(category.id, { progress: parseFloat(e.target.value) || 0 })}
-                          className="w-12 px-1 py-0.5 text-[9px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
-                        <span className="text-[9px] text-ink/50">%</span>
-                      </div>
-                      <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(category.weight || 0)}%</span>
-                    </div>
-                  </div>
-                  <ProgressBar progress={catScore} colorClass="bg-sage" />
-                </div>
-
-                <div className="space-y-3 pt-2 border-t border-mist">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase text-ink/50">Goals</span>
-                    <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
-                      Total: {Math.round(goalWeightSum)}%
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {catGoals.map(goal => {
-                      const gScore = completionMap[goal.id] || 0
-                      const isCurrentQuarter = goal.id === parentYearlyGoal?.id
-                      return (
-                        <Card key={goal.id} className={`p-4 hover:border-gold transition-colors group relative ${isCurrentQuarter ? 'ring-2 ring-gold' : ''}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-bold text-ink text-sm truncate pr-6">{goal.title}</h4>
-                            <div className="flex items-center space-x-2">
-                              <ProgressRing progress={gScore} size={32} />
-                              <span className="text-base font-mono font-bold">{Math.round(gScore)}%</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex-1">
-                              <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight</span>
-                              <input type="range" min="0" max="100" step={1} value={goal.weight || 0}
-                                onChange={e => updateItem(goal.id, { weight: parseFloat(e.target.value) || 0 })}
-                                className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
-                              <span className="text-[9px] font-mono text-ink/50">{Math.round(goal.weight || 0)}%</span>
-                            </div>
-                            <div className="flex-1">
-                              <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
-                              <input type="range" min="0" max="100" step={1} value={Math.round(gScore)}
-                                onChange={e => updateItem(goal.id, { progress: parseFloat(e.target.value) || 0 })}
-                                className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
-                              <span className="text-[9px] font-mono text-ink/50">{Math.round(gScore)}%</span>
-                            </div>
-                          </div>
-                          {isCurrentQuarter && (
-                            <div className="mt-2 pt-2 border-t border-mist">
-                              <span className="text-[9px] text-gold font-bold uppercase">Current Quarter</span>
-                            </div>
-                          )}
-                          <button onClick={(e) => handleDelete(e, goal.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete Goal">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </Card>
-                      )
-                    })}
-                  </div>
-                  {catGoals.length === 0 && (
-                    <p className="text-xs text-ink/40 italic">No goals yet.</p>
-                  )}
-                </div>
-              </Card>
-            )
-          })}
-          {categories.length === 0 && (
-            <p className="text-sm text-ink/50">No categories found. Please seed the framework from the dashboard.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Months Section */}
+      {/* Quarter & Months Section (Exact Features of Categories & Goals) */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-display font-bold text-ink">Months</h2>
-          <button onClick={() => setAddingMonth(!addingMonth)} className="flex items-center space-x-1.5 text-xs text-ink/50 hover:text-gold transition">
-            {addingMonth ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-            <span>{addingMonth ? 'Cancel' : 'Add Month'}</span>
-          </button>
+          <h2 className="text-2xl font-display font-bold text-ink">Quarter & Months</h2>
+          <div className="flex items-center space-x-4">
+            <button onClick={() => setAddingMonth(!addingMonth)} className="flex items-center space-x-1.5 text-xs text-ink/50 hover:text-gold transition">
+              {addingMonth ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              <span>{addingMonth ? 'Cancel' : 'Add Month'}</span>
+            </button>
+            <button onClick={resetWeights} className="flex items-center space-x-1.5 text-xs text-gold hover:text-gold/80 transition">
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Equal</span>
+            </button>
+          </div>
         </div>
 
         {addingMonth && (
@@ -315,47 +257,92 @@ export default function QuarterPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {monthlyGoals.map((month, idx) => {
-            const mScore = completionMap[month.id] || 0
-            const monthLabel = month.startDate ? format(new Date(month.startDate), 'MMMM') : `Month ${idx + 1}`
-            return (
-              <Card key={month.id} className="p-5 hover:border-gold transition-colors cursor-pointer group relative" onClick={() => router.push(`/month/${month.id}`)}>
-                <button onClick={(e) => handleDelete(e, month.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete Month">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-                <div className="flex items-center justify-between mb-3 pr-6">
-                  <div>
-                    <p className="text-sm font-bold text-ink">{monthLabel}</p>
-                    <p className="text-[10px] text-ink/40 mt-0.5">{month.title}</p>
+        <div className="space-y-6">
+          <Card className="p-5 space-y-4 border-gold">
+            {/* "Category" Header (The Quarter Itself) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-lg font-bold text-ink">{quarterItem.title}</h3>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-1">
+                    <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
+                    <input type="number" min="0" max="100" value={Math.round(qScore)}
+                      onChange={e => updateItem(quarterItem.id, { progress: parseFloat(e.target.value) || 0 })}
+                      className="w-12 px-1 py-0.5 text-[9px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
+                    <span className="text-[9px] text-ink/50">%</span>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-ink/30 group-hover:text-gold transition" />
+                  <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(quarterItem.weight || 0)}%</span>
                 </div>
-                <div className="flex items-center justify-between mb-2">
-                  <ProgressRing progress={mScore} size={40} />
-                  <span className="text-lg font-mono font-bold">{Math.round(mScore)}%</span>
-                </div>
-                <div onClick={e => e.stopPropagation()}>
-                  <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight</span>
-                  <input type="range" min="0" max="100" step={1} value={month.weight || 0}
-                    onChange={e => updateItem(month.id, { weight: parseFloat(e.target.value) || 0 })}
-                    className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
-                  <span className="text-[9px] font-mono text-ink/50">{Math.round(month.weight || 0)}%</span>
-                </div>
-              </Card>
-            )
-          })}
+              </div>
+              <div className="flex-1">
+                 <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Quarter Weight (Relative to Year)</span>
+                 <input type="range" min={0} max={100} step={1} value={quarterItem.weight || 0}
+                   onChange={(e) => updateItem(quarterItem.id, { weight: parseFloat(e.target.value) || 0 })}
+                   className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
+              </div>
+              <ProgressBar progress={qScore} colorClass="bg-sage" />
+            </div>
+
+            {/* "Goals" (The Months) */}
+            <div className="space-y-3 pt-2 border-t border-mist">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-ink/50">Months</span>
+                <span className={`text-[10px] font-mono ${Math.round(monthWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
+                  Total: {Math.round(monthWeightSum)}%
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {monthlyGoals.map(month => {
+                  const mScore = completionMap[month.id] || 0
+                  const w = monthWeights[month.id] ?? month.weight ?? 0
+                  const isLocked = lockedWeights[month.id] || false
+                  
+                  return (
+                    <Card key={month.id} className="p-4 hover:border-gold transition-colors group relative cursor-pointer" onClick={() => router.push(`/month/${month.id}`)}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <button onClick={(e) => { e.stopPropagation(); toggleLock(month.id); }} className="p-1 hover:bg-mist rounded transition" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
+                            {isLocked ? <Lock className="w-3.5 h-3.5 text-gold" /> : <Unlock className="w-3.5 h-3.5 text-ink/30" />}
+                          </button>
+                          <h4 className="font-bold text-ink text-sm truncate pr-6">{month.title}</h4>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <ProgressRing progress={mScore} size={32} />
+                          <span className="text-base font-mono font-bold">{Math.round(mScore)}%</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex-1">
+                          <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight</span>
+                          <input type="range" min="0" max="100" step={1} value={w}
+                            onChange={e => handleWeightChange(month.id, parseFloat(e.target.value) || 0)}
+                            className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
+                          <span className="text-[9px] font-mono text-ink/50">{Math.round(w)}%</span>
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
+                          <input type="range" min="0" max="100" step={1} value={Math.round(mScore)}
+                            onChange={e => updateItem(month.id, { progress: parseFloat(e.target.value) || 0 })}
+                            className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
+                          <span className="text-[9px] font-mono text-ink/50">{Math.round(mScore)}%</span>
+                        </div>
+                      </div>
+                      <button onClick={(e) => handleDelete(e, month.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete Month">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </Card>
+                  )
+                })}
+              </div>
+              {monthlyGoals.length === 0 && !addingMonth && (
+                <p className="text-xs text-ink/40 italic">No months yet. Click + to add one.</p>
+              )}
+            </div>
+          </Card>
         </div>
-        {monthlyGoals.length > 0 && (
-          <div className="flex justify-end mt-2">
-            <span className={`text-[10px] font-mono ${Math.round(monthWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
-              Total: {Math.round(monthWeightSum)}%
-            </span>
-          </div>
-        )}
-        {monthlyGoals.length === 0 && !addingMonth && (
-          <p className="text-sm text-ink/40 italic">No months yet. Click + to add one.</p>
-        )}
       </div>
 
       {/* Reflection Popup */}

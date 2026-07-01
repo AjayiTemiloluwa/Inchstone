@@ -7,12 +7,14 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen } from 'lucide-react'
-import { format, addMonths } from 'date-fns'
+import { format } from 'date-fns'
+import { getWeeksInMonth } from '@/lib/calendarUtils'
 
-export default function YearQuarterPage() {
+export default function YearQuarterMonthPage() {
     const router = useRouter()
     const params = useParams()
     const quarterLabel = params.quarter as string
+    const monthLabel = params.month as string
 
     const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
     const [loading, setLoading] = useState(true)
@@ -22,13 +24,6 @@ export default function YearQuarterPage() {
 
     const [reflectionText, setReflectionText] = useState('')
     const [reflectionTimer, setReflectionTimer] = useState<NodeJS.Timeout | null>(null)
-
-    const quarterMonthNames: Record<string, string[]> = {
-        Q1: ['January', 'February', 'March'],
-        Q2: ['April', 'May', 'June'],
-        Q3: ['July', 'August', 'September'],
-        Q4: ['October', 'November', 'December'],
-    }
 
     const fetchItems = useCallback(async () => {
         const res = await fetch('/api/items?t=' + Date.now())
@@ -55,57 +50,65 @@ export default function YearQuarterPage() {
     const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
     const yearlyGoals = flatItems.filter(i => i.layer === 2)
     const matchingQuarters = flatItems.filter(i => i.layer === 3 && i.title.includes(quarterLabel))
+    
+    // Find all month items matching this month name across all quarters for this quarter label
+    const matchingMonths = matchingQuarters.flatMap(q => 
+        q.children?.filter(c => c.layer === 4 && c.title === monthLabel) || []
+    )
 
-    // Auto-create months if none exist for each quarter
-    const ensureMonths = useCallback(async () => {
+    // Auto-create weeks if none exist for each month
+    const ensureWeeks = useCallback(async () => {
         let changed = false
-        for (const quarterItem of matchingQuarters) {
-            const monthlyGoals = quarterItem.children?.filter(c => c.layer === 4) || []
-            if (monthlyGoals.length === 0) {
+        for (const monthItem of matchingMonths) {
+            const weeklyGoals = monthItem.children?.filter(c => c.layer === 5) || []
+            if (weeklyGoals.length === 0 && monthItem.startDate) {
                 changed = true
-                const monthNames = quarterMonthNames[quarterLabel] || ['Month 1', 'Month 2', 'Month 3']
-                const qStart = new Date(quarterItem.startDate || new Date())
-                const perWeight = Math.round((100 / 3) * 10) / 10
+                const mStart = new Date(monthItem.startDate)
+                const weeksInMonth = getWeeksInMonth(mStart.getFullYear(), mStart.getMonth() + 1)
+                const perWeight = Math.round((100 / weeksInMonth.length) * 10) / 10
 
-                for (let m = 0; m < 3; m++) {
-                    const mStart = addMonths(qStart, m)
+                for (let w = 0; w < weeksInMonth.length; w++) {
+                    const weekDays = weeksInMonth[w]
+                    const wStart = weekDays[0].date
+                    const wEnd = weekDays[weekDays.length - 1].date
+                    const wStartStr = format(wStart, 'yyyy-MM-dd')
+                    const wEndStr = format(wEnd, 'yyyy-MM-dd')
                     await fetch('/api/items', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ layer: 4, parentId: quarterItem.id, title: monthNames[m], weight: perWeight, startDate: mStart.toISOString(), endDate: addMonths(mStart, 1).toISOString() })
+                        body: JSON.stringify({ layer: 5, parentId: monthItem.id, title: `Week ${w + 1}`, weight: perWeight, startDate: wStartStr, endDate: wEndStr })
                     })
                 }
             }
         }
-        
         if (changed) {
             await fetchItems()
         }
-    }, [matchingQuarters, quarterLabel, fetchItems])
+    }, [matchingMonths, fetchItems])
 
     useEffect(() => {
-        if (!loading && matchingQuarters.length > 0) {
-            const needsMonths = matchingQuarters.some(q => (q.children?.filter(c => c.layer === 4) || []).length === 0)
-            if (needsMonths) {
-                ensureMonths()
+        if (!loading && matchingMonths.length > 0) {
+            const needsWeeks = matchingMonths.some(m => (m.children?.filter(c => c.layer === 5) || []).length === 0)
+            if (needsWeeks) {
+                ensureWeeks()
             }
         }
-    }, [loading, matchingQuarters, ensureMonths])
+    }, [loading, matchingMonths, ensureWeeks])
 
-    // Reflection — use the first matching quarter's reflection field
+    // Reflection
     useEffect(() => {
-        if (matchingQuarters.length > 0 && matchingQuarters[0].reflection && reflectionText === '') {
-            setReflectionText(matchingQuarters[0].reflection)
+        if (matchingMonths.length > 0 && matchingMonths[0].reflection && reflectionText === '') {
+            setReflectionText(matchingMonths[0].reflection)
         }
-    }, [matchingQuarters, reflectionText])
+    }, [matchingMonths, reflectionText])
 
     const saveReflection = useCallback((text: string) => {
-        if (matchingQuarters.length === 0) return
+        if (matchingMonths.length === 0) return
         if (reflectionTimer) clearTimeout(reflectionTimer)
         const timer = setTimeout(() => {
-            updateItem(matchingQuarters[0].id, { reflection: text })
+            updateItem(matchingMonths[0].id, { reflection: text })
         }, 800)
         setReflectionTimer(timer)
-    }, [matchingQuarters, updateItem, reflectionTimer])
+    }, [matchingMonths, updateItem, reflectionTimer])
 
     const handleAddGoal = async (categoryId: string) => {
         if (!newGoalTitle.trim()) return
@@ -127,15 +130,6 @@ export default function YearQuarterPage() {
                 })
             })
             const goalData = await goalRes.json()
-
-            const allGoals = [...existingGoals]
-            if (goalData.success && goalData.item) {
-                allGoals.push(goalData.item)
-            }
-            const perGoal = Math.round((100 / allGoals.length) * 10) / 10
-            allGoals.forEach(g => {
-                updateItem(g.id, { weight: perGoal })
-            })
 
             if (goalData.success && goalData.item) {
                 const quartersToCreate = [
@@ -171,26 +165,40 @@ export default function YearQuarterPage() {
         try {
             const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
             if (!res.ok) { alert('Failed to delete item') }
-            else {
-                await fetchItems()
-            }
+            else { await fetchItems() }
         } catch (e) { console.error(e) }
     }
-    
-    // Average score across all matching quarters
-    const avgScore = matchingQuarters.length > 0 
-        ? matchingQuarters.reduce((s, q) => s + (completionMap[q.id] || 0), 0) / matchingQuarters.length 
+
+    const avgScore = matchingMonths.length > 0
+        ? matchingMonths.reduce((s, m) => s + (completionMap[m.id] || 0), 0) / matchingMonths.length
         : 0
 
     if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
     if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
 
-    // Group months by label for the months section
-    const defaultMonthNames = quarterMonthNames[quarterLabel] || ['Month 1', 'Month 2', 'Month 3']
-    const monthGroups = defaultMonthNames.map(label => {
-        const mItems = matchingQuarters.flatMap(q => q.children?.filter(c => c.layer === 4 && c.title === label) || [])
-        const avgMonthScore = mItems.length > 0 ? mItems.reduce((s, m) => s + (completionMap[m.id] || 0), 0) / mItems.length : 0
-        return { label, items: mItems, avgScore: avgMonthScore }
+    // Build week groups across all matching months
+    const weekTitlesSet = new Set<string>()
+    matchingMonths.forEach(m => {
+        (m.children?.filter(c => c.layer === 5) || []).forEach(w => weekTitlesSet.add(w.title))
+    })
+    const weekTitles = Array.from(weekTitlesSet).sort((a, b) => {
+        const numA = parseInt(a.replace(/\D/g, '')) || 0
+        const numB = parseInt(b.replace(/\D/g, '')) || 0
+        return numA - numB
+    })
+
+    const weekGroups = weekTitles.map(title => {
+        const wItems = matchingMonths.flatMap(m => m.children?.filter(c => c.layer === 5 && c.title === title) || [])
+        const avgWeekScore = wItems.length > 0 ? wItems.reduce((s, w) => s + (completionMap[w.id] || 0), 0) / wItems.length : 0
+        // Get date range from first item
+        const firstItem = wItems[0]
+        let dateLabel = ''
+        if (firstItem?.startDate && firstItem?.endDate) {
+            const s = new Date(firstItem.startDate)
+            const e = new Date(firstItem.endDate)
+            dateLabel = `${format(s, 'MMM d')} – ${format(e, 'MMM d')}`
+        }
+        return { title, items: wItems, avgScore: avgWeekScore, dateLabel }
     })
 
     return (
@@ -199,16 +207,18 @@ export default function YearQuarterPage() {
             <div className="flex items-center space-x-2 text-sm text-ink/50">
                 <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
                 <ChevronRight className="w-3 h-3" />
-                <span className="text-ink font-bold">{quarterLabel}</span>
+                <button onClick={() => router.push(`/year/${quarterLabel}`)} className="hover:text-gold transition">{quarterLabel}</button>
+                <ChevronRight className="w-3 h-3" />
+                <span className="text-ink font-bold">{monthLabel}</span>
             </div>
 
-            {/* Quarter Aggregation Header */}
+            {/* Month Header */}
             <div className="bg-surface border border-mist rounded-2xl p-8">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-display font-bold text-ink">{quarterLabel} Overview</h1>
+                        <h1 className="text-3xl font-display font-bold text-ink">{monthLabel}</h1>
                         <p className="text-sm text-ink/50 mt-2 font-mono">
-                            Showing all goals across your Yearly Categories for {quarterLabel}
+                            {quarterLabel} · Showing all goals for {monthLabel}
                         </p>
                     </div>
                     <ProgressRing progress={avgScore} size={72} />
@@ -226,7 +236,10 @@ export default function YearQuarterPage() {
                         const catScore = completionMap[category.id] || 0
                         const catYearlyGoals = yearlyGoals.filter(g => g.parentId === category.id)
                         const catQuarters = matchingQuarters.filter(q => catYearlyGoals.some(yg => yg.id === q.parentId))
-                        const goalWeightSum = catQuarters.reduce((s, g) => s + (g.weight || 0), 0)
+                        // Get the month items for this category
+                        const catMonths = catQuarters.flatMap(q => 
+                            q.children?.filter(c => c.layer === 4 && c.title === monthLabel) || []
+                        )
 
                         return (
                             <Card key={category.id} className="p-5 space-y-4">
@@ -237,28 +250,20 @@ export default function YearQuarterPage() {
                                         <div className="flex items-center space-x-3">
                                             <div className="flex items-center space-x-1">
                                                 <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
-                                                <input type="number" min="0" max="100" value={Math.round(catScore)}
-                                                    onChange={e => updateItem(category.id, { progress: parseFloat(e.target.value) || 0 })}
-                                                    className="w-12 px-1 py-0.5 text-[9px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
-                                                <span className="text-[9px] text-ink/50">%</span>
+                                                <span className="text-sm font-mono font-bold">{Math.round(catScore)}%</span>
                                             </div>
                                         </div>
                                     </div>
                                     <ProgressBar progress={catScore} colorClass="bg-sage" />
                                 </div>
 
-                                {/* Goals */}
+                                {/* Monthly Goals */}
                                 <div className="space-y-3 pt-2 border-t border-mist">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold uppercase text-ink/50">Goals</span>
-                                        <div className="flex items-center space-x-2">
-                                            <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
-                                                Total Q-Weight: {Math.round(goalWeightSum)}%
-                                            </span>
-                                            <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-1 hover:bg-mist rounded-lg transition text-ink/50 hover:text-gold">
-                                                {addingGoal === category.id ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                                            </button>
-                                        </div>
+                                        <span className="text-xs font-bold uppercase text-ink/50">Monthly Goals</span>
+                                        <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-1 hover:bg-mist rounded-lg transition text-ink/50 hover:text-gold">
+                                            {addingGoal === category.id ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                        </button>
                                     </div>
 
                                     {addingGoal === category.id && (
@@ -271,43 +276,44 @@ export default function YearQuarterPage() {
                                     )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {catQuarters.map(qItem => {
-                                            const qScore = completionMap[qItem.id] || 0
-                                            const parentYearlyGoal = catYearlyGoals.find(yg => yg.id === qItem.parentId)
+                                        {catMonths.map(mItem => {
+                                            const mScore = completionMap[mItem.id] || 0
+                                            const parentQ = catQuarters.find(q => q.id === mItem.parentId)
+                                            const parentYG = catYearlyGoals.find(yg => yg.id === parentQ?.parentId)
 
                                             return (
-                                                <Card key={qItem.id} className="p-4 hover:border-gold transition-colors group relative cursor-pointer" onClick={() => router.push(`/quarter/${qItem.id}`)}>
+                                                <Card key={mItem.id} className="p-4 hover:border-gold transition-colors group relative cursor-pointer" onClick={() => router.push(`/month/${mItem.id}`)}>
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <h4 className="font-bold text-ink text-sm truncate pr-6">{parentYearlyGoal?.title}</h4>
+                                                        <h4 className="font-bold text-ink text-sm truncate pr-6">{parentYG?.title}</h4>
                                                         <div className="flex items-center space-x-2">
-                                                            <ProgressRing progress={qScore} size={32} />
-                                                            <span className="text-base font-mono font-bold">{Math.round(qScore)}%</span>
+                                                            <ProgressRing progress={mScore} size={32} />
+                                                            <span className="text-base font-mono font-bold">{Math.round(mScore)}%</span>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-4" onClick={e => e.stopPropagation()}>
                                                         <div className="flex-1">
-                                                            <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight (in Year)</span>
-                                                            <input type="range" min="0" max="100" step={1} value={qItem.weight}
-                                                                onChange={e => updateItem(qItem.id, { weight: parseFloat(e.target.value) || 0 })}
+                                                            <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight</span>
+                                                            <input type="range" min="0" max="100" step={1} value={mItem.weight}
+                                                                onChange={e => updateItem(mItem.id, { weight: parseFloat(e.target.value) || 0 })}
                                                                 className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
-                                                            <span className="text-[9px] font-mono text-ink/50">{Math.round(qItem.weight || 0)}%</span>
+                                                            <span className="text-[9px] font-mono text-ink/50">{Math.round(mItem.weight || 0)}%</span>
                                                         </div>
                                                         <div className="flex-1">
                                                             <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
-                                                            <input type="range" min="0" max="100" step={1} value={Math.round(qScore)}
-                                                                onChange={e => updateItem(qItem.id, { progress: parseFloat(e.target.value) || 0 })}
+                                                            <input type="range" min="0" max="100" step={1} value={Math.round(mScore)}
+                                                                onChange={e => updateItem(mItem.id, { progress: parseFloat(e.target.value) || 0 })}
                                                                 className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
-                                                            <span className="text-[9px] font-mono text-ink/50">{Math.round(qScore)}%</span>
+                                                            <span className="text-[9px] font-mono text-ink/50">{Math.round(mScore)}%</span>
                                                         </div>
                                                     </div>
-                                                    <button onClick={(e) => handleDelete(e, qItem.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete Goal">
+                                                    <button onClick={(e) => handleDelete(e, mItem.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </Card>
                                             )
                                         })}
                                     </div>
-                                    {catQuarters.length === 0 && !addingGoal && (
+                                    {catMonths.length === 0 && !addingGoal && (
                                         <p className="text-xs text-ink/40 italic">No goals yet. Click + to add one.</p>
                                     )}
                                 </div>
@@ -317,44 +323,48 @@ export default function YearQuarterPage() {
                 </div>
             </div>
 
-            {/* Quarter Reflection */}
+            {/* Month Reflection */}
             <div>
                 <div className="flex items-center space-x-2 mb-4">
                     <BookOpen className="w-5 h-5 text-gold" />
-                    <h2 className="text-2xl font-display font-bold text-ink">{quarterLabel} Reflection</h2>
+                    <h2 className="text-2xl font-display font-bold text-ink">{monthLabel} Reflection</h2>
                 </div>
                 <Card className="p-5">
                     <textarea value={reflectionText}
                         onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
-                        placeholder={`Reflect on ${quarterLabel} so far... What's working? What needs to change?`}
+                        placeholder={`Reflect on ${monthLabel} so far... What's working? What needs to change?`}
                         className="w-full h-48 bg-paper border border-mist rounded-lg p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
                     <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
                 </Card>
             </div>
 
-            {/* Months Section - below reflection */}
+            {/* Weeks Section */}
             <div>
-                <h2 className="text-2xl font-display font-bold text-ink mb-4">Months</h2>
+                <h2 className="text-2xl font-display font-bold text-ink mb-4">Weeks</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {monthGroups.map(({ label, items: mItems, avgScore }) => {
+                    {weekGroups.map(({ title, items: wItems, avgScore, dateLabel }) => {
                         return (
-                            <Card key={label} className="p-5 transition-colors group hover:border-gold cursor-pointer"
-                                onClick={() => router.push(`/year/${quarterLabel}/${label}`)}>
+                            <Card key={title} className="p-5 transition-colors group hover:border-gold cursor-pointer"
+                                onClick={() => router.push(`/year/${quarterLabel}/${monthLabel}/${title.replace(/\s+/g, '')}`)}>
                                 <div className="flex items-center justify-between mb-3">
                                     <div>
-                                        <p className="text-xs font-bold uppercase tracking-widest text-gold">{label}</p>
+                                        <p className="text-xs font-bold uppercase tracking-widest text-gold">{title}</p>
+                                        {dateLabel && <p className="text-[10px] text-ink/40 mt-0.5">{dateLabel}</p>}
                                     </div>
                                 </div>
                                 <div className="flex items-end justify-between">
                                     <ProgressRing progress={avgScore} size={48} />
                                     <div className="text-right">
                                         <p className="text-xl font-mono font-bold">{Math.round(avgScore)}%</p>
-                                        <p className="text-[10px] text-ink/40">{mItems.length} active goals</p>
+                                        <p className="text-[10px] text-ink/40">{wItems.length} active goals</p>
                                     </div>
                                 </div>
                             </Card>
                         )
                     })}
+                    {weekGroups.length === 0 && (
+                        <p className="text-sm text-ink/50 italic">Weeks will appear once goals are created.</p>
+                    )}
                 </div>
             </div>
         </div>

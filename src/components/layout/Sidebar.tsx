@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3 } from 'lucide-react'
 
 export function Sidebar() {
   const links = [
@@ -8,6 +8,7 @@ export function Sidebar() {
     { name: 'Year View', href: '/year', icon: Calendar },
     { name: 'Partners', href: '/partners', icon: Users },
     { name: 'Notes', href: '/notes', icon: FileText },
+    { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 

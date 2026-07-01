@@ -11,6 +11,7 @@ export type Item = {
   status: string
   completed: boolean
   progress: number // 0-100
+  scoreMode?: string // 'auto' | 'manual'
   category: string | null // Legacy
   startDate: string | null
   endDate: string | null
@@ -57,6 +58,7 @@ type HierarchyState = {
   updateTask: (goalId: string, taskId: string, updates: Partial<Task>) => void
   recalculateRollups: () => void
   getFlatItems: () => Item[]
+  updateItemScoreMode: (id: string, mode: 'auto' | 'manual', score?: number) => Promise<void>
 }
 
 export const useHierarchyStore = create<HierarchyState>((set, get) => ({
@@ -105,13 +107,39 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
     }).catch(console.error)
   },
 
+  updateItemScoreMode: async (id, mode, score) => {
+    const body = mode === 'manual'
+      ? JSON.stringify({ mode: 'manual', score: score || 0 })
+      : JSON.stringify({ mode: 'auto' })
+
+    await fetch(`/api/items/${id}/score`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body
+    })
+
+    // Refresh items to get updated data
+    const res = await fetch('/api/items')
+    const data = await res.json()
+    if (data.items) {
+      const itemMap = new Map()
+      data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+      const tree: any[] = []
+      data.items.forEach((item: any) => {
+        if (item.parentId) { const parent = itemMap.get(item.parentId); if (parent) parent.children.push(itemMap.get(item.id)) }
+        else { tree.push(itemMap.get(item.id)) }
+      })
+      set({ items: tree })
+    }
+  },
+
   recalculateRollups: () => {
     const { items } = get()
     const completionMap: Record<string, number> = {}
     const completedMap: Record<string, boolean> = {}
 
     // Tasks are mapped to their goalId directly now.
-    
+
     const calculateForNode = (node: Item): { earnedScore: number; totalWeight: number } => {
       const children = node.children || []
       const tasks = node.tasks || []
@@ -133,15 +161,15 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
           const childResult = calculateForNode(child)
           totalWeight += child.weight
           // child progress acts as the percentage completion of its weight
-          const childProgress = childResult.totalWeight > 0 
-                                ? (childResult.earnedScore / childResult.totalWeight) 
-                                : (completionMap[child.id] || 0) / 100
+          const childProgress = childResult.totalWeight > 0
+            ? (childResult.earnedScore / childResult.totalWeight)
+            : (completionMap[child.id] || 0) / 100
           earnedScore += childProgress * child.weight
         })
       }
 
       let pct = node.progress || 0
-      
+
       if (totalWeight > 0) {
         pct = (earnedScore / totalWeight) * 100
       } else if (node.completed) {
@@ -151,12 +179,12 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
       completionMap[node.id] = pct
       completedMap[node.id] = pct >= 100
 
-      // The node's internal state doesn't instantly dictate what we pass up, 
+      // The node's internal state doesn't instantly dictate what we pass up,
       // but rather we calculate what this node earned and its total weight
       // wait, the parent just looks at this node's weight and completion pct.
-      // So returning earnedScore and totalWeight isn't really needed for the parent to read, 
+      // So returning earnedScore and totalWeight isn't really needed for the parent to read,
       // the parent recalculates based on its children's completionMap percentage.
-      
+
       return { earnedScore, totalWeight }
     }
 

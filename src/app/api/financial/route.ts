@@ -8,14 +8,14 @@ export async function GET(req: Request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
-    const deedId = searchParams.get('deedId')
+    const itemId = searchParams.get('itemId')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
     const where: any = { userId }
 
-    if (deedId) {
-      where.deedId = deedId
+    if (itemId) {
+      where.itemId = itemId
     }
 
     if (startDate && endDate) {
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { deedId, entryDate, type, amount, currency, category, description } = body
+    const { itemId, entryDate, type, amount, currency, category, description } = body
 
     if (!type || !amount || !category) {
       return NextResponse.json({ error: 'type, amount, and category are required' }, { status: 400 })
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     const entry = await prisma.financialEntry.create({
       data: {
         userId,
-        deedId: deedId || null,
+        itemId: itemId || null,
         entryDate: entryDate ? new Date(entryDate) : new Date(),
         type,
         amount: parseFloat(amount),

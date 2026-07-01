@@ -2,13 +2,26 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const { searchParams } = new URL(req.url)
+    const dateStr = searchParams.get('date')
+    const itemId = searchParams.get('itemId')
+
+    const where: any = { userId }
+    if (itemId) where.itemId = itemId
+    if (dateStr) {
+      const date = new Date(dateStr)
+      const next = new Date(date)
+      next.setDate(next.getDate() + 1)
+      where.createdAt = { gte: date, lt: next }
+    }
+
     const notes = await prisma.note.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' }
     })
 

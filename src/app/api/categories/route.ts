@@ -7,9 +7,9 @@ export async function GET() {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const categories = await prisma.userCategory.findMany({
-      where: { userId },
-      orderBy: { name: 'asc' }
+    const categories = await prisma.item.findMany({
+      where: { userId, layer: 1 },
+      orderBy: { title: 'asc' }
     })
 
     return NextResponse.json({ categories })
@@ -25,18 +25,18 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { name, color, icon } = body
+    const { title } = body
 
-    if (!name) {
-      return NextResponse.json({ error: 'name is required' }, { status: 400 })
+    if (!title) {
+      return NextResponse.json({ error: 'title is required' }, { status: 400 })
     }
 
-    const category = await prisma.userCategory.create({
+    const category = await prisma.item.create({
       data: {
         userId,
-        name,
-        color: color || '#D4AF37',
-        icon: icon || 'folder',
+        layer: 1,
+        title,
+        weight: 0,
       }
     })
 
@@ -59,7 +59,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    await prisma.userCategory.deleteMany({
+    await prisma.item.deleteMany({
       where: { id, userId }
     })
 

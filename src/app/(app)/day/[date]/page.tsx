@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2 } from 'lucide-react'
+import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
+import { RichNoteModal } from '@/components/items/RichNoteModal'
 
 type DeedModalData = {
   task: Task
@@ -17,7 +18,7 @@ type DeedModalData = {
 export default function DayPage() {
   const router = useRouter()
   const params = useParams()
-  const dateStr = params.date as string // yyyy-MM-dd
+  const dateStr = params.date as string
 
   const { items, completionMap, setItems, updateItem, updateTask } = useHierarchyStore()
   const [loading, setLoading] = useState(true)
@@ -32,16 +33,18 @@ export default function DayPage() {
   const [newDeedEnd, setNewDeedEnd] = useState('')
   const [newDeedWeight, setNewDeedWeight] = useState('10')
   const [newDeedCategory, setNewDeedCategory] = useState<string>('')
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurrencePattern, setRecurrencePattern] = useState('')
+  const [recurrenceEnd, setRecurrenceEnd] = useState('')
+  const [dayNotes, setDayNotes] = useState<any[]>([])
+  const [showNoteModal, setShowNoteModal] = useState(false)
+  const [editingNote, setEditingNote] = useState<any>(null)
 
-  // Get all categories for tagging
   const categories = items.filter(i => i.layer === 1)
-
   const currentDate = parseISO(dateStr)
-
   const [nowLineTop, setNowLineTop] = useState<number | null>(null)
   const prevAddingDeed = useRef(addingDeed)
 
-  // Find daily goals for this date
   const findDailyGoalsForDate = (): Item[] => {
     const result: Item[] = []
     const search = (nodes: Item[]) => {
@@ -50,9 +53,7 @@ export default function DayPage() {
           const goalDateStr = typeof n.startDate === 'string'
             ? n.startDate.substring(0, 10)
             : new Date(n.startDate).toISOString().substring(0, 10)
-          if (goalDateStr === dateStr) {
-            result.push(n)
-          }
+          if (goalDateStr === dateStr) result.push(n)
         }
         if (n.children) search(n.children)
       })
@@ -75,7 +76,7 @@ export default function DayPage() {
       }
     }
     prevAddingDeed.current = addingDeed
-  }, [addingDeed, dailyGoals, setNewDeedWeight])
+  }, [addingDeed, dailyGoals])
 
   useEffect(() => {
     const updateNowLine = () => {
@@ -87,22 +88,34 @@ export default function DayPage() {
         setNowLineTop(null)
       }
     }
-
     updateNowLine()
     const interval = setInterval(updateNowLine, 60000)
     return () => clearInterval(interval)
   }, [dateStr])
 
+  const fetchDayNotes = async () => {
+    try {
+      const noteRes = await fetch(`/api/notes?date=${dateStr}`)
+      if (noteRes.ok) {
+        const data = await noteRes.json()
+        setDayNotes(data.notes || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch notes', e)
+    }
+  }
+
+  useEffect(() => {
+    fetchDayNotes()
+  }, [dateStr])
+
   const handleGridClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('.task-block')) return
-
     const rect = e.currentTarget.getBoundingClientRect()
     const clickY = e.clientY - rect.top + e.currentTarget.scrollTop
     const clickedHour = Math.max(0, Math.min(23, Math.floor(clickY / 64)))
-
     const startStr = `${String(clickedHour).padStart(2, '0')}:00`
     const endStr = `${String(Math.min(23, clickedHour + 1)).padStart(2, '0')}:00`
-
     setNewDeedStart(startStr)
     setNewDeedEnd(endStr)
     setAddingDeed(true)
@@ -116,13 +129,10 @@ export default function DayPage() {
       const endHour = Math.max(startHour + 0.5, end.getHours() + end.getMinutes() / 60)
       return { task: t, startHour, endHour }
     })
-
     scheduled.sort((a, b) => a.startHour - b.startHour)
-
     const groups: Array<typeof scheduled> = []
     let currentGroup: typeof scheduled = []
     let groupEnd = 0
-
     scheduled.forEach(item => {
       if (currentGroup.length === 0) {
         currentGroup.push(item)
@@ -136,22 +146,11 @@ export default function DayPage() {
         groupEnd = item.endHour
       }
     })
-    if (currentGroup.length > 0) {
-      groups.push(currentGroup)
-    }
-
-    const result: Array<{
-      task: Task
-      top: number
-      height: number
-      left: number
-      width: number
-    }> = []
-
+    if (currentGroup.length > 0) groups.push(currentGroup)
+    const result: Array<{ task: Task; top: number; height: number; left: number; width: number }> = []
     groups.forEach(group => {
       const columns: Array<number[]> = []
       const taskPlacements: Array<{ item: typeof scheduled[0]; colIndex: number }> = []
-
       group.forEach(item => {
         let placed = false
         for (let i = 0; i < columns.length; i++) {
@@ -168,24 +167,15 @@ export default function DayPage() {
           taskPlacements.push({ item, colIndex: columns.length - 1 })
         }
       })
-
       const numCols = columns.length
       taskPlacements.forEach(({ item, colIndex }) => {
         const top = item.startHour * 64
         const height = (item.endHour - item.startHour) * 64
         const width = 94 / numCols
         const left = colIndex * (96 / numCols) + 2
-
-        result.push({
-          task: item.task,
-          top,
-          height,
-          left,
-          width,
-        })
+        result.push({ task: item.task, top, height, left, width })
       })
     })
-
     return result
   }
 
@@ -226,15 +216,12 @@ export default function DayPage() {
     return search(items)
   }
 
-  // Collect all tasks from daily goals
   const allTasks: Task[] = dailyGoals.flatMap(dg => dg.tasks || [])
   const completedTasks = allTasks.filter(t => t.completed)
   const totalWeight = allTasks.reduce((sum, t) => sum + t.weight, 0)
   const dayScore = totalWeight > 0
     ? allTasks.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0) / totalWeight * 100
     : 0
-
-  // Find the first daily goal to use for reflection
   const primaryGoal = dailyGoals[0]
 
   useEffect(() => {
@@ -268,9 +255,7 @@ export default function DayPage() {
   const handleSaveDeedReflection = () => {
     if (!selectedDeed) return
     const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(t => t.id === selectedDeed.task.id))
-    if (goalItem) {
-      updateTask(goalItem.id, selectedDeed.task.id, { reflection: deedReflection })
-    }
+    if (goalItem) updateTask(goalItem.id, selectedDeed.task.id, { reflection: deedReflection })
     setSelectedDeed(null)
   }
 
@@ -279,11 +264,8 @@ export default function DayPage() {
     if (!confirm('Delete this deed?')) return
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
-      if (!res.ok) {
-        alert('Failed to delete deed')
-      } else {
-        fetchItems()
-      }
+      if (!res.ok) alert('Failed to delete deed')
+      else fetchItems()
     } catch (e) {
       console.error(e)
     }
@@ -317,14 +299,11 @@ export default function DayPage() {
 
   const handleAddDeed = async () => {
     if (!newDeedTitle.trim()) return
-
     try {
       let goalId: string
-
       if (dailyGoals.length > 0) {
         goalId = dailyGoals[0].id
       } else {
-        // Auto-create a daily goal (layer 6) for this date so we have a goalId
         let parentWeekId: string | undefined
         const searchForWeek = (nodes: Item[]) => {
           for (const n of nodes) {
@@ -341,7 +320,6 @@ export default function DayPage() {
           }
         }
         searchForWeek(items)
-
         const dayName = format(currentDate, 'EEEE')
         const createRes = await fetch('/api/items', {
           method: 'POST',
@@ -357,7 +335,6 @@ export default function DayPage() {
         })
         const createData = await createRes.json()
         if (!createData.item?.id) {
-          console.error('Failed to auto-create daily goal', createData)
           alert('Could not create a daily goal for this date.')
           return
         }
@@ -381,8 +358,6 @@ export default function DayPage() {
 
       const startTimeISO = newDeedStart ? new Date(`${dateStr}T${newDeedStart}:00`).toISOString() : null
       const endTimeISO = newDeedEnd ? new Date(`${dateStr}T${newDeedEnd}:00`).toISOString() : null
-
-      // Smart weight: distribute remaining percentage equally
       const existingTasks = dailyGoals.find(dg => dg.id === goalId)?.tasks || []
       const totalExistingWeight = existingTasks.reduce((sum, t) => sum + t.weight, 0)
       const remaining = Math.max(0, 100 - totalExistingWeight)
@@ -400,11 +375,13 @@ export default function DayPage() {
           endTime: endTimeISO,
           weight: finalWeight,
           categoryId: newDeedCategory || null,
+          isRecurring: isRecurring,
+          recurrencePattern: isRecurring ? recurrencePattern : null,
+          recurrenceEnd: isRecurring && recurrenceEnd ? new Date(recurrenceEnd).toISOString() : null,
         })
       })
       const resData = await res.json()
       if (!res.ok) {
-        console.error('Failed to create task', resData)
         alert(`Failed to save task: ${resData.error || 'Unknown error'}`)
         return
       }
@@ -414,6 +391,9 @@ export default function DayPage() {
       setNewDeedEnd('')
       setNewDeedWeight('10')
       setNewDeedCategory('')
+      setIsRecurring(false)
+      setRecurrencePattern('')
+      setRecurrenceEnd('')
       setAddingDeed(false)
     } catch (e) {
       console.error('Error adding deed:', e)
@@ -421,7 +401,6 @@ export default function DayPage() {
     }
   }
 
-  // Full 24-hour slots: 0 (12 AM) through 23 (11 PM)
   const hours = Array.from({ length: 24 }, (_, i) => i)
 
   const formatHourLabel = (hour: number): string => {
@@ -435,14 +414,12 @@ export default function DayPage() {
 
   return (
     <div className="space-y-6 max-w-full pb-12">
-      {/* Breadcrumb */}
       <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
         <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
         <ChevronRight className="w-3 h-3" />
         <span className="text-ink font-bold">{format(currentDate, 'EEEE, MMMM d, yyyy')}</span>
       </div>
 
-      {/* Day Header */}
       <div className="bg-surface border border-mist rounded-2xl p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -457,8 +434,6 @@ export default function DayPage() {
             <ProgressRing progress={dayScore} size={64} />
           </div>
         </div>
-
-        {/* Overall day percentage */}
         <div className="mt-4">
           <div className="flex justify-between text-xs text-ink/50 mb-1">
             <span>Day Progress</span>
@@ -468,7 +443,53 @@ export default function DayPage() {
         </div>
       </div>
 
-      {/* View Toggle + Add button */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <StickyNote className="w-5 h-5 text-gold" />
+            <h2 className="text-xl font-display font-bold text-ink">Day Notes</h2>
+          </div>
+          <button
+            onClick={() => { setEditingNote(null); setShowNoteModal(true) }}
+            className="px-3 py-1.5 text-xs font-medium bg-ink text-surface rounded hover:bg-ink/90 transition flex items-center space-x-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Note</span>
+          </button>
+        </div>
+        {dayNotes.length === 0 ? (
+          <p className="text-xs text-ink/40 text-center py-4">No notes for this day yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {dayNotes.map(note => (
+              <div key={note.id} className="border border-mist rounded-lg p-4 hover:border-gold transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-bold text-sm text-ink">{note.title}</h4>
+                    <div
+                      className="text-xs text-ink/70 mt-1 prose prose-sm max-w-none line-clamp-2"
+                      dangerouslySetInnerHTML={{ __html: note.content }}
+                    />
+                    <p className="text-[10px] text-ink/40 mt-2 font-mono">
+                      {new Date(note.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-1 ml-3">
+                    <button
+                      onClick={() => { setEditingNote(note); setShowNoteModal(true) }}
+                      className="p-1.5 hover:bg-mist rounded transition text-ink/50 hover:text-gold"
+                      title="Edit note"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
       <div className="flex items-center space-x-4">
         <button
           onClick={() => setViewMode('timeline')}
@@ -489,7 +510,7 @@ export default function DayPage() {
       </div>
 
       {addingDeed && (
-        <Card className="p-4">
+        <Card className="p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <input type="text" value={newDeedTitle} onChange={e => setNewDeedTitle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddDeed()}
@@ -509,15 +530,51 @@ export default function DayPage() {
               <button onClick={handleAddDeed} className="flex-1 px-4 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Add</button>
             </div>
           </div>
+          <div className="md:col-span-6 border-t border-mist pt-3">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={e => setIsRecurring(e.target.checked)}
+                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
+              />
+              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                <Repeat className="w-3.5 h-3.5" />
+                <span>Recurring Task</span>
+              </span>
+            </label>
+            {isRecurring && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                <select
+                  value={recurrencePattern}
+                  onChange={e => setRecurrencePattern(e.target.value)}
+                  className="px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30"
+                >
+                  <option value="">Repeat...</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Biweekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                  <option value="weekdays">Weekdays (Mon-Fri)</option>
+                </select>
+                <input
+                  type="date"
+                  value={recurrenceEnd}
+                  onChange={e => setRecurrenceEnd(e.target.value)}
+                  className="px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  placeholder="End date (optional)"
+                />
+              </div>
+            )}
+          </div>
         </Card>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* LEFT: Timeline or Table */}
         <div className="xl:col-span-2">
           {viewMode === 'timeline' ? (
             <div className="relative border border-mist rounded-xl overflow-hidden bg-surface flex select-none animate-fadeIn" style={{ height: `${24 * 64}px` }}>
-              {/* Time axis */}
               <div className="w-20 shrink-0 border-r border-mist/50 bg-paper/50 relative z-10">
                 {hours.map(hour => (
                   <div key={hour} className="absolute left-0 right-0 text-right pr-3 text-[10px] font-mono text-ink/40" style={{ top: `${hour * 64 + 6}px`, height: '64px' }}>
@@ -525,40 +582,24 @@ export default function DayPage() {
                   </div>
                 ))}
               </div>
-
-              {/* Grid content */}
               <div className="flex-1 relative bg-surface cursor-crosshair" onClick={handleGridClick}>
-                {/* Background Hour Lines */}
                 {hours.map(hour => (
                   <div key={hour} className="absolute left-0 right-0 border-b border-mist/30" style={{ top: `${hour * 64}px`, height: '64px' }} />
                 ))}
-
-                {/* Red Now Indicator Line */}
                 {nowLineTop !== null && (
                   <div className="absolute left-0 right-0 flex items-center z-20 pointer-events-none" style={{ top: `${nowLineTop}px` }}>
                     <div className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
                     <div className="flex-1 h-0.5 bg-red-500" />
                   </div>
                 )}
-
-                {/* Absolutely Positioned Task Blocks */}
                 {getPositionedTasks(allTasks).map(({ task, top, height, left, width }) => {
                   const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === task.id))
                   return (
                     <div
                       key={task.id}
                       onClick={(e) => { e.stopPropagation(); handleOpenDeed(task) }}
-                      className={`absolute rounded-lg border p-2 text-left text-xs flex flex-col justify-between transition-all hover:shadow-md cursor-pointer group/task select-none overflow-hidden task-block ${task.completed
-                        ? 'bg-sage/10 border-sage/30 text-ink/50'
-                        : 'bg-gold/10 border-gold/30 text-ink hover:border-gold'
-                        }`}
-                      style={{
-                        top: `${top + 2}px`,
-                        height: `${height - 4}px`,
-                        left: `${left}%`,
-                        width: `${width}%`,
-                        zIndex: 10,
-                      }}
+                      className={`absolute rounded-lg border p-2 text-left text-xs flex flex-col justify-between transition-all hover:shadow-md cursor-pointer group/task select-none overflow-hidden task-block ${task.completed ? 'bg-sage/10 border-sage/30 text-ink/50' : 'bg-gold/10 border-gold/30 text-ink hover:border-gold'}`}
+                      style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10 }}
                     >
                       <div className="flex items-start justify-between gap-1">
                         <div className="flex items-center space-x-1.5 min-w-0">
@@ -567,15 +608,10 @@ export default function DayPage() {
                           </button>
                           <span className={`font-semibold truncate ${task.completed ? 'line-through' : ''}`}>{task.title}</span>
                         </div>
-                        <button
-                          onClick={(e) => handleDeleteTask(e, task.id)}
-                          className="shrink-0 p-0.5 opacity-0 group-hover/task:opacity-100 hover:bg-red-50 rounded transition text-ink/30 hover:text-red-500"
-                          title="Delete"
-                        >
+                        <button onClick={(e) => handleDeleteTask(e, task.id)} className="shrink-0 p-0.5 opacity-0 group-hover/task:opacity-100 hover:bg-red-50 rounded transition text-ink/30 hover:text-red-500" title="Delete">
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
-
                       <div className="space-y-1 mt-1">
                         {task.startTime && task.endTime && (
                           <div className="text-[10px] text-ink/40 font-mono">
@@ -615,7 +651,6 @@ export default function DayPage() {
               </div>
             </div>
           ) : (
-            /* TABLE VIEW */
             <div className="border border-mist rounded-xl overflow-hidden bg-surface">
               <table className="w-full text-sm">
                 <thead>
@@ -687,8 +722,6 @@ export default function DayPage() {
               </table>
             </div>
           )}
-
-          {/* Unscheduled tasks (no startTime) */}
           {allTasks.filter(t => !t.startTime).length > 0 && viewMode === 'timeline' && (
             <div className="mt-6">
               <h3 className="text-sm font-bold text-ink/60 uppercase tracking-wider mb-3">Unscheduled</h3>
@@ -699,8 +732,7 @@ export default function DayPage() {
                     <button
                       key={t.id}
                       onClick={() => handleOpenDeed(t)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition group ${t.completed ? 'bg-sage/5 border-sage/20' : 'bg-surface border-mist hover:border-gold'
-                        }`}
+                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition group ${t.completed ? 'bg-sage/5 border-sage/20' : 'bg-surface border-mist hover:border-gold'}`}
                     >
                       <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
                         {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
@@ -729,7 +761,6 @@ export default function DayPage() {
           )}
         </div>
 
-        {/* RIGHT: Reflection + Goals Summary */}
         <div className="xl:col-span-1">
           <div className="sticky top-6 space-y-6">
             <div className="flex items-center space-x-2 mb-4">
@@ -745,8 +776,6 @@ export default function DayPage() {
               />
               <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
             </Card>
-
-            {/* Daily goals summary */}
             <Card className="p-5 space-y-3">
               <p className="text-xs font-bold uppercase text-ink/50">Today's Goals</p>
               {dailyGoals.map(dg => (
@@ -762,8 +791,6 @@ export default function DayPage() {
                 <p className="text-xs text-ink/40">No daily goals for this date.</p>
               )}
             </Card>
-
-            {/* Cascading hierarchy */}
             {primaryGoal && (
               <Card className="p-5 space-y-3">
                 <p className="text-xs font-bold uppercase text-ink/50">Contributes To</p>
@@ -806,7 +833,15 @@ export default function DayPage() {
         </div>
       </div>
 
-      {/* Deed Modal */}
+      {showNoteModal && (
+        <RichNoteModal
+          onClose={() => { setShowNoteModal(false); setEditingNote(null) }}
+          onSaved={() => { fetchDayNotes(); fetchItems() }}
+          note={editingNote}
+          defaultDate={dateStr}
+        />
+      )}
+
       {selectedDeed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm" onClick={() => setSelectedDeed(null)}>
           <div className="bg-surface rounded-2xl border border-mist shadow-xl w-full max-w-lg mx-4 p-6 space-y-5" onClick={e => e.stopPropagation()}>
@@ -816,8 +851,6 @@ export default function DayPage() {
                 <X className="w-5 h-5 text-ink/50" />
               </button>
             </div>
-
-            {/* Status & Weight */}
             <div className="flex items-center space-x-4">
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedDeed.task.completed ? 'bg-sage/20 text-sage' : 'bg-gold/20 text-gold'}`}>
                 {selectedDeed.task.completed ? 'Completed' : 'Pending'}
@@ -830,8 +863,6 @@ export default function DayPage() {
                 </span>
               )}
             </div>
-
-            {/* Parent Goal */}
             {selectedDeed.parentGoal && (
               <div className="bg-paper border border-mist rounded-lg p-3">
                 <p className="text-[10px] font-bold uppercase text-ink/40 mb-1">Contributing to Goal</p>
@@ -839,8 +870,6 @@ export default function DayPage() {
                 <ProgressBar progress={completionMap[selectedDeed.parentGoal.id] || 0} colorClass="bg-gold" className="mt-2" />
               </div>
             )}
-
-            {/* Deed Reflection */}
             <div>
               <p className="text-xs font-bold uppercase text-ink/50 mb-2">Deed Reflection</p>
               <textarea
@@ -850,7 +879,6 @@ export default function DayPage() {
                 className="w-full h-32 bg-paper border border-mist rounded-lg p-3 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30"
               />
             </div>
-
             <div className="flex justify-end space-x-3">
               <button onClick={() => setSelectedDeed(null)} className="px-4 py-2 text-sm text-ink/60 hover:text-ink transition">Cancel</button>
               <button onClick={handleSaveDeedReflection} className="px-4 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Save</button>

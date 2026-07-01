@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await req.json()
-        const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, reflection } = body
+        const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, reflection, isRecurring, recurrencePattern, recurrenceEnd } = body
 
         if (!goalId || !title || !date) {
             return NextResponse.json({ error: 'goalId, title, and date are required' }, { status: 400 })
@@ -55,9 +55,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Goal not found' }, { status: 404 })
         }
 
-        // The user can provide a weight, or we default to a smart calculation if needed, 
-        // but the spec says tasks can have explicitly configured weights (e.g. 15%)
-        const taskWeight = weight !== undefined ? weight : 10.0; // default 10%
+        const taskWeight = weight !== undefined ? weight : 10.0
+
+        const taskDate = new Date(date)
+        const recurrenceEndDate = recurrenceEnd ? new Date(recurrenceEnd) : null
 
         const task = await prisma.task.create({
             data: {
@@ -68,16 +69,84 @@ export async function POST(req: Request) {
                 weight: taskWeight,
                 progress: 0,
                 completed: false,
-                date: new Date(date),
+                date: taskDate,
                 startTime: startTime ? new Date(startTime) : null,
                 endTime: endTime ? new Date(endTime) : null,
                 estimatedDuration: estimatedDuration || null,
                 priority: priority || null,
                 reflection: reflection || null,
+                isRecurring: isRecurring || false,
+                recurrencePattern: isRecurring ? recurrencePattern : null,
+                recurrenceEnd: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
             },
         })
 
-        // Update goal progress recursively
+        // If recurring, generate additional instances
+        if (isRecurring && recurrencePattern && recurrenceEndDate) {
+            const instances: any[] = []
+            let currentDate = new Date(taskDate)
+            currentDate.setDate(currentDate.getDate() + 1)
+
+            while (currentDate <= recurrenceEndDate) {
+                let shouldCreate = false
+                const day = currentDate.getDay()
+
+                switch (recurrencePattern) {
+                    case 'daily':
+                        shouldCreate = true
+                        break
+                    case 'weekly':
+                        shouldCreate = day === taskDate.getDay()
+                        break
+                    case 'biweekly':
+                        shouldCreate = day === taskDate.getDay() && Math.floor((currentDate.getTime() - taskDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) % 2 === 0
+                        break
+                    case 'monthly':
+                        shouldCreate = currentDate.getDate() === taskDate.getDate()
+                        break
+                    case 'yearly':
+                        shouldCreate = currentDate.getMonth() === taskDate.getMonth() && currentDate.getDate() === taskDate.getDate()
+                        break
+                    case 'weekdays':
+                        shouldCreate = day >= 1 && day <= 5
+                        break
+                    default:
+                        shouldCreate = false
+                }
+
+                if (shouldCreate) {
+                    instances.push(
+                        prisma.task.create({
+                            data: {
+                                userId,
+                                goalId,
+                                categoryId: categoryId || null,
+                                title,
+                                weight: taskWeight,
+                                progress: 0,
+                                completed: false,
+                                date: new Date(currentDate),
+                                startTime: startTime ? new Date(startTime) : null,
+                                endTime: endTime ? new Date(endTime) : null,
+                                estimatedDuration: estimatedDuration || null,
+                                priority: priority || null,
+                                reflection: reflection || null,
+                                isRecurring: false,
+                                recurrencePattern: null,
+                                recurrenceEnd: null,
+                            },
+                        })
+                    )
+                }
+
+                currentDate.setDate(currentDate.getDate() + 1)
+            }
+
+            if (instances.length > 0) {
+                await prisma.$transaction(instances)
+            }
+        }
+
         await recalculateItemProgress(goalId)
 
         return NextResponse.json({ success: true, task })
