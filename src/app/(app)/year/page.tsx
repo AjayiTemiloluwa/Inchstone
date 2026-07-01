@@ -6,12 +6,14 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter } from 'next/navigation'
-import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen } from 'lucide-react'
+import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format } from 'date-fns'
+import { useToast } from '@/components/ui/ToastProvider'
 
 export default function YearPage() {
   const router = useRouter()
   const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
+  const { showToast, confirm } = useToast()
   const [loading, setLoading] = useState(true)
   const [lockedWeights, setLockedWeights] = useState<Record<string, boolean>>({})
   const [categoryWeights, setCategoryWeights] = useState<Record<string, number>>({})
@@ -211,7 +213,7 @@ export default function YearPage() {
       })
       const postData = await resPost.json()
       if (!resPost.ok || !postData.success) {
-        alert('Failed to add category: ' + (postData.error || 'Unknown error'))
+        showToast('Failed to add category: ' + (postData.error || 'Unknown error'), 'error')
         return
       }
       const res = await fetch('/api/items?t=' + Date.now())
@@ -231,17 +233,17 @@ export default function YearPage() {
       }
       setNewCategoryTitle('')
       setAddingCategory(false)
-    } catch (e) { console.error(e); alert('Error adding category.') }
+    } catch (e) { console.error(e); showToast('Error adding category.', 'error') }
   }
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    if (!confirm('Are you sure you want to delete this? All nested goals will also be deleted.')) return
+    if (!(await confirm('Are you sure you want to delete this? All nested goals will also be deleted.'))) return
     try {
       const goalToDelete = yearlyGoals.find(g => g.id === id)
       const parentCategoryId = goalToDelete?.parentId
       const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
-      if (!res.ok) { alert('Failed to delete item') }
+      if (!res.ok) { showToast('Failed to delete item', 'error') }
       else {
         await fetchItems()
         if (parentCategoryId) {
@@ -253,6 +255,29 @@ export default function YearPage() {
         }
       }
     } catch (e) { console.error(e) }
+  }
+
+  const handleDownloadReport = async () => {
+    const element = document.getElementById('report-content')
+    if (!element) return
+
+    const opt = {
+      margin: 0.5,
+      filename: `Year_Report_${new Date().getFullYear()}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+    }
+
+    try {
+      showToast('Generating PDF Report...', 'info')
+      const html2pdf = (await import('html2pdf.js')).default
+      await html2pdf().set(opt as any).from(element).save()
+      showToast('PDF Report downloaded successfully', 'success')
+    } catch (err) {
+      console.error('PDF export failed:', err)
+      showToast('Failed to export PDF', 'error')
+    }
   }
 
   if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
@@ -267,16 +292,22 @@ export default function YearPage() {
   })
 
   return (
-    <div className="space-y-8 max-w-full pb-12">
+    <div className="space-y-8 max-w-full pb-12 stagger-children" id="report-content">
       {/* Year Vision Banner */}
-      <div className="bg-surface border border-mist rounded-2xl p-8 text-center">
-        <h1 className="text-4xl font-display font-bold text-ink mb-2">{yearItem.title || new Date().getFullYear()}</h1>
-        {yearItem.theme && <p className="text-lg text-gold font-serif italic mb-2">"{yearItem.theme}"</p>}
-        {yearItem.anchorScripture && <p className="text-sm text-ink/50 font-mono mb-4">{yearItem.anchorScripture}</p>}
-        <p className="text-sm text-ink/70 max-w-xl mx-auto">{yearItem.description}</p>
-        <div className="max-w-md mx-auto mt-6">
-          <div className="flex justify-between items-end mb-1">
+      <div className="glass-gold glow-sm rounded-3xl p-8 text-center animate-slideUp border border-gold/20">
+        <h1 className="text-5xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent mb-3">{yearItem.title || new Date().getFullYear()}</h1>
+        {yearItem.theme && <p className="text-xl text-gold font-serif italic mb-3">"{yearItem.theme}"</p>}
+        {yearItem.anchorScripture && <p className="text-sm text-ink/50 font-mono mb-5">{yearItem.anchorScripture}</p>}
+        <p className="text-sm text-ink/80 max-w-xl mx-auto leading-relaxed">{yearItem.description}</p>
+        <div className="max-w-md mx-auto mt-8 bg-black/20 p-4 rounded-2xl backdrop-blur-sm border border-white/5">
+          <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold uppercase text-ink/60">Overall Progress</span>
+            <button onClick={handleDownloadReport} className="px-3 py-1.5 bg-gold/10 text-gold border border-gold/30 text-xs font-bold rounded-lg hover:bg-gold/20 transition-all flex items-center space-x-1.5">
+              <Download className="w-3.5 h-3.5" />
+              <span>Report</span>
+            </button>
+          </div>
+          <div className="flex justify-between items-end mb-1">
             <span className="text-xl font-bold font-mono">{Math.round(completionMap[yearItem.id] || 0)}%</span>
           </div>
           <ProgressBar progress={completionMap[yearItem.id] || 0} />
@@ -285,8 +316,11 @@ export default function YearPage() {
 
       {/* Categories with Goals */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-display font-bold text-ink">Categories & Goals</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-3xl font-display font-bold text-ink flex items-center gap-3">
+            Categories & Goals
+            <span className="text-xs font-mono font-normal bg-white/10 px-2 py-1 rounded-full text-ink/60">{categories.length}</span>
+          </h2>
           <div className="flex items-center space-x-4">
             <button onClick={() => setAddingCategory(!addingCategory)} className="flex items-center space-x-1.5 text-xs text-ink/50 hover:text-gold transition">
               {addingCategory ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
@@ -300,11 +334,11 @@ export default function YearPage() {
         </div>
 
         {addingCategory && (
-          <div className="flex items-center space-x-2 mb-4">
+          <div className="flex items-center space-x-2 mb-6 animate-fadeIn">
             <input type="text" value={newCategoryTitle} onChange={e => setNewCategoryTitle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-              placeholder="New category..." className="flex-1 px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" autoFocus />
-            <button onClick={handleAddCategory} className="px-3 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Add</button>
+              placeholder="New category..." className="flex-1 px-4 py-3 text-sm bg-white/[0.04] border border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/40 transition-all placeholder:text-ink/30" autoFocus />
+            <button onClick={handleAddCategory} className="px-5 py-3 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow hover:glow-gold transition-all shadow-lg shadow-gold/20 active:scale-95">Add</button>
           </div>
         )}
 
@@ -329,10 +363,10 @@ export default function YearPage() {
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="flex items-center space-x-1">
-                        <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
+                        <span className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Score:</span>
                         <input type="number" min="0" max="100" value={Math.round(catScore)}
                           onChange={e => updateItem(category.id, { progress: parseFloat(e.target.value) || 0 })}
-                          className="w-12 px-1 py-0.5 text-[9px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
+                          className="w-12 px-1 py-0.5 text-[10px] font-mono bg-white/[0.06] rounded border border-transparent hover:border-white/20 focus:bg-white/[0.1] focus:border-gold outline-none transition-colors" />
                         <span className="text-[9px] text-ink/50">%</span>
                       </div>
                       <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(w)}%</span>
@@ -362,11 +396,11 @@ export default function YearPage() {
                   </div>
 
                   {addingGoal === category.id && (
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 animate-fadeIn mb-3">
                       <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)}
-                        placeholder="New annual goal..." className="flex-1 px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" autoFocus />
-                      <button onClick={() => handleAddGoal(category.id)} className="px-3 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Add</button>
+                        placeholder="New annual goal..." className="flex-1 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all" autoFocus />
+                      <button onClick={() => handleAddGoal(category.id)} className="px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">Add</button>
                     </div>
                   )}
 
@@ -398,7 +432,7 @@ export default function YearPage() {
                               <span className="text-[9px] font-mono text-ink/50">{Math.round(gScore)}%</span>
                             </div>
                           </div>
-                          <button onClick={(e) => handleDelete(e, goal.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete Goal">
+                          <button onClick={(e) => handleDelete(e, goal.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg transition text-ink/50 hover:text-red-400 z-10" title="Delete Goal">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </Card>
@@ -422,27 +456,27 @@ export default function YearPage() {
           <BookOpen className="w-5 h-5 text-gold" />
           <h2 className="text-2xl font-display font-bold text-ink">Year Reflection</h2>
         </div>
-        <Card className="p-5">
+        <Card className="p-6">
           <textarea value={reflectionText}
             onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
             placeholder="Reflect on your year so far... What's working? What needs to change?"
-            className="w-full h-48 bg-paper border border-mist rounded-lg p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
+            className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 placeholder:text-ink/30 transition-all" />
           <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
         </Card>
       </div>
 
       {/* Quarters Section - below reflection */}
       <div>
-        <h2 className="text-2xl font-display font-bold text-ink mb-4">Quarters</h2>
+        <h2 className="text-3xl font-display font-bold text-ink mb-6">Quarters</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {quarterGroups.map(({ label, items: qItems, avgScore }) => {
             const firstQ = qItems[0]
             return (
               <Card key={label} className={`p-5 transition-colors group ${firstQ ? 'hover:border-gold cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
                 onClick={() => { if (firstQ) router.push(`/year/${label}`) }}>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-gold">{label}</p>
+                    <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{label}</p>
                     <p className="text-[10px] text-ink/40 mt-0.5">
                       {label === 'Q1' ? 'Jan–Mar' : label === 'Q2' ? 'Apr–Jun' : label === 'Q3' ? 'Jul–Sep' : 'Oct–Dec'}
                     </p>

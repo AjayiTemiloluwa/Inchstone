@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await req.json()
-        const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, reflection, isRecurring, recurrencePattern, recurrenceEnd } = body
+        const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, reflection, isRecurring, recurrencePattern, recurrenceEnd, isFrog, isHabit } = body
 
         if (!goalId || !title || !date) {
             return NextResponse.json({ error: 'goalId, title, and date are required' }, { status: 400 })

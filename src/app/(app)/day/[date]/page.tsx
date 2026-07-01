@@ -8,7 +8,10 @@ import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { RichNoteModal } from '@/components/items/RichNoteModal'
+import dynamic from 'next/dynamic'
+
+const RichNoteModal = dynamic(() => import('@/components/items/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
+import { useToast } from '@/components/ui/ToastProvider'
 
 type DeedModalData = {
   task: Task
@@ -21,6 +24,7 @@ export default function DayPage() {
   const dateStr = params.date as string
 
   const { items, completionMap, setItems, updateItem, updateTask } = useHierarchyStore()
+  const { showToast, confirm } = useToast()
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline')
   const [reflectionText, setReflectionText] = useState('')
@@ -36,6 +40,8 @@ export default function DayPage() {
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurrencePattern, setRecurrencePattern] = useState('')
   const [recurrenceEnd, setRecurrenceEnd] = useState('')
+  const [isFrog, setIsFrog] = useState(false)
+  const [isHabit, setIsHabit] = useState(false)
   const [dayNotes, setDayNotes] = useState<any[]>([])
   const [showNoteModal, setShowNoteModal] = useState(false)
   const [editingNote, setEditingNote] = useState<any>(null)
@@ -261,13 +267,18 @@ export default function DayPage() {
 
   const handleDeleteTask = async (e: React.MouseEvent, taskId: string) => {
     e.stopPropagation()
-    if (!confirm('Delete this deed?')) return
+    if (!(await confirm('Delete this deed?'))) return
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
-      if (!res.ok) alert('Failed to delete deed')
-      else fetchItems()
+      if (!res.ok) {
+        showToast('Failed to delete deed', 'error')
+      } else {
+        fetchItems()
+        showToast('Deed deleted', 'success')
+      }
     } catch (e) {
       console.error(e)
+      showToast('Network error', 'error')
     }
   }
 
@@ -335,7 +346,7 @@ export default function DayPage() {
         })
         const createData = await createRes.json()
         if (!createData.item?.id) {
-          alert('Could not create a daily goal for this date.')
+          showToast('Could not create a daily goal for this date.', 'error')
           return
         }
         goalId = createData.item.id
@@ -378,14 +389,17 @@ export default function DayPage() {
           isRecurring: isRecurring,
           recurrencePattern: isRecurring ? recurrencePattern : null,
           recurrenceEnd: isRecurring && recurrenceEnd ? new Date(recurrenceEnd).toISOString() : null,
+          isFrog: isFrog,
+          isHabit: isHabit,
         })
       })
       const resData = await res.json()
       if (!res.ok) {
-        alert(`Failed to save task: ${resData.error || 'Unknown error'}`)
+        showToast(`Failed to save task: ${resData.error || 'Unknown error'}`, 'error')
         return
       }
       fetchItems()
+      showToast('Deed added', 'success')
       setNewDeedTitle('')
       setNewDeedStart('')
       setNewDeedEnd('')
@@ -394,10 +408,12 @@ export default function DayPage() {
       setIsRecurring(false)
       setRecurrencePattern('')
       setRecurrenceEnd('')
+      setIsFrog(false)
+      setIsHabit(false)
       setAddingDeed(false)
     } catch (e) {
       console.error('Error adding deed:', e)
-      alert('An error occurred while saving the task.')
+      showToast('An error occurred while saving the task.', 'error')
     }
   }
 
@@ -413,18 +429,18 @@ export default function DayPage() {
   if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
 
   return (
-    <div className="space-y-6 max-w-full pb-12">
+    <div className="space-y-6 max-w-full pb-12 stagger-children">
       <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
         <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
         <ChevronRight className="w-3 h-3" />
         <span className="text-ink font-bold">{format(currentDate, 'EEEE, MMMM d, yyyy')}</span>
       </div>
 
-      <div className="bg-surface border border-mist rounded-2xl p-6">
+      <div className="glass-gold glow-sm rounded-3xl p-8 animate-slideUp border border-gold/20">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-display font-bold text-ink">{format(currentDate, 'EEEE')}</h1>
-            <p className="text-lg text-ink/50 font-mono">{format(currentDate, 'MMMM d, yyyy')}</p>
+            <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{format(currentDate, 'EEEE')}</h1>
+            <p className="text-lg text-ink/70 mt-2 font-mono">{format(currentDate, 'MMMM d, yyyy')}</p>
           </div>
           <div className="flex items-center space-x-6">
             <div className="text-right">
@@ -442,6 +458,103 @@ export default function DayPage() {
           <ProgressBar progress={dayScore} colorClass={dayScore >= 80 ? 'bg-sage' : dayScore >= 40 ? 'bg-gold' : 'bg-coral'} />
         </div>
       </div>
+
+      {/* Eat That Frog Section */}
+      <Card className="p-5 border border-gold/30 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Target className="w-24 h-24 text-gold" />
+        </div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-display font-bold text-ink flex items-center space-x-2">
+                <span className="text-2xl">🐸</span>
+                <span>Eat That Frog</span>
+              </h2>
+              <p className="text-xs text-ink/60 mt-1">Your top 3 most important tasks to crush before 10 AM.</p>
+            </div>
+            <button
+              onClick={() => { setIsFrog(true); setAddingDeed(true) }}
+              className="px-3 py-1.5 text-xs font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 transition flex items-center space-x-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Frog</span>
+            </button>
+          </div>
+          <div className="space-y-2">
+            {allTasks.filter(t => t.isFrog).map(task => {
+              const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === task.id))
+              return (
+                <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80 text-ink/50' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
+                  <div className="flex items-center space-x-3">
+                    <button onClick={() => handleToggleTask(task)} className="shrink-0">
+                      {task.completed ? <CheckCircle2 className="w-5 h-5 text-sage" /> : <Circle className="w-5 h-5 text-ink/30" />}
+                    </button>
+                    <span className={`font-bold ${task.completed ? 'line-through' : 'text-ink'}`}>{task.title}</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    {task.startTime && <span className="text-[10px] font-mono text-ink/40">{format(new Date(task.startTime), 'h:mm a')}</span>}
+                    <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 hover:bg-red-500/10 rounded-lg transition text-ink/30 hover:text-red-500" title="Delete">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+            {allTasks.filter(t => t.isFrog).length === 0 && (
+              <p className="text-xs text-ink/40 py-2">No frogs designated for today. Identify your hardest task!</p>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Habit Tracker Section */}
+      <Card className="p-5 border border-gold/30 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Repeat className="w-24 h-24 text-gold" />
+        </div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-display font-bold text-ink flex items-center space-x-2">
+                <span className="text-2xl">🌱</span>
+                <span>Habit Tracker</span>
+              </h2>
+              <p className="text-xs text-ink/60 mt-1">Daily recurring actions that build up to your yearly goals.</p>
+            </div>
+            <button
+              onClick={() => { setIsHabit(true); setIsRecurring(true); setRecurrencePattern('daily'); setAddingDeed(true) }}
+              className="px-3 py-1.5 text-xs font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 transition flex items-center space-x-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Habit</span>
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {allTasks.filter(t => t.isHabit).map(task => {
+              const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === task.id))
+              return (
+                <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80 text-ink/50' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
+                  <div className="flex items-center space-x-3 truncate">
+                    <button onClick={() => handleToggleTask(task)} className="shrink-0">
+                      {task.completed ? <CheckCircle2 className="w-5 h-5 text-sage" /> : <Circle className="w-5 h-5 text-ink/30" />}
+                    </button>
+                    <span className={`font-bold truncate ${task.completed ? 'line-through' : 'text-ink'}`}>{task.title}</span>
+                  </div>
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 hover:bg-red-500/10 rounded-lg transition text-ink/30 hover:text-red-500" title="Delete">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+            {allTasks.filter(t => t.isHabit).length === 0 && (
+              <p className="text-xs text-ink/40 py-2 col-span-full">No habits tracked today. Build consistency!</p>
+            )}
+          </div>
+        </div>
+      </Card>
 
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
@@ -462,7 +575,7 @@ export default function DayPage() {
         ) : (
           <div className="space-y-3">
             {dayNotes.map(note => (
-              <div key={note.id} className="border border-mist rounded-lg p-4 hover:border-gold transition-colors">
+              <div key={note.id} className="bg-black/20 border border-white/10 rounded-xl p-4 hover:border-gold/50 transition-all">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h4 className="font-bold text-sm text-ink">{note.title}</h4>
@@ -493,44 +606,74 @@ export default function DayPage() {
       <div className="flex items-center space-x-4">
         <button
           onClick={() => setViewMode('timeline')}
-          className={`px-4 py-2 text-sm font-semibold rounded-lg transition ${viewMode === 'timeline' ? 'bg-gold text-surface' : 'bg-mist/30 text-ink/60 hover:text-ink'}`}
+          className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'timeline' ? 'bg-gold text-paper shadow-lg shadow-gold/20' : 'bg-black/20 border border-white/10 text-ink/60 hover:text-gold hover:border-gold/30'}`}
         >
           <Clock className="w-4 h-4 inline mr-1.5" />24h Timeline
         </button>
         <button
           onClick={() => setViewMode('table')}
-          className={`px-4 py-2 text-sm font-semibold rounded-lg transition ${viewMode === 'table' ? 'bg-gold text-surface' : 'bg-mist/30 text-ink/60 hover:text-ink'}`}
+          className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'table' ? 'bg-gold text-paper shadow-lg shadow-gold/20' : 'bg-black/20 border border-white/10 text-ink/60 hover:text-gold hover:border-gold/30'}`}
         >
           <Target className="w-4 h-4 inline mr-1.5" />Table
         </button>
         <div className="flex-1" />
-        <button onClick={() => setAddingDeed(!addingDeed)} className="p-2 hover:bg-mist rounded-lg transition text-ink/50 hover:text-gold">
+        <button onClick={() => setAddingDeed(!addingDeed)} className="p-2.5 bg-black/20 border border-white/10 rounded-xl transition-all text-ink/50 hover:text-gold hover:border-gold/30">
           {addingDeed ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
         </button>
       </div>
 
       {addingDeed && (
-        <Card className="p-4 space-y-3">
+        <Card className="p-5 space-y-4 animate-fadeIn">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <input type="text" value={newDeedTitle} onChange={e => setNewDeedTitle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddDeed()}
-              placeholder="Deed title..." className="col-span-2 px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" autoFocus />
+              placeholder="Deed title..." className="col-span-2 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" autoFocus />
             <input type="time" value={newDeedStart} onChange={e => setNewDeedStart(e.target.value)}
-              className="px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" />
+              className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
             <input type="time" value={newDeedEnd} onChange={e => setNewDeedEnd(e.target.value)}
-              className="px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" />
-            <select value={newDeedCategory} onChange={e => setNewDeedCategory(e.target.value)} className="px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30">
+              className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
+            <select value={newDeedCategory} onChange={e => setNewDeedCategory(e.target.value)} className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80">
               <option value="">No tag</option>
               {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
             </select>
             <div className="flex space-x-2">
               <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}
                 min="1" max="100" placeholder="Wt"
-                className="w-16 px-2 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" />
-              <button onClick={handleAddDeed} className="flex-1 px-4 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Add</button>
+                className="w-16 px-3 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
+              <button onClick={handleAddDeed} className="flex-1 px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">Add</button>
             </div>
           </div>
-          <div className="md:col-span-6 border-t border-mist pt-3">
+          <div className="md:col-span-6 border-t border-white/10 pt-4 flex items-center space-x-6">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFrog}
+                onChange={e => setIsFrog(e.target.checked)}
+                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
+              />
+              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                <span className="text-sm">🐸</span>
+                <span>Eat That Frog</span>
+              </span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isHabit}
+                onChange={e => {
+                  setIsHabit(e.target.checked)
+                  if (e.target.checked) {
+                    setIsRecurring(true)
+                    setRecurrencePattern('daily')
+                  }
+                }}
+                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
+              />
+              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                <span className="text-sm">🌱</span>
+                <span>Habit</span>
+              </span>
+            </label>
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -543,48 +686,48 @@ export default function DayPage() {
                 <span>Recurring Task</span>
               </span>
             </label>
-            {isRecurring && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                <select
-                  value={recurrencePattern}
-                  onChange={e => setRecurrencePattern(e.target.value)}
-                  className="px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30"
-                >
-                  <option value="">Repeat...</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="biweekly">Biweekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                  <option value="weekdays">Weekdays (Mon-Fri)</option>
-                </select>
-                <input
-                  type="date"
-                  value={recurrenceEnd}
-                  onChange={e => setRecurrenceEnd(e.target.value)}
-                  className="px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30"
-                  placeholder="End date (optional)"
-                />
-              </div>
-            )}
           </div>
+          {isRecurring && (
+            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <select
+                value={recurrencePattern}
+                onChange={e => setRecurrencePattern(e.target.value)}
+                className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+              >
+                <option value="">Repeat...</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+                <option value="weekdays">Weekdays (Mon-Fri)</option>
+              </select>
+              <input
+                type="date"
+                value={recurrenceEnd}
+                onChange={e => setRecurrenceEnd(e.target.value)}
+                className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                placeholder="End date (optional)"
+              />
+            </div>
+          )}
         </Card>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2">
           {viewMode === 'timeline' ? (
-            <div className="relative border border-mist rounded-xl overflow-hidden bg-surface flex select-none animate-fadeIn" style={{ height: `${24 * 64}px` }}>
-              <div className="w-20 shrink-0 border-r border-mist/50 bg-paper/50 relative z-10">
+            <div className="relative glass rounded-2xl overflow-hidden flex select-none animate-fadeIn border border-white/10" style={{ height: `${24 * 64}px` }}>
+              <div className="w-20 shrink-0 border-r border-white/10 bg-black/20 relative z-10">
                 {hours.map(hour => (
                   <div key={hour} className="absolute left-0 right-0 text-right pr-3 text-[10px] font-mono text-ink/40" style={{ top: `${hour * 64 + 6}px`, height: '64px' }}>
                     {formatHourLabel(hour)}
                   </div>
                 ))}
               </div>
-              <div className="flex-1 relative bg-surface cursor-crosshair" onClick={handleGridClick}>
+              <div className="flex-1 relative cursor-crosshair" onClick={handleGridClick}>
                 {hours.map(hour => (
-                  <div key={hour} className="absolute left-0 right-0 border-b border-mist/30" style={{ top: `${hour * 64}px`, height: '64px' }} />
+                  <div key={hour} className="absolute left-0 right-0 border-b border-white/5" style={{ top: `${hour * 64}px`, height: '64px' }} />
                 ))}
                 {nowLineTop !== null && (
                   <div className="absolute left-0 right-0 flex items-center z-20 pointer-events-none" style={{ top: `${nowLineTop}px` }}>
@@ -598,7 +741,7 @@ export default function DayPage() {
                     <div
                       key={task.id}
                       onClick={(e) => { e.stopPropagation(); handleOpenDeed(task) }}
-                      className={`absolute rounded-lg border p-2 text-left text-xs flex flex-col justify-between transition-all hover:shadow-md cursor-pointer group/task select-none overflow-hidden task-block ${task.completed ? 'bg-sage/10 border-sage/30 text-ink/50' : 'bg-gold/10 border-gold/30 text-ink hover:border-gold'}`}
+                      className={`absolute rounded-xl border p-2.5 text-left text-xs flex flex-col justify-between transition-all hover:shadow-lg cursor-pointer group/task select-none overflow-hidden task-block ${task.completed ? 'glass border-sage/30 text-ink/50 opacity-80' : 'glass-gold border-gold/30 text-ink hover:border-gold hover:-translate-y-0.5'}`}
                       style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10 }}
                     >
                       <div className="flex items-start justify-between gap-1">
@@ -651,10 +794,10 @@ export default function DayPage() {
               </div>
             </div>
           ) : (
-            <div className="border border-mist rounded-xl overflow-hidden bg-surface">
+            <div className="glass rounded-2xl overflow-hidden border border-white/10 animate-fadeIn">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-paper border-b border-mist">
+                  <tr className="border-b border-white/10 bg-black/20">
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Time</th>
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Deed</th>
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Weight</th>
@@ -671,7 +814,7 @@ export default function DayPage() {
                   }).map(t => {
                     const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === t.id))
                     return (
-                      <tr key={t.id} className="border-b border-mist/50 last:border-0 hover:bg-mist/10 cursor-pointer group" onClick={() => handleOpenDeed(t)}>
+                      <tr key={t.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => handleOpenDeed(t)}>
                         <td className="p-3 font-mono text-xs text-ink/50">
                           {t.startTime ? format(new Date(t.startTime), 'h:mm a') : '—'}
                           {t.endTime ? `–${format(new Date(t.endTime), 'h:mm a')}` : ''}
@@ -732,7 +875,7 @@ export default function DayPage() {
                     <button
                       key={t.id}
                       onClick={() => handleOpenDeed(t)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition group ${t.completed ? 'bg-sage/5 border-sage/20' : 'bg-surface border-mist hover:border-gold'}`}
+                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition-all group ${t.completed ? 'glass border-sage/20 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold hover:bg-black/40'}`}
                     >
                       <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
                         {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
@@ -767,16 +910,16 @@ export default function DayPage() {
               <BookOpen className="w-5 h-5 text-gold" />
               <h2 className="text-2xl font-display font-bold text-ink">Day Reflection</h2>
             </div>
-            <Card className="p-5">
+            <Card className="p-6">
               <textarea
                 value={reflectionText}
                 onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
                 placeholder="Reflect on today..."
-                className="w-full h-48 bg-paper border border-mist rounded-lg p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30"
+                className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
               />
               <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
             </Card>
-            <Card className="p-5 space-y-3">
+            <Card className="p-6 space-y-4">
               <p className="text-xs font-bold uppercase text-ink/50">Today's Goals</p>
               {dailyGoals.map(dg => (
                 <div key={dg.id} className="space-y-1">
@@ -843,12 +986,12 @@ export default function DayPage() {
       )}
 
       {selectedDeed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm" onClick={() => setSelectedDeed(null)}>
-          <div className="bg-surface rounded-2xl border border-mist shadow-xl w-full max-w-lg mx-4 p-6 space-y-5" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn" onClick={() => setSelectedDeed(null)}>
+          <div className="glass rounded-3xl border border-white/20 shadow-2xl shadow-black/50 w-full max-w-lg mx-4 p-8 space-y-6 animate-slideUp" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-display font-bold text-ink">{selectedDeed.task.title}</h3>
-              <button onClick={() => setSelectedDeed(null)} className="p-1.5 hover:bg-mist rounded-lg transition">
-                <X className="w-5 h-5 text-ink/50" />
+              <h3 className="text-2xl font-display font-bold text-ink">{selectedDeed.task.title}</h3>
+              <button onClick={() => setSelectedDeed(null)} className="p-2 hover:bg-white/10 rounded-xl transition text-ink/50 hover:text-ink">
+                <X className="w-5 h-5" />
               </button>
             </div>
             <div className="flex items-center space-x-4">
@@ -864,24 +1007,24 @@ export default function DayPage() {
               )}
             </div>
             {selectedDeed.parentGoal && (
-              <div className="bg-paper border border-mist rounded-lg p-3">
+              <div className="bg-black/20 border border-white/10 rounded-xl p-4">
                 <p className="text-[10px] font-bold uppercase text-ink/40 mb-1">Contributing to Goal</p>
                 <p className="text-sm font-bold text-ink">{selectedDeed.parentGoal.title}</p>
-                <ProgressBar progress={completionMap[selectedDeed.parentGoal.id] || 0} colorClass="bg-gold" className="mt-2" />
+                <ProgressBar progress={completionMap[selectedDeed.parentGoal.id] || 0} colorClass="bg-gold" className="mt-3" />
               </div>
             )}
             <div>
-              <p className="text-xs font-bold uppercase text-ink/50 mb-2">Deed Reflection</p>
+              <p className="text-xs font-bold uppercase text-ink/50 mb-3">Deed Reflection</p>
               <textarea
                 value={deedReflection}
                 onChange={(e) => setDeedReflection(e.target.value)}
                 placeholder="Reflect on this deed..."
-                className="w-full h-32 bg-paper border border-mist rounded-lg p-3 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30"
+                className="w-full h-32 bg-black/20 border border-white/10 rounded-xl p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
               />
             </div>
-            <div className="flex justify-end space-x-3">
-              <button onClick={() => setSelectedDeed(null)} className="px-4 py-2 text-sm text-ink/60 hover:text-ink transition">Cancel</button>
-              <button onClick={handleSaveDeedReflection} className="px-4 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Save</button>
+            <div className="flex justify-end space-x-3 pt-2">
+              <button onClick={() => setSelectedDeed(null)} className="px-5 py-2.5 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition">Cancel</button>
+              <button onClick={handleSaveDeedReflection} className="px-5 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">Save</button>
             </div>
           </div>
         </div>

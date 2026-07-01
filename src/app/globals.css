@@ -1,19 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FAFAF9; /* Paper */
-  --foreground: #1A1A2E; /* Ink */
+  --background: #0f0f1a;
+  --foreground: #e8e6f0;
 }
 
 @theme inline {
   --color-gold: #D4AF37;
+  --color-gold-glow: #f5d76e;
   --color-sage: #7BA05B;
+  --color-sage-glow: #a4d47e;
   --color-coral: #E8686A;
-  --color-mist: #E5E0D6;
-  --color-surface: #FAF8F5;
-  --color-ink: #1A1A2E;
-  --color-paper: #FAFAF9;
-  
+  --color-mist: rgba(255, 255, 255, 0.08);
+  --color-mist-solid: #2a2a3e;
+  --color-surface: rgba(255, 255, 255, 0.04);
+  --color-ink: #e8e6f0;
+  --color-paper: #0f0f1a;
+  --color-glass: rgba(255, 255, 255, 0.06);
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -21,8 +26,219 @@
   --font-display: var(--font-lora);
 }
 
+/* ── Base ── */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* ── Ambient animated gradient background ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(212,175,55,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 90%, rgba(123,160,91,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(232,104,106,0.04) 0%, transparent 60%);
+  animation: ambientShift 20s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes ambientShift {
+  0% { transform: scale(1) rotate(0deg); }
+  100% { transform: scale(1.1) rotate(3deg); }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ── Glassmorphism Utilities ── */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(32px) saturate(1.5);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glass-gold {
+  background: rgba(212, 175, 55, 0.06);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+/* ── Glow Effects ── */
+.glow-gold { box-shadow: 0 0 20px rgba(212, 175, 55, 0.15), 0 0 60px rgba(212, 175, 55, 0.05); }
+.glow-sage { box-shadow: 0 0 20px rgba(123, 160, 91, 0.15), 0 0 60px rgba(123, 160, 91, 0.05); }
+.glow-coral { box-shadow: 0 0 20px rgba(232, 104, 106, 0.15), 0 0 60px rgba(232, 104, 106, 0.05); }
+.glow-sm { box-shadow: 0 0 12px rgba(212, 175, 55, 0.1); }
+
+/* ── Gamified Animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(212,175,55,0.15); }
+  50% { box-shadow: 0 0 24px rgba(212,175,55,0.3); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes progressFill {
+  from { width: 0%; }
+}
+@keyframes ringFill {
+  from { stroke-dashoffset: var(--circumference); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-fadeIn { animation: fadeIn 0.4s ease-out both; }
+.animate-slideUp { animation: slideUp 0.5s ease-out both; }
+.animate-pulseGlow { animation: pulseGlow 3s ease-in-out infinite; }
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+.animate-progressFill { animation: progressFill 0.8s ease-out; }
+.animate-ringFill { animation: ringFill 1s ease-out; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+
+/* Stagger children animations */
+.stagger-children > * { animation: fadeIn 0.35s ease-out both; }
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+
+/* ── XP / Level Badge ── */
+.xp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(212,175,55,0.2), rgba(212,175,55,0.05));
+  border: 1px solid rgba(212,175,55,0.3);
+  color: #f5d76e;
+}
+
+/* ── Streak Flame ── */
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(232,104,106,0.2), rgba(232,104,106,0.05));
+  border: 1px solid rgba(232,104,106,0.3);
+  color: #E8686A;
+}
+
+/* ── Range slider restyle for dark mode ── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #D4AF37;
+  margin-top: -5px;
+  box-shadow: 0 0 8px rgba(212,175,55,0.3);
+  transition: box-shadow 0.2s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 16px rgba(212,175,55,0.5);
+}
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #D4AF37;
+  border: none;
+  box-shadow: 0 0 8px rgba(212,175,55,0.3);
+}
+
+/* Score range (sage accent) */
+input[type="range"].accent-sage::-webkit-slider-thumb {
+  background: #7BA05B;
+  box-shadow: 0 0 8px rgba(123,160,91,0.3);
+}
+input[type="range"].accent-sage::-moz-range-thumb {
+  background: #7BA05B;
+  box-shadow: 0 0 8px rgba(123,160,91,0.3);
+}
+
+/* ── Form / Input overrides ── */
+input, textarea, select {
+  color: var(--foreground);
+}
+input::placeholder, textarea::placeholder {
+  color: rgba(232, 230, 240, 0.3);
+}
+
+/* ── Number input hide spinner ── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] { -moz-appearance: textfield; }
+
+/* ── Mobile Responsive Utilities ── */
+@media (max-width: 768px) {
+  .mobile-stack { flex-direction: column !important; }
+  .mobile-full { width: 100% !important; }
+  .mobile-px { padding-left: 1rem !important; padding-right: 1rem !important; }
+}
+
+/* ── Prose overrides for dark mode ── */
+.prose { color: var(--foreground); }
+.prose strong { color: var(--foreground); }
+.prose h1, .prose h2, .prose h3, .prose h4 { color: var(--foreground); }

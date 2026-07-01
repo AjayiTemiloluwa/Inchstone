@@ -42,6 +42,8 @@ export type Task = {
   estimatedDuration: number | null
   actualDuration: number | null
   priority: string | null
+  isFrog: boolean
+  isHabit: boolean
   isRecurring: boolean
   recurrencePattern: string | null
   recurrenceEnd: string | null

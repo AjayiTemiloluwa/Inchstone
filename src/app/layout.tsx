@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Lora } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
+import Script from 'next/script'
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,8 +35,11 @@ export default function RootLayout({
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} h-full antialiased`}
       >
-        <head>
-          <script
+        <head />
+        <body className="min-h-full flex flex-col bg-paper text-ink font-sans">
+          <Script
+            id="register-sw"
+            strategy="afterInteractive"
             dangerouslySetInnerHTML={{
               __html: `
                 if ('serviceWorker' in navigator) {
@@ -46,8 +50,8 @@ export default function RootLayout({
               `,
             }}
           />
-        </head>
-        <body className="min-h-full flex flex-col bg-paper text-ink font-sans">{children}</body>
+          {children}
+        </body>
       </html>
     </ClerkProvider>
   );

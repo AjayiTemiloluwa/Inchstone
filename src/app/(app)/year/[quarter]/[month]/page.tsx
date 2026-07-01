@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, Plus, X, Trash2, BookOpen } from 'lucide-react'
+import { ChevronRight, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format } from 'date-fns'
+import { useToast } from '@/components/ui/ToastProvider'
 import { getWeeksInMonth } from '@/lib/calendarUtils'
 
 export default function YearQuarterMonthPage() {
@@ -17,6 +18,7 @@ export default function YearQuarterMonthPage() {
     const monthLabel = params.month as string
 
     const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
+    const { showToast, confirm } = useToast()
     const [loading, setLoading] = useState(true)
 
     const [addingGoal, setAddingGoal] = useState<string | null>(null)
@@ -45,14 +47,14 @@ export default function YearQuarterMonthPage() {
     }, [fetchItems])
 
     const flatItems = getFlatItems()
-    
+
     const yearItem = flatItems.find(i => i.layer === 0)
     const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
     const yearlyGoals = flatItems.filter(i => i.layer === 2)
     const matchingQuarters = flatItems.filter(i => i.layer === 3 && i.title.includes(quarterLabel))
-    
+
     // Find all month items matching this month name across all quarters for this quarter label
-    const matchingMonths = matchingQuarters.flatMap(q => 
+    const matchingMonths = matchingQuarters.flatMap(q =>
         q.children?.filter(c => c.layer === 4 && c.title === monthLabel) || []
     )
 
@@ -161,12 +163,35 @@ export default function YearQuarterMonthPage() {
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation()
-        if (!confirm('Are you sure you want to delete this?')) return
+        if (!(await confirm('Are you sure you want to delete this?'))) return
         try {
             const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
-            if (!res.ok) { alert('Failed to delete item') }
-            else { await fetchItems() }
+            if (!res.ok) { showToast('Failed to delete item', 'error') }
+            else { await fetchItems(); showToast('Item deleted', 'success') }
         } catch (e) { console.error(e) }
+    }
+
+    const handleDownloadReport = async () => {
+        const element = document.getElementById('report-content')
+        if (!element) return
+
+        const opt = {
+            margin: 0.5,
+            filename: `${monthLabel}_Report.pdf`,
+            image: { type: 'jpeg' as const, quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+        }
+
+        try {
+            showToast('Generating PDF Report...', 'info')
+            const html2pdf = (await import('html2pdf.js')).default
+            await html2pdf().set(opt as any).from(element).save()
+            showToast('PDF Report downloaded successfully', 'success')
+        } catch (err) {
+            console.error('PDF export failed:', err)
+            showToast('Failed to export PDF', 'error')
+        }
     }
 
     const avgScore = matchingMonths.length > 0
@@ -202,7 +227,7 @@ export default function YearQuarterMonthPage() {
     })
 
     return (
-        <div className="space-y-8 max-w-full pb-12">
+        <div className="space-y-8 max-w-full pb-12 stagger-children" id="report-content">
             {/* Breadcrumb */}
             <div className="flex items-center space-x-2 text-sm text-ink/50">
                 <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
@@ -213,22 +238,28 @@ export default function YearQuarterMonthPage() {
             </div>
 
             {/* Month Header */}
-            <div className="bg-surface border border-mist rounded-2xl p-8">
+            <div className="glass-gold glow-sm rounded-3xl p-8 animate-slideUp border border-gold/20">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-display font-bold text-ink">{monthLabel}</h1>
-                        <p className="text-sm text-ink/50 mt-2 font-mono">
-                            {quarterLabel} · Showing all goals for {monthLabel}
+                        <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{monthLabel}</h1>
+                        <p className="text-sm text-ink/70 mt-2 font-mono">
+                            {quarterLabel}
                         </p>
                     </div>
-                    <ProgressRing progress={avgScore} size={72} />
+                    <div className="flex items-center space-x-6">
+                        <button onClick={handleDownloadReport} className="px-4 py-2.5 bg-black/20 text-gold border border-gold/30 text-sm font-bold rounded-xl hover:bg-gold/10 transition-all flex items-center space-x-2">
+                            <Download className="w-4 h-4" />
+                            <span className="hidden sm:inline">Report</span>
+                        </button>
+                        <ProgressRing progress={avgScore} size={72} />
+                    </div>
                 </div>
             </div>
 
             {/* Categories & Goals Section */}
             <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-2xl font-display font-bold text-ink">Categories & Goals</h2>
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-3xl font-display font-bold text-ink">Categories & Goals</h2>
                 </div>
 
                 <div className="space-y-6">
@@ -237,7 +268,7 @@ export default function YearQuarterMonthPage() {
                         const catYearlyGoals = yearlyGoals.filter(g => g.parentId === category.id)
                         const catQuarters = matchingQuarters.filter(q => catYearlyGoals.some(yg => yg.id === q.parentId))
                         // Get the month items for this category
-                        const catMonths = catQuarters.flatMap(q => 
+                        const catMonths = catQuarters.flatMap(q =>
                             q.children?.filter(c => c.layer === 4 && c.title === monthLabel) || []
                         )
 
@@ -249,8 +280,8 @@ export default function YearQuarterMonthPage() {
                                         <h3 className="text-lg font-bold text-ink">{category.title}</h3>
                                         <div className="flex items-center space-x-3">
                                             <div className="flex items-center space-x-1">
-                                                <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
-                                                <span className="text-sm font-mono font-bold">{Math.round(catScore)}%</span>
+                                                <span className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Score:</span>
+                                                <span className="text-sm font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-ink/80">{Math.round(catScore)}%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -267,11 +298,11 @@ export default function YearQuarterMonthPage() {
                                     </div>
 
                                     {addingGoal === category.id && (
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-2 animate-fadeIn mb-3">
                                             <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)}
                                                 onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)}
-                                                placeholder={`New annual goal in ${category.title}...`} className="flex-1 px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" autoFocus />
-                                            <button onClick={() => handleAddGoal(category.id)} className="px-3 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Add</button>
+                                                placeholder={`New annual goal in ${category.title}...`} className="flex-1 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all" autoFocus />
+                                            <button onClick={() => handleAddGoal(category.id)} className="px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">Add</button>
                                         </div>
                                     )}
 
@@ -306,7 +337,7 @@ export default function YearQuarterMonthPage() {
                                                             <span className="text-[9px] font-mono text-ink/50">{Math.round(mScore)}%</span>
                                                         </div>
                                                     </div>
-                                                    <button onClick={(e) => handleDelete(e, mItem.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete">
+                                                    <button onClick={(e) => handleDelete(e, mItem.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg transition text-ink/50 hover:text-red-400 z-10" title="Delete">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </Card>
@@ -329,26 +360,26 @@ export default function YearQuarterMonthPage() {
                     <BookOpen className="w-5 h-5 text-gold" />
                     <h2 className="text-2xl font-display font-bold text-ink">{monthLabel} Reflection</h2>
                 </div>
-                <Card className="p-5">
+                <Card className="p-6">
                     <textarea value={reflectionText}
                         onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
                         placeholder={`Reflect on ${monthLabel} so far... What's working? What needs to change?`}
-                        className="w-full h-48 bg-paper border border-mist rounded-lg p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
+                        className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 placeholder:text-ink/30 transition-all" />
                     <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
                 </Card>
             </div>
 
             {/* Weeks Section */}
             <div>
-                <h2 className="text-2xl font-display font-bold text-ink mb-4">Weeks</h2>
+                <h2 className="text-3xl font-display font-bold text-ink mb-6">Weeks</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {weekGroups.map(({ title, items: wItems, avgScore, dateLabel }) => {
                         return (
                             <Card key={title} className="p-5 transition-colors group hover:border-gold cursor-pointer"
                                 onClick={() => router.push(`/year/${quarterLabel}/${monthLabel}/${title.replace(/\s+/g, '')}`)}>
-                                <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center justify-between mb-4">
                                     <div>
-                                        <p className="text-xs font-bold uppercase tracking-widest text-gold">{title}</p>
+                                        <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{title}</p>
                                         {dateLabel && <p className="text-[10px] text-ink/40 mt-0.5">{dateLabel}</p>}
                                     </div>
                                 </div>

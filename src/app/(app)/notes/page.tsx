@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RichNoteModal } from '@/components/items/RichNoteModal'
+import dynamic from 'next/dynamic'
 import { Card } from '@/components/ui/Card'
+
+const RichNoteModal = dynamic(() => import('@/components/items/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 import { BookOpen, Plus, Download, FileText } from 'lucide-react'
 import Link from 'next/link'
 

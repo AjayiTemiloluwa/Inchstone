@@ -10,7 +10,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         const { id: taskId } = await params
         const body = await req.json()
-        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, reflection } = body
+        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, reflection, isFrog, isHabit } = body
 
         const task = await prisma.task.findFirst({
             where: { id: taskId, userId },
@@ -30,6 +30,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (priority !== undefined) updateData.priority = priority
         if (goalId !== undefined) updateData.goalId = goalId
         if (reflection !== undefined) updateData.reflection = reflection
+        if (isFrog !== undefined) updateData.isFrog = isFrog
+        if (isHabit !== undefined) updateData.isHabit = isHabit
 
         await prisma.task.update({
             where: { id: taskId },

@@ -71,6 +71,8 @@ model Task {
   estimatedDuration Int? // in minutes
   actualDuration    Int? // in minutes
   priority          String? // "high", "medium", "low"
+  isFrog            Boolean @default(false)
+  isHabit           Boolean @default(false)
 
   scheduledTime     DateTime? // Legacy field, keeping in case used elsewhere
   isRecurring       Boolean   @default(false)

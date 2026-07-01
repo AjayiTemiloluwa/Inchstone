@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, Plus, X, Trash2, BookOpen } from 'lucide-react'
+import { ChevronRight, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format, addDays } from 'date-fns'
+import { useToast } from '@/components/ui/ToastProvider'
 
 export default function YearQuarterMonthWeekPage() {
     const router = useRouter()
@@ -20,6 +21,7 @@ export default function YearQuarterMonthWeekPage() {
     const weekTitle = weekSlug.replace(/Week(\d+)/i, 'Week $1')
 
     const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
+    const { showToast, confirm } = useToast()
     const [loading, setLoading] = useState(true)
 
     const [addingGoal, setAddingGoal] = useState<string | null>(null)
@@ -187,12 +189,35 @@ export default function YearQuarterMonthWeekPage() {
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation()
-        if (!confirm('Are you sure you want to delete this?')) return
+        if (!(await confirm('Are you sure you want to delete this?'))) return
         try {
             const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
-            if (!res.ok) { alert('Failed to delete item') }
-            else { await fetchItems() }
+            if (!res.ok) { showToast('Failed to delete item', 'error') }
+            else { await fetchItems(); showToast('Item deleted', 'success') }
         } catch (e) { console.error(e) }
+    }
+
+    const handleDownloadReport = async () => {
+        const element = document.getElementById('report-content')
+        if (!element) return
+
+        const opt = {
+            margin: 0.5,
+            filename: `${weekTitle}_Report.pdf`,
+            image: { type: 'jpeg' as const, quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+        }
+
+        try {
+            showToast('Generating PDF Report...', 'info')
+            const html2pdf = (await import('html2pdf.js')).default
+            await html2pdf().set(opt as any).from(element).save()
+            showToast('PDF Report downloaded successfully', 'success')
+        } catch (err) {
+            console.error('PDF export failed:', err)
+            showToast('Failed to export PDF', 'error')
+        }
     }
 
     const avgScore = matchingWeeks.length > 0
@@ -258,7 +283,7 @@ export default function YearQuarterMonthWeekPage() {
     }
 
     return (
-        <div className="space-y-8 max-w-full pb-12">
+        <div className="space-y-8 max-w-full pb-12 stagger-children" id="report-content">
             {/* Breadcrumb */}
             <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
                 <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
@@ -271,22 +296,28 @@ export default function YearQuarterMonthWeekPage() {
             </div>
 
             {/* Week Header */}
-            <div className="bg-surface border border-mist rounded-2xl p-8">
+            <div className="glass-gold glow-sm rounded-3xl p-8 animate-slideUp border border-gold/20">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-display font-bold text-ink">{weekTitle}</h1>
-                        <p className="text-sm text-ink/50 mt-2 font-mono">
+                        <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{weekTitle}</h1>
+                        <p className="text-sm text-ink/70 mt-2 font-mono">
                             {monthLabel} · {quarterLabel}{weekDateRange ? ` · ${weekDateRange}` : ''}
                         </p>
                     </div>
-                    <ProgressRing progress={avgScore} size={72} />
+                    <div className="flex items-center space-x-6">
+                        <button onClick={handleDownloadReport} className="px-4 py-2.5 bg-black/20 text-gold border border-gold/30 text-sm font-bold rounded-xl hover:bg-gold/10 transition-all flex items-center space-x-2">
+                            <Download className="w-4 h-4" />
+                            <span className="hidden sm:inline">Report</span>
+                        </button>
+                        <ProgressRing progress={avgScore} size={72} />
+                    </div>
                 </div>
             </div>
 
             {/* Categories & Goals Section */}
             <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-2xl font-display font-bold text-ink">Categories & Goals</h2>
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-3xl font-display font-bold text-ink">Categories & Goals</h2>
                 </div>
 
                 <div className="space-y-6">
@@ -305,8 +336,8 @@ export default function YearQuarterMonthWeekPage() {
                                         <h3 className="text-lg font-bold text-ink">{category.title}</h3>
                                         <div className="flex items-center space-x-3">
                                             <div className="flex items-center space-x-1">
-                                                <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
-                                                <span className="text-sm font-mono font-bold">{Math.round(catScore)}%</span>
+                                                <span className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Score:</span>
+                                                <span className="text-sm font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-ink/80">{Math.round(catScore)}%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -323,11 +354,11 @@ export default function YearQuarterMonthWeekPage() {
                                     </div>
 
                                     {addingGoal === category.id && (
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-2 animate-fadeIn mb-3">
                                             <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)}
                                                 onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)}
-                                                placeholder={`New annual goal in ${category.title}...`} className="flex-1 px-3 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30" autoFocus />
-                                            <button onClick={() => handleAddGoal(category.id)} className="px-3 py-2 bg-gold text-surface text-sm font-semibold rounded-lg hover:bg-gold/90 transition">Add</button>
+                                                placeholder={`New annual goal in ${category.title}...`} className="flex-1 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all" autoFocus />
+                                            <button onClick={() => handleAddGoal(category.id)} className="px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">Add</button>
                                         </div>
                                     )}
 
@@ -364,7 +395,7 @@ export default function YearQuarterMonthWeekPage() {
                                                             <span className="text-[9px] font-mono text-ink/50">{Math.round(wScore)}%</span>
                                                         </div>
                                                     </div>
-                                                    <button onClick={(e) => handleDelete(e, wItem.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete">
+                                                    <button onClick={(e) => handleDelete(e, wItem.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg transition text-ink/50 hover:text-red-400 z-10" title="Delete">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </Card>
@@ -387,18 +418,18 @@ export default function YearQuarterMonthWeekPage() {
                     <BookOpen className="w-5 h-5 text-gold" />
                     <h2 className="text-2xl font-display font-bold text-ink">{weekTitle} Reflection</h2>
                 </div>
-                <Card className="p-5">
+                <Card className="p-6">
                     <textarea value={reflectionText}
                         onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
                         placeholder={`Reflect on ${weekTitle}... What went well? What will you improve?`}
-                        className="w-full h-48 bg-paper border border-mist rounded-lg p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
+                        className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 placeholder:text-ink/30 transition-all" />
                     <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
                 </Card>
             </div>
 
             {/* Days Section */}
             <div>
-                <h2 className="text-2xl font-display font-bold text-ink mb-4">Days</h2>
+                <h2 className="text-3xl font-display font-bold text-ink mb-6">Days</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                     {dayGroups.map(({ title, items: dItems, avgScore, dateLabel, categories: dayCategories }) => {
                         // Get the date from the first day item to navigate to
@@ -410,9 +441,9 @@ export default function YearQuarterMonthWeekPage() {
                                 className={`p-4 transition-colors group hover:border-gold ${firstDate ? 'cursor-pointer' : ''}`}
                                 onClick={() => firstDate && router.push(`/day/${firstDate}`)}
                             >
-                                <div className="text-center mb-3">
-                                    <p className="text-xs font-bold uppercase tracking-widest text-gold">{title}</p>
-                                    {dateLabel && <p className="text-[10px] text-ink/40 mt-0.5">{dateLabel}</p>}
+                                <div className="text-center mb-4">
+                                    <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{title}</p>
+                                    {dateLabel && <p className="text-[10px] text-ink/50 mt-1">{dateLabel}</p>}
                                 </div>
                                 {dayCategories.length > 0 && (
                                     <div className="flex flex-wrap gap-1 justify-center mb-2">
