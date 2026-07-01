@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/ToastProvider'
 
 export default function YearPage() {
   const router = useRouter()
-  const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
+  const { items, completionMap, setItems, updateItem, getFlatItems, updateItemScoreMode } = useHierarchyStore()
   const { showToast, confirm } = useToast()
   const [loading, setLoading] = useState(true)
   const [lockedWeights, setLockedWeights] = useState<Record<string, boolean>>({})
@@ -330,6 +330,12 @@ export default function YearPage() {
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset Equal</span>
             </button>
+            <button onClick={() => {
+              categories.forEach(c => updateItemScoreMode(c.id, 'auto'))
+              showToast('Scores set to auto-calculate', 'success')
+            }} className="flex items-center space-x-1.5 text-xs text-sage hover:text-sage/80 transition">
+              <span>Auto Scores</span>
+            </button>
           </div>
         </div>
 
@@ -365,7 +371,7 @@ export default function YearPage() {
                       <div className="flex items-center space-x-1">
                         <span className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Score:</span>
                         <input type="number" min="0" max="100" value={Math.round(catScore)}
-                          onChange={e => updateItem(category.id, { progress: parseFloat(e.target.value) || 0 })}
+                          onChange={e => updateItemScoreMode(category.id, 'manual', parseFloat(e.target.value) || 0)}
                           className="w-12 px-1 py-0.5 text-[10px] font-mono bg-white/[0.06] rounded border border-transparent hover:border-white/20 focus:bg-white/[0.1] focus:border-gold outline-none transition-colors" />
                         <span className="text-[9px] text-ink/50">%</span>
                       </div>
