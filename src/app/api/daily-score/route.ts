@@ -63,27 +63,22 @@ export async function GET(req: Request) {
         const totalTasks = tasks.length
         const completedTasks = tasks.filter(t => t.completed).length
 
-        // Get or create daily score
-        let dailyScore = await prisma.dailyScore.findUnique({
+        // Upsert daily score to avoid race conditions
+        let dailyScore = await prisma.dailyScore.upsert({
             where: { userId_date: { userId, date } },
+            create: {
+                userId,
+                date,
+                totalTasks,
+                completedTasks,
+                score,
+            },
+            update: {
+                totalTasks,
+                completedTasks,
+                score,
+            },
         })
-
-        if (!dailyScore) {
-            dailyScore = await prisma.dailyScore.create({
-                data: {
-                    userId,
-                    date,
-                    totalTasks,
-                    completedTasks,
-                    score,
-                },
-            })
-        } else {
-            dailyScore = await prisma.dailyScore.update({
-                where: { userId_date: { userId, date } },
-                data: { totalTasks, completedTasks, score },
-            })
-        }
 
         return NextResponse.json({
             tasks: tasks.map(t => ({

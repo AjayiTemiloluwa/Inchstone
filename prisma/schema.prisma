@@ -85,14 +85,17 @@ model Task {
 }
 
 model Note {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
   itemId    String?
-  item      Item?    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  item      Item?     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   title     String
   content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  date      DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, date])
 }
 
 model Review {

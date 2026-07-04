@@ -48,30 +48,20 @@ export default function DayPage() {
   const [trackers, setTrackers] = useState<any[]>([])
   const [trackerHistory, setTrackerHistory] = useState<any[]>([])
   const [newTrackerTitle, setNewTrackerTitle] = useState('')
+  const [habitHistory, setHabitHistory] = useState<any[]>([])
+  const [habitGraphView, setHabitGraphView] = useState<'week' | 'month' | 'year'>('year')
+  const [newHabitTitle, setNewHabitTitle] = useState('')
+  const [addingHabit, setAddingHabit] = useState(false)
+  const [habitTitles, setHabitTitles] = useState<string[]>([])
+  const [savingDeed, setSavingDeed] = useState(false)
 
-  const activeCategories = items.filter(i => i.layer === 1).filter(category => {
-    const categoryGoals = items.filter(item => item.layer === 2 && item.parentId === category.id)
-    return categoryGoals.some(goal => {
-      const hasWeekInCurrentDate = (nodes: Item[]): boolean => {
-        for (const n of nodes) {
-          if (n.layer === 6 && n.startDate) {
-            const goalDateStr = typeof n.startDate === 'string'
-              ? n.startDate.substring(0, 10)
-              : new Date(n.startDate).toISOString().substring(0, 10)
-            if (goalDateStr === dateStr) return true
-          }
-          if (n.children && hasWeekInCurrentDate(n.children)) return true
-        }
-        return false
-      }
-      return hasWeekInCurrentDate(goal.children || [])
-    })
-  })
+  const activeCategories = items.filter(i => i.layer === 1)
   const currentDate = parseISO(dateStr)
   const [nowLineTop, setNowLineTop] = useState<number | null>(null)
   const prevAddingDeed = useRef(addingDeed)
 
   const findDailyGoalsForDate = (): Item[] => {
+    const seen = new Set<string>()
     const result: Item[] = []
     const search = (nodes: Item[]) => {
       nodes.forEach(n => {
@@ -79,7 +69,10 @@ export default function DayPage() {
           const goalDateStr = typeof n.startDate === 'string'
             ? n.startDate.substring(0, 10)
             : new Date(n.startDate).toISOString().substring(0, 10)
-          if (goalDateStr === dateStr) result.push(n)
+          if (goalDateStr === dateStr && !seen.has(n.id)) {
+            seen.add(n.id)
+            result.push(n)
+          }
         }
         if (n.children) search(n.children)
       })
@@ -317,6 +310,16 @@ export default function DayPage() {
   }
 
   const allTasks: Task[] = dailyGoals.flatMap(dg => dg.tasks || [])
+  const scheduledTasks = allTasks.filter(t => t.startTime && t.endTime && !t.isHabit)
+  const unscheduledTasks = allTasks.filter(t => !t.startTime && !t.isHabit)
+  const frogTasks = allTasks.filter(t => t.isFrog).sort((a, b) => {
+    // Sort by startTime if available, otherwise by title
+    if (a.startTime && b.startTime) return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    if (a.startTime) return -1
+    if (b.startTime) return 1
+    return a.title.localeCompare(b.title)
+  })
+  const habitTasks = allTasks.filter(t => t.isHabit)
   const completedTasks = allTasks.filter(t => t.completed)
   const totalWeight = allTasks.reduce((sum, t) => sum + t.weight, 0)
   const dayScore = totalWeight > 0
@@ -403,7 +406,8 @@ export default function DayPage() {
   }
 
   const handleAddDeed = async () => {
-    if (!newDeedTitle.trim()) return
+    if (!newDeedTitle.trim() || savingDeed) return
+    setSavingDeed(true)
     try {
       let goalId: string
       if (dailyGoals.length > 0) {
@@ -508,6 +512,8 @@ export default function DayPage() {
     } catch (e) {
       console.error('Error adding deed:', e)
       showToast('An error occurred while saving the task.', 'error')
+    } finally {
+      setSavingDeed(false)
     }
   }
 
@@ -565,7 +571,7 @@ export default function DayPage() {
                 <span className="text-2xl">🐸</span>
                 <span>Eat That Frog</span>
               </h2>
-              <p className="text-xs text-ink/60 mt-1">Your top 3 most important tasks to crush before 10 AM.</p>
+              <p className="text-xs text-ink/60 mt-1">Your most important tasks. Optionally add them to the schedule.</p>
             </div>
             <button
               onClick={() => { setIsFrog(true); setAddingDeed(true) }}
@@ -576,18 +582,25 @@ export default function DayPage() {
             </button>
           </div>
           <div className="space-y-2">
-            {allTasks.filter(t => t.isFrog).map(task => {
-              const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === task.id))
+            {frogTasks.map((task, idx) => {
+              const frogNum = idx + 1
               return (
                 <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80 text-ink/50' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <button onClick={() => handleToggleTask(task)} className="shrink-0">
                       {task.completed ? <CheckCircle2 className="w-5 h-5 text-sage" /> : <Circle className="w-5 h-5 text-ink/30" />}
                     </button>
-                    <span className={`font-bold ${task.completed ? 'line-through' : 'text-ink'}`}>{task.title}</span>
+                    <span className="text-[10px] font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full shrink-0">Frog #{frogNum}</span>
+                    <span className={`font-bold truncate ${task.completed ? 'line-through' : 'text-ink'}`}>{task.title}</span>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    {task.startTime && <span className="text-[10px] font-mono text-ink/40">{format(new Date(task.startTime), 'h:mm a')}</span>}
+                  <div className="flex items-center space-x-3 shrink-0">
+                    <span className={`text-[9px] flex items-center space-x-1 ${task.startTime ? 'text-gold' : 'text-ink/30'}`}>
+                      <Clock className="w-3 h-3" />
+                      <span>{task.startTime ? 'Scheduled' : 'No time'}</span>
+                    </span>
+                    {task.startTime && (
+                      <span className="text-[10px] font-mono text-ink/40">{format(new Date(task.startTime), 'h:mm a')}</span>
+                    )}
                     <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 hover:bg-red-500/10 rounded-lg transition text-ink/30 hover:text-red-500" title="Delete">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -595,7 +608,7 @@ export default function DayPage() {
                 </div>
               )
             })}
-            {allTasks.filter(t => t.isFrog).length === 0 && (
+            {frogTasks.length === 0 && (
               <p className="text-xs text-ink/40 py-2">No frogs designated for today. Identify your hardest task!</p>
             )}
           </div>
@@ -746,14 +759,14 @@ export default function DayPage() {
             )}
           </div>
 
-          {/* Tracker History Graph */}
+          {/* Tracker History Line Graph */}
           {trackerHistory.length > 0 && (
             <div className="mt-6 pt-4 border-t border-white/10">
               <div className="flex items-center space-x-2 mb-3">
                 <BarChart3 className="w-4 h-4 text-gold" />
                 <h3 className="text-xs font-bold uppercase text-ink/50">Weekly Completion</h3>
               </div>
-              <div className="flex items-end space-x-1.5 h-24">
+              <div className="h-28">
                 {(() => {
                   // Group by date
                   const byDate: Record<string, { total: number; done: number }> = {}
@@ -764,24 +777,71 @@ export default function DayPage() {
                     if (t.completed) byDate[d].done++
                   })
                   const dates = Object.keys(byDate).sort().slice(-7)
+                  if (dates.length === 0) return null
+
                   const maxTotal = Math.max(...dates.map(d => byDate[d].total), 1)
-                  return dates.map(date => {
+                  const width = 100
+                  const height = 100
+                  const padding = { top: 5, right: 5, bottom: 20, left: 5 }
+                  const chartW = width - padding.left - padding.right
+                  const chartH = height - padding.top - padding.bottom
+                  const stepX = chartW / (dates.length - 1 || 1)
+
+                  // Build line points for completion percentage
+                  const points = dates.map((date, i) => {
                     const { total, done } = byDate[date]
                     const pct = total > 0 ? (done / total) * 100 : 0
-                    const dayName = format(new Date(date + 'T12:00:00'), 'EEE')
-                    return (
-                      <div key={date} className="flex-1 flex flex-col items-center space-y-1">
-                        <span className="text-[9px] font-mono text-ink/50">{done}/{total}</span>
-                        <div className="w-full rounded-lg overflow-hidden" style={{ height: `${Math.max(4, (total / maxTotal) * 80)}px` }}>
-                          <div
-                            className="h-full bg-gradient-to-t from-gold to-gold-glow rounded-lg transition-all"
-                            style={{ width: '100%', height: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="text-[8px] text-ink/40 font-mono">{dayName}</span>
-                      </div>
-                    )
-                  })
+                    const x = padding.left + i * stepX
+                    const y = padding.top + chartH - (pct / 100) * chartH
+                    return `${x},${y}`
+                  }).join(' ')
+
+                  // Build area fill
+                  const areaPoints = `${padding.left},${padding.top + chartH} ${points} ${padding.left + (dates.length - 1) * stepX},${padding.top + chartH}`
+
+                  // Y-axis labels
+                  const yLabels = [0, 25, 50, 75, 100]
+
+                  return (
+                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
+                      {/* Grid lines */}
+                      {yLabels.map(pct => {
+                        const y = padding.top + chartH - (pct / 100) * chartH
+                        return (
+                          <g key={pct}>
+                            <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                            <text x={padding.left - 2} y={y + 2} textAnchor="end" className="text-[6px] fill-ink/30">{pct}%</text>
+                          </g>
+                        )
+                      })}
+                      {/* Area fill */}
+                      <polygon points={areaPoints} fill="url(#trackerGradient)" opacity="0.3" />
+                      {/* Line */}
+                      <polyline points={points} fill="none" stroke="rgb(212, 175, 55)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                      {/* Dots */}
+                      {dates.map((date, i) => {
+                        const { total, done } = byDate[date]
+                        const pct = total > 0 ? (done / total) * 100 : 0
+                        const x = padding.left + i * stepX
+                        const y = padding.top + chartH - (pct / 100) * chartH
+                        return (
+                          <g key={date}>
+                            <circle cx={x} cy={y} r="3" fill="rgb(212, 175, 55)" stroke="rgb(15, 15, 20)" strokeWidth="1.5" />
+                            <text x={x} y={padding.top + chartH + 12} textAnchor="middle" className="text-[6px] fill-ink/40">
+                              {format(new Date(date + 'T12:00:00'), 'EEE')}
+                            </text>
+                            <text x={x} y={y - 6} textAnchor="middle" className="text-[6px] fill-ink/50">{done}/{total}</text>
+                          </g>
+                        )
+                      })}
+                      <defs>
+                        <linearGradient id="trackerGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="rgb(212, 175, 55)" stopOpacity="0.5" />
+                          <stop offset="100%" stopColor="rgb(212, 175, 55)" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  )
                 })()}
               </div>
             </div>
@@ -826,7 +886,7 @@ export default function DayPage() {
               <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}
                 min="1" max="100" placeholder="Wt"
                 className="w-16 px-3 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-              <button onClick={handleAddDeed} className="flex-1 px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">Add</button>
+              <button onClick={handleAddDeed} disabled={savingDeed} className="flex-1 px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20 disabled:opacity-50">{savingDeed ? 'Adding...' : 'Add'}</button>
             </div>
           </div>
           <div className="md:col-span-6 border-t border-white/10 pt-4 flex items-center space-x-6">
@@ -1058,10 +1118,10 @@ export default function DayPage() {
                 {allTasks.filter(t => !t.startTime).map(t => {
                   const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === t.id))
                   return (
-                    <button
+                    <div
                       key={t.id}
                       onClick={() => handleOpenDeed(t)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition-all group ${t.completed ? 'glass border-sage/20 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold hover:bg-black/40'}`}
+                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition-all group cursor-pointer ${t.completed ? 'glass border-sage/20 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold hover:bg-black/40'}`}
                     >
                       <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
                         {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
@@ -1082,7 +1142,7 @@ export default function DayPage() {
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
@@ -1175,21 +1235,71 @@ export default function DayPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn" onClick={() => setSelectedDeed(null)}>
           <div className="glass rounded-3xl border border-white/20 shadow-2xl shadow-black/50 w-full max-w-lg mx-4 p-8 space-y-6 animate-slideUp" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-display font-bold text-ink">{selectedDeed.task.title}</h3>
+              <input
+                type="text"
+                value={selectedDeed.task.title}
+                onChange={e => {
+                  const updated = { ...selectedDeed, task: { ...selectedDeed.task, title: e.target.value } }
+                  setSelectedDeed(updated)
+                }}
+                className="text-2xl font-display font-bold text-ink bg-transparent border-b border-transparent hover:border-white/20 focus:border-gold/50 focus:outline-none px-1 py-0.5 flex-1"
+              />
               <button onClick={() => setSelectedDeed(null)} className="p-2 hover:bg-white/10 rounded-xl transition text-ink/50 hover:text-ink">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedDeed.task.completed ? 'bg-sage/20 text-sage' : 'bg-gold/20 text-gold'}`}>
-                {selectedDeed.task.completed ? 'Completed' : 'Pending'}
-              </span>
-              <span className="text-xs font-mono text-ink/50">Weight: {selectedDeed.task.weight}%</span>
+            <div className="flex items-center space-x-4 flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(t => t.id === selectedDeed.task.id))
+                  if (goalItem) {
+                    updateTask(goalItem.id, selectedDeed.task.id, { completed: !selectedDeed.task.completed })
+                    setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, completed: !selectedDeed.task.completed } })
+                  }
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-all ${selectedDeed.task.completed ? 'bg-sage/20 text-sage' : 'bg-gold/20 text-gold hover:bg-gold/30'}`}
+              >
+                {selectedDeed.task.completed ? '✓ Completed' : '○ Pending'}
+              </button>
+              <div className="flex items-center space-x-1">
+                <span className="text-[10px] text-ink/40">Weight:</span>
+                <input
+                  type="number" min="1" max="100"
+                  value={selectedDeed.task.weight}
+                  onChange={e => {
+                    const w = parseFloat(e.target.value) || 1
+                    setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, weight: w } })
+                  }}
+                  className="w-14 px-1.5 py-0.5 text-xs font-mono bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 text-center"
+                />
+                <span className="text-[10px] text-ink/40">%</span>
+              </div>
               {selectedDeed.task.startTime && (
-                <span className="text-xs font-mono text-ink/40">
-                  {format(new Date(selectedDeed.task.startTime), 'h:mm a')}
-                  {selectedDeed.task.endTime && `–${format(new Date(selectedDeed.task.endTime), 'h:mm a')}`}
-                </span>
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="time"
+                    value={format(new Date(selectedDeed.task.startTime as string), 'HH:mm')}
+                    onChange={e => {
+                      const [h, m] = e.target.value.split(':')
+                      const newStart = new Date(selectedDeed.task.startTime as string)
+                      newStart.setHours(parseInt(h), parseInt(m))
+                      setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, startTime: newStart.toISOString() } })
+                    }}
+                    className="w-20 px-1.5 py-0.5 text-xs font-mono bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                  />
+                  <span className="text-xs text-ink/40">–</span>
+                  <input
+                    type="time"
+                    value={selectedDeed.task.endTime ? format(new Date(selectedDeed.task.endTime as string), 'HH:mm') : ''}
+                    onChange={e => {
+                      const [h, m] = e.target.value.split(':')
+                      const newEnd = selectedDeed.task.endTime ? new Date(selectedDeed.task.endTime as string) : new Date(selectedDeed.task.startTime as string)
+                      newEnd.setHours(parseInt(h), parseInt(m))
+                      setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, endTime: newEnd.toISOString() } })
+                    }}
+                    className="w-20 px-1.5 py-0.5 text-xs font-mono bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                  />
+                </div>
               )}
             </div>
             {selectedDeed.parentGoal && (

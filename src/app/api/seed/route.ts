@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
-import { addDays, startOfYear, addMonths, addWeeks } from 'date-fns'
+import { addDays, addMonths } from 'date-fns'
 import { getWeeksInMonth } from '@/lib/calendarUtils'
 
 export async function POST(req: Request) {
@@ -43,39 +43,15 @@ export async function POST(req: Request) {
       { name: 'Learning', weight: 15 },
     ]
 
-    const categoryIds = []
+    // Create all categories
+    const categories = await Promise.all(
+      categoriesData.map(cat =>
+        prisma.item.create({
+          data: { userId, layer: 1, parentId: year.id, title: cat.name, weight: cat.weight }
+        })
+      )
+    )
 
-    for (const cat of categoriesData) {
-      const c = await prisma.item.create({
-        data: {
-          userId,
-          layer: 1,
-          parentId: year.id,
-          title: cat.name,
-          weight: cat.weight
-        }
-      })
-      categoryIds.push(c.id)
-    }
-
-    // Layer 2: Yearly Goals
-    const yearlyGoals = []
-    for (let i = 0; i < categoryIds.length; i++) {
-      const goal = await prisma.item.create({
-        data: {
-          userId,
-          layer: 2,
-          parentId: categoryIds[i],
-          title: `${categoriesData[i].name} Annual Goal`,
-          weight: 100, // 100% of its category, just for seed
-          startDate: yearStart,
-          endDate: addDays(addMonths(yearStart, 12), -1),
-        }
-      })
-      yearlyGoals.push(goal)
-    }
-
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
     const quarterMonthNames = [
       ['January', 'February', 'March'],
       ['April', 'May', 'June'],
@@ -83,31 +59,55 @@ export async function POST(req: Request) {
       ['October', 'November', 'December'],
     ]
 
-    // Layer 3: Quarterly Goals
-    for (const yGoal of yearlyGoals) {
-      for (let q = 0; q < 4; q++) {
-        const qStart = addMonths(yearStart, q * 3)
-        const qGoal = await prisma.item.create({
+    // Layer 2: Yearly Goals
+    const yearlyGoals = await Promise.all(
+      categories.map((cat, i) =>
+        prisma.item.create({
           data: {
             userId,
-            layer: 3,
-            parentId: yGoal.id,
-            title: `Q${q + 1} Objective`,
-            weight: 25,
-            startDate: qStart,
-            endDate: addDays(addMonths(qStart, 3), -1),
+            layer: 2,
+            parentId: cat.id,
+            title: `${categoriesData[i].name} Annual Goal`,
+            weight: 100,
+            startDate: yearStart,
+            endDate: addDays(addMonths(yearStart, 12), -1),
           }
         })
+      )
+    )
 
-        // Layer 4: Monthly Goals (3 months per quarter)
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+    for (let ci = 0; ci < yearlyGoals.length; ci++) {
+      // Layer 3: Quarterly Goals
+      const quarterRecords = await Promise.all(
+        [0, 1, 2, 3].map(q => {
+          const qStart = addMonths(yearStart, q * 3)
+          return prisma.item.create({
+            data: {
+              userId,
+              layer: 3,
+              parentId: yearlyGoals[ci].id,
+              title: `Q${q + 1} Objective`,
+              weight: 25,
+              startDate: qStart,
+              endDate: addDays(addMonths(qStart, 3), -1),
+            }
+          })
+        })
+      )
+
+      for (let q = 0; q < 4; q++) {
         for (let m = 0; m < 3; m++) {
-          const mStart = addMonths(qStart, m)
+          const mStart = addMonths(addMonths(yearStart, q * 3), m)
           const monthName = quarterMonthNames[q][m]
+
+          // Layer 4: Monthly Goal
           const mGoal = await prisma.item.create({
             data: {
               userId,
               layer: 4,
-              parentId: qGoal.id,
+              parentId: quarterRecords[q].id,
               title: monthName,
               weight: 33.3,
               startDate: mStart,
@@ -117,42 +117,49 @@ export async function POST(req: Request) {
 
           const weeksInMonth = getWeeksInMonth(mStart.getFullYear(), mStart.getMonth() + 1)
           const perWeekWeight = Math.round((100 / weeksInMonth.length) * 10) / 10
-          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-          // Layer 5: Weekly Goals (actual calendar weeks)
+          // Layer 5: Weekly Goals
+          const weekRecords = await Promise.all(
+            weeksInMonth.map((weekDays, w) => {
+              const wStart = weekDays[0].date
+              const wEnd = weekDays[weekDays.length - 1].date
+              return prisma.item.create({
+                data: {
+                  userId,
+                  layer: 5,
+                  parentId: mGoal.id,
+                  title: `Week ${w + 1}`,
+                  weight: perWeekWeight,
+                  startDate: wStart,
+                  endDate: wEnd,
+                }
+              })
+            })
+          )
+
+          // Layer 6: Daily Goals - bulk insert in batches
+          const dayBatch: any[] = []
           for (let w = 0; w < weeksInMonth.length; w++) {
             const weekDays = weeksInMonth[w]
-            const wStart = weekDays[0].date
-            const wEnd = weekDays[weekDays.length - 1].date
-            const wGoal = await prisma.item.create({
-              data: {
-                userId,
-                layer: 5,
-                parentId: mGoal.id,
-                title: `Week ${w + 1}`,
-                weight: perWeekWeight,
-                startDate: wStart,
-                endDate: wEnd,
-              }
-            })
-
-            // Layer 6: Daily Goals (variable length per week)
             const perDayWeight = Math.round((100 / weekDays.length) * 10) / 10
+
             for (let d = 0; d < weekDays.length; d++) {
               const dDate = weekDays[d].date
               const dayName = dayNames[dDate.getDay()]
-              await prisma.item.create({
-                data: {
-                  userId,
-                  layer: 6,
-                  parentId: wGoal.id,
-                  title: dayName,
-                  weight: perDayWeight,
-                  startDate: dDate,
-                  endDate: dDate,
-                }
+              dayBatch.push({
+                userId,
+                layer: 6,
+                parentId: weekRecords[w].id,
+                title: dayName,
+                weight: perDayWeight,
+                startDate: dDate,
+                endDate: dDate,
               })
             }
+          }
+
+          for (let i = 0; i < dayBatch.length; i += 100) {
+            await prisma.item.createMany({ data: dayBatch.slice(i, i + 100) })
           }
         }
       }

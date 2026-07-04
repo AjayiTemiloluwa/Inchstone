@@ -23,6 +23,66 @@ export default function YearPage() {
   const [newCategoryTitle, setNewCategoryTitle] = useState('')
   const [reflectionText, setReflectionText] = useState('')
   const [reflectionTimer, setReflectionTimer] = useState<NodeJS.Timeout | null>(null)
+  const [habitTitles, setHabitTitles] = useState<Array<{ title: string; total: number; completed: number; latestDate?: Date }>>([])
+  const [addingHabit, setAddingHabit] = useState(false)
+  const [newHabitTitle, setNewHabitTitle] = useState('')
+
+  // Fetch habits
+  const fetchHabits = useCallback(async () => {
+    try {
+      const res = await fetch('/api/habits?range=year')
+      if (res.ok) {
+        const data = await res.json()
+        setHabitTitles(data.uniqueTitles || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch habits', e)
+    }
+  }, [])
+
+  const handleStartAddHabit = () => {
+    setAddingHabit(true)
+    setNewHabitTitle('')
+  }
+
+  const handleAddHabit = async () => {
+    if (!newHabitTitle.trim()) return
+    try {
+      const res = await fetch('/api/habits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newHabitTitle.trim() })
+      })
+      if (res.ok) {
+        showToast('Habit created for the rest of the year!', 'success')
+        setNewHabitTitle('')
+        setAddingHabit(false)
+        fetchHabits()
+      } else {
+        const data = await res.json()
+        showToast(data.error || 'Failed to create habit', 'error')
+      }
+    } catch (e) {
+      console.error(e)
+      showToast('Network error', 'error')
+    }
+  }
+
+  const handleDeleteHabit = async (title: string) => {
+    if (!(await confirm(`Delete all future instances of "${title}"? Past data will be preserved for graphs.`))) return
+    try {
+      const res = await fetch(`/api/habits?title=${encodeURIComponent(title)}`, { method: 'DELETE' })
+      if (res.ok) {
+        showToast('Future habit instances deleted (past history preserved)', 'success')
+        fetchHabits()
+      } else {
+        const data = await res.json()
+        showToast(data.error || 'Failed to delete habit', 'error')
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   // Fetch items
   const fetchItems = useCallback(async () => {
@@ -46,7 +106,8 @@ export default function YearPage() {
 
   useEffect(() => {
     fetchItems().finally(() => setLoading(false))
-  }, [fetchItems])
+    fetchHabits()
+  }, [fetchItems, fetchHabits])
 
   // Layer references
   const flatItems = getFlatItems()
@@ -264,9 +325,9 @@ export default function YearPage() {
     const opt = {
       margin: 0.5,
       filename: `Year_Report_${new Date().getFullYear()}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
+      image: { type: 'jpeg', quality: 0.98 } as const,
       html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } as const
     }
 
     try {
@@ -469,6 +530,75 @@ export default function YearPage() {
             className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 placeholder:text-ink/30 transition-all" />
           <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
         </Card>
+      </div>
+
+      {/* Habits Section */}
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-3xl font-display font-bold text-ink flex items-center gap-3">
+            🌱 Habits
+            <span className="text-xs font-mono font-normal bg-white/10 px-2 py-1 rounded-full text-ink/60">{habitTitles.length}</span>
+          </h2>
+          <button
+            onClick={handleStartAddHabit}
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Habit</span>
+          </button>
+        </div>
+
+        {addingHabit && (
+          <Card className="p-4 mb-6">
+            <div className="flex items-center space-x-3">
+              <input
+                type="text"
+                value={newHabitTitle}
+                onChange={e => setNewHabitTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddHabit()}
+                placeholder="Habit name (e.g., 'Morning run', 'Read 30 mins')..."
+                className="flex-1 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30"
+                autoFocus
+              />
+              <button onClick={handleAddHabit} className="px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">
+                Create Habit
+              </button>
+              <button onClick={() => setAddingHabit(false)} className="p-2.5 text-ink/50 hover:text-ink hover:bg-white/5 rounded-xl transition">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[10px] text-ink/40 mt-2">This will create daily habit instances for the rest of the year.</p>
+          </Card>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {habitTitles.map(ht => {
+            const pct = ht.total > 0 ? Math.round((ht.completed / ht.total) * 100) : 0
+            return (
+              <Card key={ht.title} className="p-4 space-y-3 hover:border-gold/50 transition-colors group">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-ink text-sm">{ht.title}</h3>
+                  <button
+                    onClick={() => handleDeleteHabit(ht.title)}
+                    className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 rounded transition text-ink/30 hover:text-red-500"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between text-xs text-ink/50">
+                  <span>{ht.completed}/{ht.total} days done</span>
+                  <span className="font-mono font-bold text-gold">{pct}%</span>
+                </div>
+                <ProgressBar progress={pct} colorClass={pct >= 80 ? 'bg-sage' : pct >= 40 ? 'bg-gold' : 'bg-coral'} />
+              </Card>
+            )
+          })}
+          {habitTitles.length === 0 && !addingHabit && (
+            <Card className="p-6 col-span-full text-center">
+              <p className="text-sm text-ink/50">No habits yet. Add daily habits to build consistency!</p>
+            </Card>
+          )}
+        </div>
       </div>
 
       {/* Quarters Section - below reflection */}

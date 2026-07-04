@@ -78,6 +78,8 @@ export async function POST(req: Request) {
                 isRecurring: isRecurring || false,
                 recurrencePattern: isRecurring ? recurrencePattern : null,
                 recurrenceEnd: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
+                isFrog: isFrog || false,
+                isHabit: isHabit || false,
             },
         })
 

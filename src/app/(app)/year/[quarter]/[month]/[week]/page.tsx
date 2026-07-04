@@ -204,9 +204,9 @@ export default function YearQuarterMonthWeekPage() {
         const opt = {
             margin: 0.5,
             filename: `${weekTitle}_Report.pdf`,
-            image: { type: 'jpeg' as const, quality: 0.98 },
+            image: { type: 'jpeg', quality: 0.98 } as const,
             html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } as const
         }
 
         try {

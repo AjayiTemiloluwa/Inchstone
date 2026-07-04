@@ -17,7 +17,7 @@ export async function GET(req: Request) {
       const date = new Date(dateStr)
       const next = new Date(date)
       next.setDate(next.getDate() + 1)
-      where.createdAt = { gte: date, lt: next }
+      where.date = { gte: date, lt: next }
     }
 
     const notes = await prisma.note.findMany({
@@ -37,14 +37,15 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { title, content, itemId } = body
+    const { title, content, itemId, date } = body
 
     const note = await prisma.note.create({
       data: {
         userId,
         title,
         content,
-        itemId: itemId || null
+        itemId: itemId || null,
+        date: date ? new Date(date) : null,
       }
     })
 
@@ -60,7 +61,7 @@ export async function PUT(req: Request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { id, title, content, itemId } = body
+    const { id, title, content, itemId, date } = body
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
@@ -70,6 +71,7 @@ export async function PUT(req: Request) {
     if (title !== undefined) updateData.title = title
     if (content !== undefined) updateData.content = content
     if (itemId !== undefined) updateData.itemId = itemId
+    if (date !== undefined) updateData.date = date ? new Date(date) : null
 
     await prisma.note.updateMany({
       where: { id, userId },

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
 import { X, Download, Save } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastProvider'
 
@@ -22,7 +23,7 @@ interface RichNoteModalProps {
 
 export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteModalProps) {
     const [title, setTitle] = useState(note?.title || '')
-    const [itemId, setItemId] = useState(note?.itemId || '')
+    const [noteDate, setNoteDate] = useState(defaultDate || '')
     const [saving, setSaving] = useState(false)
     const { showToast } = useToast()
 
@@ -33,8 +34,13 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
     }, [])
 
     const editor = useEditor({
-        extensions: [StarterKit],
-        content: note?.content || '<p>Start writing your note...</p>',
+        extensions: [
+            StarterKit,
+            Placeholder.configure({
+                placeholder: 'Start writing your note...',
+            }),
+        ],
+        content: note?.content || '',
         editorProps: {
             attributes: {
                 class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] px-4 py-3',
@@ -42,15 +48,15 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
         },
     })
 
-    if (!isClient) {
-        return null
-    }
-
     useEffect(() => {
         if (editor && note?.content) {
             editor.commands.setContent(note.content)
         }
     }, [editor, note])
+
+    if (!isClient) {
+        return null
+    }
 
     const handleSave = async () => {
         if (!title.trim()) {
@@ -67,7 +73,8 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
                     id: note?.id,
                     title: title.trim(),
                     content,
-                    itemId: itemId || null,
+                    itemId: null,
+                    date: noteDate || null,
                 }),
             })
             if (res.ok) {
@@ -99,9 +106,9 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
         const opt = {
             margin: 1,
             filename: `${title || 'note'}.pdf`,
-            image: { type: 'jpeg' as const, quality: 0.98 },
+            image: { type: 'jpeg', quality: 0.98 } as const,
             html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } as const
         }
 
         try {
@@ -144,10 +151,9 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
                         <label className="text-xs font-bold text-ink/70 mb-2 block uppercase tracking-wider">Link to Date (optional)</label>
                         <input
                             type="date"
-                            value={itemId ? '' : defaultDate || ''}
-                            onChange={e => setItemId(e.target.value)}
+                            value={noteDate}
+                            onChange={e => setNoteDate(e.target.value)}
                             className="w-full rounded-xl border border-white/10 p-3 text-sm bg-black/20 focus:outline-none focus:ring-2 focus:ring-gold/30 transition-all text-ink/80"
-                            placeholder="Link to day"
                         />
                     </div>
 
