@@ -5,11 +5,13 @@ import { useState, useEffect } from 'react'
 export function InstallPrompt() {
     const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
     const [isInstalled, setIsInstalled] = useState(false)
+    const [canInstall, setCanInstall] = useState(false)
 
     useEffect(() => {
         const handler = (e: Event) => {
             e.preventDefault()
             setDeferredPrompt(e)
+            setCanInstall(true)
         }
 
         window.addEventListener('beforeinstallprompt', handler)
@@ -23,17 +25,25 @@ export function InstallPrompt() {
     }, [])
 
     const handleInstall = async () => {
-        if (!deferredPrompt) return
+        if (!deferredPrompt) {
+            // Show manual instructions if prompt not available
+            alert('To install: tap Chrome menu (⋮) → "Add to Home screen"')
+            return
+        }
 
         deferredPrompt.prompt()
         const { outcome } = await deferredPrompt.userChoice
         if (outcome === 'accepted') {
             setIsInstalled(true)
+            setCanInstall(false)
         }
         setDeferredPrompt(null)
     }
 
-    if (isInstalled || !deferredPrompt) return null
+    if (isInstalled) return null
+
+    // Show install button if we have the prompt, otherwise show manual instructions button
+    if (!canInstall) return null
 
     return (
         <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 z-50">
@@ -47,10 +57,44 @@ export function InstallPrompt() {
                         onClick={handleInstall}
                         className="w-full bg-black text-white dark:bg-white dark:text-black text-sm font-medium py-2 px-4 rounded-lg hover:opacity-80 transition-opacity"
                     >
-                        Install
+                        Install App
                     </button>
                 </div>
             </div>
         </div>
     )
+}
+
+export function useInstallPrompt() {
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+    const [isInstalled, setIsInstalled] = useState(false)
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            e.preventDefault()
+            setDeferredPrompt(e)
+        }
+
+        window.addEventListener('beforeinstallprompt', handler)
+
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            setIsInstalled(true)
+        }
+
+        return () => window.removeEventListener('beforeinstallprompt', handler)
+    }, [])
+
+    const promptInstall = async () => {
+        if (!deferredPrompt) {
+            alert('To install: tap Chrome menu (⋮) → "Add to Home screen"')
+            return false
+        }
+
+        deferredPrompt.prompt()
+        const { outcome } = await deferredPrompt.userChoice
+        setDeferredPrompt(null)
+        return outcome === 'accepted'
+    }
+
+    return { promptInstall, isInstalled, canInstall: !!deferredPrompt }
 }

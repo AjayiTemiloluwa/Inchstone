@@ -4,7 +4,8 @@ import { useUser } from '@clerk/nextjs'
 import { Card } from '@/components/ui/Card'
 import { PushNotificationManager } from '@/components/items/PushNotificationManager'
 import { useState, useEffect } from 'react'
-import { Calendar, CheckCircle, XCircle, ExternalLink, Sun, Moon } from 'lucide-react'
+import { Calendar, CheckCircle, XCircle, ExternalLink, Sun, Moon, Smartphone } from 'lucide-react'
+import { useInstallPrompt } from '@/components/layout/InstallPrompt'
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser()
@@ -65,6 +66,7 @@ export default function SettingsPage() {
   }
 
   const [calError, setCalError] = useState<string | null>(null)
+  const { promptInstall, canInstall } = useInstallPrompt()
 
   const handleDisconnectCalendar = async () => {
     setCalError(null)
@@ -170,6 +172,28 @@ export default function SettingsPage() {
             </p>
           </div>
           <PushNotificationManager />
+        </div>
+      </Card>
+
+      {/* Install App */}
+      <Card className="space-y-6">
+        <h2 className="text-lg font-bold text-ink flex items-center space-x-2">
+          <Smartphone className="w-5 h-5 text-gold" />
+          <span>Install App</span>
+        </h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-ink">Add to Home Screen</p>
+            <p className="text-sm text-ink/70 mt-1">
+              Install Inchstone on your phone for quick access and offline use.
+            </p>
+          </div>
+          <button
+            onClick={promptInstall}
+            className="px-4 py-2 bg-gold text-paper rounded-lg hover:bg-gold-glow transition"
+          >
+            Install
+          </button>
         </div>
       </Card>
 
