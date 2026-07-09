@@ -3,6 +3,7 @@
     "short_name": "Inchstone",
     "description": "Productivity and goal tracking app",
     "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#000000",
