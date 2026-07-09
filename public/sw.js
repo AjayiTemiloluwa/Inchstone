@@ -1,3 +1,40 @@
+const CACHE_NAME = 'inchstone-v1'
+const urlsToCache = [
+    '/',
+    '/manifest.json',
+]
+
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
+    )
+    self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keys) => {
+            return Promise.all(
+                keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+            )
+        })
+    )
+    self.clients.claim()
+})
+
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+                return cachedResponse
+            }
+            return fetch(event.request).catch(() => {
+                return caches.match('/')
+            })
+        })
+    )
+})
+
 self.addEventListener('push', function (event) {
     if (!event.data) return
 
@@ -28,7 +65,6 @@ self.addEventListener('notificationclick', function (event) {
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
-            // If a window client is already open, focus it and navigate
             for (const client of clientList) {
                 if (client.url.includes(self.location.origin) && 'focus' in client) {
                     client.focus()
@@ -36,7 +72,6 @@ self.addEventListener('notificationclick', function (event) {
                     return
                 }
             }
-            // Otherwise open a new window
             if (clients.openWindow) {
                 clients.openWindow(url)
             }
