@@ -10,6 +10,8 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url)
         const range = searchParams.get('range') || 'year'
         const dateStr = searchParams.get('date')
+        const start = searchParams.get('start')
+        const end = searchParams.get('end')
 
         const where: any = { userId, isHabit: true }
 
@@ -19,11 +21,30 @@ export async function GET(req: Request) {
             const nextDay = new Date(date)
             nextDay.setDate(nextDay.getDate() + 1)
             where.date = { gte: date, lt: nextDay }
+        } else if (start && end) {
+            const startDate = new Date(start)
+            startDate.setHours(0, 0, 0, 0)
+            const endDate = new Date(end)
+            endDate.setHours(23, 59, 59, 999)
+            where.date = { gte: startDate, lte: endDate }
         } else if (range === 'year') {
             const now = new Date()
             const yearStart = new Date(now.getFullYear(), 0, 1)
             const yearEnd = new Date(now.getFullYear() + 1, 0, 1)
             where.date = { gte: yearStart, lt: yearEnd }
+        } else if (range === 'week') {
+            const now = new Date()
+            const weekStart = new Date(now)
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+            weekStart.setHours(0, 0, 0, 0)
+            const weekEnd = new Date(weekStart)
+            weekEnd.setDate(weekEnd.getDate() + 7)
+            where.date = { gte: weekStart, lt: weekEnd }
+        } else if (range === 'month') {
+            const now = new Date()
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+            where.date = { gte: monthStart, lt: monthEnd }
         } else if (range === 'today') {
             const now = new Date()
             const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -60,23 +81,27 @@ export async function DELETE(req: Request) {
 
         const { searchParams } = new URL(req.url)
         const title = searchParams.get('title')
+        const deleteAll = searchParams.get('deleteAll') === 'true'
 
         if (!title) {
             return NextResponse.json({ error: 'title is required' }, { status: 400 })
         }
 
-        // Delete all future habit instances (keep past ones for graph data)
-        const now = new Date()
-        now.setHours(0, 0, 0, 0)
+        const where: any = {
+            userId,
+            isHabit: true,
+            title,
+        }
 
-        const result = await prisma.task.deleteMany({
-            where: {
-                userId,
-                isHabit: true,
-                title,
-                date: { gte: now }
-            }
-        })
+        if (!deleteAll) {
+            // Delete only future habit instances (keep past ones for graph data)
+            const now = new Date()
+            now.setHours(0, 0, 0, 0)
+            where.date = { gte: now }
+        }
+        // If deleteAll is true, delete ALL instances (past and future)
+
+        const result = await prisma.task.deleteMany({ where })
 
         return NextResponse.json({ success: true, deleted: result.count })
     } catch (error) {
@@ -91,7 +116,8 @@ export async function POST(req: Request) {
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await req.json()
-        const { title, recurrenceEnd } = body
+        const { title, recurrenceEnd, recurrencePattern } = body
+        const pattern = recurrencePattern || 'daily'
 
         if (!title) {
             return NextResponse.json({ error: 'title is required' }, { status: 400 })
@@ -109,8 +135,8 @@ export async function POST(req: Request) {
 
         // Create habit instances for the rest of the year
         const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const endDate = recurrenceEnd ? new Date(recurrenceEnd) : new Date(new Date().getFullYear(), 11, 31)
+        today.setUTCHours(0, 0, 0, 0)
+        const endDate = recurrenceEnd ? new Date(recurrenceEnd) : new Date(Date.UTC(new Date().getFullYear(), 11, 31, 23, 59, 59, 999))
 
         // Create today's instance
         const todayInstance = await prisma.task.create({
@@ -123,7 +149,7 @@ export async function POST(req: Request) {
                 completed: false,
                 date: today,
                 isRecurring: true,
-                recurrencePattern: 'daily',
+                recurrencePattern: pattern,
                 recurrenceEnd: endDate,
                 isHabit: true,
             }
@@ -131,32 +157,60 @@ export async function POST(req: Request) {
 
         // Create future instances in batches using createMany for efficiency
         let currentDate = new Date(today)
-        currentDate.setDate(currentDate.getDate() + 1)
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1)
         let batch: any[] = []
         let totalCreated = 1
 
         while (currentDate <= endDate) {
-            batch.push({
-                userId,
-                goalId,
-                title,
-                weight: 1,
-                progress: 0,
-                completed: false,
-                date: new Date(currentDate),
-                isRecurring: true,
-                recurrencePattern: 'daily',
-                recurrenceEnd: endDate,
-                isHabit: true,
-            })
-            totalCreated++
+            let shouldCreate = false
+            const day = currentDate.getUTCDay()
 
-            // Execute in batches of 100 using createMany
-            if (batch.length >= 100) {
-                await prisma.task.createMany({ data: batch })
-                batch = []
+            switch (pattern) {
+                case 'daily':
+                    shouldCreate = true
+                    break
+                case 'weekly':
+                    shouldCreate = day === today.getUTCDay()
+                    break
+                case 'biweekly':
+                    shouldCreate = day === today.getUTCDay() && Math.floor((currentDate.getTime() - today.getTime()) / (7 * 24 * 60 * 60 * 1000)) % 2 === 0
+                    break
+                case 'monthly':
+                    shouldCreate = currentDate.getUTCDate() === today.getUTCDate()
+                    break
+                case 'yearly':
+                    shouldCreate = currentDate.getUTCMonth() === today.getUTCMonth() && currentDate.getUTCDate() === today.getUTCDate()
+                    break
+                case 'weekdays':
+                    shouldCreate = day >= 1 && day <= 5
+                    break
+                default:
+                    shouldCreate = false
             }
-            currentDate.setDate(currentDate.getDate() + 1)
+
+            if (shouldCreate) {
+                batch.push({
+                    userId,
+                    goalId,
+                    title,
+                    weight: 1,
+                    progress: 0,
+                    completed: false,
+                    date: new Date(currentDate),
+                    isRecurring: true,
+                    recurrencePattern: pattern,
+                    recurrenceEnd: endDate,
+                    isHabit: true,
+                })
+                totalCreated++
+
+                // Execute in batches of 100 using createMany
+                if (batch.length >= 100) {
+                    await prisma.task.createMany({ data: batch })
+                    batch = []
+                }
+            }
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1)
         }
 
         if (batch.length > 0) {

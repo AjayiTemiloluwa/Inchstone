@@ -47,6 +47,7 @@ export type Task = {
   isRecurring: boolean
   recurrencePattern: string | null
   recurrenceEnd: string | null
+  color: string | null
   reflection: string | null
 }
 

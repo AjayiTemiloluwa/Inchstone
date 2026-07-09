@@ -26,6 +26,7 @@ export default function YearPage() {
   const [habitTitles, setHabitTitles] = useState<Array<{ title: string; total: number; completed: number; latestDate?: Date }>>([])
   const [addingHabit, setAddingHabit] = useState(false)
   const [newHabitTitle, setNewHabitTitle] = useState('')
+  const [deleteHabitMenu, setDeleteHabitMenu] = useState<string | null>(null)
 
   // Fetch habits
   const fetchHabits = useCallback(async () => {
@@ -68,12 +69,11 @@ export default function YearPage() {
     }
   }
 
-  const handleDeleteHabit = async (title: string) => {
-    if (!(await confirm(`Delete all future instances of "${title}"? Past data will be preserved for graphs.`))) return
+  const handleDeleteHabitFuture = async (title: string) => {
     try {
       const res = await fetch(`/api/habits?title=${encodeURIComponent(title)}`, { method: 'DELETE' })
       if (res.ok) {
-        showToast('Future habit instances deleted (past history preserved)', 'success')
+        showToast('Future instances deleted (past history preserved)', 'success')
         fetchHabits()
       } else {
         const data = await res.json()
@@ -82,6 +82,27 @@ export default function YearPage() {
     } catch (e) {
       console.error(e)
     }
+    setDeleteHabitMenu(null)
+  }
+
+  const handleDeleteHabitAll = async (title: string) => {
+    if (!(await confirm(`Delete ALL instances of "${title}" including past data? This cannot be undone.`))) {
+      setDeleteHabitMenu(null)
+      return
+    }
+    try {
+      const res = await fetch(`/api/habits?title=${encodeURIComponent(title)}&deleteAll=true`, { method: 'DELETE' })
+      if (res.ok) {
+        showToast('Habit deleted completely', 'success')
+        fetchHabits()
+      } else {
+        const data = await res.json()
+        showToast(data.error || 'Failed to delete habit', 'error')
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    setDeleteHabitMenu(null)
   }
 
   // Fetch items
@@ -319,21 +340,62 @@ export default function YearPage() {
   }
 
   const handleDownloadReport = async () => {
-    const element = document.getElementById('report-content')
-    if (!element) return
-
-    const opt = {
-      margin: 0.5,
-      filename: `Year_Report_${new Date().getFullYear()}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 } as const,
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } as const
-    }
-
     try {
       showToast('Generating PDF Report...', 'info')
-      const html2pdf = (await import('html2pdf.js')).default
-      await html2pdf().set(opt as any).from(element).save()
+      const jsPDF = (await import('jspdf')).default
+      const doc = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const margin = 20
+      let y = 20
+
+      doc.setFontSize(18)
+      doc.setTextColor(212, 175, 55)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`Year Report: ${new Date().getFullYear()}`, margin, y)
+      y += 10
+
+      doc.setFontSize(11)
+      doc.setTextColor(30, 30, 30)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Generated on ${format(new Date(), 'MMM d, yyyy')}`, margin, y)
+      y += 8
+
+      doc.setDrawColor(200, 200, 200)
+      doc.setLineWidth(0.3)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 8
+
+      doc.setFontSize(12)
+      doc.setTextColor(30, 30, 30)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Categories & Goals', margin, y)
+      y += 7
+
+      categories.forEach(cat => {
+        if (y > 270) { doc.addPage(); y = 20 }
+        doc.setFontSize(10)
+        doc.setTextColor(212, 175, 55)
+        doc.setFont('helvetica', 'bold')
+        doc.text(cat.title, margin, y)
+        y += 5
+
+        const catScore = completionMap[cat.id] || 0
+        doc.setFontSize(8)
+        doc.setTextColor(30, 30, 30)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`• Overall progress: ${Math.round(catScore)}%`, margin + 4, y)
+        doc.setTextColor(143, 188, 143)
+        doc.text(`${Math.round(catScore)}%`, pageWidth - margin, y, { align: 'right' })
+        y += 5
+        y += 3
+      })
+
+      doc.setFontSize(7)
+      doc.setTextColor(200, 200, 200)
+      doc.setFont('helvetica', 'italic')
+      doc.text(`Generated on ${format(new Date(), 'MMM d, yyyy h:mm a')}`, margin, 285)
+
+      doc.save(`Year_Report_${new Date().getFullYear()}.pdf`)
       showToast('PDF Report downloaded successfully', 'success')
     } catch (err) {
       console.error('PDF export failed:', err)
@@ -578,12 +640,30 @@ export default function YearPage() {
               <Card key={ht.title} className="p-4 space-y-3 hover:border-gold/50 transition-colors group">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-ink text-sm">{ht.title}</h3>
-                  <button
-                    onClick={() => handleDeleteHabit(ht.title)}
-                    className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 rounded transition text-ink/30 hover:text-red-500"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setDeleteHabitMenu(deleteHabitMenu === ht.title ? null : ht.title)}
+                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 rounded transition text-ink/30 hover:text-red-500"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    {deleteHabitMenu === ht.title && (
+                      <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl shadow-xl p-2 min-w-[200px] animate-fadeIn">
+                        <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
+                        <button onClick={() => handleDeleteHabitFuture(ht.title)} className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
+                          <X className="w-3.5 h-3.5" />
+                          <span>Delete future instances only</span>
+                        </button>
+                        <button onClick={() => handleDeleteHabitAll(ht.title)} className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-red-500/10 rounded-lg transition flex items-center space-x-2">
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete completely (including past)</span>
+                        </button>
+                        <button onClick={() => setDeleteHabitMenu(null)} className="w-full text-left px-3 py-2 text-xs text-ink/50 hover:bg-mist rounded-lg transition">
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-ink/50">
                   <span>{ht.completed}/{ht.total} days done</span>

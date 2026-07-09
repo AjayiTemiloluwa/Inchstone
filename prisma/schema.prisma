@@ -78,6 +78,7 @@ model Task {
   isRecurring       Boolean   @default(false)
   recurrencePattern String?
   recurrenceEnd     DateTime?
+  color             String? // Hex color for timeline display (e.g. "#d4af37")
   reflection        String?
 
   createdAt DateTime @default(now())
@@ -85,15 +86,16 @@ model Task {
 }
 
 model Note {
-  id        String    @id @default(uuid())
-  userId    String
-  itemId    String?
-  item      Item?     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  title     String
-  content   String
-  date      DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  userId      String
+  itemId      String?
+  item        Item?     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  title       String
+  content     String
+  attachments Json?     // Array of { name, type, size, dataUrl }
+  date        DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([userId, date])
 }

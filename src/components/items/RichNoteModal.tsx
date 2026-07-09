@@ -7,6 +7,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { X, Download, Save } from 'lucide-react'
+import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 
 interface RichNoteModalProps {
@@ -103,18 +104,54 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
             </div>
         `
 
-        const opt = {
-            margin: 1,
-            filename: `${title || 'note'}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 } as const,
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } as const
-        }
-
         try {
             showToast('Generating PDF...', 'info')
-            const html2pdf = (await import('html2pdf.js')).default
-            await html2pdf().set(opt as any).from(container).save()
+            const jsPDF = (await import('jspdf')).default
+            const doc = new jsPDF('p', 'mm', 'a4')
+            const pageWidth = doc.internal.pageSize.getWidth()
+            const margin = 20
+            let y = 20
+
+            doc.setFontSize(18)
+            doc.setTextColor(212, 175, 55)
+            doc.setFont('helvetica', 'bold')
+            doc.text(title || 'Note', margin, y)
+            y += 10
+
+            doc.setFontSize(11)
+            doc.setTextColor(30, 30, 30)
+            doc.setFont('helvetica', 'normal')
+            doc.text(`Generated on ${format(new Date(), 'MMM d, yyyy')}`, margin, y)
+            y += 8
+
+            doc.setDrawColor(200, 200, 200)
+            doc.setLineWidth(0.3)
+            doc.line(margin, y, pageWidth - margin, y)
+            y += 8
+
+            // Get text content from the editor
+            const textContent = editor.getText() || ''
+            const lines = doc.splitTextToSize(textContent, pageWidth - margin * 2)
+
+            doc.setFontSize(10)
+            doc.setTextColor(30, 30, 30)
+            doc.setFont('helvetica', 'normal')
+
+            lines.forEach((line: string) => {
+                if (y > 275) {
+                    doc.addPage()
+                    y = 20
+                }
+                doc.text(line, margin, y)
+                y += 5
+            })
+
+            doc.setFontSize(7)
+            doc.setTextColor(200, 200, 200)
+            doc.setFont('helvetica', 'italic')
+            doc.text(`Generated on ${format(new Date(), 'MMM d, yyyy h:mm a')}`, margin, 285)
+
+            doc.save(`${title || 'note'}.pdf`)
             showToast('PDF downloaded successfully', 'success')
         } catch (err) {
             console.error('PDF export failed:', err)

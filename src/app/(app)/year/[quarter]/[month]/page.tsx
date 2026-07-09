@@ -172,21 +172,62 @@ export default function YearQuarterMonthPage() {
     }
 
     const handleDownloadReport = async () => {
-        const element = document.getElementById('report-content')
-        if (!element) return
-
-        const opt = {
-            margin: 0.5,
-            filename: `${monthLabel}_Report.pdf`,
-            image: { type: 'jpeg', quality: 0.98 } as const,
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } as const
-        }
-
         try {
             showToast('Generating PDF Report...', 'info')
-            const html2pdf = (await import('html2pdf.js')).default
-            await html2pdf().set(opt as any).from(element).save()
+            const jsPDF = (await import('jspdf')).default
+            const doc = new jsPDF('p', 'mm', 'a4')
+            const pageWidth = doc.internal.pageSize.getWidth()
+            const margin = 20
+            let y = 20
+
+            doc.setFontSize(18)
+            doc.setTextColor(212, 175, 55)
+            doc.setFont('helvetica', 'bold')
+            doc.text(`Month Report: ${monthLabel}`, margin, y)
+            y += 10
+
+            doc.setFontSize(11)
+            doc.setTextColor(30, 30, 30)
+            doc.setFont('helvetica', 'normal')
+            doc.text(`Generated on ${format(new Date(), 'MMM d, yyyy')}`, margin, y)
+            y += 8
+
+            doc.setDrawColor(200, 200, 200)
+            doc.setLineWidth(0.3)
+            doc.line(margin, y, pageWidth - margin, y)
+            y += 8
+
+            doc.setFontSize(12)
+            doc.setTextColor(30, 30, 30)
+            doc.setFont('helvetica', 'bold')
+            doc.text('Categories & Goals', margin, y)
+            y += 7
+
+            categories.forEach(cat => {
+                if (y > 270) { doc.addPage(); y = 20 }
+                doc.setFontSize(10)
+                doc.setTextColor(212, 175, 55)
+                doc.setFont('helvetica', 'bold')
+                doc.text(cat.title, margin, y)
+                y += 5
+
+                const catScore = completionMap[cat.id] || 0
+                doc.setFontSize(8)
+                doc.setTextColor(30, 30, 30)
+                doc.setFont('helvetica', 'normal')
+                doc.text(`• Overall progress: ${Math.round(catScore)}%`, margin + 4, y)
+                doc.setTextColor(143, 188, 143)
+                doc.text(`${Math.round(catScore)}%`, pageWidth - margin, y, { align: 'right' })
+                y += 5
+                y += 3
+            })
+
+            doc.setFontSize(7)
+            doc.setTextColor(200, 200, 200)
+            doc.setFont('helvetica', 'italic')
+            doc.text(`Generated on ${format(new Date(), 'MMM d, yyyy h:mm a')}`, margin, 285)
+
+            doc.save(`${monthLabel}_Report.pdf`)
             showToast('PDF Report downloaded successfully', 'success')
         } catch (err) {
             console.error('PDF export failed:', err)
