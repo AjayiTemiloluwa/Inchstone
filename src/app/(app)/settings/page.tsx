@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs'
 import { Card } from '@/components/ui/Card'
 import { PushNotificationManager } from '@/components/items/PushNotificationManager'
 import { useState, useEffect } from 'react'
-import { Calendar, CheckCircle, XCircle, ExternalLink, Sun, Moon, Smartphone } from 'lucide-react'
+import { Calendar, CheckCircle, XCircle, ExternalLink, Sun, Moon, Smartphone, Database } from 'lucide-react'
 import { useInstallPrompt } from '@/components/layout/InstallPrompt'
 
 export default function SettingsPage() {
@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const [calConnected, setCalConnected] = useState<boolean | null>(null)
   const [checkingCal, setCheckingCal] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   useEffect(() => {
     checkCalendarStatus()
@@ -67,6 +68,26 @@ export default function SettingsPage() {
 
   const [calError, setCalError] = useState<string | null>(null)
   const { promptInstall, canInstall } = useInstallPrompt()
+
+  const handleSeedFramework = async () => {
+    if (!confirm('This will seed the default year structure. Proceed?')) return
+    setSeeding(true)
+    try {
+      const res = await fetch('/api/seed', { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json()
+        alert(data.error || 'Failed to seed framework')
+      } else {
+        alert('Framework seeded successfully!')
+        window.location.reload()
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Error seeding framework')
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   const handleDisconnectCalendar = async () => {
     setCalError(null)
@@ -213,6 +234,29 @@ export default function SettingsPage() {
           >
             {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+          </button>
+        </div>
+      </Card>
+
+      {/* Danger Zone / Admin */}
+      <Card className="space-y-6 border-red-500/20">
+        <h2 className="text-lg font-bold text-red-500 flex items-center space-x-2">
+          <Database className="w-5 h-5" />
+          <span>System</span>
+        </h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-ink">Seed Framework</p>
+            <p className="text-sm text-ink/70 mt-1">
+              Initializes the default annual framework (run only once).
+            </p>
+          </div>
+          <button
+            onClick={handleSeedFramework}
+            disabled={seeding}
+            className="px-4 py-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition disabled:opacity-50"
+          >
+            {seeding ? 'Seeding...' : 'Seed Data'}
           </button>
         </div>
       </Card>
