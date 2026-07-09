@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Lora } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import Script from 'next/script'
+import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,7 +37,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} h-full antialiased`}
         suppressHydrationWarning
       >
-        <head />
+        <head>
+          <link rel="manifest" href="/manifest.json" />
+          <meta name="theme-color" content="#000000" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+          <link rel="apple-touch-icon" href="/api/icon?sizes=192x192" />
+        </head>
         <body className="min-h-full flex flex-col bg-paper text-ink font-sans">
           <script
             dangerouslySetInnerHTML={{
@@ -65,6 +72,7 @@ export default function RootLayout({
               `,
             }}
           />
+          <InstallPrompt />
           {children}
         </body>
       </html>
