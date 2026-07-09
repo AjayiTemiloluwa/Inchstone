@@ -28,12 +28,10 @@ export function Topbar() {
   }
 
   return (
-    <header className="h-14 glass-strong flex items-center justify-between px-6 shrink-0 lg:px-8">
-      {/* Left: spacer for mobile hamburger, page title on desktop */}
+    <header className="h-14 glass-strong flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
+      {/* Left: page title */}
       <div className="flex items-center space-x-4">
-        {/* Spacer for hamburger on mobile */}
-        <div className="w-10 lg:hidden" />
-        <h2 className="text-sm font-bold text-ink/60 hidden sm:block">{getPageTitle()}</h2>
+        <h2 className="text-sm font-bold text-ink/60">{getPageTitle()}</h2>
       </div>
 
       {/* Right: actions */}

@@ -275,23 +275,54 @@ body::before {
 /* ── Glassmorphism Utilities ── */
 .glass {
   background: var(--glass);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.06);
 }
 
 .glass-strong {
   background: var(--glass-strong);
-  backdrop-filter: blur(32px) saturate(1.5);
-  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  backdrop-filter: blur(40px) saturate(1.6);
+  -webkit-backdrop-filter: blur(40px) saturate(1.6);
   border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
 
 .glass-gold {
   background: var(--glass-gold-bg);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border: 1px solid var(--glass-gold-border);
+  box-shadow: 0 4px 24px rgba(212, 175, 55, 0.06);
+}
+
+/* Bottom nav glass - extra strong for readability */
+.bottom-nav-glass {
+  background: rgba(var(--mist-solid-rgb), 0.85);
+  backdrop-filter: blur(40px) saturate(1.8);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  border-top: 1px solid var(--glass-border);
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.08);
+}
+
+.dark .glass {
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+}
+
+.dark .glass-strong {
+  background: rgba(30, 30, 50, 0.85);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+.dark .bottom-nav-glass {
+  background: rgba(15, 15, 26, 0.9);
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* Safe area for gesture navigation */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 8px);
 }
 
 /* ── Glow Effects ── */

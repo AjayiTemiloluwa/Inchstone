@@ -111,6 +111,29 @@ export default function SettingsPage() {
     <div className="max-w-4xl mx-auto space-y-8 pb-12">
       <h1 className="text-2xl font-display font-bold text-ink">Settings</h1>
 
+      {/* Seed Framework - Primary Action */}
+      <Card className="space-y-4 border border-gold/30 bg-gold/5">
+        <h2 className="text-lg font-bold text-gold flex items-center space-x-2">
+          <Database className="w-5 h-5" />
+          <span>Initialize Framework</span>
+        </h2>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <p className="font-medium text-ink">Seed Framework</p>
+            <p className="text-sm text-ink/70 mt-1">
+              Creates the default annual hierarchy structure (Year → Categories → Goals → Quarters → Months → Weeks → Days). Only needs to be run once.
+            </p>
+          </div>
+          <button
+            onClick={handleSeedFramework}
+            disabled={seeding}
+            className="shrink-0 px-5 py-2.5 bg-gold text-paper font-semibold rounded-lg hover:bg-gold-glow transition disabled:opacity-50"
+          >
+            {seeding ? 'Seeding...' : 'Seed Data'}
+          </button>
+        </div>
+      </Card>
+
       {/* Profile Section */}
       <Card className="space-y-6">
         <h2 className="text-lg font-bold text-ink">Profile</h2>
@@ -238,28 +261,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Danger Zone / Admin */}
-      <Card className="space-y-6 border-red-500/20">
-        <h2 className="text-lg font-bold text-red-500 flex items-center space-x-2">
-          <Database className="w-5 h-5" />
-          <span>System</span>
-        </h2>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium text-ink">Seed Framework</p>
-            <p className="text-sm text-ink/70 mt-1">
-              Initializes the default annual framework (run only once).
-            </p>
-          </div>
-          <button
-            onClick={handleSeedFramework}
-            disabled={seeding}
-            className="px-4 py-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition disabled:opacity-50"
-          >
-            {seeding ? 'Seeding...' : 'Seed Data'}
-          </button>
-        </div>
-      </Card>
     </div>
   )
 }

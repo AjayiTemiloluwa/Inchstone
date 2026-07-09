@@ -91,9 +91,9 @@ export default function CalendarPage() {
   const monthLabel = format(currentMonth, 'MMMM yyyy')
 
   return (
-    <div className="flex h-full">
-      {/* Left sidebar */}
-      <div className="w-72 bg-surface border-r border-mist p-4 flex flex-col shrink-0 overflow-y-auto">
+    <div className="flex h-full flex-col lg:flex-row">
+      {/* Left sidebar - desktop only */}
+      <div className="hidden lg:flex w-72 bg-surface border-r border-mist p-4 flex-col shrink-0 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => navigate('prev')} className="p-2 hover:bg-mist rounded-full transition">
             <ChevronLeft className="w-5 h-5 text-ink/70" />
@@ -165,7 +165,7 @@ export default function CalendarPage() {
 
       {/* Main calendar area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-3 border-b border-mist bg-surface">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-mist bg-surface">
           <div className="flex items-center space-x-4">
             <h2 className="text-xl font-display font-bold text-ink">{monthLabel}</h2>
             <div className="flex items-center space-x-1">
@@ -185,10 +185,11 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-auto p-2 sm:p-4">
+          <div className="min-w-[480px]">
           <div className="grid grid-cols-7 mb-2">
             {weekDays.map(d => (
-              <div key={d} className="text-center text-xs font-semibold text-ink/50 uppercase tracking-wider py-2">{d}</div>
+              <div key={d} className="text-center text-[10px] sm:text-xs font-semibold text-ink/50 uppercase tracking-wider py-2">{d}</div>
             ))}
           </div>
 
@@ -206,7 +207,7 @@ export default function CalendarPage() {
               return (
                 <div
                   key={i}
-                  className={`min-h-[110px] bg-surface p-2 border-b border-r border-mist/20 transition-colors cursor-pointer hover:bg-mist/10 ${!inMonth ? 'opacity-40' : ''} ${isSelected ? 'ring-2 ring-gold ring-inset' : ''}`}
+                  className={`min-h-[70px] sm:min-h-[110px] bg-surface p-1.5 sm:p-2 border-b border-r border-mist/20 transition-colors cursor-pointer hover:bg-mist/10 ${!inMonth ? 'opacity-40' : ''} ${isSelected ? 'ring-2 ring-gold ring-inset' : ''}`}
                   onClick={() => setSelectedDay(date)}
                 >
                   <div className="flex items-start justify-between mb-1">
@@ -268,6 +269,7 @@ export default function CalendarPage() {
                 </div>
               )
             })}
+          </div>
           </div>
         </div>
       </div>
