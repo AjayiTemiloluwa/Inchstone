@@ -4,6 +4,7 @@ interface ProgressRingProps {
   strokeWidth?: number
   colorClass?: string
   trackColorClass?: string
+  className?: string
 }
 
 export function ProgressRing({
@@ -11,7 +12,8 @@ export function ProgressRing({
   size = 40,
   strokeWidth = 4,
   colorClass = 'text-gold',
-  trackColorClass = 'text-white/10'
+  trackColorClass = 'text-white/10',
+  className = ''
 }: ProgressRingProps) {
   const safeProgress = Math.min(100, Math.max(0, progress))
   const radius = (size - strokeWidth) / 2
@@ -30,7 +32,7 @@ export function ProgressRing({
   const useAutoColor = colorClass === 'text-gold' // Only auto-color when using default
 
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+    <div className={`relative inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
       <svg
         className="transform -rotate-90"
         width={size}

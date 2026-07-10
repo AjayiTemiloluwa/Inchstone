@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Lora } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import Script from 'next/script'
-import { InstallPrompt } from '@/components/layout/InstallPrompt'
+import { InstallPrompt } from '@/components/ui/InstallPrompt'
 import "./globals.css";
 
 const geistSans = Geist({
