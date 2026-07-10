@@ -3,12 +3,13 @@
 import { useUser } from '@clerk/nextjs'
 import { Card } from '@/components/ui/Card'
 import { PushNotificationManager } from '@/components/items/PushNotificationManager'
-import { useState, useEffect } from 'react'
-import { Calendar, CheckCircle, XCircle, ExternalLink, Sun, Moon, Smartphone, Database } from 'lucide-react'
 import { useInstallPrompt } from '@/components/layout/InstallPrompt'
+import { useState, useEffect } from 'react'
+import { Calendar, CheckCircle, XCircle, ExternalLink, Sun, Moon, Smartphone, Database, Trash2 } from 'lucide-react'
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser()
+  const { promptInstall } = useInstallPrompt()
   const [calConnected, setCalConnected] = useState<boolean | null>(null)
   const [checkingCal, setCheckingCal] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
@@ -67,7 +68,6 @@ export default function SettingsPage() {
   }
 
   const [calError, setCalError] = useState<string | null>(null)
-  const { promptInstall, canInstall } = useInstallPrompt()
 
   const handleSeedFramework = async () => {
     if (!confirm('This will seed the default year structure. Proceed?')) return
@@ -84,6 +84,37 @@ export default function SettingsPage() {
     } catch (e) {
       console.error(e)
       alert('Error seeding framework')
+    } finally {
+      setSeeding(false)
+    }
+  }
+
+  const handleResetFramework = async () => {
+    if (!confirm('WARNING: This will delete ALL your data (items, tasks, habits, financial entries, notes, reviews, events, trackers, and settings) and reseed the framework. This cannot be undone. Are you absolutely sure?')) return
+    if (!confirm('Are you REALLY sure? This will permanently delete all your data!')) return
+
+    setSeeding(true)
+    try {
+      // Reset data first
+      const resetRes = await fetch('/api/reset', { method: 'POST' })
+      if (!resetRes.ok) {
+        const data = await resetRes.json()
+        alert(data.error || 'Failed to reset data')
+        return
+      }
+
+      // Then seed
+      const seedRes = await fetch('/api/seed', { method: 'POST' })
+      if (!seedRes.ok) {
+        const data = await seedRes.json()
+        alert(data.error || 'Failed to seed framework')
+      } else {
+        alert('Framework reset and seeded successfully!')
+        window.location.reload()
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Error resetting framework')
     } finally {
       setSeeding(false)
     }
@@ -117,19 +148,24 @@ export default function SettingsPage() {
           <Database className="w-5 h-5" />
           <span>Initialize Framework</span>
         </h2>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
-            <p className="font-medium text-ink">Seed Framework</p>
-            <p className="text-sm text-ink/70 mt-1">
-              Creates the default annual hierarchy structure (Year → Categories → Goals → Quarters → Months → Weeks → Days). Only needs to be run once.
-            </p>
-          </div>
+        <p className="text-sm text-ink/70">
+          Creates the default annual hierarchy structure (Year → Categories → Goals → Quarters → Months → Weeks → Days).
+        </p>
+        <div className="flex gap-3">
           <button
             onClick={handleSeedFramework}
             disabled={seeding}
-            className="shrink-0 px-5 py-2.5 bg-gold text-paper font-semibold rounded-lg hover:bg-gold-glow transition disabled:opacity-50"
+            className="px-5 py-2.5 bg-gold text-paper font-semibold rounded-lg hover:bg-gold-glow transition disabled:opacity-50"
           >
-            {seeding ? 'Seeding...' : 'Seed Data'}
+            {seeding ? 'Seeding...' : 'Seed Framework'}
+          </button>
+          <button
+            onClick={handleResetFramework}
+            disabled={seeding}
+            className="px-5 py-2.5 bg-coral/10 text-coral border border-coral/30 font-semibold rounded-lg hover:bg-coral/20 transition disabled:opacity-50 flex items-center space-x-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Reset & Seed</span>
           </button>
         </div>
       </Card>
