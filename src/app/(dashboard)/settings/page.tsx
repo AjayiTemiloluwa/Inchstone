@@ -95,7 +95,6 @@ export default function SettingsPage() {
 
     setSeeding(true)
     try {
-      // Reset data first
       const resetRes = await fetch('/api/reset', { method: 'POST' })
       if (!resetRes.ok) {
         const data = await resetRes.json()
@@ -103,7 +102,6 @@ export default function SettingsPage() {
         return
       }
 
-      // Then seed
       const seedRes = await fetch('/api/seed', { method: 'POST' })
       if (!seedRes.ok) {
         const data = await seedRes.json()
@@ -139,10 +137,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-24 lg:pb-8">
+    <div className="max-w-4xl mx-auto space-y-8 pb-8">
       <h1 className="text-2xl font-display font-bold text-ink">Settings</h1>
 
-      {/* Seed Framework - Primary Action */}
+      {/* Seed Framework */}
       <Card className="space-y-4 border border-gold/30 bg-gold/5">
         <h2 className="text-lg font-bold text-gold flex items-center space-x-2">
           <Database className="w-5 h-5" />
@@ -155,14 +153,14 @@ export default function SettingsPage() {
           <button
             onClick={handleSeedFramework}
             disabled={seeding}
-            className="px-5 py-2.5 bg-gold text-paper font-semibold rounded-lg hover:bg-gold-glow transition disabled:opacity-50"
+            className="px-5 py-2.5 bg-gold text-paper font-semibold rounded-lg hover:bg-gold-glow transition disabled:opacity-50 active:scale-95"
           >
             {seeding ? 'Seeding...' : 'Seed Framework'}
           </button>
           <button
             onClick={handleResetFramework}
             disabled={seeding}
-            className="px-5 py-2.5 bg-coral/10 text-coral border border-coral/30 font-semibold rounded-lg hover:bg-coral/20 transition disabled:opacity-50 flex items-center space-x-2"
+            className="px-5 py-2.5 bg-coral/10 text-coral border border-coral/30 font-semibold rounded-lg hover:bg-coral/20 transition disabled:opacity-50 flex items-center space-x-2 active:scale-95"
           >
             <Trash2 className="w-4 h-4" />
             <span>Reset & Seed</span>
@@ -190,6 +188,28 @@ export default function SettingsPage() {
               Account managed via Clerk
             </p>
           </div>
+        </div>
+      </Card>
+
+      {/* Install App - Moved UP to be visible above bottom nav */}
+      <Card className="space-y-6 border border-gold/20 bg-gold/[0.02]">
+        <h2 className="text-lg font-bold text-ink flex items-center space-x-2">
+          <Smartphone className="w-5 h-5 text-gold" />
+          <span>Install App</span>
+        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="font-medium text-ink">Add to Home Screen</p>
+            <p className="text-sm text-ink/70 mt-1">
+              Install Inchstone on your phone for quick access and offline use.
+            </p>
+          </div>
+          <button
+            onClick={promptInstall}
+            className="w-full sm:w-auto px-6 py-3.5 bg-gold text-paper font-bold rounded-xl hover:bg-gold-glow active:scale-95 transition-all shadow-lg shadow-gold/20 min-h-[48px]"
+          >
+            Install
+          </button>
         </div>
       </Card>
 
@@ -255,28 +275,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Install App */}
-      <Card className="space-y-6">
-        <h2 className="text-lg font-bold text-ink flex items-center space-x-2">
-          <Smartphone className="w-5 h-5 text-gold" />
-          <span>Install App</span>
-        </h2>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium text-ink">Add to Home Screen</p>
-            <p className="text-sm text-ink/70 mt-1">
-              Install Inchstone on your phone for quick access and offline use.
-            </p>
-          </div>
-          <button
-            onClick={promptInstall}
-            className="px-4 py-2 bg-gold text-paper rounded-lg hover:bg-gold-glow transition"
-          >
-            Install
-          </button>
-        </div>
-      </Card>
-
       {/* Appearance */}
       <Card className="space-y-6">
         <h2 className="text-lg font-bold text-ink">Appearance</h2>
@@ -289,14 +287,13 @@ export default function SettingsPage() {
           </div>
           <button
             onClick={toggleTheme}
-            className="px-4 py-2 bg-gold text-paper rounded-lg hover:bg-gold-glow transition flex items-center space-x-2"
+            className="px-4 py-2 bg-gold text-paper rounded-lg hover:bg-gold-glow transition flex items-center space-x-2 active:scale-95"
           >
             {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
         </div>
       </Card>
-
     </div>
   )
 }

@@ -49,6 +49,7 @@
 html {
   background: var(--bg);
   color: var(--fg);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -61,9 +62,58 @@ body {
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  /* Better mobile text sizing */
+  font-size: 16px;
+  line-height: 1.5;
 }
 
-input, textarea, [contenteditable="true"], .ProseMirror {
+/* Mobile text sizing improvements */
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+
+  /* Ensure minimum touch target sizes */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Better readability for small text */
+  .text-xs {
+    font-size: 0.75rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .text-sm {
+    font-size: 0.8125rem !important;
+    line-height: 1.375 !important;
+  }
+
+  .text-base {
+    font-size: 0.9375rem !important;
+  }
+
+  .text-lg {
+    font-size: 1.0625rem !important;
+  }
+
+  .text-xl {
+    font-size: 1.1875rem !important;
+  }
+
+  .text-2xl {
+    font-size: 1.375rem !important;
+  }
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.ProseMirror {
   user-select: auto;
 }
 
@@ -413,6 +463,50 @@ body::before {
   }
 }
 
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutLeft {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-100%);
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.4s ease-out both;
 }
@@ -441,6 +535,22 @@ body::before {
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out both;
+}
+
+.animate-slideOutRight {
+  animation: slideOutRight 0.3s ease-out both;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.3s ease-out both;
+}
+
+.animate-slideOutLeft {
+  animation: slideOutLeft 0.3s ease-out both;
 }
 
 /* Stagger children animations */
@@ -598,6 +708,11 @@ input[type="number"] {
     padding-left: 1rem !important;
     padding-right: 1rem !important;
   }
+
+  /* Prevent content from being hidden behind bottom nav */
+  .pb-nav {
+    padding-bottom: 5rem !important;
+  }
 }
 
 /* ── Prose overrides ── */
@@ -614,4 +729,52 @@ input[type="number"] {
 .prose h3,
 .prose h4 {
   color: var(--fg);
+}
+
+/* ── Mobile Menu Overlay ── */
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.mobile-menu-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 85%;
+  max-width: 320px;
+  background: var(--bg);
+  z-index: 50;
+  animation: slideInLeft 0.3s ease-out;
+  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.15);
+  overflow-y: auto;
+}
+
+.dark .mobile-menu-panel {
+  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Chat / Message Bubbles ── */
+.message-bubble-sent {
+  background: #D4AF37;
+  color: #1c1917;
+  border-radius: 18px 18px 4px 18px;
+  padding: 10px 14px;
+  max-width: 80%;
+  align-self: flex-end;
+  word-wrap: break-word;
+}
+
+.message-bubble-received {
+  background: rgba(var(--fg-rgb) / 0.08);
+  color: var(--fg);
+  border-radius: 18px 18px 18px 4px;
+  padding: 10px 14px;
+  max-width: 80%;
+  align-self: flex-start;
+  word-wrap: break-word;
 }

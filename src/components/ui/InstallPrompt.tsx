@@ -46,7 +46,7 @@ export function InstallPrompt() {
     if (!canInstall) return null
 
     return (
-        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 z-50">
+        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 z-[60]">
             <div className="flex items-start gap-3">
                 <div className="flex-1">
                     <h3 className="font-semibold text-sm mb-1">Install Inchstone</h3>
