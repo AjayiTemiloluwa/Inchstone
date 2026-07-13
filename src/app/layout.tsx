@@ -79,7 +79,22 @@ export default function RootLayout({
               __html: `
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/sw.js');
+                    // Unregister any stale service workers first, then register the new one.
+                    // This clears old cache-first handlers that caused ERR_FAILED on dev server restarts.
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                      var unregisterAll = registrations.map(function(r) {
+                        // Keep only our current sw.js; unregister anything else
+                        if (!r.active || !r.active.scriptURL.endsWith('/sw.js')) {
+                          return r.unregister();
+                        }
+                        return Promise.resolve();
+                      });
+                      return Promise.all(unregisterAll);
+                    }).then(function() {
+                      return navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' });
+                    }).catch(function(err) {
+                      console.warn('SW registration failed:', err);
+                    });
                   });
                 }
               `,
