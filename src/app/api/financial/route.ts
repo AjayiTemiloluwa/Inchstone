@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
-    const { itemId, entryDate, type, amount, currency, category, description } = body
+    const { itemId, entryDate, type, amount, currency, category, description, comments, priority } = body
 
     if (!type || !amount || !category) {
       return NextResponse.json({ error: 'type, amount, and category are required' }, { status: 400 })
@@ -72,6 +72,8 @@ export async function POST(req: Request) {
         currency: currency || 'USD',
         category,
         description: description || null,
+        comments: comments || null,
+        priority: priority || null,
       },
     })
 

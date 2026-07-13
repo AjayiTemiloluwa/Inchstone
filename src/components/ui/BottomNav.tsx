@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, MessageSquare } from 'lucide-react'
+import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, MessageSquare, DollarSign } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 export function BottomNav() {
@@ -14,13 +14,14 @@ export function BottomNav() {
 
   const mainLinks = [
     { name: 'Home', href: '/dashboard', icon: Home, badge: 0 },
+    { name: 'Finance', href: '/finance', icon: DollarSign, badge: 0 },
     { name: 'Calendar', href: '/calendar', icon: CalendarDays, badge: 0 },
     { name: 'Year', href: '/year', icon: Calendar, badge: 0 },
-    { name: 'Notes', href: '/notes', icon: FileText, badge: 0 },
     { name: 'More', href: '#more', icon: MoreHorizontal, badge: 0 },
   ]
 
   const moreLinks = [
+    { name: 'Notes', href: '/notes', icon: FileText, desc: 'Notes & journal entries' },
     { name: 'Partners', href: '/partners', icon: Users, desc: 'Accountability partners & messaging' },
     { name: 'Reports', href: '/reports', icon: BarChart3, desc: 'Progress reports & analytics' },
     { name: 'Settings', href: '/settings', icon: Settings, desc: 'App settings & preferences' },

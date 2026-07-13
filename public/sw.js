@@ -34,7 +34,7 @@ self.addEventListener('fetch', (event) => {
     // For navigation requests (page loads), use network-first with offline fallback
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request, { cache: 'no-store' })
+            fetch(event.request)
                 .catch(() =>
                     caches.open(CACHE_NAME).then((cache) => cache.match(OFFLINE_URL))
                 )

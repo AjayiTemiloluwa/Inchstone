@@ -92,7 +92,7 @@ model Note {
   item        Item?     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   title       String
   content     String
-  attachments Json?     // Array of { name, type, size, dataUrl }
+  attachments Json? // Array of { name, type, size, dataUrl }
   date        DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -194,6 +194,8 @@ model FinancialEntry {
   currency    String   @default("USD")
   category    String
   description String?
+  comments    String?
+  priority    String? // e.g., "Need", "Want", "Luxury"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -242,4 +244,16 @@ model PendingSuggestion {
   status         String   @default("pending")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model Budget {
+  id        String   @id @default(uuid())
+  userId    String
+  category  String
+  amount    Float
+  month     String // e.g., "2026-07"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, category, month])
 }
