@@ -23,27 +23,11 @@ self.addEventListener('activate', (event) => {
     self.clients.claim()
 })
 
-// Network-first strategy:
-// 1. Always try the network first so the live dev server is used
-// 2. Only fall back to the offline page if the network genuinely fails
+// We leave an empty fetch listener so Chrome recognizes this as a PWA,
+// but we DO NOT intercept navigation requests to avoid ERR_FAILED
+// during Next.js or Clerk redirects.
 self.addEventListener('fetch', (event) => {
-    // Only handle GET requests to our own origin
-    if (event.request.method !== 'GET') return
-    if (!event.request.url.startsWith(self.location.origin)) return
-
-    // For navigation requests (page loads), use network-first with offline fallback
-    if (event.request.mode === 'navigate') {
-        event.respondWith(
-            fetch(event.request)
-                .catch(() =>
-                    caches.open(CACHE_NAME).then((cache) => cache.match(OFFLINE_URL))
-                )
-        )
-        return
-    }
-
-    // For all other requests (assets, API, etc.), go straight to network
-    // Do NOT intercept or cache — let the browser handle it normally
+    return
 })
 
 // ── Push notifications ─────────────────────────────────────────────────────────
