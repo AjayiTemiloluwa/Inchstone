@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { CategoryEditModal } from '@/components/ui/CategoryEditModal'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter } from 'next/navigation'
 import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen, Download, Database, Edit3, Check } from 'lucide-react'
@@ -29,6 +30,7 @@ export default function YearPage() {
   const [deleteHabitMenu, setDeleteHabitMenu] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState<string | null>(null)
   const [editTitleValue, setEditTitleValue] = useState('')
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
 
   // Fetch habits
   const fetchHabits = useCallback(async () => {
@@ -508,37 +510,11 @@ export default function YearPage() {
                       <button onClick={() => toggleLock(category.id)} className="p-1 hover:bg-mist rounded transition min-w-[36px] min-h-[36px] flex items-center justify-center" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
                         {isLocked ? <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" /> : <Unlock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-ink/30" />}
                       </button>
-                      {editingTitle === category.id ? (
-                        <input
-                          type="text"
-                          value={editTitleValue}
-                          onChange={e => setEditTitleValue(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              updateItem(category.id, { title: editTitleValue })
-                              setEditingTitle(null)
-                            }
-                            if (e.key === 'Escape') setEditingTitle(null)
-                          }}
-                          onBlur={() => {
-                            if (editTitleValue.trim()) {
-                              updateItem(category.id, { title: editTitleValue })
-                            }
-                            setEditingTitle(null)
-                          }}
-                          className="text-lg font-bold text-ink bg-white/[0.08] border border-gold/40 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-gold/30 min-w-[120px]"
-                          autoFocus
-                        />
-                      ) : (
-                        <h3 className="text-lg font-bold text-ink">{category.title}</h3>
-                      )}
+                      <h3 className="text-lg font-bold text-ink">{category.title}</h3>
                       <button
-                        onClick={() => {
-                          setEditingTitle(category.id)
-                          setEditTitleValue(category.title)
-                        }}
+                        onClick={() => setEditingCategoryId(category.id)}
                         className="p-1.5 hover:bg-mist rounded-lg transition text-ink/30 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center"
-                        title="Edit category name"
+                        title="Edit category"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
@@ -809,6 +785,9 @@ export default function YearPage() {
           })}
         </div>
       </div>
+
+      {/* Category Edit Modal - rendered once outside the loop */}
+      <CategoryEditModal categoryId={editingCategoryId} onClose={() => setEditingCategoryId(null)} />
     </div>
   )
 }
