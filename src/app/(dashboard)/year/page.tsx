@@ -510,7 +510,10 @@ export default function YearPage() {
                       <button onClick={() => toggleLock(category.id)} className="p-1 hover:bg-mist rounded transition min-w-[36px] min-h-[36px] flex items-center justify-center" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
                         {isLocked ? <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" /> : <Unlock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-ink/30" />}
                       </button>
-                      <h3 className="text-lg font-bold text-ink">{category.title}</h3>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-bold text-ink">{category.title}</h3>
+                        {category.description && <p className="text-xs text-ink/60 mt-1 truncate">{category.description}</p>}
+                      </div>
                       <button
                         onClick={() => setEditingCategoryId(category.id)}
                         className="p-1.5 hover:bg-mist rounded-lg transition text-ink/30 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center"
