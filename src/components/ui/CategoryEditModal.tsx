@@ -61,7 +61,7 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 pb-20 space-y-5 animate-fadeIn" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 pb-20 space-y-5 animate-fadeIn glass rounded-2xl" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
                     <h2 className="text-xl font-display font-bold text-ink">Edit Category</h2>
                     <button onClick={onClose} className="p-1.5 hover:bg-mist rounded-lg transition text-ink/50 hover:text-ink">
@@ -157,7 +157,7 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
                         Cancel
                     </button>
                 </div>
-            </Card>
+            </div>
         </div>
     )
 }
