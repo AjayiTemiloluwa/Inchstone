@@ -6,8 +6,16 @@ export function InstallPrompt() {
     const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
     const [isInstalled, setIsInstalled] = useState(false)
     const [canInstall, setCanInstall] = useState(false)
+    const [dismissed, setDismissed] = useState(false)
 
     useEffect(() => {
+        // Check if user previously dismissed the prompt
+        const stored = localStorage.getItem('installPromptDismissed')
+        if (stored === 'true') {
+            setDismissed(true)
+            return
+        }
+
         const handler = (e: Event) => {
             e.preventDefault()
             setDeferredPrompt(e)
@@ -40,7 +48,12 @@ export function InstallPrompt() {
         setDeferredPrompt(null)
     }
 
-    if (isInstalled) return null
+    const handleDismiss = () => {
+        setDismissed(true)
+        localStorage.setItem('installPromptDismissed', 'true')
+    }
+
+    if (isInstalled || dismissed) return null
 
     // Show install button if we have the prompt, otherwise show manual instructions button
     if (!canInstall) return null
@@ -60,6 +73,15 @@ export function InstallPrompt() {
                         Install App
                     </button>
                 </div>
+                <button
+                    onClick={handleDismiss}
+                    className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    aria-label="Dismiss install prompt"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
         </div>
     )

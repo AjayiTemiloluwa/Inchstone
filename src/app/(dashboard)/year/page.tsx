@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter } from 'next/navigation'
-import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen, Download, Database } from 'lucide-react'
+import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen, Download, Database, Edit3, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 
@@ -27,6 +27,8 @@ export default function YearPage() {
   const [addingHabit, setAddingHabit] = useState(false)
   const [newHabitTitle, setNewHabitTitle] = useState('')
   const [deleteHabitMenu, setDeleteHabitMenu] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState<string | null>(null)
+  const [editTitleValue, setEditTitleValue] = useState('')
 
   // Fetch habits
   const fetchHabits = useCallback(async () => {
@@ -506,7 +508,40 @@ export default function YearPage() {
                       <button onClick={() => toggleLock(category.id)} className="p-1 hover:bg-mist rounded transition min-w-[36px] min-h-[36px] flex items-center justify-center" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
                         {isLocked ? <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" /> : <Unlock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-ink/30" />}
                       </button>
-                      <h3 className="text-lg font-bold text-ink">{category.title}</h3>
+                      {editingTitle === category.id ? (
+                        <input
+                          type="text"
+                          value={editTitleValue}
+                          onChange={e => setEditTitleValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              updateItem(category.id, { title: editTitleValue })
+                              setEditingTitle(null)
+                            }
+                            if (e.key === 'Escape') setEditingTitle(null)
+                          }}
+                          onBlur={() => {
+                            if (editTitleValue.trim()) {
+                              updateItem(category.id, { title: editTitleValue })
+                            }
+                            setEditingTitle(null)
+                          }}
+                          className="text-lg font-bold text-ink bg-white/[0.08] border border-gold/40 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-gold/30 min-w-[120px]"
+                          autoFocus
+                        />
+                      ) : (
+                        <h3 className="text-lg font-bold text-ink">{category.title}</h3>
+                      )}
+                      <button
+                        onClick={() => {
+                          setEditingTitle(category.id)
+                          setEditTitleValue(category.title)
+                        }}
+                        className="p-1.5 hover:bg-mist rounded-lg transition text-ink/30 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center"
+                        title="Edit category name"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                     <div className="flex items-center space-x-2 sm:space-x-3">
                       <div className="flex items-center space-x-1">
@@ -561,8 +596,44 @@ export default function YearPage() {
                       return (
                         <Card key={goal.id} className="p-3 sm:p-4 hover:border-gold active:scale-[0.98] transition-all group relative">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-bold text-ink text-sm truncate pr-6">{goal.title}</h4>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1 min-w-0 flex-1">
+                              {editingTitle === goal.id ? (
+                                <input
+                                  type="text"
+                                  value={editTitleValue}
+                                  onChange={e => setEditTitleValue(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      updateItem(goal.id, { title: editTitleValue })
+                                      setEditingTitle(null)
+                                    }
+                                    if (e.key === 'Escape') setEditingTitle(null)
+                                  }}
+                                  onBlur={() => {
+                                    if (editTitleValue.trim()) {
+                                      updateItem(goal.id, { title: editTitleValue })
+                                    }
+                                    setEditingTitle(null)
+                                  }}
+                                  className="font-bold text-ink text-sm bg-white/[0.08] border border-gold/40 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-gold/30 min-w-[100px] w-full"
+                                  autoFocus
+                                />
+                              ) : (
+                                <h4 className="font-bold text-ink text-sm truncate">{goal.title}</h4>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingTitle(goal.id)
+                                  setEditTitleValue(goal.title)
+                                }}
+                                className="p-1 hover:bg-mist rounded transition text-ink/30 hover:text-gold opacity-0 group-hover:opacity-100 flex-shrink-0 min-w-[28px] min-h-[28px] flex items-center justify-center"
+                                title="Edit goal name"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <div className="flex items-center space-x-2 flex-shrink-0">
                               <ProgressRing progress={gScore} size={32} />
                               <span className="text-base font-mono font-bold">{Math.round(gScore)}%</span>
                             </div>
