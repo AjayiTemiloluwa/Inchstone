@@ -7,7 +7,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown } from 'lucide-react'
-import { format, parseISO, subDays, subWeeks, subMonths, subYears, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfDay, endOfDay, eachDayOfInterval, addDays } from 'date-fns'
+import { format, parseISO, subDays, subWeeks, subMonths, subYears, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfDay, endOfDay, eachDayOfInterval, addDays, differenceInDays } from 'date-fns'
 import dynamic from 'next/dynamic'
 
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
@@ -823,6 +823,7 @@ export default function DayPage() {
           <div>
             <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{format(currentDate, 'EEEE')}</h1>
             <p className="text-lg text-ink/70 mt-2 font-mono">{format(currentDate, 'MMMM d, yyyy')}</p>
+            <p className="text-[10px] text-ink/40 mt-0.5 font-mono">Day {differenceInDays(currentDate, startOfYear(currentDate)) + 1} of 365</p>
           </div>
           <div className="flex items-center space-x-6">
             <div className="text-right">
@@ -1147,7 +1148,7 @@ export default function DayPage() {
                         Math.floor(totalDates * 0.75),
                         totalDates - 1
                       ].filter((v, i, a) => a.indexOf(v) === i)
-                      
+
                       return indicesToDisplay.map(idx => {
                         const dateStr = graph.dates[idx]
                         const pt = graph.points[idx]
@@ -1155,8 +1156,8 @@ export default function DayPage() {
                         let formatted = dateStr
                         try {
                           formatted = format(parseISO(dateStr), 'MMM d')
-                        } catch (e) {}
-                        
+                        } catch (e) { }
+
                         return (
                           <text
                             key={idx}

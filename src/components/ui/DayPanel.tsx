@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, startOfYear, differenceInDays } from 'date-fns';
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
 import { Plus } from 'lucide-react'
 
@@ -76,7 +76,7 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-lg sm:text-xl font-bold text-ink">{format(date, 'EEEE, MMMM d, yyyy')}</h3>
-          <p className="text-xs text-ink/50 mt-0.5">Day {format(date, 'd')} of {format(date, 'MMMM yyyy')}</p>
+          <p className="text-xs text-ink/50 mt-0.5">Day {differenceInDays(date, startOfYear(date)) + 1} of 365</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
