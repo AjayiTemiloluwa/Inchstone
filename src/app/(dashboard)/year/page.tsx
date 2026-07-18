@@ -505,24 +505,24 @@ export default function YearPage() {
               <Card key={category.id} className="p-4 sm:p-5 space-y-3 sm:space-y-4 active:scale-[0.99] transition-transform">
                 {/* Category Header */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <button onClick={() => toggleLock(category.id)} className="p-1 hover:bg-mist rounded transition min-w-[36px] min-h-[36px] flex items-center justify-center" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <button onClick={() => toggleLock(category.id)} className="p-1 hover:bg-mist rounded transition min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
                         {isLocked ? <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" /> : <Unlock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-ink/30" />}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-bold text-ink">{category.title}</h3>
-                        {category.description && <p className="text-xs text-ink/60 mt-1 truncate">{category.description}</p>}
+                        <h3 className="text-lg font-bold text-ink truncate">{category.title}</h3>
+                        {category.description && <p className="text-xs text-ink/60 mt-0.5 truncate">{category.description}</p>}
                       </div>
                       <button
                         onClick={() => setEditingCategoryId(category.id)}
-                        className="p-1.5 hover:bg-mist rounded-lg transition text-ink/30 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center"
+                        className="p-1.5 hover:bg-mist rounded-lg transition text-ink/30 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0"
                         title="Edit category"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
                       <div className="flex items-center space-x-1">
                         <span className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Score:</span>
                         <input type="number" min="0" max="100" value={Math.round(catScore)}
@@ -531,7 +531,7 @@ export default function YearPage() {
                         <span className="text-[9px] text-ink/50">%</span>
                       </div>
                       <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(w)}%</span>
-                      <button onClick={(e) => handleDelete(e, category.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 min-w-[36px] min-h-[36px] flex items-center justify-center" title="Delete Category">
+                      <button onClick={(e) => handleDelete(e, category.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0" title="Delete Category">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
