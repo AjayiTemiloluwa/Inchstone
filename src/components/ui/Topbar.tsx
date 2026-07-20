@@ -28,7 +28,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="h-14 glass-strong flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
+    <header className="h-14 glass-strong flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 z-[60] relative">
       {/* Left: page title */}
       <div className="flex items-center space-x-4">
         <h2 className="text-sm font-bold text-ink/60">{getPageTitle()}</h2>
