@@ -23,11 +23,17 @@ self.addEventListener('activate', (event) => {
     self.clients.claim()
 })
 
-// We leave an empty fetch listener so Chrome recognizes this as a PWA,
-// but we DO NOT intercept navigation requests to avoid ERR_FAILED
-// during Next.js or Clerk redirects.
+// We provide a minimal fetch handler that only intercepts navigation
+// requests to show the offline page if the network is unavailable.
+// This prevents ERR_FAILED caused by aggressive caching strategies.
 self.addEventListener('fetch', (event) => {
-    return
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(() => {
+                return caches.match(OFFLINE_URL)
+            })
+        )
+    }
 })
 
 // ── Push notifications ─────────────────────────────────────────────────────────
