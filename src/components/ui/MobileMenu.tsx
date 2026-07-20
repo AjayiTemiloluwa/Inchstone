@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useMobileMenu } from './MobileMenuContext'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, X, Menu, MessageSquare, UserPlus, Bell } from 'lucide-react'
 
 export function MobileMenu() {
-    const [isOpen, setIsOpen] = useState(false)
+    const { isOpen, setIsOpen } = useMobileMenu()
     const pathname = usePathname()
     const router = useRouter()
 
