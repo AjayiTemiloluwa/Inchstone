@@ -3,11 +3,9 @@
 import { UserButton } from "@clerk/nextjs";
 import { PushNotificationManager } from "@/components/ui/PushNotificationManager";
 import { usePathname } from "next/navigation";
-import { useMobileMenu } from "./MobileMenuContext";
 
 export function Topbar() {
   const pathname = usePathname()
-  const { isOpen } = useMobileMenu()
 
   // Extract page title from path
   const getPageTitle = () => {
@@ -30,7 +28,7 @@ export function Topbar() {
   }
 
   return (
-    <header className={`h-14 glass-strong flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0 fixed top-0 left-0 right-0 z-[60] transition-transform duration-300 ${isOpen ? 'translate-x-[85vw]' : ''}`}>
+    <header className="h-14 glass-strong flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
       {/* Left: page title */}
       <div className="flex items-center space-x-4">
         <h2 className="text-sm font-bold text-ink/60">{getPageTitle()}</h2>
