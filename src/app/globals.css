@@ -731,6 +731,11 @@ input[type="number"] {
   color: var(--fg);
 }
 
+/* When mobile menu is open, shift the main content */
+body.mobile-menu-open .main-content-wrapper {
+  transform: translateX(85vw);
+}
+
 /* ── Mobile Menu Overlay ── */
 .mobile-menu-overlay {
   position: fixed;
@@ -756,6 +761,11 @@ input[type="number"] {
 
 .dark .mobile-menu-panel {
   box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
+}
+
+/* Main content wrapper for mobile menu shift */
+.main-content-wrapper {
+  transition: transform 0.3s ease;
 }
 
 /* ── Chat / Message Bubbles ── */

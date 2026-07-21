@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { useMobileMenu } from './MobileMenuContext'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -29,6 +30,16 @@ export function MobileMenu() {
         setIsOpen(false)
         router.push(href)
     }
+
+    // Toggle body class for CSS-based content shift
+    React.useEffect(() => {
+        if (isOpen) {
+            document.body.classList.add('mobile-menu-open')
+        } else {
+            document.body.classList.remove('mobile-menu-open')
+        }
+        return () => document.body.classList.remove('mobile-menu-open')
+    }, [isOpen])
 
     return (
         <>
