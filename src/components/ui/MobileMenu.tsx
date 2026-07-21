@@ -43,14 +43,16 @@ export function MobileMenu() {
 
     return (
         <>
-            {/* Hamburger button */}
-            <button
-                onClick={() => setIsOpen(true)}
-                className="lg:hidden fixed top-3 left-3 z-30 p-2.5 rounded-xl bg-surface/80 backdrop-blur-md border border-mist shadow-lg active:scale-90 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
-                aria-label="Open menu"
-            >
-                <Menu className="w-5 h-5 text-ink" />
-            </button>
+            {/* Hamburger button - hide when menu is open */}
+            {!isOpen && (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className="lg:hidden fixed top-3 left-3 z-30 p-2.5 rounded-xl bg-surface/80 backdrop-blur-md border border-mist shadow-lg active:scale-90 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    aria-label="Open menu"
+                >
+                    <Menu className="w-5 h-5 text-ink" />
+                </button>
+            )}
 
             {/* Overlay */}
             {isOpen && (
