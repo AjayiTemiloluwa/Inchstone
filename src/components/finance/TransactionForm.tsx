@@ -15,10 +15,14 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
   const [priority, setPriority] = useState('Need')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError(null)
+    setSuccess(false)
 
     try {
       const res = await fetch('/api/financial', {
@@ -35,16 +39,22 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         })
       })
 
-      if (res.ok) {
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to add transaction')
+      } else {
         setAmount('')
         setCategory('')
         setDescription('')
         setComments('')
         setEntryDate(new Date().toISOString().split('T')[0])
+        setSuccess(true)
         onSuccess()
+        setTimeout(() => setSuccess(false), 3000)
       }
     } catch (err) {
-      console.error(err)
+      setError('Network error. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -52,6 +62,17 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+      {error && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-xs text-green-600 dark:text-green-400">
+          Transaction added successfully!
+        </div>
+      )}
+
       <div className="flex gap-2 mb-4">
         <button
           type="button"
