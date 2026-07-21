@@ -1,3 +1,5 @@
+'use client'
+
 import { Sidebar } from "@/components/ui/Sidebar";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { MobileMenu } from "@/components/ui/MobileMenu";
