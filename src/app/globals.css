@@ -62,7 +62,6 @@ body {
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-  /* Better mobile text sizing */
   font-size: 16px;
   line-height: 1.5;
 }
@@ -73,7 +72,6 @@ body {
     font-size: 15px;
   }
 
-  /* Ensure minimum touch target sizes */
   button,
   a,
   input,
@@ -82,7 +80,6 @@ body {
     font-size: 16px !important;
   }
 
-  /* Better readability for small text */
   .text-xs {
     font-size: 0.75rem !important;
     line-height: 1.25 !important;
@@ -115,30 +112,6 @@ textarea,
 [contenteditable="true"],
 .ProseMirror {
   user-select: auto;
-}
-
-/* ── Ambient animated gradient background ── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(212, 175, 55, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 80% at 80% 90%, rgba(123, 160, 91, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(232, 104, 106, 0.04) 0%, transparent 60%);
-  animation: ambientShift 20s ease-in-out infinite alternate;
-  pointer-events: none;
-}
-
-@keyframes ambientShift {
-  0% {
-    transform: scale(1) rotate(0deg);
-  }
-
-  100% {
-    transform: scale(1.1) rotate(3deg);
-  }
 }
 
 /* ── Dynamic color utilities ── */
@@ -294,7 +267,6 @@ body::before {
   border-color: rgba(212 175 55 / 0.4);
 }
 
-/* ── Better dark mode background overlay ── */
 .dark .bg-black\/20 {
   background: rgba(0 0 0 / 0.3);
 }
@@ -347,7 +319,6 @@ body::before {
   box-shadow: 0 4px 24px rgba(212, 175, 55, 0.06);
 }
 
-/* Bottom nav glass - extra strong for readability */
 .bottom-nav-glass {
   background: rgba(var(--mist-solid-rgb), 0.85);
   backdrop-filter: blur(40px) saturate(1.8);
@@ -370,11 +341,6 @@ body::before {
   box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4);
 }
 
-/* Safe area for gesture navigation */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 8px);
-}
-
 /* ── Glow Effects ── */
 .glow-gold {
   box-shadow: 0 0 20px rgba(212, 175, 55, 0.15), 0 0 60px rgba(212, 175, 55, 0.05);
@@ -392,7 +358,7 @@ body::before {
   box-shadow: 0 0 12px rgba(212, 175, 55, 0.1);
 }
 
-/* ── Gamified Animations ── */
+/* ── Animations ── */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -439,18 +405,6 @@ body::before {
   }
 }
 
-@keyframes progressFill {
-  from {
-    width: 0%;
-  }
-}
-
-@keyframes ringFill {
-  from {
-    stroke-dashoffset: var(--circumference);
-  }
-}
-
 @keyframes float {
 
   0%,
@@ -460,30 +414,6 @@ body::before {
 
   50% {
     transform: translateY(-4px);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideOutRight {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-
-  to {
-    transform: translateX(100%);
-    opacity: 0;
   }
 }
 
@@ -525,24 +455,8 @@ body::before {
   animation: shimmer 2s infinite;
 }
 
-.animate-progressFill {
-  animation: progressFill 0.8s ease-out;
-}
-
-.animate-ringFill {
-  animation: ringFill 1s ease-out;
-}
-
 .animate-float {
   animation: float 3s ease-in-out infinite;
-}
-
-.animate-slideInRight {
-  animation: slideInRight 0.3s ease-out both;
-}
-
-.animate-slideOutRight {
-  animation: slideOutRight 0.3s ease-out both;
 }
 
 .animate-slideInLeft {
@@ -553,40 +467,7 @@ body::before {
   animation: slideOutLeft 0.3s ease-out both;
 }
 
-/* Stagger children animations */
-.stagger-children>* {
-  animation: fadeIn 0.35s ease-out both;
-}
-
-.stagger-children>*:nth-child(1) {
-  animation-delay: 0ms;
-}
-
-.stagger-children>*:nth-child(2) {
-  animation-delay: 60ms;
-}
-
-.stagger-children>*:nth-child(3) {
-  animation-delay: 120ms;
-}
-
-.stagger-children>*:nth-child(4) {
-  animation-delay: 180ms;
-}
-
-.stagger-children>*:nth-child(5) {
-  animation-delay: 240ms;
-}
-
-.stagger-children>*:nth-child(6) {
-  animation-delay: 300ms;
-}
-
-.stagger-children>*:nth-child(7) {
-  animation-delay: 360ms;
-}
-
-/* ── XP / Level Badge ── */
+/* ── XP / Streak Badges ── */
 .xp-badge {
   display: inline-flex;
   align-items: center;
@@ -602,7 +483,6 @@ body::before {
   color: #f5d76e;
 }
 
-/* ── Streak Flame ── */
 .streak-badge {
   display: inline-flex;
   align-items: center;
@@ -638,7 +518,6 @@ input[type="range"]::-webkit-slider-thumb {
   background: #D4AF37;
   margin-top: -5px;
   box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
-  transition: box-shadow 0.2s;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
@@ -660,7 +539,6 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
 }
 
-/* Score range (sage accent) */
 input[type="range"].accent-sage::-webkit-slider-thumb {
   background: #7BA05B;
   box-shadow: 0 0 8px rgba(123, 160, 91, 0.3);
@@ -683,7 +561,6 @@ textarea::placeholder {
   color: rgba(var(--fg-rgb) / 0.3);
 }
 
-/* ── Number input hide spinner ── */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -709,34 +586,21 @@ input[type="number"] {
     padding-right: 1rem !important;
   }
 
-  /* Prevent content from being hidden behind bottom nav */
   .pb-nav {
     padding-bottom: 5rem !important;
   }
 }
 
-/* ── Prose overrides ── */
-.prose {
-  color: var(--fg);
-}
-
-.prose strong {
-  color: var(--fg);
-}
-
-.prose h1,
-.prose h2,
-.prose h3,
-.prose h4 {
-  color: var(--fg);
-}
-
-/* When mobile menu is open, shift the main content */
+/* ── Main content shift on mobile menu open ── */
 body.mobile-menu-open .main-content-wrapper {
   transform: translateX(85vw);
 }
 
-/* ── Mobile Menu Overlay ── */
+.main-content-wrapper {
+  transition: transform 0.3s ease;
+}
+
+/* ── Mobile Menu ── */
 .mobile-menu-overlay {
   position: fixed;
   inset: 0;
@@ -763,11 +627,6 @@ body.mobile-menu-open .main-content-wrapper {
   box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
 }
 
-/* Main content wrapper for mobile menu shift */
-.main-content-wrapper {
-  transition: transform 0.3s ease;
-}
-
 /* ── Chat / Message Bubbles ── */
 .message-bubble-sent {
   background: #D4AF37;
@@ -787,4 +646,28 @@ body.mobile-menu-open .main-content-wrapper {
   max-width: 80%;
   align-self: flex-start;
   word-wrap: break-word;
+}
+
+/* ── Ambient animated gradient background ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(212, 175, 55, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 90%, rgba(123, 160, 91, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(232, 104, 106, 0.04) 0%, transparent 60%);
+  animation: ambientShift 20s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes ambientShift {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+
+  100% {
+    transform: scale(1.1) rotate(3deg);
+  }
 }
