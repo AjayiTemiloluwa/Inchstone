@@ -14,6 +14,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const [comments, setComments] = useState('')
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
   const [priority, setPriority] = useState('Need')
+  const [purse, setPurse] = useState<'main' | 'savings'>('main')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -35,15 +36,28 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
           description,
           comments,
           entryDate,
-          priority: type === 'expense' ? priority : null
+          priority: type === 'expense' ? priority : null,
+          purse
         })
       })
 
-      const data = await res.json()
+      let data
+      try {
+        data = await res.json()
+      } catch (parseError) {
+        // If response is not JSON (e.g., HTML from Clerk redirect), get text instead
+        const text = await res.text()
+        console.error('Non-JSON response:', text.substring(0, 200))
+        setError('Authentication error. Please refresh the page and try again.')
+        return
+      }
 
       if (!res.ok) {
-        setError(data.error || 'Failed to add transaction')
+        const errorMsg = data.error || data.message || `Server error (${res.status})`
+        console.error('[TransactionForm] Server error:', res.status, errorMsg)
+        setError(errorMsg)
       } else {
+        console.log('[TransactionForm] Transaction added successfully')
         setAmount('')
         setCategory('')
         setDescription('')
@@ -54,7 +68,8 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         setTimeout(() => setSuccess(false), 3000)
       }
     } catch (err) {
-      setError('Network error. Please try again.')
+      console.error('[TransactionForm] Submission error:', err)
+      setError(err instanceof Error ? err.message : 'Network error. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -151,20 +166,53 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         />
       </div>
 
+      {/* Purse selector */}
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Purse</label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPurse('main')}
+            className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${purse === 'main' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 ring-2 ring-blue-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+          >
+            👜 Main Purse
+          </button>
+          <button
+            type="button"
+            onClick={() => setPurse('savings')}
+            className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${purse === 'savings' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 ring-2 ring-purple-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+          >
+            🏦 Savings
+          </button>
+        </div>
+      </div>
+
       {type === 'expense' && (
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Rank / Priority</label>
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="Need">Need (Essential)</option>
-            <option value="Want">Want (Non-essential)</option>
-            <option value="Luxury">Luxury (Splurge)</option>
-            <option value="Debt">Debt Repayment</option>
-            <option value="Savings">Savings/Investment</option>
-          </select>
+          <label className="block text-xs text-gray-500 mb-1">Section (Budget Category)</label>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPriority('Need')}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 ring-2 ring-blue-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+            >
+              💪 Need
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriority('Want')}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 ring-2 ring-amber-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+            >
+              🌟 Want
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriority('Offerings')}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${priority === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 ring-2 ring-emerald-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+            >
+              🙏 Offerings
+            </button>
+          </div>
         </div>
       )}
 

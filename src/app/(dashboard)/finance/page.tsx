@@ -1,18 +1,61 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { TransactionForm } from '@/components/finance/TransactionForm'
 import { BudgetProgress } from '@/components/finance/BudgetProgress'
+import { SectionBudgetCard } from '@/components/finance/SectionBudgetCard'
+
+const SECTION_KEYS = ['Need', 'Want', 'Offerings'] as const
+type Section = typeof SECTION_KEYS[number]
+
+interface Entry {
+  id: string
+  type: string
+  amount: number
+  category: string
+  description: string | null
+  comments: string | null
+  entryDate: string
+  priority: string | null
+  purse: string
+  section?: string
+  balance?: number
+}
+
+interface Budget {
+  id: string
+  category: string
+  amount: number
+  section: string
+  month: string
+}
+
+interface Allocation {
+  id: string
+  section: string
+  amount: number
+  month: string
+}
 
 export default function FinancePage() {
-  const [entries, setEntries] = useState<any[]>([])
-  const [budgets, setBudgets] = useState<any[]>([])
+  const [entries, setEntries] = useState<Entry[]>([])
+  const [budgets, setBudgets] = useState<Budget[]>([])
+  const [allocations, setAllocations] = useState<Allocation[]>([])
   const [totalIncome, setTotalIncome] = useState(0)
   const [totalExpense, setTotalExpense] = useState(0)
+  const [mainBalance, setMainBalance] = useState(0)
+  const [savingsBalance, setSavingsBalance] = useState(0)
   const [loading, setLoading] = useState(true)
   const [savingsTarget, setSavingsTarget] = useState(0)
   const [editSavings, setEditSavings] = useState(false)
   const [savingsInput, setSavingsInput] = useState('')
+
+  // Transfer modal state
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [transferAmount, setTransferAmount] = useState('')
+  const [transferFrom, setTransferFrom] = useState<'main' | 'savings'>('main')
+  const [transferDesc, setTransferDesc] = useState('')
+  const [transferLoading, setTransferLoading] = useState(false)
 
   const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
 
@@ -21,7 +64,7 @@ export default function FinancePage() {
     if (stored) setSavingsTarget(parseFloat(stored))
   }, [])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const [finRes, budRes] = await Promise.all([
@@ -34,47 +77,64 @@ export default function FinancePage() {
         setEntries(finData.entries || [])
         setTotalIncome(finData.totalIncome || 0)
         setTotalExpense(finData.totalExpense || 0)
+        setMainBalance(finData.mainBalance || 0)
+        setSavingsBalance(finData.savingsBalance || 0)
       }
 
       if (budRes.ok) {
         const budData = await budRes.json()
         setBudgets(budData.budgets || [])
+        setAllocations(budData.allocations || [])
       }
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentMonth])
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [fetchData])
 
-  const handleSetBudget = async () => {
-    const category = prompt('Enter budget category (e.g., Food, Transport):')
-    if (!category) return
-    const amountStr = prompt(`Enter monthly budget amount for ${category}:`)
-    if (!amountStr) return
+  // Handle section allocation
+  const handleAllocateToSection = async (section: Section, amount: number) => {
+    await fetch('/api/allocations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section, amount, month: currentMonth })
+    })
+    fetchData()
+  }
 
+  // Handle adding a budget category under a section
+  const handleAddBudgetCategory = async (section: Section, category: string, amount: number) => {
     await fetch('/api/budgets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category, amount: parseFloat(amountStr), month: currentMonth })
+      body: JSON.stringify({ section, category, amount, month: currentMonth })
     })
+    fetchData()
+  }
 
+  // Handle deleting a budget
+  const handleDeleteBudget = async (id: string) => {
+    if (!confirm('Delete this budget category?')) return
+    await fetch('/api/budgets', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    })
     fetchData()
   }
 
   const handleDeleteEntry = async (id: string) => {
     if (!confirm('Are you sure you want to delete this transaction?')) return
-
     await fetch('/api/financial', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id })
     })
-
     fetchData()
   }
 
@@ -87,23 +147,76 @@ export default function FinancePage() {
     setEditSavings(false)
   }
 
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!transferAmount) return
+
+    setTransferLoading(true)
+    try {
+      const res = await fetch('/api/financial', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: parseFloat(transferAmount),
+          from: transferFrom,
+          to: transferFrom === 'main' ? 'savings' : 'main',
+          description: transferDesc
+        })
+      })
+
+      if (res.ok) {
+        setTransferAmount('')
+        setTransferDesc('')
+        setShowTransfer(false)
+        fetchData()
+      }
+    } catch (err) {
+      console.error('Transfer failed:', err)
+    } finally {
+      setTransferLoading(false)
+    }
+  }
+
   // Calculate spent amounts per category
   const categorySpending: Record<string, number> = {}
   entries.forEach(entry => {
-    if (entry.type === 'expense' && entry.entryDate.startsWith(currentMonth)) {
+    if (entry.type === 'expense' && entry.entryDate?.startsWith(currentMonth)) {
       categorySpending[entry.category] = (categorySpending[entry.category] || 0) + entry.amount
     }
+  })
+
+  // Calculate spending per section
+  const sectionSpending: Record<string, number> = { Need: 0, Want: 0, Offerings: 0 }
+  entries.forEach(entry => {
+    if (entry.type === 'expense' && entry.entryDate?.startsWith(currentMonth)) {
+      const section = entry.priority && ['Need', 'Want', 'Offerings'].includes(entry.priority) ? entry.priority as Section : 'Need'
+      sectionSpending[section] = (sectionSpending[section] || 0) + entry.amount
+    }
+  })
+
+  // Group budgets by section
+  const budgetsBySection: Record<string, Budget[]> = { Need: [], Want: [], Offerings: [] }
+  budgets.forEach(budget => {
+    if (budgetsBySection[budget.section]) {
+      budgetsBySection[budget.section].push(budget)
+    }
+  })
+
+  // Section totals from allocations
+  const sectionAllocations: Record<string, number> = { Need: 0, Want: 0, Offerings: 0 }
+  allocations.forEach(a => {
+    sectionAllocations[a.section] = a.amount
   })
 
   const currentSavings = totalIncome - totalExpense
   const savingsProgress = savingsTarget > 0 ? Math.min((currentSavings / savingsTarget) * 100, 100) : 0
 
-  // Build entries with running balance — sort ascending by date for the running calc
+  // Build entries with running balance
   const sortedEntries = [...entries].sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime())
   let runningBalance = 0
   const entriesWithBalance = sortedEntries.slice(0, 50).map(entry => {
     if (entry.type === 'income') runningBalance += entry.amount
-    else runningBalance -= entry.amount
+    else if (entry.type === 'expense') runningBalance -= entry.amount
     return { ...entry, balance: runningBalance }
   })
 
@@ -129,13 +242,112 @@ export default function FinancePage() {
           <div className="text-xl font-bold text-red-600">${totalExpense.toFixed(2)}</div>
         </div>
         <div className="bg-blue-600 p-4 rounded-xl border border-blue-700 shadow-sm text-white">
-          <div className="text-xs text-blue-100 mb-1">Current Balance</div>
-          <div className="text-xl font-bold">${(currentSavings).toFixed(2)}</div>
+          <div className="text-xs text-blue-100 mb-1">👜 Main Purse</div>
+          <div className="text-xl font-bold">${mainBalance.toFixed(2)}</div>
         </div>
         <div className="bg-purple-600 p-4 rounded-xl border border-purple-700 shadow-sm text-white">
-          <div className="text-xs text-purple-100 mb-1">Monthly Savings</div>
-          <div className="text-xl font-bold">${currentSavings >= 0 ? currentSavings.toFixed(2) : '0.00'}</div>
+          <div className="text-xs text-purple-100 mb-1">🏦 Savings Purse</div>
+          <div className="text-xl font-bold">${savingsBalance.toFixed(2)}</div>
         </div>
+      </div>
+
+      {/* Section Budgets (Need, Want, Offerings) */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <span>📊</span> Budget by Sections
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {SECTION_KEYS.map(section => (
+            <SectionBudgetCard
+              key={section}
+              section={section}
+              totalAllocated={sectionAllocations[section]}
+              totalSpent={sectionSpending[section]}
+              budgets={budgetsBySection[section]}
+              categorySpending={categorySpending}
+              entries={entries}
+              currentMonth={currentMonth}
+              onAllocate={(amount) => handleAllocateToSection(section, amount)}
+              onAddBudget={(category, amount) => handleAddBudgetCategory(section, category, amount)}
+              onDeleteBudget={handleDeleteBudget}
+              onDeleteEntry={handleDeleteEntry}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Transfer Card */}
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">🔄 Transfer Between Purses</h2>
+          <button
+            onClick={() => setShowTransfer(!showTransfer)}
+            className="text-sm text-blue-500 hover:underline"
+          >
+            {showTransfer ? 'Cancel' : 'Transfer'}
+          </button>
+        </div>
+
+        {showTransfer && (
+          <form onSubmit={handleTransfer} className="space-y-3">
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">From</label>
+                <select
+                  value={transferFrom}
+                  onChange={(e) => setTransferFrom(e.target.value as 'main' | 'savings')}
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                >
+                  <option value="main">👜 Main Purse (${mainBalance.toFixed(2)})</option>
+                  <option value="savings">🏦 Savings Purse (${savingsBalance.toFixed(2)})</option>
+                </select>
+              </div>
+              <div className="w-8 text-center text-gray-400 pb-2">→</div>
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">To</label>
+                <div className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm font-medium">
+                  {transferFrom === 'main' ? '🏦 Savings Purse' : '👜 Main Purse'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">Amount</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-gray-400">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    required
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 pl-7 pr-3 text-sm"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">Note (Optional)</label>
+                <input
+                  type="text"
+                  value={transferDesc}
+                  onChange={(e) => setTransferDesc(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                  placeholder="e.g. Building savings"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={transferLoading}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+            >
+              {transferLoading ? 'Transferring...' : `Transfer → ${transferFrom === 'main' ? 'Savings' : 'Main'}`}
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Savings Target */}
@@ -206,28 +418,21 @@ export default function FinancePage() {
             <TransactionForm onSuccess={fetchData} />
           </div>
 
-          {/* Budgeting Planner */}
+          {/* Monthly Budget Overview */}
           <div>
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-semibold">Monthly Budget Planner</h2>
-              <button onClick={handleSetBudget} className="text-sm text-blue-500 hover:underline">
-                + New Budget
-              </button>
-            </div>
-
+            <h2 className="text-lg font-semibold mb-3">All Budgets Overview</h2>
             <div className="space-y-3">
               {budgets.length === 0 ? (
                 <div className="text-sm text-gray-500 italic p-4 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                  No budgets set for {currentMonth}. Assign every dollar a job!
+                  No budgets set for {currentMonth}. Use the section cards above to assign every dollar a job!
                 </div>
               ) : (
                 budgets.map(budget => (
                   <BudgetProgress
                     key={budget.id}
-                    category={budget.category}
+                    category={`${budget.section} › ${budget.category}`}
                     budgeted={budget.amount}
                     spent={categorySpending[budget.category] || 0}
-                    onEdit={handleSetBudget}
                   />
                 ))
               )}
@@ -237,7 +442,7 @@ export default function FinancePage() {
 
         {/* Transactions Table with Running Balance */}
         <div>
-          <h2 className="text-lg font-semibold mb-3">Transactions</h2>
+          <h2 className="text-lg font-semibold mb-3">Transactions Ledger</h2>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             {entries.length === 0 ? (
               <div className="p-6 text-sm text-gray-500 text-center">No transactions yet. Add your first one!</div>
@@ -251,6 +456,8 @@ export default function FinancePage() {
                       <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Debit ($)</th>
                       <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Credit ($)</th>
                       <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Balance ($)</th>
+                      <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Purse</th>
+                      <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Section</th>
                       <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Comments</th>
                       <th className="p-3"></th>
                     </tr>
@@ -269,17 +476,34 @@ export default function FinancePage() {
                           </div>
                         </td>
                         <td className="p-3 text-right font-medium text-red-600 whitespace-nowrap">
-                          {entry.type === 'expense' ? `$${entry.amount.toFixed(2)}` : '-'}
+                          {entry.type === 'expense' || entry.type === 'transfer_out' ? `$${entry.amount.toFixed(2)}` : '-'}
                         </td>
                         <td className="p-3 text-right font-medium text-green-600 whitespace-nowrap">
-                          {entry.type === 'income' ? `$${entry.amount.toFixed(2)}` : '-'}
+                          {entry.type === 'income' || entry.type === 'transfer_in' ? `$${entry.amount.toFixed(2)}` : '-'}
                         </td>
                         <td className="p-3 text-right font-semibold whitespace-nowrap">
                           <span className={entry.balance >= 0 ? 'text-blue-600' : 'text-red-600'}>
                             ${entry.balance.toFixed(2)}
                           </span>
                         </td>
-                        <td className="p-3 text-xs text-gray-500 max-w-[140px] truncate">
+                        <td className="p-3 text-xs">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.purse === 'savings' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                            {entry.purse === 'savings' ? '🏦' : '👜'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs">
+                          {entry.priority && ['Need', 'Want', 'Offerings'].includes(entry.priority) ? (
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                entry.priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                                  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              }`}>
+                              {entry.priority === 'Need' ? '💪' : entry.priority === 'Want' ? '🌟' : '🙏'} {entry.priority}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs text-gray-500 max-w-[120px] truncate">
                           {entry.comments || '-'}
                         </td>
                         <td className="p-3 text-right">

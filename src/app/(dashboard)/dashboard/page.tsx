@@ -378,9 +378,18 @@ export default function DashboardPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base sm:text-lg font-bold text-ink">Today</h2>
-            <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-gold/10 text-gold text-[10px] font-bold">
-              <CalendarDays className="w-3 h-3" />
-              <span>{format(new Date(), 'MMM d')}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push(`/day/${format(new Date(), 'yyyy-MM-dd')}`)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-sage/10 text-sage hover:bg-sage/20 active:scale-95 transition text-[10px] font-bold"
+              >
+                <CalendarDays className="w-3 h-3" />
+                <span>Open Day</span>
+              </button>
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-gold/10 text-gold text-[10px] font-bold">
+                <CalendarDays className="w-3 h-3" />
+                <span>{format(new Date(), 'MMM d')}</span>
+              </div>
             </div>
           </div>
 

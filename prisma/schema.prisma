@@ -189,13 +189,14 @@ model FinancialEntry {
   itemId      String?
   item        Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
   entryDate   DateTime
-  type        String
+  type        String // "income" | "expense" | "transfer"
   amount      Float
   currency    String   @default("USD")
   category    String
   description String?
   comments    String?
   priority    String? // e.g., "Need", "Want", "Luxury"
+  purse       String   @default("main") // "main" | "savings"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -249,11 +250,24 @@ model PendingSuggestion {
 model Budget {
   id        String   @id @default(uuid())
   userId    String
+  section   String   @default("Need") // "Need", "Want", "Offerings"
   category  String
   amount    Float
   month     String // e.g., "2026-07"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, category, month])
+  @@unique([userId, category, month, section])
+}
+
+model SectionAllocation {
+  id        String   @id @default(uuid())
+  userId    String
+  section   String // "Need", "Want", "Offerings"
+  amount    Float
+  month     String // e.g., "2026-07"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, section, month])
 }
