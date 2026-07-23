@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useHierarchyStore } from '@/stores/hierarchyStore'
-import { Activity, Target, Flame, BarChart3, CheckCircle, ListTodo, MessageSquare, X, TrendingUp, Award, Users, ArrowRight, Sparkles, Sun, Zap, CalendarDays } from 'lucide-react'
+import { Activity, Target, Flame, BarChart3, CheckCircle, ListTodo, MessageSquare, X, TrendingUp, Award, Users, ArrowRight, Sparkles, Sun, Zap, CalendarDays, DollarSign } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 
@@ -467,6 +467,13 @@ export default function DashboardPage() {
               >
                 <Target className="w-4 h-4 text-sage" />
                 <span className="text-xs font-medium text-ink">Goals</span>
+              </button>
+              <button
+                onClick={() => router.push('/finance')}
+                className="flex items-center space-x-2 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 transition text-left"
+              >
+                <DollarSign className="w-4 h-4 text-gold" />
+                <span className="text-xs font-medium text-ink">Finance</span>
               </button>
               <button
                 onClick={() => router.push('/partners')}

@@ -4,7 +4,7 @@ import React from 'react'
 import { useMobileMenu } from './MobileMenuContext'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, X, MessageSquare, UserPlus, Bell } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, X, MessageSquare, UserPlus, Bell } from 'lucide-react'
 
 export function MobileMenu() {
     const { isOpen, setIsOpen } = useMobileMenu()
@@ -15,6 +15,7 @@ export function MobileMenu() {
         { name: 'Dashboard', href: '/dashboard', icon: Home },
         { name: 'Calendar', href: '/calendar', icon: CalendarDays },
         { name: 'Year View', href: '/year', icon: Calendar },
+        { name: 'Finance', href: '/finance', icon: DollarSign },
         { name: 'Partners', href: '/partners', icon: Users },
         { name: 'Notes', href: '/notes', icon: FileText },
         { name: 'Reports', href: '/reports', icon: BarChart3 },
