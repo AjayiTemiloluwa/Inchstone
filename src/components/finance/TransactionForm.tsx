@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { SECTION_CATEGORIES, BudgetCategoryOption } from './budgetCategories'
 
 interface TransactionFormProps {
   onSuccess: () => void
@@ -13,11 +14,32 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const [description, setDescription] = useState('')
   const [comments, setComments] = useState('')
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
-  const [priority, setPriority] = useState('Need')
+  const [section, setSection] = useState('Need')
   const [purse, setPurse] = useState<'main' | 'savings'>('main')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  const isSavings = purse === 'savings'
+
+  const categorySuggestions: BudgetCategoryOption[] = type === 'expense'
+    ? (SECTION_CATEGORIES[section] || [])
+    : type === 'income'
+      ? [
+        { label: 'Salary / Wages', icon: '💰' },
+        { label: 'Freelance / Side Hustle', icon: '💼' },
+        { label: 'Business Income', icon: '🏪' },
+        { label: 'Investment Returns', icon: '📈' },
+        { label: 'Gifts Received', icon: '🎁' },
+        { label: 'Refunds / Rebates', icon: '🔄' },
+        { label: 'Other Income', icon: '📥' },
+      ]
+      : []
+
+  const filteredSuggestions = categorySuggestions.filter(
+    s => s.label.toLowerCase().includes(category.toLowerCase())
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,11 +54,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         body: JSON.stringify({
           type,
           amount: parseFloat(amount),
-          category,
+          category: isSavings ? 'Savings Transfer' : category,
           description,
           comments,
           entryDate,
-          priority: type === 'expense' ? priority : null,
+          priority: type === 'expense' ? section : null,
           purse
         })
       })
@@ -45,7 +67,6 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
       try {
         data = await res.json()
       } catch (parseError) {
-        // If response is not JSON (e.g., HTML from Clerk redirect), get text instead
         const text = await res.text()
         console.error('Non-JSON response:', text.substring(0, 200))
         setError('Authentication error. Please refresh the page and try again.')
@@ -88,23 +109,25 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         </div>
       )}
 
+      {/* Type Toggle */}
       <div className="flex gap-2 mb-4">
         <button
           type="button"
           onClick={() => setType('expense')}
-          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'expense' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'expense' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 ring-2 ring-red-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
         >
-          Expense (Debit)
+          💸 Expense (Debit)
         </button>
         <button
           type="button"
           onClick={() => setType('income')}
-          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 ring-2 ring-green-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
         >
-          Income (Credit)
+          📥 Income (Credit)
         </button>
       </div>
 
+      {/* Date */}
       <div>
         <label className="block text-xs text-gray-500 mb-1">Date</label>
         <input
@@ -116,6 +139,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         />
       </div>
 
+      {/* Amount */}
       <div>
         <label className="block text-xs text-gray-500 mb-1">Amount</label>
         <div className="relative">
@@ -132,18 +156,79 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         </div>
       </div>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Category</label>
-        <input
-          type="text"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          required
-          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder={type === 'expense' ? 'e.g. Groceries, Rent' : 'e.g. Salary, Side Hustle'}
-        />
-      </div>
+      {/* Category - Only show for non-savings transactions */}
+      {!isSavings && (
+        <div className="relative">
+          <label className="block text-xs text-gray-500 mb-1">Category</label>
+          <input
+            type="text"
+            value={category}
+            onChange={(e) => {
+              setCategory(e.target.value)
+              setShowSuggestions(true)
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            required={!isSavings}
+            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe...' : 'e.g. Salary, Freelance...'}
+          />
+          {showSuggestions && category.length > 0 && filteredSuggestions.length > 0 && (
+            <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {filteredSuggestions.map(s => (
+                <button
+                  key={s.label}
+                  type="button"
+                  onMouseDown={() => {
+                    setCategory(s.label)
+                    setShowSuggestions(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  <span>{s.icon}</span>
+                  <span>{s.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Quick Category Pills for non-savings */}
+          {categorySuggestions.length > 0 && (
+            <div className="mt-2">
+              <label className="block text-xs text-gray-400 mb-1">Quick Select (tap to fill)</label>
+              <div className="flex flex-wrap gap-1.5">
+                {categorySuggestions.slice(0, 6).map(s => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    onClick={() => setCategory(s.label)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${category === s.label
+                      ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
+                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
+                      }`}
+                  >
+                    {s.icon} {s.label.split(' ')[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Savings badge - shown instead of category for savings */}
+      {isSavings && (
+        <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🏦</span>
+            <div>
+              <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Savings Transaction</p>
+              <p className="text-xs text-purple-500 dark:text-purple-400">No category needed — money flows to/from savings purse</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Description */}
       <div>
         <label className="block text-xs text-gray-500 mb-1">Description</label>
         <input
@@ -151,10 +236,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="What was this for?"
+          placeholder={isSavings ? 'e.g. Building emergency fund' : 'What was this for?'}
         />
       </div>
 
+      {/* Comments */}
       <div>
         <label className="block text-xs text-gray-500 mb-1">Comments (Optional)</label>
         <textarea
@@ -187,30 +273,38 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         </div>
       </div>
 
+      {/* Section selector for expenses */}
       {type === 'expense' && (
         <div>
           <label className="block text-xs text-gray-500 mb-1">Section (Budget Category)</label>
           <div className="flex gap-1.5">
             <button
               type="button"
-              onClick={() => setPriority('Need')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 ring-2 ring-blue-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+              onClick={() => setSection('Need')}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 ring-2 ring-blue-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
             >
               💪 Need
             </button>
             <button
               type="button"
-              onClick={() => setPriority('Want')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 ring-2 ring-amber-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+              onClick={() => setSection('Want')}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 ring-2 ring-amber-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
             >
               🌟 Want
             </button>
             <button
               type="button"
-              onClick={() => setPriority('Offerings')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${priority === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 ring-2 ring-emerald-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+              onClick={() => setSection('Offerings')}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 ring-2 ring-emerald-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
             >
               🙏 Offerings
+            </button>
+            <button
+              type="button"
+              onClick={() => setSection('Savings')}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Savings' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 ring-2 ring-purple-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+            >
+              🏦 Savings
             </button>
           </div>
         </div>
@@ -221,7 +315,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         disabled={loading}
         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
       >
-        {loading ? 'Adding...' : 'Add Transaction'}
+        {loading ? 'Adding...' : isSavings ? `Add to 🏦 Savings` : 'Add Transaction'}
       </button>
     </form>
   )

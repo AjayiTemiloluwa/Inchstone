@@ -34,8 +34,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'section, amount, and month are required' }, { status: 400 })
         }
 
-        if (!['Need', 'Want', 'Offerings'].includes(section)) {
-            return NextResponse.json({ error: 'section must be Need, Want, or Offerings' }, { status: 400 })
+        if (!['Need', 'Want', 'Offerings', 'Savings'].includes(section)) {
+            return NextResponse.json({ error: 'section must be Need, Want, Offerings, or Savings' }, { status: 400 })
         }
 
         const parsedAmount = parseFloat(amount)

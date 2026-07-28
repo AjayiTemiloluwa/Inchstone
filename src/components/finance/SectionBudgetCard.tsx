@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react'
 import { BudgetProgress } from './BudgetProgress'
+import { SECTION_CATEGORIES, BudgetCategoryOption, getSectionIcon } from './budgetCategories'
 
 interface SectionBudgetCardProps {
-    section: 'Need' | 'Want' | 'Offerings'
+    section: 'Need' | 'Want' | 'Offerings' | 'Savings'
     totalAllocated: number
     totalSpent: number
     budgets: any[]
@@ -47,7 +48,51 @@ const sectionConfig = {
         accentColor: 'bg-emerald-600',
         accentHover: 'hover:bg-emerald-700',
         description: 'Tithes, gifts, and charitable giving'
+    },
+    Savings: {
+        icon: '🏦',
+        color: 'purple',
+        bgColor: 'bg-purple-50 dark:bg-purple-900/10',
+        borderColor: 'border-purple-200 dark:border-purple-800',
+        textColor: 'text-purple-700 dark:text-purple-300',
+        accentColor: 'bg-purple-600',
+        accentHover: 'hover:bg-purple-700',
+        description: 'Savings goals and financial reserves'
     }
+}
+
+// Suggest starting amounts for each category
+const defaultBudgetAmounts: Record<string, number> = {
+    'Food / Groceries': 400,
+    'Transport / Gas': 150,
+    'Rent / Mortgage': 1200,
+    'Utilities (Electric, Water, Internet)': 200,
+    'Healthcare / Insurance': 150,
+    'Clothing / Apparel': 80,
+    'Debt Payments': 300,
+    'Education / Tuition': 100,
+    'Entertainment (Movies, Games)': 50,
+    'Dining Out / Restaurants': 100,
+    'Travel / Vacation': 200,
+    'Shopping / Hobbies': 80,
+    'Subscriptions (Spotify, Netflix)': 30,
+    'Gym / Fitness': 40,
+    'Gadgets / Electronics': 100,
+    'Gifts / Celebrations': 60,
+    'Tithe (10%)': 0,
+    'Church Offerings': 100,
+    'Charity / Giving': 50,
+    'Missions / Outreach': 50,
+    'Support Family': 200,
+    'Ministry / Fellowship': 30,
+    'Emergency Fund': 500,
+    'Retirement / 401k': 500,
+    'Investment Portfolio': 300,
+    'Education Fund': 200,
+    'Travel Fund': 200,
+    'Home Down Payment': 500,
+    'Vehicle Fund': 300,
+    'Rainy Day Fund': 200,
 }
 
 export function SectionBudgetCard({
@@ -75,6 +120,14 @@ export function SectionBudgetCard({
     const percentage = totalAllocated > 0 ? Math.min((totalSpent / totalAllocated) * 100, 100) : 0
     const sectionEntries = entries.filter(e => e.priority === section || e.section === section)
 
+    // Categories already budgeted in this section
+    const budgetedCategoryLabels = new Set(budgets.map(b => b.category))
+
+    // Suggested categories that haven't been added yet
+    const suggestedUnused: BudgetCategoryOption[] = (SECTION_CATEGORIES[section] || []).filter(
+        cat => !budgetedCategoryLabels.has(cat.label)
+    )
+
     const handleAllocate = (e: React.FormEvent) => {
         e.preventDefault()
         const val = parseFloat(allocateAmount)
@@ -94,6 +147,11 @@ export function SectionBudgetCard({
             setNewBudgetAmount('')
             setShowAddCategory(false)
         }
+    }
+
+    const handleQuickAdd = (cat: BudgetCategoryOption) => {
+        const suggestedAmount = defaultBudgetAmounts[cat.label] || 100
+        onAddBudget(cat.label, suggestedAmount)
     }
 
     return (
@@ -158,8 +216,8 @@ export function SectionBudgetCard({
                     <button
                         onClick={() => setShowExpenses(!showExpenses)}
                         className={`flex-1 py-1.5 text-xs font-medium rounded-lg border ${showExpenses
-                                ? `${config.borderColor} ${config.textColor}`
-                                : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
+                            ? `${config.borderColor} ${config.textColor}`
+                            : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'
                             } hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
                     >
                         {showExpenses ? 'Hide' : `${sectionEntries.length} Expenses`}
@@ -193,36 +251,67 @@ export function SectionBudgetCard({
 
                 {/* Add Category Form */}
                 {showAddCategory && (
-                    <form onSubmit={handleAddBudget} className="mt-3 space-y-2">
-                        <input
-                            type="text"
-                            value={newCategory}
-                            onChange={(e) => setNewCategory(e.target.value)}
-                            required
-                            className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5 px-3 text-sm"
-                            placeholder="e.g., Food, Transport, Clothing"
-                        />
-                        <div className="flex gap-2">
-                            <div className="relative flex-1">
-                                <span className="absolute left-2.5 top-2 text-gray-400 text-xs">$</span>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    value={newBudgetAmount}
-                                    onChange={(e) => setNewBudgetAmount(e.target.value)}
-                                    required
-                                    className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5 pl-6 pr-2.5 text-sm"
-                                    placeholder="Budget amount"
-                                />
+                    <div className="mt-3 space-y-3">
+                        <form onSubmit={handleAddBudget} className="space-y-2">
+                            <input
+                                type="text"
+                                value={newCategory}
+                                onChange={(e) => setNewCategory(e.target.value)}
+                                required
+                                className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5 px-3 text-sm"
+                                placeholder="e.g., Food, Transport, Clothing"
+                            />
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <span className="absolute left-2.5 top-2 text-gray-400 text-xs">$</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={newBudgetAmount}
+                                        onChange={(e) => setNewBudgetAmount(e.target.value)}
+                                        required
+                                        className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5 pl-6 pr-2.5 text-sm"
+                                        placeholder="Budget amount"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    className={`px-4 py-1.5 text-xs font-medium rounded-lg text-white ${config.accentColor} ${config.accentHover} transition-colors`}
+                                >
+                                    Add
+                                </button>
                             </div>
-                            <button
-                                type="submit"
-                                className={`px-4 py-1.5 text-xs font-medium rounded-lg text-white ${config.accentColor} ${config.accentHover} transition-colors`}
-                            >
-                                Add
-                            </button>
-                        </div>
-                    </form>
+                        </form>
+
+                        {/* Suggested categories quick-add */}
+                        {suggestedUnused.length > 0 && (
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 mb-1.5">💡 Suggested categories (tap to add):</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {suggestedUnused.slice(0, 8).map(cat => {
+                                        const suggestedAmount = defaultBudgetAmounts[cat.label] || 100
+                                        return (
+                                            <button
+                                                key={cat.label}
+                                                type="button"
+                                                onClick={() => handleQuickAdd(cat)}
+                                                className="text-xs px-2 py-1 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-1"
+                                            >
+                                                <span>{cat.icon}</span>
+                                                <span>{cat.label.split(' ')[0]}</span>
+                                                <span className="text-gray-400 ml-0.5">${suggestedAmount}</span>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                                {suggestedUnused.length > 8 && (
+                                    <p className="text-[10px] text-gray-400 mt-1">
+                                        +{suggestedUnused.length - 8} more categories available
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
@@ -231,7 +320,7 @@ export function SectionBudgetCard({
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Category Budgets</h4>
                 {budgets.length === 0 ? (
                     <div className="text-xs text-gray-400 italic py-2">
-                        No category budgets set yet. Add one above!
+                        No category budgets set yet. Tap "Add Category" above or use the suggestions!
                     </div>
                 ) : (
                     budgets.map(budget => (
@@ -291,8 +380,8 @@ export function SectionBudgetCard({
                                         </td>
                                         <td className="p-2.5 text-xs">
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.purse === 'savings'
-                                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                                 }`}>
                                                 {entry.purse === 'savings' ? '🏦' : '👜'}
                                             </span>

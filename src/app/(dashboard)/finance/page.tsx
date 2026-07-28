@@ -4,8 +4,9 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { TransactionForm } from '@/components/finance/TransactionForm'
 import { BudgetProgress } from '@/components/finance/BudgetProgress'
 import { SectionBudgetCard } from '@/components/finance/SectionBudgetCard'
+import { getSectionIcon } from '@/components/finance/budgetCategories'
 
-const SECTION_KEYS = ['Need', 'Want', 'Offerings'] as const
+const SECTION_KEYS = ['Need', 'Want', 'Offerings', 'Savings'] as const
 type Section = typeof SECTION_KEYS[number]
 
 interface Entry {
@@ -186,16 +187,16 @@ export default function FinancePage() {
   })
 
   // Calculate spending per section
-  const sectionSpending: Record<string, number> = { Need: 0, Want: 0, Offerings: 0 }
+  const sectionSpending: Record<string, number> = { Need: 0, Want: 0, Offerings: 0, Savings: 0 }
   entries.forEach(entry => {
     if (entry.type === 'expense' && entry.entryDate?.startsWith(currentMonth)) {
-      const section = entry.priority && ['Need', 'Want', 'Offerings'].includes(entry.priority) ? entry.priority as Section : 'Need'
+      const section = entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) ? entry.priority as Section : 'Need'
       sectionSpending[section] = (sectionSpending[section] || 0) + entry.amount
     }
   })
 
   // Group budgets by section
-  const budgetsBySection: Record<string, Budget[]> = { Need: [], Want: [], Offerings: [] }
+  const budgetsBySection: Record<string, Budget[]> = { Need: [], Want: [], Offerings: [], Savings: [] }
   budgets.forEach(budget => {
     if (budgetsBySection[budget.section]) {
       budgetsBySection[budget.section].push(budget)
@@ -203,10 +204,12 @@ export default function FinancePage() {
   })
 
   // Section totals from allocations
-  const sectionAllocations: Record<string, number> = { Need: 0, Want: 0, Offerings: 0 }
+  const sectionAllocations: Record<string, number> = { Need: 0, Want: 0, Offerings: 0, Savings: 0 }
   allocations.forEach(a => {
     sectionAllocations[a.section] = a.amount
   })
+
+  const totalAllocated = Object.values(sectionAllocations).reduce((sum, v) => sum + v, 0)
 
   const currentSavings = totalIncome - totalExpense
   const savingsProgress = savingsTarget > 0 ? Math.min((currentSavings / savingsTarget) * 100, 100) : 0
@@ -251,12 +254,62 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {/* Section Budgets (Need, Want, Offerings) */}
+      {/* Start of Month: Add Money to Sections */}
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <span>📋</span> Start of Month Allocation
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Assign money to each section for the month of {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
+              Allocated: <span className="font-semibold text-blue-600">${totalAllocated.toFixed(2)}</span>
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {SECTION_KEYS.map(section => {
+            const allocated = sectionAllocations[section]
+            const spent = sectionSpending[section]
+            const remaining = allocated - spent
+            const pct = allocated > 0 ? Math.min((spent / allocated) * 100, 100) : 0
+            return (
+              <div key={section} className={`p-4 rounded-xl border ${section === 'Need' ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-900/5 dark:border-blue-800' :
+                section === 'Want' ? 'border-amber-200 bg-amber-50/50 dark:bg-amber-900/5 dark:border-amber-800' :
+                  section === 'Offerings' ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/5 dark:border-emerald-800' :
+                    'border-purple-200 bg-purple-50/50 dark:bg-purple-900/5 dark:border-purple-800'
+                }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span>{getSectionIcon(section)}</span>
+                    <span className="font-semibold text-sm">{section}</span>
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${allocated > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+                    ${allocated.toFixed(0)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-2">
+                  <div
+                    className={`h-1.5 rounded-full ${remaining < 0 ? 'bg-red-500' : pct > 85 ? 'bg-yellow-500' : section === 'Need' ? 'bg-blue-500' : section === 'Want' ? 'bg-amber-500' : section === 'Offerings' ? 'bg-emerald-500' : 'bg-purple-500'}`}
+                    style={{ width: `${Math.max(pct, 2)}%` }}
+                  ></div>
+                </div>
+                <div className="text-[10px] text-gray-500 flex justify-between">
+                  <span>${spent.toFixed(0)} spent</span>
+                  <span>{remaining >= 0 ? `$${remaining.toFixed(0)} left` : `$${Math.abs(remaining).toFixed(0)} over`}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Section Budgets (Need, Want, Offerings, Savings) */}
       <div>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <span>📊</span> Budget by Sections
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {SECTION_KEYS.map(section => (
             <SectionBudgetCard
               key={section}
@@ -492,12 +545,13 @@ export default function FinancePage() {
                           </span>
                         </td>
                         <td className="p-3 text-xs">
-                          {entry.priority && ['Need', 'Want', 'Offerings'].includes(entry.priority) ? (
+                          {entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) ? (
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                                entry.priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                                  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              entry.priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                                entry.priority === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                                  'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
                               }`}>
-                              {entry.priority === 'Need' ? '💪' : entry.priority === 'Want' ? '🌟' : '🙏'} {entry.priority}
+                              {entry.priority === 'Need' ? '💪' : entry.priority === 'Want' ? '🌟' : entry.priority === 'Offerings' ? '🙏' : '🏦'} {entry.priority}
                             </span>
                           ) : (
                             <span className="text-[10px] text-gray-400">-</span>
