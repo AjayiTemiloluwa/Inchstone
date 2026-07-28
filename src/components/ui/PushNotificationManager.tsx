@@ -6,6 +6,7 @@ export function PushNotificationManager() {
     const [supported, setSupported] = useState(false)
     const [subscribed, setSubscribed] = useState(false)
     const [loading, setLoading] = useState(false)
+    const [testing, setTesting] = useState(false)
 
     useEffect(() => {
         if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -64,12 +65,39 @@ export function PushNotificationManager() {
         }
     }
 
+    const handleTestNotification = async () => {
+        setTesting(true)
+        try {
+            const res = await fetch('/api/push/test', { method: 'POST' })
+            const data = await res.json()
+            if (data.success) {
+                alert(`✅ ${data.message}`)
+            } else {
+                alert(`❌ ${data.error || 'Test failed'}`)
+            }
+        } catch (err) {
+            alert('❌ Failed to send test notification')
+            console.error(err)
+        } finally {
+            setTesting(false)
+        }
+    }
+
     if (!supported) return null
 
     return (
         <div className="flex items-center space-x-2">
             {subscribed ? (
-                <span className="text-xs text-sage font-medium">Notifications enabled</span>
+                <>
+                    <span className="text-xs text-sage font-medium">Notifications enabled</span>
+                    <button
+                        onClick={handleTestNotification}
+                        disabled={testing}
+                        className="text-xs font-medium text-blue-500 hover:underline disabled:opacity-50 ml-2"
+                    >
+                        {testing ? 'Sending...' : 'Test'}
+                    </button>
+                </>
             ) : (
                 <button
                     onClick={handleSubscribe}
