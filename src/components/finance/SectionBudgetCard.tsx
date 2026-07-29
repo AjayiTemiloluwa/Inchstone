@@ -4,6 +4,13 @@ import React, { useState } from 'react'
 import { BudgetProgress } from './BudgetProgress'
 import { SECTION_CATEGORIES, BudgetCategoryOption, getSectionIcon } from './budgetCategories'
 
+interface Purse {
+    id: string
+    name: string
+    icon: string
+    color: string
+}
+
 interface SectionBudgetCardProps {
     section: 'Need' | 'Want' | 'Offerings' | 'Savings'
     totalAllocated: number
@@ -12,10 +19,12 @@ interface SectionBudgetCardProps {
     categorySpending: Record<string, number>
     entries: any[]
     currentMonth: string
+    purses?: Purse[]
     onAllocate: (amount: number) => void
     onAddBudget: (category: string, amount: number) => void
     onDeleteBudget: (id: string) => void
     onDeleteEntry: (id: string) => void
+    onAddTransaction?: (entry: { type: string; amount: number; category: string; description: string; purse: string; priority: string }) => Promise<boolean>
 }
 
 const sectionConfig = {
@@ -92,10 +101,12 @@ export function SectionBudgetCard({
     categorySpending,
     entries,
     currentMonth,
+    purses: externalPurses,
     onAllocate,
     onAddBudget,
     onDeleteBudget,
-    onDeleteEntry
+    onDeleteEntry,
+    onAddTransaction
 }: SectionBudgetCardProps) {
     const config = sectionConfig[section]
     const [showAllocate, setShowAllocate] = useState(false)
@@ -104,6 +115,12 @@ export function SectionBudgetCard({
     const [newCategory, setNewCategory] = useState('')
     const [newBudgetAmount, setNewBudgetAmount] = useState('')
     const [showExpenses, setShowExpenses] = useState(false)
+    const [quickAddCategory, setQuickAddCategory] = useState<string | null>(null)
+    const [quickAddAmount, setQuickAddAmount] = useState('')
+    const [quickAddDesc, setQuickAddDesc] = useState('')
+    const [quickAddPurse, setQuickAddPurse] = useState('')
+    const [quickAddLoading, setQuickAddLoading] = useState(false)
+    const [purses, setPurses] = useState<Purse[]>(externalPurses || [])
 
     const remaining = totalAllocated - totalSpent
     const percentage = totalAllocated > 0 ? Math.min((totalSpent / totalAllocated) * 100, 100) : 0
@@ -112,6 +129,24 @@ export function SectionBudgetCard({
     const suggestedUnused: BudgetCategoryOption[] = (SECTION_CATEGORIES[section] || []).filter(
         cat => !budgetedCategoryLabels.has(cat.label)
     )
+
+    // Load purses if not provided
+    React.useEffect(() => {
+        if (!externalPurses || externalPurses.length === 0) {
+            fetch('/api/purses')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.purses?.length > 0) {
+                        setPurses(data.purses)
+                        if (!quickAddPurse) setQuickAddPurse(data.purses[0].name)
+                    }
+                })
+                .catch(() => { })
+        } else {
+            setPurses(externalPurses)
+            if (!quickAddPurse && externalPurses.length > 0) setQuickAddPurse(externalPurses[0].name)
+        }
+    }, [externalPurses])
 
     const handleAllocate = (e: React.FormEvent) => {
         e.preventDefault()
@@ -125,6 +160,35 @@ export function SectionBudgetCard({
     }
     const handleQuickAdd = (cat: BudgetCategoryOption) => {
         onAddBudget(cat.label, defaultBudgetAmounts[cat.label] || 100)
+    }
+
+    const handleQuickTransaction = async (e: React.FormEvent, category: string) => {
+        e.preventDefault()
+        if (!quickAddAmount || !onAddTransaction) return
+
+        setQuickAddLoading(true)
+        try {
+            await onAddTransaction({
+                type: 'expense',
+                amount: parseFloat(quickAddAmount),
+                category,
+                description: quickAddDesc,
+                purse: quickAddPurse || (purses.length > 0 ? purses[0].name : 'Main'),
+                priority: section,
+            })
+            setQuickAddAmount('')
+            setQuickAddDesc('')
+            setQuickAddCategory(null)
+        } catch (err) {
+            console.error('Quick transaction failed:', err)
+        } finally {
+            setQuickAddLoading(false)
+        }
+    }
+
+    const getPurseIcon = (name: string) => {
+        const p = purses.find(p => p.name === name)
+        return p?.icon || '👜'
     }
 
     return (
@@ -188,7 +252,7 @@ export function SectionBudgetCard({
             {/* Action Buttons */}
             <div className="px-5 py-3 flex gap-2">
                 <button
-                    onClick={() => { setShowAllocate(!showAllocate); setShowAddCategory(false); setShowExpenses(false) }}
+                    onClick={() => { setShowAllocate(!showAllocate); setShowAddCategory(false); setShowExpenses(false); setQuickAddCategory(null) }}
                     className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:scale-[0.97]
                         ${showAllocate
                             ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
@@ -198,7 +262,7 @@ export function SectionBudgetCard({
                     {showAllocate ? 'Cancel' : '+ Allocate'}
                 </button>
                 <button
-                    onClick={() => { setShowAddCategory(!showAddCategory); setShowAllocate(false); setShowExpenses(false) }}
+                    onClick={() => { setShowAddCategory(!showAddCategory); setShowAllocate(false); setShowExpenses(false); setQuickAddCategory(null) }}
                     className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:scale-[0.97]
                         ${showAddCategory
                             ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
@@ -208,7 +272,7 @@ export function SectionBudgetCard({
                     {showAddCategory ? 'Cancel' : '+ Category'}
                 </button>
                 <button
-                    onClick={() => { setShowExpenses(!showExpenses); setShowAllocate(false); setShowAddCategory(false) }}
+                    onClick={() => { setShowExpenses(!showExpenses); setShowAllocate(false); setShowAddCategory(false); setQuickAddCategory(null) }}
                     className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:scale-[0.97]
                         ${showExpenses
                             ? `bg-gradient-to-r ${config.accentGradient} text-white shadow-sm`
@@ -277,7 +341,7 @@ export function SectionBudgetCard({
                 </div>
             )}
 
-            {/* Category Budgets */}
+            {/* Category Budgets with Quick Add Transaction */}
             <div className="px-5 pb-5 flex-1">
                 <div className="rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-700/30 p-4">
                     <div className="flex items-center gap-2 mb-3">
@@ -293,12 +357,72 @@ export function SectionBudgetCard({
                     ) : (
                         <div className="space-y-2.5">
                             {budgets.map(budget => (
-                                <div key={budget.id} className="relative group">
-                                    <BudgetProgress category={budget.category} budgeted={budget.amount} spent={categorySpending[budget.category] || 0} />
-                                    <button onClick={() => onDeleteBudget(budget.id)}
-                                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all shadow-md">
-                                        ×
-                                    </button>
+                                <div key={budget.id}>
+                                    <div className="relative group">
+                                        <BudgetProgress category={budget.category} budgeted={budget.amount} spent={categorySpending[budget.category] || 0} />
+                                        <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                            <button
+                                                onClick={() => {
+                                                    setQuickAddCategory(quickAddCategory === budget.category ? null : budget.category)
+                                                    setQuickAddAmount('')
+                                                    setQuickAddDesc('')
+                                                }}
+                                                className="w-5 h-5 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600 transition-all shadow-md"
+                                                title="Quick add expense"
+                                            >
+                                                +
+                                            </button>
+                                            <button onClick={() => onDeleteBudget(budget.id)}
+                                                className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition-all shadow-md">
+                                                ×
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Quick Add Transaction Form */}
+                                    {quickAddCategory === budget.category && onAddTransaction && (
+                                        <form
+                                            onSubmit={(e) => handleQuickTransaction(e, budget.category)}
+                                            className="mt-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 animate-fadeIn"
+                                        >
+                                            <div className="flex gap-1.5 mb-1.5">
+                                                <div className="relative flex-1">
+                                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₦</span>
+                                                    <input
+                                                        type="number" step="0.01" value={quickAddAmount}
+                                                        onChange={(e) => setQuickAddAmount(e.target.value)}
+                                                        required autoFocus
+                                                        className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5 pl-4 pr-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                        placeholder="Amount"
+                                                    />
+                                                </div>
+                                                <select
+                                                    value={quickAddPurse}
+                                                    onChange={(e) => setQuickAddPurse(e.target.value)}
+                                                    className="text-[10px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5 px-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                >
+                                                    {purses.map(p => (
+                                                        <option key={p.id} value={p.name}>{p.icon} {p.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                <input
+                                                    type="text" value={quickAddDesc}
+                                                    onChange={(e) => setQuickAddDesc(e.target.value)}
+                                                    className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5 px-2 text-[10px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                    placeholder="Description (optional)"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    disabled={quickAddLoading || !quickAddAmount}
+                                                    className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg text-white bg-gradient-to-r ${config.accentGradient} hover:shadow-md disabled:opacity-50 transition-all`}
+                                                >
+                                                    {quickAddLoading ? '...' : 'Add'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
                                 </div>
                             ))}
                         </div>
