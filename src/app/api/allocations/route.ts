@@ -43,6 +43,29 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
         }
 
+        // ALLOCATION RULE: Allocations must come from the Main purse balance
+        // Calculate Main purse balance
+        const allEntries = await prisma.financialEntry.findMany({ where: { userId } })
+        let mainBalance = 0
+        for (const e of allEntries) {
+            if (e.purse === 'Main') {
+                if (e.type === 'income' || e.type === 'transfer_in') mainBalance += e.amount
+                else if (e.type === 'expense' || e.type === 'transfer_out') mainBalance -= e.amount
+            }
+        }
+
+        // Get existing total allocated for this month
+        const existingAllocations = await prisma.sectionAllocation.findMany({ where: { userId, month } })
+        const existingTotal = existingAllocations.reduce((sum, a) => sum + a.amount, 0)
+        const existingSectionAmount = existingAllocations.find(a => a.section === section)?.amount || 0
+        const newTotalAllocated = existingTotal - existingSectionAmount + parsedAmount
+
+        if (newTotalAllocated > mainBalance) {
+            return NextResponse.json({
+                error: `Insufficient Main purse balance. You have ₦${mainBalance.toFixed(2)} in Main but total allocations would be ₦${newTotalAllocated.toFixed(2)}. Add income to Main or reduce other allocations first.`
+            }, { status: 400 })
+        }
+
         const allocation = await prisma.sectionAllocation.upsert({
             where: {
                 userId_section_month: {
@@ -60,7 +83,7 @@ export async function POST(req: Request) {
             },
         })
 
-        return NextResponse.json({ success: true, allocation })
+        return NextResponse.json({ success: true, allocation, mainBalance })
     } catch (error) {
         console.error('Failed to upsert allocation', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

@@ -13,11 +13,17 @@ export async function GET(req: Request) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const purse = searchParams.get('purse')
+    const category = searchParams.get('category')
+    const type = searchParams.get('type')
+    const limit = searchParams.get('limit')
+    const offset = searchParams.get('offset')
 
     const where: any = { userId }
 
     if (itemId) where.itemId = itemId
     if (purse) where.purse = purse
+    if (category) where.category = category
+    if (type) where.type = type
 
     if (startDate && endDate) {
       where.entryDate = {
@@ -26,10 +32,18 @@ export async function GET(req: Request) {
       }
     }
 
-    const entries = await prisma.financialEntry.findMany({
-      where,
-      orderBy: { entryDate: 'desc' },
-    })
+    const take = limit ? parseInt(limit) : undefined
+    const skip = offset ? parseInt(offset) : undefined
+
+    const [entries, totalCount] = await Promise.all([
+      prisma.financialEntry.findMany({
+        where,
+        orderBy: { entryDate: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.financialEntry.count({ where }),
+    ])
 
     // Calculate totals
     const totalIncome = entries
@@ -40,7 +54,17 @@ export async function GET(req: Request) {
       .filter(e => e.type === 'expense')
       .reduce((sum, e) => sum + e.amount, 0)
 
-    return NextResponse.json({ entries, totalIncome, totalExpense })
+    // Category breakdown
+    const categoryBreakdown: Record<string, { total: number, count: number, type: string }> = {}
+    entries.forEach(e => {
+      if (!categoryBreakdown[e.category]) {
+        categoryBreakdown[e.category] = { total: 0, count: 0, type: e.type }
+      }
+      categoryBreakdown[e.category].total += e.amount
+      categoryBreakdown[e.category].count += 1
+    })
+
+    return NextResponse.json({ entries, totalIncome, totalExpense, totalCount, categoryBreakdown })
   } catch (error) {
     console.error('Failed to fetch financial entries', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
@@ -76,6 +100,25 @@ export async function POST(req: Request) {
     const existingPurse = await prisma.purse.findFirst({ where: { userId, name: purseName } })
     if (!existingPurse) {
       return NextResponse.json({ error: `Purse "${purseName}" not found` }, { status: 400 })
+    }
+
+    // SPENDING RULE: For expenses, validate the purse has enough balance
+    if (type === 'expense') {
+      // Calculate current balance of the selected purse
+      const allEntries = await prisma.financialEntry.findMany({ where: { userId } })
+      let purseBalance = 0
+      for (const e of allEntries) {
+        if (e.purse === purseName) {
+          if (e.type === 'income' || e.type === 'transfer_in') purseBalance += e.amount
+          else if (e.type === 'expense' || e.type === 'transfer_out') purseBalance -= e.amount
+        }
+      }
+
+      if (parsedAmount > purseBalance) {
+        return NextResponse.json({
+          error: `Insufficient balance in "${purseName}" purse. You have ₦${purseBalance.toFixed(2)} but trying to spend ₦${parsedAmount.toFixed(2)}. Add income or transfer from another purse first.`
+        }, { status: 400 })
+      }
     }
 
     const entry = await prisma.financialEntry.create({
@@ -131,6 +174,22 @@ export async function PUT(req: Request) {
     }
     if (!toPurse) {
       return NextResponse.json({ error: `Destination purse "${to}" not found` }, { status: 400 })
+    }
+
+    // SPENDING RULE: Validate source purse has enough balance
+    const allEntries = await prisma.financialEntry.findMany({ where: { userId } })
+    let fromBalance = 0
+    for (const e of allEntries) {
+      if (e.purse === from) {
+        if (e.type === 'income' || e.type === 'transfer_in') fromBalance += e.amount
+        else if (e.type === 'expense' || e.type === 'transfer_out') fromBalance -= e.amount
+      }
+    }
+
+    if (parsedAmount > fromBalance) {
+      return NextResponse.json({
+        error: `Insufficient balance in "${from}" purse. You have ₦${fromBalance.toFixed(2)} but trying to transfer ₦${parsedAmount.toFixed(2)}.`
+      }, { status: 400 })
     }
 
     // Create withdrawal from source purse
