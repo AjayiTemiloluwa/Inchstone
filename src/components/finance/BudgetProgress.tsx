@@ -38,14 +38,14 @@ export function BudgetProgress({ category, budgeted, spent, onEdit }: BudgetProg
       <div className="flex items-end justify-between mb-2">
         <div className="flex items-baseline gap-1.5">
           <span className={`text-base font-bold tabular-nums tracking-tight ${isOverBudget ? 'text-red-500' : 'text-gray-900 dark:text-gray-100'}`}>
-            ${spent.toFixed(0)}
+            ₦{spent.toFixed(0)}
           </span>
           <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
-            / ${budgeted.toFixed(0)}
+            / ₦{budgeted.toFixed(0)}
           </span>
         </div>
         <div className={`text-[11px] font-semibold tabular-nums ${isOverBudget ? 'text-red-400' : 'text-emerald-500'}`}>
-          {isOverBudget ? `${Math.abs(budgeted - spent).toFixed(0)} over` : `${remaining.toFixed(0)} left`}
+          {isOverBudget ? `₦${Math.abs(budgeted - spent).toFixed(0)} over` : `₦${remaining.toFixed(0)} left`}
         </div>
       </div>
 
@@ -53,10 +53,10 @@ export function BudgetProgress({ category, budgeted, spent, onEdit }: BudgetProg
         <div className="w-full bg-gray-100 dark:bg-gray-700/50 rounded-full h-2 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-700 ease-out ${isOverBudget
-                ? 'bg-gradient-to-r from-red-400 to-red-500'
-                : percentage > 85
-                  ? 'bg-gradient-to-r from-amber-400 to-amber-500'
-                  : 'bg-gradient-to-r from-blue-400 to-blue-500'
+              ? 'bg-gradient-to-r from-red-400 to-red-500'
+              : percentage > 85
+                ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                : 'bg-gradient-to-r from-blue-400 to-blue-500'
               }`}
             style={{ width: `${Math.max(percentage, 2)}%` }}
           />

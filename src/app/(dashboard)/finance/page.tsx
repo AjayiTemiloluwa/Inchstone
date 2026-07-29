@@ -38,14 +38,29 @@ interface Allocation {
   month: string
 }
 
+interface Purse {
+  id: string
+  name: string
+  icon: string
+  color: string
+}
+
+const PURSE_ICONS = ['👜', '🏦', '💰', '💳', '🐷', '🏪', '📦', '🎯', '⭐', '💎', '🌴', '🚗', '🏠', '📚', '✈️', '🎓']
+
+const PURSE_COLORS = [
+  '#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444',
+  '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
+  '#06B6D4', '#D946EF', '#0EA5E9', '#22C55E', '#EAB308', '#A855F7',
+]
+
 export default function FinancePage() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [allocations, setAllocations] = useState<Allocation[]>([])
+  const [purses, setPurses] = useState<Purse[]>([])
+  const [purseBalances, setPurseBalances] = useState<Record<string, number>>({})
   const [totalIncome, setTotalIncome] = useState(0)
   const [totalExpense, setTotalExpense] = useState(0)
-  const [mainBalance, setMainBalance] = useState(0)
-  const [savingsBalance, setSavingsBalance] = useState(0)
   const [loading, setLoading] = useState(true)
   const [savingsTarget, setSavingsTarget] = useState(0)
   const [editSavings, setEditSavings] = useState(false)
@@ -54,9 +69,20 @@ export default function FinancePage() {
   // Transfer modal state
   const [showTransfer, setShowTransfer] = useState(false)
   const [transferAmount, setTransferAmount] = useState('')
-  const [transferFrom, setTransferFrom] = useState<'main' | 'savings'>('main')
+  const [transferFrom, setTransferFrom] = useState('')
+  const [transferTo, setTransferTo] = useState('')
   const [transferDesc, setTransferDesc] = useState('')
   const [transferLoading, setTransferLoading] = useState(false)
+
+  // Add purse modal state
+  const [showAddPurse, setShowAddPurse] = useState(false)
+  const [newPurseName, setNewPurseName] = useState('')
+  const [newPurseIcon, setNewPurseIcon] = useState('👜')
+  const [newPurseColor, setNewPurseColor] = useState('#3B82F6')
+  const [addPurseLoading, setAddPurseLoading] = useState(false)
+
+  // Delete purse state
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
 
@@ -68,9 +94,10 @@ export default function FinancePage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [finRes, budRes] = await Promise.all([
+      const [finRes, budRes, purseRes] = await Promise.all([
         fetch('/api/financial'),
-        fetch(`/api/budgets?month=${currentMonth}`)
+        fetch(`/api/budgets?month=${currentMonth}`),
+        fetch('/api/purses'),
       ])
 
       if (finRes.ok) {
@@ -78,14 +105,25 @@ export default function FinancePage() {
         setEntries(finData.entries || [])
         setTotalIncome(finData.totalIncome || 0)
         setTotalExpense(finData.totalExpense || 0)
-        setMainBalance(finData.mainBalance || 0)
-        setSavingsBalance(finData.savingsBalance || 0)
       }
 
       if (budRes.ok) {
         const budData = await budRes.json()
         setBudgets(budData.budgets || [])
         setAllocations(budData.allocations || [])
+      }
+
+      if (purseRes.ok) {
+        const purseData = await purseRes.json()
+        setPurses(purseData.purses || [])
+        setPurseBalances(purseData.purseBalances || {})
+        // Set default transfer selections
+        if (purseData.purses?.length >= 2) {
+          setTransferFrom(purseData.purses[0].name)
+          setTransferTo(purseData.purses[1].name)
+        } else if (purseData.purses?.length === 1) {
+          setTransferFrom(purseData.purses[0].name)
+        }
       }
     } catch (err) {
       console.error(err)
@@ -150,7 +188,7 @@ export default function FinancePage() {
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!transferAmount) return
+    if (!transferAmount || !transferFrom || !transferTo) return
 
     setTransferLoading(true)
     try {
@@ -160,7 +198,7 @@ export default function FinancePage() {
         body: JSON.stringify({
           amount: parseFloat(transferAmount),
           from: transferFrom,
-          to: transferFrom === 'main' ? 'savings' : 'main',
+          to: transferTo,
           description: transferDesc
         })
       })
@@ -170,11 +208,68 @@ export default function FinancePage() {
         setTransferDesc('')
         setShowTransfer(false)
         fetchData()
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Transfer failed')
       }
     } catch (err) {
       console.error('Transfer failed:', err)
+      alert('Transfer failed. Please try again.')
     } finally {
       setTransferLoading(false)
+    }
+  }
+
+  const handleAddPurse = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newPurseName.trim()) return
+
+    setAddPurseLoading(true)
+    try {
+      const res = await fetch('/api/purses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newPurseName.trim(),
+          icon: newPurseIcon,
+          color: newPurseColor,
+        })
+      })
+
+      if (res.ok) {
+        setNewPurseName('')
+        setNewPurseIcon('👜')
+        setNewPurseColor('#3B82F6')
+        setShowAddPurse(false)
+        fetchData()
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed to create purse')
+      }
+    } catch (err) {
+      console.error('Failed to create purse:', err)
+    } finally {
+      setAddPurseLoading(false)
+    }
+  }
+
+  const handleDeletePurse = async (id: string) => {
+    try {
+      const res = await fetch('/api/purses', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+
+      if (res.ok) {
+        setDeleteConfirm(null)
+        fetchData()
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed to delete purse')
+      }
+    } catch (err) {
+      console.error('Failed to delete purse:', err)
     }
   }
 
@@ -223,6 +318,16 @@ export default function FinancePage() {
     return { ...entry, balance: runningBalance }
   })
 
+  const getPurseIcon = (name: string) => {
+    const purse = purses.find(p => p.name === name)
+    return purse?.icon || '👜'
+  }
+
+  const getPurseColor = (name: string) => {
+    const purse = purses.find(p => p.name === name)
+    return purse?.color || '#3B82F6'
+  }
+
   if (loading) {
     return <div className="p-4">Loading financial data...</div>
   }
@@ -231,26 +336,123 @@ export default function FinancePage() {
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 pb-24">
       <div>
         <h1 className="text-2xl font-bold mb-1">Finance & Budgeting</h1>
-        <p className="text-sm text-gray-500">Track every dollar — income, expenses, and savings.</p>
+        <p className="text-sm text-gray-500">Track every naira — income, expenses, and savings.</p>
       </div>
 
       {/* Balance Sheet Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="text-xs text-gray-500 mb-1">Total Income</div>
-          <div className="text-xl font-bold text-green-600">${totalIncome.toFixed(2)}</div>
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Purses</h2>
+          <button
+            onClick={() => setShowAddPurse(!showAddPurse)}
+            className="text-sm text-blue-500 hover:underline font-medium"
+          >
+            {showAddPurse ? 'Cancel' : '+ Add Purse'}
+          </button>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="text-xs text-gray-500 mb-1">Total Expenses</div>
-          <div className="text-xl font-bold text-red-600">${totalExpense.toFixed(2)}</div>
-        </div>
-        <div className="bg-blue-600 p-4 rounded-xl border border-blue-700 shadow-sm text-white">
-          <div className="text-xs text-blue-100 mb-1">👜 Main Purse</div>
-          <div className="text-xl font-bold">${mainBalance.toFixed(2)}</div>
-        </div>
-        <div className="bg-purple-600 p-4 rounded-xl border border-purple-700 shadow-sm text-white">
-          <div className="text-xs text-purple-100 mb-1">🏦 Savings Purse</div>
-          <div className="text-xl font-bold">${savingsBalance.toFixed(2)}</div>
+
+        {/* Add Purse Form */}
+        {showAddPurse && (
+          <form onSubmit={handleAddPurse} className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Purse Name</label>
+              <input
+                type="text"
+                value={newPurseName}
+                onChange={(e) => setNewPurseName(e.target.value)}
+                required
+                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g. Emergency Fund, Travel, Business..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Icon</label>
+              <div className="flex flex-wrap gap-1.5">
+                {PURSE_ICONS.map(icon => (
+                  <button
+                    key={icon}
+                    type="button"
+                    onClick={() => setNewPurseIcon(icon)}
+                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-all ${newPurseIcon === icon ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 scale-110' : 'bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-blue-300'}`}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Color</label>
+              <div className="flex flex-wrap gap-1.5">
+                {PURSE_COLORS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewPurseColor(color)}
+                    className={`w-8 h-8 rounded-lg transition-all ${newPurseColor === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={addPurseLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+            >
+              {addPurseLoading ? 'Creating...' : 'Create Purse'}
+            </button>
+          </form>
+        )}
+
+        {/* Purse Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {purses.map(purse => {
+            const balance = purseBalances[purse.name] || 0
+            return (
+              <div
+                key={purse.id}
+                className="relative group rounded-xl border shadow-sm p-4 text-white transition-all hover:shadow-md"
+                style={{ backgroundColor: purse.color }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl">{purse.icon}</span>
+                  {purses.length > 1 && (
+                    <button
+                      onClick={() => setDeleteConfirm(deleteConfirm === purse.id ? null : purse.id)}
+                      className="text-white/60 hover:text-white text-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <div className="text-xs text-white/80 mb-1">{purse.name}</div>
+                <div className="text-lg font-bold">₦{balance.toFixed(2)}</div>
+
+                {/* Delete confirmation */}
+                {deleteConfirm === purse.id && (
+                  <div className="absolute inset-0 rounded-xl bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 z-10">
+                    <div className="text-center">
+                      <p className="text-xs text-white/90 mb-2">Delete "{purse.name}"?<br />Entries will move to another purse.</p>
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => handleDeletePurse(purse.id)}
+                          className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(null)}
+                          className="px-3 py-1 bg-white/20 text-white text-xs rounded-lg hover:bg-white/30"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -263,7 +465,7 @@ export default function FinancePage() {
             </h2>
             <p className="text-xs text-gray-500 mt-1">
               Assign money to each section for the month of {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
-              Allocated: <span className="font-semibold text-blue-600">${totalAllocated.toFixed(2)}</span>
+              Allocated: <span className="font-semibold text-blue-600">₦{totalAllocated.toFixed(2)}</span>
             </p>
           </div>
         </div>
@@ -285,7 +487,7 @@ export default function FinancePage() {
                     <span className="font-semibold text-sm">{section}</span>
                   </div>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${allocated > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
-                    ${allocated.toFixed(0)}
+                    ₦{allocated.toFixed(0)}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-2">
@@ -295,8 +497,8 @@ export default function FinancePage() {
                   ></div>
                 </div>
                 <div className="text-[10px] text-gray-500 flex justify-between">
-                  <span>${spent.toFixed(0)} spent</span>
-                  <span>{remaining >= 0 ? `$${remaining.toFixed(0)} left` : `$${Math.abs(remaining).toFixed(0)} over`}</span>
+                  <span>₦{spent.toFixed(0)} spent</span>
+                  <span>{remaining >= 0 ? `₦${remaining.toFixed(0)} left` : `₦${Math.abs(remaining).toFixed(0)} over`}</span>
                 </div>
               </div>
             )
@@ -348,19 +550,30 @@ export default function FinancePage() {
                 <label className="block text-xs text-gray-500 mb-1">From</label>
                 <select
                   value={transferFrom}
-                  onChange={(e) => setTransferFrom(e.target.value as 'main' | 'savings')}
+                  onChange={(e) => setTransferFrom(e.target.value)}
                   className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
                 >
-                  <option value="main">👜 Main Purse (${mainBalance.toFixed(2)})</option>
-                  <option value="savings">🏦 Savings Purse (${savingsBalance.toFixed(2)})</option>
+                  {purses.map(p => (
+                    <option key={p.id} value={p.name}>
+                      {p.icon} {p.name} (₦{(purseBalances[p.name] || 0).toFixed(2)})
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="w-8 text-center text-gray-400 pb-2">→</div>
               <div className="flex-1">
                 <label className="block text-xs text-gray-500 mb-1">To</label>
-                <div className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm font-medium">
-                  {transferFrom === 'main' ? '🏦 Savings Purse' : '👜 Main Purse'}
-                </div>
+                <select
+                  value={transferTo}
+                  onChange={(e) => setTransferTo(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                >
+                  {purses.filter(p => p.name !== transferFrom).map(p => (
+                    <option key={p.id} value={p.name}>
+                      {p.icon} {p.name} (₦{(purseBalances[p.name] || 0).toFixed(2)})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -368,7 +581,7 @@ export default function FinancePage() {
               <div className="flex-1">
                 <label className="block text-xs text-gray-500 mb-1">Amount</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-gray-400">$</span>
+                  <span className="absolute left-3 top-2.5 text-gray-400">₦</span>
                   <input
                     type="number"
                     step="0.01"
@@ -394,10 +607,10 @@ export default function FinancePage() {
 
             <button
               type="submit"
-              disabled={transferLoading}
+              disabled={transferLoading || transferFrom === transferTo}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
             >
-              {transferLoading ? 'Transferring...' : `Transfer → ${transferFrom === 'main' ? 'Savings' : 'Main'}`}
+              {transferLoading ? 'Transferring...' : `Transfer ${transferFrom ? getPurseIcon(transferFrom) : ''} → ${transferTo ? getPurseIcon(transferTo) : ''}`}
             </button>
           </form>
         )}
@@ -420,7 +633,7 @@ export default function FinancePage() {
         {editSavings ? (
           <div className="flex items-center gap-3">
             <div className="relative flex-1 max-w-xs">
-              <span className="absolute left-3 top-2.5 text-gray-400">$</span>
+              <span className="absolute left-3 top-2.5 text-gray-400">₦</span>
               <input
                 type="number"
                 step="0.01"
@@ -440,10 +653,10 @@ export default function FinancePage() {
               <div>
                 <div className="flex justify-between items-end mb-1">
                   <div className="text-sm text-gray-600 dark:text-gray-300">
-                    <span className="font-semibold text-purple-600">${Math.min(currentSavings, savingsTarget).toFixed(2)}</span> saved of <span className="font-semibold">${savingsTarget.toFixed(2)}</span>
+                    <span className="font-semibold text-purple-600">₦{Math.min(currentSavings, savingsTarget).toFixed(2)}</span> saved of <span className="font-semibold">₦{savingsTarget.toFixed(2)}</span>
                   </div>
                   <div className="text-xs text-gray-500">
-                    ${Math.max(savingsTarget - currentSavings, 0).toFixed(2)} remaining
+                    ₦{Math.max(savingsTarget - currentSavings, 0).toFixed(2)} remaining
                   </div>
                 </div>
                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
@@ -468,7 +681,7 @@ export default function FinancePage() {
           {/* Add Transaction */}
           <div>
             <h2 className="text-lg font-semibold mb-3">Add Transaction</h2>
-            <TransactionForm onSuccess={fetchData} />
+            <TransactionForm onSuccess={fetchData} purses={purses} />
           </div>
 
           {/* Monthly Budget Overview */}
@@ -477,7 +690,7 @@ export default function FinancePage() {
             <div className="space-y-3">
               {budgets.length === 0 ? (
                 <div className="text-sm text-gray-500 italic p-4 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                  No budgets set for {currentMonth}. Use the section cards above to assign every dollar a job!
+                  No budgets set for {currentMonth}. Use the section cards above to assign every naira a job!
                 </div>
               ) : (
                 budgets.map(budget => (
@@ -506,9 +719,9 @@ export default function FinancePage() {
                     <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                       <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Date</th>
                       <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Description</th>
-                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Debit ($)</th>
-                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Credit ($)</th>
-                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Balance ($)</th>
+                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Debit (₦)</th>
+                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Credit (₦)</th>
+                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Balance (₦)</th>
                       <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Purse</th>
                       <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Section</th>
                       <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Comments</th>
@@ -529,19 +742,25 @@ export default function FinancePage() {
                           </div>
                         </td>
                         <td className="p-3 text-right font-medium text-red-600 whitespace-nowrap">
-                          {entry.type === 'expense' || entry.type === 'transfer_out' ? `$${entry.amount.toFixed(2)}` : '-'}
+                          {entry.type === 'expense' || entry.type === 'transfer_out' ? `₦${entry.amount.toFixed(2)}` : '-'}
                         </td>
                         <td className="p-3 text-right font-medium text-green-600 whitespace-nowrap">
-                          {entry.type === 'income' || entry.type === 'transfer_in' ? `$${entry.amount.toFixed(2)}` : '-'}
+                          {entry.type === 'income' || entry.type === 'transfer_in' ? `₦${entry.amount.toFixed(2)}` : '-'}
                         </td>
                         <td className="p-3 text-right font-semibold whitespace-nowrap">
                           <span className={entry.balance >= 0 ? 'text-blue-600' : 'text-red-600'}>
-                            ${entry.balance.toFixed(2)}
+                            ₦{entry.balance.toFixed(2)}
                           </span>
                         </td>
                         <td className="p-3 text-xs">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.purse === 'savings' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                            {entry.purse === 'savings' ? '🏦' : '👜'}
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1"
+                            style={{
+                              backgroundColor: `${getPurseColor(entry.purse)}20`,
+                              color: getPurseColor(entry.purse),
+                            }}
+                          >
+                            {getPurseIcon(entry.purse)} {entry.purse}
                           </span>
                         </td>
                         <td className="p-3 text-xs">

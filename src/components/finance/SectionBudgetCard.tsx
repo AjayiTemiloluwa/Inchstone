@@ -160,11 +160,11 @@ export function SectionBudgetCard({
                 <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
                         <div className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Allocated</div>
-                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">${totalAllocated.toFixed(0)}</div>
+                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">₦{totalAllocated.toFixed(0)}</div>
                     </div>
                     <div className="text-right">
                         <div className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Spent</div>
-                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">${totalSpent.toFixed(0)}</div>
+                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">₦{totalSpent.toFixed(0)}</div>
                     </div>
                 </div>
 
@@ -172,7 +172,7 @@ export function SectionBudgetCard({
                 <div className="relative pt-1">
                     <div className="flex items-center justify-between mb-1.5">
                         <span className={`text-[11px] font-semibold tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                            {remaining >= 0 ? `$${remaining.toFixed(0)} left` : `$${Math.abs(remaining).toFixed(0)} over`}
+                            {remaining >= 0 ? `₦${remaining.toFixed(0)} left` : `₦${Math.abs(remaining).toFixed(0)} over`}
                         </span>
                         <span className="text-[11px] font-medium text-gray-400 tabular-nums">{percentage.toFixed(0)}%</span>
                     </div>
@@ -224,7 +224,7 @@ export function SectionBudgetCard({
                 <div className="mx-5 mb-3 p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-700/30 animate-fadeIn">
                     <form onSubmit={handleAllocate} className="flex gap-2">
                         <div className="relative flex-1">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">$</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">₦</span>
                             <input
                                 type="number" step="0.01" value={allocateAmount}
                                 onChange={(e) => setAllocateAmount(e.target.value)} required autoFocus
@@ -249,7 +249,7 @@ export function SectionBudgetCard({
                             placeholder="Category name" />
                         <div className="flex gap-2">
                             <div className="relative flex-1">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">$</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">₦</span>
                                 <input type="number" step="0.01" value={newBudgetAmount} onChange={(e) => setNewBudgetAmount(e.target.value)} required
                                     className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 pl-8 pr-3 text-sm font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
                                     placeholder="Budget" />
@@ -268,7 +268,7 @@ export function SectionBudgetCard({
                                     <button key={cat.label} type="button" onClick={() => handleQuickAdd(cat)}
                                         className="text-[11px] px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all flex items-center gap-1 shadow-sm">
                                         <span>{cat.icon}</span>
-                                        <span className="font-semibold tabular-nums">${defaultBudgetAmounts[cat.label] || 100}</span>
+                                        <span className="font-semibold tabular-nums">₦{defaultBudgetAmounts[cat.label] || 100}</span>
                                     </button>
                                 ))}
                             </div>
@@ -329,7 +329,7 @@ export function SectionBudgetCard({
                                             <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">{entry.category}</span>
                                             {entry.description && <span className="text-[10px] text-gray-400 ml-1.5">· {entry.description}</span>}
                                         </td>
-                                        <td className="p-3 text-right text-[12px] font-bold text-red-500 tabular-nums">-${entry.amount.toFixed(0)}</td>
+                                        <td className="p-3 text-right text-[12px] font-bold text-red-500 tabular-nums">-₦{entry.amount.toFixed(0)}</td>
                                         <td className="p-3 text-right">
                                             <button onClick={() => onDeleteEntry(entry.id)} className="text-gray-300 hover:text-red-500 text-sm transition-colors">×</button>
                                         </td>

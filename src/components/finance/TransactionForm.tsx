@@ -1,13 +1,21 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SECTION_CATEGORIES, BudgetCategoryOption } from './budgetCategories'
+
+interface Purse {
+  id: string
+  name: string
+  icon: string
+  color: string
+}
 
 interface TransactionFormProps {
   onSuccess: () => void
+  purses?: Purse[]
 }
 
-export function TransactionForm({ onSuccess }: TransactionFormProps) {
+export function TransactionForm({ onSuccess, purses: externalPurses }: TransactionFormProps) {
   const [type, setType] = useState<'income' | 'expense'>('expense')
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('')
@@ -15,13 +23,30 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
   const [comments, setComments] = useState('')
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
   const [section, setSection] = useState('Need')
-  const [purse, setPurse] = useState<'main' | 'savings'>('main')
+  const [purse, setPurse] = useState('')
+  const [purses, setPurses] = useState<Purse[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
 
-  const isSavings = purse === 'savings'
+  // Use external purses if provided, otherwise fetch them
+  useEffect(() => {
+    if (externalPurses && externalPurses.length > 0) {
+      setPurses(externalPurses)
+      if (!purse) setPurse(externalPurses[0].name)
+    } else {
+      fetch('/api/purses')
+        .then(r => r.json())
+        .then(data => {
+          if (data.purses?.length > 0) {
+            setPurses(data.purses)
+            setPurse(data.purses[0].name)
+          }
+        })
+        .catch(() => { })
+    }
+  }, [externalPurses])
 
   const categorySuggestions: BudgetCategoryOption[] = type === 'expense'
     ? (SECTION_CATEGORIES[section] || [])
@@ -54,7 +79,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         body: JSON.stringify({
           type,
           amount: parseFloat(amount),
-          category: isSavings ? 'Savings Transfer' : category,
+          category,
           description,
           comments,
           entryDate,
@@ -94,6 +119,11 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getPurseIcon = (name: string) => {
+    const p = purses.find(p => p.name === name)
+    return p?.icon || '👜'
   }
 
   return (
@@ -143,7 +173,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
       <div>
         <label className="block text-xs text-gray-500 mb-1">Amount</label>
         <div className="relative">
-          <span className="absolute left-3 top-2.5 text-gray-400">$</span>
+          <span className="absolute left-3 top-2.5 text-gray-400">₦</span>
           <input
             type="number"
             step="0.01"
@@ -156,77 +186,62 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         </div>
       </div>
 
-      {/* Category - Only show for non-savings transactions */}
-      {!isSavings && (
-        <div className="relative">
-          <label className="block text-xs text-gray-500 mb-1">Category</label>
-          <input
-            type="text"
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value)
-              setShowSuggestions(true)
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            required={!isSavings}
-            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe...' : 'e.g. Salary, Freelance...'}
-          />
-          {showSuggestions && category.length > 0 && filteredSuggestions.length > 0 && (
-            <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-              {filteredSuggestions.map(s => (
+      {/* Category */}
+      <div className="relative">
+        <label className="block text-xs text-gray-500 mb-1">Category</label>
+        <input
+          type="text"
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value)
+            setShowSuggestions(true)
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+          required
+          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe...' : 'e.g. Salary, Freelance...'}
+        />
+        {showSuggestions && category.length > 0 && filteredSuggestions.length > 0 && (
+          <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            {filteredSuggestions.map(s => (
+              <button
+                key={s.label}
+                type="button"
+                onMouseDown={() => {
+                  setCategory(s.label)
+                  setShowSuggestions(false)
+                }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                <span>{s.icon}</span>
+                <span>{s.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {/* Quick Category Pills */}
+        {categorySuggestions.length > 0 && (
+          <div className="mt-2">
+            <label className="block text-xs text-gray-400 mb-1">Quick Select (tap to fill)</label>
+            <div className="flex flex-wrap gap-1.5">
+              {categorySuggestions.slice(0, 6).map(s => (
                 <button
                   key={s.label}
                   type="button"
-                  onMouseDown={() => {
-                    setCategory(s.label)
-                    setShowSuggestions(false)
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  onClick={() => setCategory(s.label)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${category === s.label
+                    ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
+                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
+                    }`}
                 >
-                  <span>{s.icon}</span>
-                  <span>{s.label}</span>
+                  {s.icon} {s.label.split(' ')[0]}
                 </button>
               ))}
             </div>
-          )}
-          {/* Quick Category Pills for non-savings */}
-          {categorySuggestions.length > 0 && (
-            <div className="mt-2">
-              <label className="block text-xs text-gray-400 mb-1">Quick Select (tap to fill)</label>
-              <div className="flex flex-wrap gap-1.5">
-                {categorySuggestions.slice(0, 6).map(s => (
-                  <button
-                    key={s.label}
-                    type="button"
-                    onClick={() => setCategory(s.label)}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${category === s.label
-                      ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
-                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
-                      }`}
-                  >
-                    {s.icon} {s.label.split(' ')[0]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Savings badge - shown instead of category for savings */}
-      {isSavings && (
-        <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🏦</span>
-            <div>
-              <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Savings Transaction</p>
-              <p className="text-xs text-purple-500 dark:text-purple-400">No category needed — money flows to/from savings purse</p>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Description */}
       <div>
@@ -236,7 +251,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder={isSavings ? 'e.g. Building emergency fund' : 'What was this for?'}
+          placeholder="What was this for?"
         />
       </div>
 
@@ -255,22 +270,17 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
       {/* Purse selector */}
       <div>
         <label className="block text-xs text-gray-500 mb-1">Purse</label>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPurse('main')}
-            className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${purse === 'main' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 ring-2 ring-blue-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
-          >
-            👜 Main Purse
-          </button>
-          <button
-            type="button"
-            onClick={() => setPurse('savings')}
-            className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${purse === 'savings' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 ring-2 ring-purple-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
-          >
-            🏦 Savings
-          </button>
-        </div>
+        <select
+          value={purse}
+          onChange={(e) => setPurse(e.target.value)}
+          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {purses.map(p => (
+            <option key={p.id} value={p.name}>
+              {p.icon} {p.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Section selector for expenses */}
@@ -315,7 +325,7 @@ export function TransactionForm({ onSuccess }: TransactionFormProps) {
         disabled={loading}
         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
       >
-        {loading ? 'Adding...' : isSavings ? `Add to 🏦 Savings` : 'Add Transaction'}
+        {loading ? 'Adding...' : `Add to ${getPurseIcon(purse)} ${purse || 'Purse'}`}
       </button>
     </form>
   )

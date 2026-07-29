@@ -183,6 +183,18 @@ model DailyScore {
   @@unique([userId, date])
 }
 
+model Purse {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  icon      String   @default("👜")
+  color     String   @default("#3B82F6")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+}
+
 model FinancialEntry {
   id          String   @id @default(uuid())
   userId      String
@@ -191,12 +203,12 @@ model FinancialEntry {
   entryDate   DateTime
   type        String // "income" | "expense" | "transfer"
   amount      Float
-  currency    String   @default("USD")
+  currency    String   @default("NGN")
   category    String
   description String?
   comments    String?
   priority    String? // e.g., "Need", "Want", "Luxury"
-  purse       String   @default("main") // "main" | "savings"
+  purse       String   @default("main") // references Purse.name
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

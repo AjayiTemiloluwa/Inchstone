@@ -40,21 +40,7 @@ export async function GET(req: Request) {
       .filter(e => e.type === 'expense')
       .reduce((sum, e) => sum + e.amount, 0)
 
-    // Purse balances (across ALL entries, no filter)
-    const allEntries = await prisma.financialEntry.findMany({ where: { userId } })
-    let mainBalance = 0
-    let savingsBalance = 0
-    for (const e of allEntries) {
-      if (e.purse === 'savings') {
-        if (e.type === 'income' || e.type === 'transfer_in') savingsBalance += e.amount
-        else if (e.type === 'expense' || e.type === 'transfer_out') savingsBalance -= e.amount
-      } else {
-        if (e.type === 'income' || e.type === 'transfer_in') mainBalance += e.amount
-        else if (e.type === 'expense' || e.type === 'transfer_out') mainBalance -= e.amount
-      }
-    }
-
-    return NextResponse.json({ entries, totalIncome, totalExpense, mainBalance, savingsBalance })
+    return NextResponse.json({ entries, totalIncome, totalExpense })
   } catch (error) {
     console.error('Failed to fetch financial entries', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
@@ -85,6 +71,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
     }
 
+    // Validate purse exists
+    const purseName = purse || 'Main'
+    const existingPurse = await prisma.purse.findFirst({ where: { userId, name: purseName } })
+    if (!existingPurse) {
+      return NextResponse.json({ error: `Purse "${purseName}" not found` }, { status: 400 })
+    }
+
     const entry = await prisma.financialEntry.create({
       data: {
         userId,
@@ -92,12 +85,12 @@ export async function POST(req: Request) {
         entryDate: entryDate ? new Date(entryDate) : new Date(),
         type,
         amount: parsedAmount,
-        currency: currency || 'USD',
+        currency: currency || 'NGN',
         category: category.trim(),
         description: description || null,
         comments: comments || null,
         priority: priority || null,
-        purse: purse || 'main',
+        purse: purseName,
       },
     })
 
@@ -128,8 +121,16 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Must specify different from and to purses' }, { status: 400 })
     }
 
-    if (!['main', 'savings'].includes(from) || !['main', 'savings'].includes(to)) {
-      return NextResponse.json({ error: 'Purse must be "main" or "savings"' }, { status: 400 })
+    // Verify both purses exist
+    const [fromPurse, toPurse] = await Promise.all([
+      prisma.purse.findFirst({ where: { userId, name: from } }),
+      prisma.purse.findFirst({ where: { userId, name: to } }),
+    ])
+    if (!fromPurse) {
+      return NextResponse.json({ error: `Source purse "${from}" not found` }, { status: 400 })
+    }
+    if (!toPurse) {
+      return NextResponse.json({ error: `Destination purse "${to}" not found` }, { status: 400 })
     }
 
     // Create withdrawal from source purse
@@ -139,7 +140,7 @@ export async function PUT(req: Request) {
         entryDate: new Date(),
         type: 'transfer_out',
         amount: parsedAmount,
-        currency: 'USD',
+        currency: 'NGN',
         category: 'Transfer',
         description: description || `Transfer from ${from} to ${to}`,
         purse: from,
@@ -153,7 +154,7 @@ export async function PUT(req: Request) {
         entryDate: new Date(),
         type: 'transfer_in',
         amount: parsedAmount,
-        currency: 'USD',
+        currency: 'NGN',
         category: 'Transfer',
         description: description || `Transfer from ${from} to ${to}`,
         purse: to,
