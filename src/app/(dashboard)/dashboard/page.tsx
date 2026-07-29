@@ -255,8 +255,13 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* Gamified Background Particles */}
+      {/* Gamified Motion Background */}
       <div className="gamified-bg">
+        <div className="gamified-grid" />
+        <div className="gamified-orb gamified-orb-1" />
+        <div className="gamified-orb gamified-orb-2" />
+        <div className="gamified-orb gamified-orb-3" />
+        <div className="gamified-orb gamified-orb-4" />
         <div className="gamified-star" />
         <div className="gamified-star" />
         <div className="gamified-star" />
@@ -295,10 +300,17 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="streak-flame">
+            <div className="streak-flame hidden sm:flex">
               <Flame className="w-4 h-4 flame-icon" />
               <span>{gamification.streak} day streak</span>
             </div>
+            <button
+              onClick={() => router.push(`/day/${format(new Date(), 'yyyy-MM-dd')}`)}
+              className="flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-r from-gold to-gold-glow text-surface rounded-xl hover:shadow-lg hover:shadow-gold/20 active:scale-95 transition text-xs sm:text-sm font-bold min-h-[36px]"
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>Today</span>
+            </button>
             <button
               onClick={() => router.push('/partners')}
               className="flex items-center space-x-1.5 px-3.5 py-2 bg-sage/10 text-sage rounded-xl hover:bg-sage/20 active:scale-95 transition text-xs sm:text-sm font-semibold min-h-[36px]"
