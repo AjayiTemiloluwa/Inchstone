@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
@@ -270,7 +270,7 @@ export default function YearQuarterPage() {
             </div>
 
             {/* Quarter Aggregation Header */}
-            <div className="glass-gold glow-sm rounded-3xl p-8 animate-slideUp border border-gold/20">
+            <div className="glass-gold  rounded-[8px] p-8 animate-slideUp border border-gold/20">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{quarterLabel} Overview</h1>
@@ -325,7 +325,7 @@ export default function YearQuarterPage() {
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold uppercase text-ink/50">Goals</span>
                                         <div className="flex items-center space-x-2">
-                                            <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
+                                            <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-[#cf8f78]'}`}>
                                                 Total Q-Weight: {Math.round(goalWeightSum)}%
                                             </span>
                                             <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-1 hover:bg-mist rounded-lg transition text-ink/50 hover:text-gold">
@@ -339,7 +339,7 @@ export default function YearQuarterPage() {
                                             <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)}
                                                 onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)}
                                                 placeholder={`New annual goal in ${category.title}...`} className="flex-1 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all" autoFocus />
-                                            <button onClick={() => handleAddGoal(category.id)} className="px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">Add</button>
+                                            <button onClick={() => handleAddGoal(category.id)} className="px-4 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70  ">Add</button>
                                         </div>
                                     )}
 
@@ -373,7 +373,7 @@ export default function YearQuarterPage() {
                                                             <span className="text-[9px] font-mono text-ink/50">{Math.round(qScore)}%</span>
                                                         </div>
                                                     </div>
-                                                    <button onClick={(e) => handleDelete(e, qItem.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg transition text-ink/50 hover:text-red-400 z-10" title="Delete Goal">
+                                                    <button onClick={(e) => handleDelete(e, qItem.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-ember/20 rounded-lg transition text-ink/50 hover:text-[#d39a82] z-10" title="Delete Goal">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </Card>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
@@ -61,7 +61,7 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 pb-20 space-y-5 animate-fadeIn glass rounded-2xl" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 pb-20 space-y-5 animate-fadeIn glass rounded-[8px]" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
                     <h2 className="text-xl font-display font-bold text-ink">Edit Category</h2>
                     <button onClick={onClose} className="p-1.5 hover:bg-mist rounded-lg transition text-ink/50 hover:text-ink">
@@ -149,7 +149,7 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
                 {/* Actions */}
                 <div className="flex items-center space-x-3 pt-2">
                     <button onClick={handleSave}
-                        className="flex-1 px-4 py-3 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20">
+                        className="flex-1 px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70  ">
                         Save Changes
                     </button>
                     <button onClick={onClose}

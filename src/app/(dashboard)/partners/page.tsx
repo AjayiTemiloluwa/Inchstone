@@ -197,19 +197,20 @@ export default function PartnersPage() {
     return (
       <div className="flex flex-col h-full max-w-4xl mx-auto pb-24 lg:pb-0">
         {/* Chat Header */}
-        <div className="flex items-center space-x-3 p-4 border-b border-mist bg-surface/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center space-x-3 p-4 border-b border-gold-dim/15 bg-surface-solid sticky top-0 z-10">
           <button
             onClick={handleBack}
-            className="p-2 hover:bg-mist rounded-lg active:scale-90 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-parchment/60 transition-colors hover:bg-mist hover:text-parchment"
+            aria-label="Back to partners"
           >
-            <ArrowLeft className="w-5 h-5 text-ink/60" />
+            <ArrowLeft className="w-5 h-5" strokeWidth={1.5} />
           </button>
-          <div className="w-10 h-10 rounded-full bg-sage/20 flex items-center justify-center text-sage font-bold text-lg">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-moss/15 text-lg font-bold text-moss">
             {selectedPartner.name.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1">
-            <h2 className="font-bold text-ink">{selectedPartner.name}</h2>
-            <p className="text-xs text-ink/50">{selectedPartner.role}</p>
+            <h2 className="font-semibold text-parchment">{selectedPartner.name}</h2>
+            <p className="text-xs text-parchment/50">{selectedPartner.role}</p>
           </div>
         </div>
 
@@ -217,14 +218,14 @@ export default function PartnersPage() {
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {loadingMessages ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-sage" />
+              <Loader2 className="h-6 w-6 animate-spin text-moss" />
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12">
-              <MessageSquare className="w-12 h-12 text-ink/20 mb-4" />
-              <h3 className="text-lg font-bold text-ink/70">No messages yet</h3>
-              <p className="text-sm text-ink/50 mt-2 max-w-xs">
-                Send a message to {selectedPartner.name} to start the conversation!
+              <MessageSquare className="mb-4 h-12 w-12 text-gold-dim" strokeWidth={1.5} />
+              <h3 className="text-lg font-semibold text-parchment/80">No messages yet</h3>
+              <p className="text-sm text-parchment/50 mt-2 max-w-xs">
+                Send a message to {selectedPartner.name} to start the conversation.
               </p>
             </div>
           ) : (
@@ -239,7 +240,7 @@ export default function PartnersPage() {
                     <div className={isSent ? 'message-bubble-sent' : 'message-bubble-received'}>
                       <p className="text-sm leading-relaxed">{msg.message}</p>
                     </div>
-                    <span className="text-[10px] text-ink/40 mt-1 px-1">
+                    <span className="text-[10px] text-parchment/40 mt-1 px-1">
                       {format(new Date(msg.createdAt), 'MMM d, h:mm a')}
                     </span>
                   </div>
@@ -251,8 +252,8 @@ export default function PartnersPage() {
         </div>
 
         {/* Message Input */}
-        <div className="p-4 border-t border-mist bg-surface/80 backdrop-blur-sm">
-          <div className="flex items-center space-x-2">
+        <div className="border-t border-gold-dim/15 bg-surface-solid p-4">
+          <div className="flex items-center gap-2">
             <input
               type="text"
               value={newMessage}
@@ -264,17 +265,18 @@ export default function PartnersPage() {
                 }
               }}
               placeholder="Type a message..."
-              className="flex-1 px-4 py-3 bg-paper border border-mist rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 text-sm min-h-[44px]"
+              className="min-h-11 flex-1 rounded-[6px] border border-gold-dim/25 bg-ink px-4 py-3 text-sm text-parchment transition-colors placeholder:text-parchment/30 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
             <button
               onClick={handleSendMessage}
               disabled={!newMessage.trim() || sendingMessage}
-              className="p-3 bg-gold text-surface rounded-xl hover:bg-gold-glow active:scale-90 transition disabled:opacity-50 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Send message"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-md bg-gold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50"
             >
               {sendingMessage ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Send className="w-5 h-5" />
+                <Send className="h-5 w-5" strokeWidth={1.5} />
               )}
             </button>
           </div>
@@ -287,62 +289,59 @@ export default function PartnersPage() {
     <div className="space-y-6 max-w-4xl mx-auto pb-24 lg:pb-0">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 bg-sage/20 rounded-xl">
-            <Users className="w-6 h-6 text-sage" />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-ink">Partners</h1>
-            <p className="text-sm text-ink/60 mt-1">Manage your accountability partners</p>
-          </div>
+        <div>
+          <h1 className="text-h1 text-parchment">Partners</h1>
+          <p className="mt-1 text-sm text-parchment/55">Manage your accountability partners</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           {/* Incoming nudges bell */}
           {incomingNudges.length > 0 && (
             <button
               onClick={() => setShowNudges(!showNudges)}
-              className="relative p-2.5 bg-sage/10 text-sage rounded-xl hover:bg-sage/20 active:scale-90 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Incoming nudges"
+              className="relative flex min-h-11 min-w-11 items-center justify-center rounded-md border hairline text-parchment/70 transition-colors hover:border-gold"
             >
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-coral text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              <Bell className="h-5 w-5" strokeWidth={1.5} />
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-ember text-[10px] font-bold text-white">
                 {incomingNudges.length}
               </span>
             </button>
           )}
           <button
             onClick={() => setAdding(!adding)}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-ink text-surface rounded-xl hover:bg-ink/80 active:scale-95 transition min-h-[44px]"
+            className="flex min-h-11 items-center gap-2 rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f]"
           >
-            {adding ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            <span className="text-sm font-medium">{adding ? 'Cancel' : 'Add Partner'}</span>
+            {adding ? <X className="h-4 w-4" strokeWidth={1.5} /> : <Plus className="h-4 w-4" strokeWidth={1.5} />}
+            <span>{adding ? 'Cancel' : 'Add Partner'}</span>
           </button>
         </div>
       </div>
 
       {/* Incoming Nudges Panel */}
       {showNudges && incomingNudges.length > 0 && (
-        <Card className="p-4 border-sage/30 bg-sage/5">
-          <h3 className="font-bold text-ink mb-3 flex items-center space-x-2">
-            <Bell className="w-4 h-4 text-sage" />
+        <Card className="p-4 border-moss/30 bg-moss/5">
+          <h3 className="mb-3 flex items-center gap-2 font-semibold text-parchment">
+            <Bell className="h-4 w-4 text-moss" strokeWidth={1.5} />
             <span>Incoming Messages</span>
           </h3>
           <div className="space-y-2">
             {incomingNudges.map(nudge => (
-              <div key={nudge.id} className="flex items-start justify-between p-3 bg-paper rounded-xl border border-mist">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-ink/70 mb-1">
+              <div key={nudge.id} className="flex items-start justify-between rounded-lg border border-gold-dim/20 bg-surface-solid p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 text-xs font-semibold text-parchment/70">
                     From {nudge.partner?.name || 'a partner'}
                   </p>
-                  <p className="text-sm text-ink/80">"{nudge.message}"</p>
-                  <p className="text-[10px] text-ink/40 mt-1">
+                  <p className="text-sm text-parchment/80">&quot;{nudge.message}&quot;</p>
+                  <p className="mt-1 font-mono text-[10px] text-parchment/40">
                     {format(new Date(nudge.createdAt), 'MMM d, h:mm a')}
                   </p>
                 </div>
                 <button
                   onClick={() => handleDismissNudge(nudge.id)}
-                  className="p-1.5 text-ink/30 hover:text-ink hover:bg-mist rounded-lg active:scale-90 transition ml-2 shrink-0"
+                  aria-label="Dismiss nudge"
+                  className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-parchment/40 transition-colors hover:bg-mist hover:text-parchment"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" strokeWidth={1.5} />
                 </button>
               </div>
             ))}
@@ -352,29 +351,29 @@ export default function PartnersPage() {
 
       {/* Add Partner Form */}
       {adding && (
-        <Card className="p-6 border-gold/50 bg-gold/5">
+        <Card className="border-gold-dim/30 bg-gold/5 p-6">
           <form onSubmit={handleAdd} className="space-y-4">
-            <h3 className="font-bold text-ink mb-2">Invite a new partner</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 className="mb-2 font-semibold text-parchment">Invite a new partner</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-xs font-bold text-ink/70 mb-1">Name</label>
+                <label className="mb-1 block text-xs text-parchment/55">Name</label>
                 <input
                   type="text"
                   required
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
-                  className="w-full px-4 py-3 bg-paper border border-mist rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-sm min-h-[44px]"
+                  className="min-h-11 w-full rounded-[6px] border border-gold-dim/25 bg-ink px-4 py-3 text-sm text-parchment transition-colors placeholder:text-parchment/30 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
                   placeholder="Jane Doe"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-ink/70 mb-1">Email</label>
+                <label className="mb-1 block text-xs text-parchment/55">Email</label>
                 <input
                   type="email"
                   required
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-paper border border-mist rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-sm min-h-[44px]"
+                  className="min-h-11 w-full rounded-[6px] border border-gold-dim/25 bg-ink px-4 py-3 text-sm text-parchment transition-colors placeholder:text-parchment/30 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
                   placeholder="jane@example.com"
                 />
               </div>
@@ -383,9 +382,9 @@ export default function PartnersPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-6 py-3 bg-gold text-surface font-semibold rounded-xl hover:bg-gold/90 active:scale-95 transition disabled:opacity-50 flex items-center space-x-2 min-h-[44px]"
+                className="flex min-h-11 items-center gap-2 rounded-md bg-gold px-6 py-3 font-semibold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50"
               >
-                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 <span>Add Partner</span>
               </button>
             </div>
@@ -396,59 +395,60 @@ export default function PartnersPage() {
       {/* Partners List */}
       {loading ? (
         <div className="flex justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-sage" />
+          <Loader2 className="h-8 w-8 animate-spin text-moss" />
         </div>
       ) : partners.length === 0 ? (
-        <div className="text-center p-12 border-2 border-dashed border-mist rounded-2xl">
-          <Users className="w-12 h-12 text-ink/20 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-ink/70">No partners yet</h3>
-          <p className="text-sm text-ink/50 mt-2 max-w-md mx-auto">
-            Add accountability partners to share your goals with. They'll be able to send you messages and track your progress.
+        <div className="rounded-[8px] border border-dashed border-gold-dim/30 p-12 text-center">
+          <Users className="mx-auto mb-4 h-12 w-12 text-gold-dim" strokeWidth={1.5} />
+          <h3 className="text-lg font-semibold text-parchment/80">No partners yet</h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-parchment/50">
+            Add an accountability partner to share your goals with. They&apos;ll be able to send you messages and track your progress.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {partners.map(partner => (
             <Card
               key={partner.id}
-              className="p-5 hover:border-sage active:scale-[0.98] transition-all cursor-pointer"
+              className="p-5 transition-colors hover:border-moss/40 cursor-pointer"
               onClick={() => handleSelectPartner(partner)}
             >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-full bg-sage/20 flex items-center justify-center text-sage font-bold text-lg">
+              <div className="mb-4 flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-moss/15 text-lg font-bold text-moss">
                     {partner.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-bold text-ink">{partner.name}</h3>
-                    <p className="text-xs text-ink/50 flex items-center mt-0.5">
-                      <Mail className="w-3 h-3 mr-1" />
+                    <h3 className="font-semibold text-parchment">{partner.name}</h3>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-parchment/50">
+                      <Mail className="h-3 w-3" strokeWidth={1.5} />
                       {partner.email}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(partner.id) }}
-                  className="p-1.5 text-ink/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition min-w-[36px] min-h-[36px] flex items-center justify-center"
+                  className="flex h-9 w-9 items-center justify-center rounded-md text-parchment/30 transition-colors hover:bg-ember/15 hover:text-[#cf8f78]"
                   title="Remove Partner"
+                  aria-label="Remove partner"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                 </button>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-mist">
-                <div className="flex items-center space-x-2 text-sm">
-                  <span className="text-ink/60 font-semibold">{partner.role}</span>
-                  <span className="text-sage flex items-center bg-sage/10 px-2 py-1 rounded-full text-xs font-bold">
-                    <LinkIcon className="w-3 h-3 mr-1" />
+              <div className="flex items-center justify-between border-t border-gold-dim/15 pt-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-semibold text-parchment/70">{partner.role}</span>
+                  <span className="flex items-center gap-1 rounded-md font-mono text-xs font-bold text-moss">
+                    <LinkIcon className="h-3 w-3" strokeWidth={1.5} />
                     {partner.partnerLinks?.length || 0}
                   </span>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleSelectPartner(partner) }}
-                  className="flex items-center space-x-1.5 px-3 py-2 bg-gold/10 text-gold rounded-xl text-xs font-bold hover:bg-gold/20 active:scale-90 transition"
+                  className="flex items-center gap-1.5 rounded-md border hairline px-3 py-2 text-xs font-semibold text-parchment transition-colors hover:border-gold"
                 >
-                  <MessageSquare className="w-3.5 h-3.5" />
+                  <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
                   <span>Message</span>
                 </button>
               </div>

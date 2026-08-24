@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, Compass, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 
 export function Sidebar() {
@@ -26,13 +26,19 @@ export function Sidebar() {
   }
 
   return (
-    <div className={`hidden lg:flex h-full glass-strong flex-col shrink-0 transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'}`}>
-      <div className="flex flex-col h-full py-2">
-        {/* Collapse Button */}
-        <div className="flex justify-end px-4 pt-3">
+    <div className={`hidden lg:flex h-full flex-col shrink-0 bg-ink border-r hairline-right transition-[width] duration-300 ${collapsed ? 'w-[72px]' : 'w-60'}`}>
+      <div className="flex flex-col h-full">
+        {/* Top: wordmark + collapse */}
+        <div className="flex items-center justify-between px-4 h-16">
+          {!collapsed && (
+            <span className="font-display text-lg text-parchment whitespace-nowrap">Inchstone</span>
+          )}
+          {collapsed && (
+            <Compass className="h-5 w-5 text-gold mx-auto" strokeWidth={1.5} />
+          )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 hover:bg-white/[0.06] rounded-lg transition text-ink/40 hover:text-ink"
+            className="p-1.5 text-gold-dim hover:text-parchment rounded-md transition-colors"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -40,7 +46,7 @@ export function Sidebar() {
         </div>
 
         {/* Nav Links */}
-        <nav className="flex-1 px-4 space-y-1 mt-2">
+        <nav className="flex-1 px-3 space-y-0.5 mt-2">
           {links.map((link) => {
             const Icon = link.icon
             const active = isActive(link.href)
@@ -48,20 +54,14 @@ export function Sidebar() {
               <Link
                 key={link.name}
                 href={link.href}
-                className={`
-                  flex items-center px-4 py-3 rounded-xl transition-all duration-200 group relative
-                  ${active
-                    ? 'glass-gold text-gold font-semibold glow-sm'
-                    : 'text-ink/50 hover:text-ink hover:bg-white/[0.04]'
-                  }
-                `}
                 title={collapsed ? link.name : undefined}
+                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                  active ? 'text-parchment' : 'text-parchment/55 hover:text-parchment/85 hover:bg-mist'
+                }`}
               >
-                {active && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gold rounded-r-full" />
-                )}
-                <Icon className={`w-5 h-5 ${collapsed ? '' : 'mr-3'} transition-transform duration-200 group-hover:scale-110 ${active ? 'text-gold' : ''}`} />
-                {!collapsed && <span className="text-sm">{link.name}</span>}
+                <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-gold' : 'text-gold-dim'}`} strokeWidth={1.5} />
+                {!collapsed && <span>{link.name}</span>}
+                {active && <span aria-hidden className="absolute inset-x-2 -bottom-px h-0.5 bg-gold" />}
               </Link>
             )
           })}
@@ -69,11 +69,12 @@ export function Sidebar() {
 
         {/* Footer */}
         {!collapsed && (
-          <div className="p-4 border-t border-white/[0.06]">
-            <p className="text-[10px] text-ink/20 text-center font-mono">v1.0 · Built with purpose</p>
+          <div className="px-6 py-4">
+            <p className="text-[11px] text-parchment/35 font-mono">v2 · by small deeds</p>
           </div>
         )}
       </div>
     </div>
   )
 }
+

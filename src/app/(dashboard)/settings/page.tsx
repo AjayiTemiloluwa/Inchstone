@@ -5,49 +5,24 @@ import { Card } from '@/components/ui/Card'
 import { PushNotificationManager } from '@/components/ui/PushNotificationManager'
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
 import { useState, useEffect } from 'react'
-import { Calendar, CheckCircle, XCircle, ExternalLink, Sun, Moon, Smartphone, Database, Trash2 } from 'lucide-react'
+import { Calendar, CheckCircle, XCircle, ExternalLink, Smartphone, Trash2, Database, ChevronDown } from 'lucide-react'
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser()
   const { promptInstall } = useInstallPrompt()
   const [calConnected, setCalConnected] = useState<boolean | null>(null)
   const [checkingCal, setCheckingCal] = useState(true)
-  const [darkMode, setDarkMode] = useState(false)
   const [seeding, setSeeding] = useState(false)
-
-  useEffect(() => {
-    checkCalendarStatus()
-    loadTheme()
-  }, [])
-
-  const loadTheme = () => {
-    const stored = localStorage.getItem('theme')
-    if (stored) {
-      setDarkMode(stored === 'dark')
-    } else {
-      setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches)
-    }
-  }
-
-  const toggleTheme = () => {
-    const newTheme = !darkMode
-    setDarkMode(newTheme)
-    localStorage.setItem('theme', newTheme ? 'dark' : 'light')
-    document.documentElement.classList.toggle('dark', newTheme)
-  }
+  const [dangerOpen, setDangerOpen] = useState(false)
 
   const checkCalendarStatus = async () => {
     setCheckingCal(true)
     try {
       const res = await fetch('/api/calendar/events?timeMin=2026-01-01T00:00:00.000Z&timeMax=2026-01-02T00:00:00.000Z')
       const data = await res.json()
-      if (data.needsAuth) {
-        setCalConnected(false)
-      } else if (data.error === 'Calendar not connected') {
-        setCalConnected(false)
-      } else {
-        setCalConnected(true)
-      }
+      if (data.needsAuth) setCalConnected(false)
+      else if (data.error === 'Calendar not connected') setCalConnected(false)
+      else setCalConnected(true)
     } catch {
       setCalConnected(false)
     } finally {
@@ -55,22 +30,31 @@ export default function SettingsPage() {
     }
   }
 
+  useEffect(() => {
+    checkCalendarStatus()
+  }, [])
+
   const handleConnectCalendar = async () => {
     try {
       const res = await fetch('/api/calendar/auth')
       const data = await res.json()
-      if (data.url) {
-        window.open(data.url, '_blank')
-      }
+      if (data.url) window.open(data.url, '_blank')
     } catch (err) {
       console.error('Failed to get auth URL', err)
     }
   }
 
-  const [calError, setCalError] = useState<string | null>(null)
+  const handleDisconnectCalendar = async () => {
+    try {
+      const res = await fetch('/api/calendar/disconnect', { method: 'POST' })
+      if (res.ok) setCalConnected(false)
+    } catch {
+      /* keep state unchanged */
+    }
+  }
 
   const handleSeedFramework = async () => {
-    if (!confirm('This will seed the default year structure. Proceed?')) return
+    if (!confirm('This will create the default yearly structure. Proceed?')) return
     setSeeding(true)
     try {
       const res = await fetch('/api/seed', { method: 'POST' })
@@ -78,11 +62,10 @@ export default function SettingsPage() {
         const data = await res.json()
         alert(data.error || 'Failed to seed framework')
       } else {
-        alert('Framework seeded successfully!')
+        alert('Framework seeded.')
         window.location.reload()
       }
-    } catch (e) {
-      console.error(e)
+    } catch {
       alert('Error seeding framework')
     } finally {
       setSeeding(false)
@@ -90,9 +73,8 @@ export default function SettingsPage() {
   }
 
   const handleResetFramework = async () => {
-    if (!confirm('WARNING: This will delete ALL your data (items, tasks, habits, financial entries, notes, reviews, events, trackers, and settings) and reseed the framework. This cannot be undone. Are you absolutely sure?')) return
-    if (!confirm('Are you REALLY sure? This will permanently delete all your data!')) return
-
+    if (!confirm('WARNING: This will delete all items, tasks, habits, financial entries, notes, reviews, events, trackers, and settings, then reseed the framework. This cannot be undone.')) return
+    if (!confirm('Are you absolutely sure? This permanently deletes all your data.')) return
     setSeeding(true)
     try {
       const resetRes = await fetch('/api/reset', { method: 'POST' })
@@ -101,78 +83,34 @@ export default function SettingsPage() {
         alert(data.error || 'Failed to reset data')
         return
       }
-
       const seedRes = await fetch('/api/seed', { method: 'POST' })
       if (!seedRes.ok) {
         const data = await seedRes.json()
         alert(data.error || 'Failed to seed framework')
       } else {
-        alert('Framework reset and seeded successfully!')
+        alert('Data reset and framework seeded.')
         window.location.reload()
       }
-    } catch (e) {
-      console.error(e)
-      alert('Error resetting framework')
+    } catch {
+      alert('Error resetting data')
     } finally {
       setSeeding(false)
     }
   }
 
-  const handleDisconnectCalendar = async () => {
-    setCalError(null)
-    try {
-      const res = await fetch('/api/calendar/disconnect', { method: 'POST' })
-      if (res.ok) {
-        setCalConnected(false)
-      } else {
-        setCalError('Failed to disconnect calendar.')
-      }
-    } catch {
-      setCalError('Network error. Please try again.')
-    }
-  }
-
   if (!isLoaded) {
-    return <div className="flex justify-center items-center h-full">Loading...</div>
+    return <div className="flex justify-center items-center h-full font-mono text-sm text-parchment/40">Loading…</div>
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-8">
-      <h1 className="text-2xl font-display font-bold text-ink">Settings</h1>
+    <div className="max-w-[720px] mx-auto space-y-8 pb-24">
+      <h1 className="text-h1 text-parchment">Settings</h1>
 
-      {/* Seed Framework */}
-      <Card className="space-y-4 border border-gold/30 bg-gold/5">
-        <h2 className="text-lg font-bold text-gold flex items-center space-x-2">
-          <Database className="w-5 h-5" />
-          <span>Initialize Framework</span>
-        </h2>
-        <p className="text-sm text-ink/70">
-          Creates the default annual hierarchy structure (Year → Categories → Goals → Quarters → Months → Weeks → Days).
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={handleSeedFramework}
-            disabled={seeding}
-            className="px-5 py-2.5 bg-gold text-paper font-semibold rounded-lg hover:bg-gold-glow transition disabled:opacity-50 active:scale-95"
-          >
-            {seeding ? 'Seeding...' : 'Seed Framework'}
-          </button>
-          <button
-            onClick={handleResetFramework}
-            disabled={seeding}
-            className="px-5 py-2.5 bg-coral/10 text-coral border border-coral/30 font-semibold rounded-lg hover:bg-coral/20 transition disabled:opacity-50 flex items-center space-x-2 active:scale-95"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Reset & Seed</span>
-          </button>
-        </div>
-      </Card>
-
-      {/* Profile Section */}
-      <Card className="space-y-6">
-        <h2 className="text-lg font-bold text-ink">Profile</h2>
-        <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-mist rounded-full flex items-center justify-center text-2xl font-bold text-ink/50 overflow-hidden">
+      {/* Profile */}
+      <Card className="space-y-4 p-5 border hairline">
+        <h2 className="text-heading text-parchment">Profile</h2>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-mist flex items-center justify-center text-2xl font-bold text-parchment/50 overflow-hidden">
             {user?.imageUrl ? (
               <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
             ) : (
@@ -180,80 +118,51 @@ export default function SettingsPage() {
             )}
           </div>
           <div>
-            <p className="font-bold text-ink">{user?.fullName || 'User'}</p>
-            <p className="text-sm text-ink/70">
-              {user?.primaryEmailAddress?.emailAddress || 'No email'}
-            </p>
-            <p className="text-xs text-ink/50 mt-1">
-              Account managed via Clerk
-            </p>
+            <p className="font-semibold text-parchment">{user?.fullName || 'User'}</p>
+            <p className="text-sm text-parchment/60">{user?.primaryEmailAddress?.emailAddress || 'No email'}</p>
+            <p className="text-xs text-parchment/40 mt-1">Account managed via Clerk</p>
           </div>
         </div>
       </Card>
 
-      {/* Install App - Moved UP to be visible above bottom nav */}
-      <Card className="space-y-6 border border-gold/20 bg-gold/[0.02]">
-        <h2 className="text-lg font-bold text-ink flex items-center space-x-2">
-          <Smartphone className="w-5 h-5 text-gold" />
-          <span>Install App</span>
-        </h2>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <p className="font-medium text-ink">Add to Home Screen</p>
-            <p className="text-sm text-ink/70 mt-1">
-              Install Inchstone on your phone for quick access and offline use.
-            </p>
-          </div>
-          <button
-            onClick={promptInstall}
-            className="w-full sm:w-auto px-6 py-3.5 bg-gold text-paper font-bold rounded-xl hover:bg-gold-glow active:scale-95 transition-all shadow-lg shadow-gold/20 min-h-[48px]"
-          >
-            Install
-          </button>
-        </div>
-      </Card>
-
-      {/* Calendar Integration */}
-      <Card className="space-y-6">
-        <h2 className="text-lg font-bold text-ink flex items-center space-x-2">
-          <Calendar className="w-5 h-5 text-gold" />
+      {/* Google Calendar */}
+      <Card className="p-5 border hairline">
+        <h2 className="text-heading text-parchment flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-gold-dim" strokeWidth={1.5} />
           <span>Google Calendar</span>
         </h2>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium text-ink">Calendar Integration</p>
-            <p className="text-sm text-ink/70 mt-1">
-              Connect your Google Calendar to view events alongside your daily deeds.
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
+        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-sm text-parchment/55">
+            Connect Google Calendar to view events alongside your daily deeds.
+          </p>
+          <div className="flex items-center gap-3">
             {checkingCal ? (
-              <span className="text-sm text-ink/50">Checking...</span>
+              <span className="font-mono text-sm text-parchment/45">Checking…</span>
             ) : calConnected ? (
               <>
-                <span className="flex items-center space-x-1 text-sm text-sage font-medium">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Connected</span>
+                <span className="flex items-center gap-1.5 font-mono text-sm text-moss/80">
+                  <CheckCircle className="w-4 h-4" strokeWidth={1.5} />
+                  Connected
                 </span>
                 <button
                   onClick={handleDisconnectCalendar}
-                  className="px-3 py-1.5 text-sm border border-coral/30 text-coral rounded-lg hover:bg-coral/5 transition"
+                  className="rounded-md border border-ember/40 px-3 py-1.5 text-sm text-[#cf8f78] hover:bg-ember/15 transition-colors"
                 >
                   Disconnect
                 </button>
               </>
             ) : (
               <>
-                <span className="flex items-center space-x-1 text-sm text-ink/50">
-                  <XCircle className="w-4 h-4" />
-                  <span>Not connected</span>
+                <span className="flex items-center gap-1.5 font-mono text-sm text-parchment/45">
+                  <XCircle className="w-4 h-4" strokeWidth={1.5} />
+                  Not connected
                 </span>
                 <button
                   onClick={handleConnectCalendar}
-                  className="px-3 py-1.5 text-sm bg-gold text-surface rounded-lg hover:bg-gold/90 transition flex items-center space-x-1"
+                  className="rounded-md border-hairline px-3 py-1.5 text-sm text-parchment hover:border-gold transition-colors flex items-center gap-1.5"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Connect</span>
+                  <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  Connect
                 </button>
               </>
             )}
@@ -262,37 +171,84 @@ export default function SettingsPage() {
       </Card>
 
       {/* Notifications */}
-      <Card className="space-y-6">
-        <h2 className="text-lg font-bold text-ink">Notifications</h2>
+      <Card className="space-y-5 p-5 border hairline">
+        <h2 className="text-heading text-parchment">Notifications</h2>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium text-ink">Push Notifications</p>
-            <p className="text-sm text-ink/70 mt-1">
-              Receive notifications for nudge messages and reminders.
-            </p>
+            <p className="font-medium text-parchment">Push Notifications</p>
+            <p className="text-sm text-parchment/60 mt-1">Get notified for nudges and reminders.</p>
           </div>
           <PushNotificationManager />
         </div>
       </Card>
 
-      {/* Appearance */}
-      <Card className="space-y-6">
-        <h2 className="text-lg font-bold text-ink">Appearance</h2>
-        <div className="flex items-center justify-between">
+      {/* Install App */}
+      <Card className="space-y-5 p-5 border hairline">
+        <h2 className="text-heading text-parchment flex items-center gap-2">
+          <Smartphone className="w-4 h-4 text-gold-dim" strokeWidth={1.5} />
+          <span>Install App</span>
+        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="font-medium text-ink">Theme</p>
-            <p className="text-sm text-ink/70 mt-1">
-              Switch between dark and light mode.
-            </p>
+            <p className="font-medium text-parchment">Add to Home Screen</p>
+            <p className="text-sm text-parchment/60 mt-1">Install Inchstone for quick access.</p>
           </div>
           <button
-            onClick={toggleTheme}
-            className="px-4 py-2 bg-gold text-paper rounded-lg hover:bg-gold-glow transition flex items-center space-x-2 active:scale-95"
+            onClick={promptInstall}
+            className="rounded-md bg-gold px-6 py-3 text-body font-semibold text-ink hover:bg-[#cbaa6f] transition-colors"
           >
-            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            Install
           </button>
         </div>
+      </Card>
+
+      {/* Danger zone — collapsed by default */}
+      <Card className="space-y-4 p-5 border hairline">
+        <button
+          type="button"
+          onClick={() => setDangerOpen(o => !o)}
+          aria-expanded={dangerOpen}
+          className="flex w-full items-center justify-between text-left text-heading text-[#cf8f78]"
+        >
+          <span className="flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-[#cf8f78]" strokeWidth={1.5} />
+            Data & Reset
+          </span>
+          <ChevronDown className={`w-4 h-4 text-parchment/45 transition-transform ${dangerOpen ? 'rotate-180' : ''}`} strokeWidth={1.5} />
+        </button>
+
+        {dangerOpen && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+              <div>
+                <p className="font-medium text-parchment">Seed default framework</p>
+                <p className="text-sm text-parchment/60 mt-1">Create the default annual hierarchy.</p>
+              </div>
+              <button
+                onClick={handleSeedFramework}
+                disabled={seeding}
+                className="rounded-md border hairline px-4 py-2 text-sm text-parchment hover:border-gold transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <Database className="w-4 h-4" strokeWidth={1.5} />
+                {seeding ? 'Working…' : 'Seed'}
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3 border-t border-gold-dim/20 pt-3">
+              <div>
+                <p className="font-medium text-parchment">Reset all data & reseed</p>
+                <p className="text-sm text-parchment/60 mt-1">Deletes everything. This cannot be undone.</p>
+              </div>
+              <button
+                onClick={handleResetFramework}
+                disabled={seeding}
+                className="rounded-md border border-ember/40 px-4 py-2 text-sm text-[#cf8f78] hover:bg-ember/15 transition-colors disabled:opacity-50"
+              >
+                {seeding ? 'Working…' : 'Reset & Seed'}
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   )

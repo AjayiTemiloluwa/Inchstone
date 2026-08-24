@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import React, { useState, useEffect } from 'react'
 import { SECTION_CATEGORIES, BudgetCategoryOption } from './budgetCategories'
@@ -18,6 +18,7 @@ interface TransactionFormProps {
 export function TransactionForm({ onSuccess, purses: externalPurses }: TransactionFormProps) {
   const [type, setType] = useState<'income' | 'expense'>('expense')
   const [amount, setAmount] = useState('')
+  const [lastExpensePurse, setLastExpensePurse] = useState('')
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [comments, setComments] = useState('')
@@ -129,12 +130,12 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
       {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-600 dark:text-red-400">
+        <div className="p-3 bg-ember/10 dark:bg-ember/20 border border-ember/30 dark:border-ember/40 rounded-lg text-xs text-[#cf8f78] dark:text-[#cf8f78]">
           {error}
         </div>
       )}
       {success && (
-        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-xs text-green-600 dark:text-green-400">
+        <div className="p-3 bg-moss/10 dark:bg-moss/20 border border-moss/30 dark:border-moss/40 rounded-lg text-xs text-[#7fa871] dark:text-[#7fa871]">
           Transaction added successfully!
         </div>
       )}
@@ -143,15 +144,24 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
       <div className="flex gap-2 mb-4">
         <button
           type="button"
-          onClick={() => setType('expense')}
-          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'expense' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 ring-2 ring-red-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+          onClick={() => {
+            setType('expense')
+            // Restore the previously selected expense purse if any
+            if (lastExpensePurse) setPurse(lastExpensePurse)
+          }}
+          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'expense' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-[#cf8f78] ring-2 ring-red-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
         >
           💸 Expense (Debit)
         </button>
         <button
           type="button"
-          onClick={() => setType('income')}
-          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 ring-2 ring-green-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+          onClick={() => {
+            // Remember the current purse before forcing Main
+            if (purse && purse !== 'Main') setLastExpensePurse(purse)
+            setType('income')
+            setPurse('Main')
+          }}
+          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-[#7fa871] ring-2 ring-green-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
         >
           📥 Income (Credit)
         </button>
@@ -203,7 +213,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
           placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe...' : 'e.g. Salary, Freelance...'}
         />
         {showSuggestions && category.length > 0 && filteredSuggestions.length > 0 && (
-          <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg  max-h-48 overflow-y-auto">
             {filteredSuggestions.map(s => (
               <button
                 key={s.label}
@@ -231,7 +241,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
                   type="button"
                   onClick={() => setCategory(s.label)}
                   className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${category === s.label
-                    ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-400'
+                    ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-parchment'
                     : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
                     }`}
                 >
@@ -269,11 +279,14 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
 
       {/* Purse selector */}
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Purse</label>
+        <label className="block text-xs text-gray-500 mb-1">
+          Purse {type === 'income' && <span className="text-gray-400">(income always goes to Main)</span>}
+        </label>
         <select
           value={purse}
           onChange={(e) => setPurse(e.target.value)}
-          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={type === 'income'}
+          className={`w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${type === 'income' ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
           {purses.map(p => (
             <option key={p.id} value={p.name}>
@@ -281,6 +294,11 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
             </option>
           ))}
         </select>
+        {type === 'income' && (
+          <p className="text-xs text-gray-400 mt-1">
+            All income is deposited into the 👜 Main purse. Use transfers to move funds to other purses.
+          </p>
+        )}
       </div>
 
       {/* Section selector for expenses */}
@@ -291,7 +309,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
             <button
               type="button"
               onClick={() => setSection('Need')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 ring-2 ring-blue-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-parchment ring-2 ring-blue-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
             >
               💪 Need
             </button>

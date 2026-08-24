@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
@@ -39,7 +39,7 @@ export function NoteModal({ onClose, onSaved }: NoteModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 backdrop-blur-sm p-4">
-      <div className="bg-paper w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+      <div className="bg-paper w-full max-w-lg rounded-[8px]  overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-mist">
           <h3 className="font-bold text-ink">New Note</h3>
           <button onClick={onClose} className="p-1 hover:bg-mist rounded-full transition-colors">
@@ -68,7 +68,7 @@ export function NoteModal({ onClose, onSaved }: NoteModalProps) {
             />
           </div>
           {error && (
-            <p className="text-xs text-coral">{error}</p>
+            <p className="text-xs text-[#cf8f78]">{error}</p>
           )}
           <div className="flex justify-end space-x-3">
             <button

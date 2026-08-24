@@ -2,38 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Light Mode (default) ── */
-:root {
-  --bg: #f8f5f0;
-  --fg: #1c1917;
-  --fg-rgb: 28, 25, 23;
-  --surface: rgba(0, 0, 0, 0.04);
-  --surface-solid: #ffffff;
-  --mist: rgba(0, 0, 0, 0.06);
-  --mist-solid: #e7e5e4;
-  --mist-solid-rgb: 231, 229, 228;
-  --glass: rgba(0, 0, 0, 0.06);
-  --glass-border: rgba(0, 0, 0, 0.1);
-  --glass-strong: rgba(255, 255, 255, 0.8);
-  --glass-gold-bg: rgba(212, 175, 55, 0.06);
-  --glass-gold-border: rgba(212, 175, 55, 0.15);
-}
-
-/* ── Dark Mode ── */
+/* ── v2 Foundation tokens (dark is the singular canonical theme) ── */
+:root,
 .dark {
-  --bg: #0f0f1a;
-  --fg: #e8e6f0;
-  --fg-rgb: 232, 230, 240;
-  --surface: rgba(255, 255, 255, 0.04);
-  --surface-solid: #1c1917;
-  --mist: rgba(255, 255, 255, 0.08);
-  --mist-solid: #2a2a3e;
-  --mist-solid-rgb: 42, 42, 62;
-  --glass: rgba(255, 255, 255, 0.06);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-strong: rgba(255, 255, 255, 0.12);
-  --glass-gold-bg: rgba(212, 175, 55, 0.08);
-  --glass-gold-border: rgba(212, 175, 55, 0.2);
+  /* canonical six tokens */
+  --ink: #0a0908; /* background — warm near-black */
+  --parchment: #f3efe6; /* primary text / light surfaces */
+  --gold: #b8935a; /* the single accent — muted brass */
+  --gold-dim: #8a6d42; /* gold at rest / secondary */
+  --ember: #7a3b2e; /* warnings / overdue / destructive */
+  --moss: #4a5d45; /* completed / rollup-achieved */
+
+  /* derived — legacy variables retained so existing components keep resolving. Do not add new colors. */
+  --bg: #0a0908;
+  --fg: #f3efe6;
+  --fg-rgb: 243, 239, 230;
+  --surface: rgba(10, 9, 8, 0.6);
+  --surface-solid: #16120f;
+  --mist: rgba(243, 239, 230, 0.08);
+  --mist-solid: #191512;
+  --mist-solid-rgb: 25, 21, 18;
+  --glass: rgba(243, 239, 230, 0.04);
+  --glass-border: rgba(243, 239, 230, 0.1);
+  --glass-strong: rgba(10, 9, 8, 0.9);
+  --glass-gold-bg: rgba(184, 147, 90, 0.1);
+  --glass-gold-border: rgba(184, 147, 90, 0.2);
+
+  /* v2 fluid type scale — always use these, never a raw px in a component */
+  --text-display: clamp(2.5rem, 4vw + 1.5rem, 4.75rem); /* Playfair */
+  --text-h1: clamp(1.75rem, 1.6vw + 1.4rem, 2.5rem); /* Playfair */
+  --text-heading: clamp(1.0625rem, 0.3vw + 1rem, 1.25rem); /* Inter 600 */
+  --text-body: clamp(0.875rem, 0.1vw + 0.85rem, 0.9375rem); /* Inter */
+  --text-caption: clamp(0.6875rem, 0.05vw + 0.68rem, 0.75rem); /* Inter labels */
+  --text-mono: clamp(0.75rem, 0.05vw + 0.74rem, 0.8125rem); /* JetBrains Mono figures */
+
+  /* v2 spacing — 8pt grid */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 48px;
+  --space-6: 64px;
+
+  /* v2 shape */
+  --radius-s: 6px;
+  --radius-m: 8px;
 }
 
 /* ── TipTap Placeholder ── */
@@ -164,19 +177,19 @@ textarea,
 }
 
 .bg-ink {
-  background: var(--fg);
+  background: var(--ink);
 }
 
 .bg-ink\/90 {
-  background: rgba(var(--fg-rgb) / 0.9);
+  background: rgba(10, 9, 8, 0.9);
 }
 
 .bg-black\/20 {
-  background: rgba(var(--fg-rgb) / 0.2);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .bg-black\/40 {
-  background: rgba(var(--fg-rgb) / 0.4);
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .border-white\/5 {
@@ -294,68 +307,56 @@ textarea,
   background: rgba(var(--fg-rgb) / 0.25);
 }
 
-/* ── Glassmorphism Utilities ── */
+/* Hide scrollbar utility */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Surface utilities (v2: no drop shadows, no glassmorphism except the one Partners nudge card) ── */
 .glass {
   background: var(--glass);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.06);
 }
 
 .glass-strong {
   background: var(--glass-strong);
-  backdrop-filter: blur(40px) saturate(1.6);
-  -webkit-backdrop-filter: blur(40px) saturate(1.6);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
 
 .glass-gold {
   background: var(--glass-gold-bg);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border: 1px solid var(--glass-gold-border);
-  box-shadow: 0 4px 24px rgba(212, 175, 55, 0.06);
 }
 
 .bottom-nav-glass {
-  background: rgba(var(--mist-solid-rgb), 0.85);
-  backdrop-filter: blur(40px) saturate(1.8);
-  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  background: rgba(var(--mist-solid-rgb), 0.92);
   border-top: 1px solid var(--glass-border);
-  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.08);
 }
 
+/* ── deprecated: status-tinted glass (removed shadows) ── */
 .dark .glass {
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+  background: var(--glass);
 }
 
 .dark .glass-strong {
-  background: rgba(30, 30, 50, 0.85);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  background: var(--glass-strong);
 }
 
 .dark .bottom-nav-glass {
-  background: rgba(15, 15, 26, 0.9);
-  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4);
+  background: rgba(10, 9, 8, 0.92);
 }
 
-/* ── Glow Effects ── */
-.glow-gold {
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.15), 0 0 60px rgba(212, 175, 55, 0.05);
-}
-
-.glow-sage {
-  box-shadow: 0 0 20px rgba(123, 160, 91, 0.15), 0 0 60px rgba(123, 160, 91, 0.05);
-}
-
-.glow-coral {
-  box-shadow: 0 0 20px rgba(232, 104, 106, 0.15), 0 0 60px rgba(232, 104, 106, 0.05);
-}
-
+/* ── Glow Effects (v2: deprecated — no glows) ── */
+.glow-gold,
+.glow-sage,
+.glow-coral,
 .glow-sm {
-  box-shadow: 0 0 12px rgba(212, 175, 55, 0.1);
+  box-shadow: none;
 }
 
 /* ── Animations ── */
@@ -1030,6 +1031,109 @@ body.mobile-menu-open .main-content-wrapper {
 }
 
 .gamified-star:nth-child(11) {
+
+/* ═══ v2 Foundation Utilities (new system) ═══ */
+
+/* Hairline — 1px gold-dim at 20%, used to separate adjacent regions (v1 D1 / v2 A) */
+.hairline { border: 1px solid rgba(184, 147, 90, 0.2); }
+.hairline-top { border-top: 1px solid rgba(184, 147, 90, 0.2); }
+.hairline-bottom { border-bottom: 1px solid rgba(184, 147, 90, 0.2); }
+.hairline-left { border-left: 1px solid rgba(184, 147, 90, 0.2); }
+.hairline-right { border-right: 1px solid rgba(184, 147, 90, 0.2); }
+
+/* Fluid type scale (v2 B1) — never raw px in a component */
+.text-display { font-family: var(--font-playfair), serif; font-size: var(--text-display); line-height: 1.05; font-weight: 700; }
+.text-h1 { font-family: var(--font-playfair), serif; font-size: var(--text-h1); line-height: 1.1; font-weight: 700; }
+.text-heading { font-size: var(--text-heading); font-weight: 600; line-height: 1.25; }
+.text-body { font-size: var(--text-body); line-height: 1.5; }
+.text-caption { font-size: var(--text-caption); line-height: 1.4; color: rgba(243, 239, 230, 0.6); }
+.text-mono { font-size: var(--text-mono); }
+
+/* Figures: mono + tabular so columns hold as digits change (v2 E) */
+.font-mono,
+.text-mono,
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Canonical selection */
+::selection { background: rgba(184, 147, 90, 0.35); color: #f3efe6; }
+
+/* Visible keyboard focus (Section G): 2px gold ring, offset 2px */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: var(--radius-s);
+}
+
+/* v2 F3: respect reduced motion — flatten springs/staggers/loops */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Deprecated decorative CSS — neutralized flat (removed per-screen during re-skin) */
+.streak-flame {
+  background: rgba(122, 59, 46, 0.15);
+  border: 1px solid rgba(122, 59, 46, 0.3);
+  color: #cf8f78;
+  box-shadow: none;
+}
+.stat-card, .achievement-card, .quest-item, .level-badge { box-shadow: none; }
+.stat-card, .achievement-card, .quest-item {
+  background: rgba(243, 239, 230, 0.02);
+  border-color: rgba(184, 147, 90, 0.2);
+}
+.stat-card::before, .level-badge::after { display: none; }
+.level-badge {
+  background: rgba(184, 147, 90, 0.12);
+  border: 1px solid rgba(184, 147, 90, 0.3);
+  color: var(--gold);
+}
+.gamified-bg, .gamified-grid, .gamified-orb-1, .gamified-orb-2, .gamified-orb-3, .gamified-orb-4 {
+  background: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+}
+.quest-item.completed .quest-check { background: #4a5d45; border-color: #4a5d45; }
+
+/* ── v2 F2: ban decorative/template motion — these animate nothing (fade is preserved) ── */
+.animate-slideUp,
+.animate-slideDown,
+.animate-slideInLeft,
+.animate-slideOutLeft,
+.animate-pulseGlow,
+.animate-float,
+.animate-pulseRing,
+.animate-twinkle,
+.animate-orbit,
+.animate-levelUp,
+.animate-xpFloat,
+.animate-progressPulse,
+.animate-confetti,
+.animate-gradientShift,
+.animate-starFloat,
+.animate-shimmer,
+.animate-pulse {
+  animation: none !important;
+}
+
+/* RowActions — pointer: reveal on row hover; touch: always visible (v2 C) */
+.row-actions { opacity: 0; transition: opacity 0.12s ease; }
+.row-actions:focus-within { opacity: 1; }
+@media (hover: hover) {
+  .row-group:hover .row-actions,
+  .row-group:focus-within .row-actions { opacity: 1; }
+}
+@media (hover: none) {
+  .row-actions { opacity: 1; }
+}
+
+
   left: 5%;
   animation-duration: 20s;
   animation-delay: 8s;
@@ -1177,6 +1281,13 @@ body.mobile-menu-open .main-content-wrapper {
   opacity: 0.15;
 }
 
+@media (max-width: 768px) {
+  .stat-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+}
+
 /* ── Quest Item ── */
 .quest-item {
   display: flex;
@@ -1205,6 +1316,14 @@ body.mobile-menu-open .main-content-wrapper {
   border-color: #7BA05B;
 }
 
+@media (max-width: 768px) {
+  .quest-item {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+}
+
 /* ── Streak Flame ── */
 .streak-flame {
   display: inline-flex;
@@ -1221,4 +1340,63 @@ body.mobile-menu-open .main-content-wrapper {
 
 .streak-flame .flame-icon {
   animation: float 2s ease-in-out infinite;
+}
+
+/* ── Cursor Light — soft warm glow that trails the pointer ── */
+.cursor-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 70; /* above app chrome, below OS-level portals */
+  pointer-events: none;
+  /* Blend the whole group with the page beneath it. Must live on the container:
+     fixed + z-index makes this a stacking context, so child-level blend modes
+     would be isolated from the page and never light up the UI. */
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.cursor-glow.is-active {
+  opacity: 1;
+}
+
+/* Wide ambient pool — the "light on the background" */
+.cursor-glow-halo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  will-change: transform;
+  background: radial-gradient(
+    circle closest-side,
+    rgba(184, 147, 90, 0.16),
+    rgba(184, 147, 90, 0.07) 42%,
+    transparent 72%
+  );
+}
+
+/* Small hot centre — makes the source feel real */
+.cursor-glow-core {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  will-change: transform;
+  background: radial-gradient(
+    circle closest-side,
+    rgba(243, 239, 230, 0.13),
+    rgba(184, 147, 90, 0.05) 55%,
+    transparent 78%
+  );
+}
+
+/* Never render for touch-only devices or users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
+  .cursor-glow {
+    display: none;
+  }
 }

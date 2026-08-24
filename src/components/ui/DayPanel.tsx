@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿﻿import { useState, useEffect } from 'react';
 import { format, startOfYear, differenceInDays } from 'date-fns';
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
 import { Plus } from 'lucide-react'
@@ -80,7 +80,7 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 bg-gold text-surface text-sm font-semibold rounded-xl hover:bg-gold-glow active:scale-95 transition-all shadow-lg shadow-gold/20 touch-manipulation min-h-[44px]"
+          className="px-4 py-2.5 bg-gold text-surface text-sm font-semibold rounded-xl hover:bg-[#cbaa6f] active:opacity-70 transition-all   touch-manipulation min-h-[44px]"
         >
           Add Task
         </button>
@@ -143,7 +143,7 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fadeIn" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-surface rounded-2xl border border-mist shadow-2xl p-6 w-full max-w-md mx-4 animate-slideUp" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface rounded-[8px] border border-mist  p-6 w-full max-w-md mx-4 animate-slideUp" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-ink text-lg">Add New Task</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-mist rounded-lg transition text-ink/30 hover:text-ink">
@@ -252,13 +252,13 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
               <div className="flex items-center justify-end space-x-3 pt-4 border-t border-mist/50">
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 text-sm font-medium text-ink/60 hover:text-ink active:scale-95 transition-all min-h-[44px]"
+                  className="px-5 py-2.5 text-sm font-medium text-ink/60 hover:text-ink active:opacity-70 transition-all min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={saveTask}
-                  className="px-5 py-2.5 bg-gold text-surface text-sm font-bold rounded-xl hover:bg-gold-glow active:scale-95 transition-all shadow-lg shadow-gold/20 min-h-[44px]"
+                  className="px-5 py-2.5 bg-gold text-surface text-sm font-bold rounded-xl hover:bg-[#cbaa6f] active:opacity-70 transition-all   min-h-[44px]"
                 >
                   Save Task
                 </button>

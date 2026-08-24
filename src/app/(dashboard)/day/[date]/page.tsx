@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useHierarchyStore, Item, Task } from '@/stores/hierarchyStore'
@@ -252,6 +252,10 @@ export default function DayPage() {
       })
     })
     return result
+  }
+
+  const goToDay = (offset: number) => {
+    router.push(`/day/${format(addDays(currentDate, offset), 'yyyy-MM-dd')}`)
   }
 
   const fetchItems = useCallback(async () => {
@@ -811,26 +815,42 @@ export default function DayPage() {
   if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
 
   return (
-    <div className="space-y-6 max-w-full pb-12 stagger-children">
+<div className="space-y-6 max-w-full pb-12 stagger-children">
       <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
         <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
         <ChevronRight className="w-3 h-3" />
         <span className="text-ink font-bold">{format(currentDate, 'EEEE, MMMM d, yyyy')}</span>
       </div>
 
-      <div className="glass-gold glow-sm rounded-3xl p-8 animate-slideUp border border-gold/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{format(currentDate, 'EEEE')}</h1>
-            <p className="text-lg text-ink/70 mt-2 font-mono">{format(currentDate, 'MMMM d, yyyy')}</p>
-            <p className="text-[10px] text-ink/40 mt-0.5 font-mono">Day {differenceInDays(currentDate, startOfYear(currentDate)) + 1} of 365</p>
+<div className="glass-gold rounded-[8px] p-5 sm:p-6 animate-slideUp border border-gold/20">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => goToDay(-1)}
+              aria-label="Previous day"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/20 border border-white/10 text-ink/50 hover:text-gold hover:border-gold/40 transition shrink-0"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="text-left">
+              <h1 className="text-3xl sm:text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{format(currentDate, 'EEEE')}</h1>
+              <p className="text-sm sm:text-base text-ink/70 mt-0.5 font-mono">{format(currentDate, 'MMMM d, yyyy')}</p>
+              <p className="text-[10px] text-ink/40 mt-0.5 font-mono">Day {differenceInDays(currentDate, startOfYear(currentDate)) + 1} of {differenceInDays(endOfYear(currentDate), startOfYear(currentDate)) + 1}</p>
+            </div>
+            <button
+              onClick={() => goToDay(1)}
+              aria-label="Next day"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/20 border border-white/10 text-ink/50 hover:text-gold hover:border-gold/40 transition shrink-0"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             <div className="text-right">
-              <p className="text-xs text-ink/50 uppercase font-bold">Tasks</p>
+              <p className="text-[11px] text-ink/50 uppercase font-bold tracking-wider">Tasks</p>
               <p className="text-xl font-mono font-bold">{completedTasks.length}/{deedTasks.length}</p>
             </div>
-            <ProgressRing progress={dayScore} size={64} />
+            <ProgressRing progress={dayScore} size={56} />
           </div>
         </div>
         <div className="mt-4">
@@ -838,71 +858,497 @@ export default function DayPage() {
             <span>Day Progress</span>
             <span className="font-mono font-bold">{Math.round(dayScore)}%</span>
           </div>
-          <ProgressBar progress={dayScore} colorClass={dayScore >= 80 ? 'bg-sage' : dayScore >= 40 ? 'bg-gold' : 'bg-coral'} />
+          <ProgressBar progress={dayScore} colorClass={dayScore >= 80 ? 'bg-sage' : dayScore >= 40 ? 'bg-gold' : 'bg-ember'} />
         </div>
       </div>
 
-      {/* Eat That Frog Section */}
-      <Card className="p-5 border border-gold/30 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <Target className="w-24 h-24 text-gold" />
-        </div>
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-display font-bold text-ink flex items-center space-x-2">
-                <span className="text-2xl">🐸</span>
-                <span>Eat That Frog</span>
-              </h2>
-              <p className="text-xs text-ink/60 mt-1">Your most important tasks.</p>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+
+        <div className="xl:col-span-2 space-y-6">
+
+<Card className="p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gold" />
+                <h2 className="text-lg sm:text-xl font-display font-bold text-ink">Deeds</h2>
+                <span className="text-xs font-mono text-ink/40">{completedTasks.length}/{deedTasks.length}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-xl border border-white/10 bg-black/20 p-1">
+                  <button onClick={() => setViewMode('timeline')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${viewMode === 'timeline' ? 'bg-gold text-ink' : 'text-ink/60 hover:text-gold'}`}>
+                    <Clock className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Timeline
+                  </button>
+                  <button onClick={() => setViewMode('table')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${viewMode === 'table' ? 'bg-gold text-ink' : 'text-ink/60 hover:text-gold'}`}>
+                    <Target className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Table
+                  </button>
+                </div>
+                <button onClick={() => setAddingDeed(!addingDeed)} className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 ${addingDeed ? 'bg-ember/20 text-[#cf8f78] border border-ember/30' : 'bg-gold text-ink hover:bg-[#cbaa6f]'}`}>
+                  {addingDeed ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                  <span>{addingDeed ? 'Close' : 'Add Deed'}</span>
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => { setIsFrog(true); setAddingDeed(true) }}
-              className="px-3 py-1.5 text-xs font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 transition flex items-center space-x-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Frog</span>
-            </button>
+
+            {addingDeed && (
+              <div className="pt-4 border-t border-white/10 animate-fadeIn">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+            <input type="text" value={newDeedTitle} onChange={e => setNewDeedTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddDeed()}
+              placeholder="Deed title..." className="col-span-2 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" autoFocus />
+            <input type="time" value={newDeedStart} onChange={e => setNewDeedStart(e.target.value)}
+              className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
+            <input type="time" value={newDeedEnd} onChange={e => setNewDeedEnd(e.target.value)}
+              className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
+            <select value={newDeedCategory} onChange={e => setNewDeedCategory(e.target.value)} className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80">
+              <option value="">Category</option>
+              {getFlatItems().filter(i => i.layer === 1).map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
+            </select>
+            <div className="flex space-x-2">
+              <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}
+                min="1" max="100" placeholder="Wt"
+                className="w-16 px-3 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
+              <button onClick={() => handleAddDeed()} disabled={savingDeed} className="flex-1 px-4 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70   disabled:opacity-50">{savingDeed ? 'Adding...' : 'Add'}</button>
+            </div>
           </div>
-          <div className="space-y-2">
-            {frogTasks.map((task, idx) => {
-              const frogNum = idx + 1
-              return (
-                <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80 text-ink/50' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <button onClick={() => handleToggleTask(task)} className="shrink-0">
-                      {task.completed ? <CheckCircle2 className="w-5 h-5 text-sage" /> : <Circle className="w-5 h-5 text-ink/30" />}
-                    </button>
-                    <span className="text-[10px] font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full shrink-0">Frog #{frogNum}</span>
-                    <span className={`font-bold truncate ${task.completed ? 'line-through' : 'text-ink'}`}>{task.title}</span>
+          {/* Color picker */}
+          <div className="md:col-span-6 space-y-2">
+            <p className="text-[9px] font-bold uppercase text-ink/40 tracking-wider">Color</p>
+            <div className="flex flex-wrap gap-2">
+              {['#d4af37', '#8fbc8f', '#6495ed', '#ff7f50', '#9370db', '#3cb371', '#ffd700', '#00bfff', '#ff6b6b', '#a8e6cf', '#ffb347', '#ba68c8'].map(c => (
+                <button
+                  key={c}
+                  onClick={() => setDeedColor(deedColor === c ? '' : c)}
+                  className="w-7 h-7 rounded-full border-2 transition-all"
+                  style={{ backgroundColor: c, borderColor: deedColor === c ? 'white' : 'transparent' }}
+                />
+              ))}
+              <button onClick={() => setDeedColor('')} className={`px-2 py-0.5 text-[9px] font-bold rounded border ${!deedColor ? 'bg-white/20 border-white/40 text-ink' : 'border-white/10 text-ink/50'}`}>None</button>
+            </div>
+          </div>
+          <div className="md:col-span-6 border-t border-white/10 pt-4 flex items-center space-x-6">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFrog}
+                onChange={e => setIsFrog(e.target.checked)}
+                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
+              />
+              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                <span className="text-sm">🐸</span>
+                <span>Eat That Frog</span>
+              </span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isHabit}
+                onChange={e => {
+                  setIsHabit(e.target.checked)
+                  if (e.target.checked) {
+                    setIsRecurring(true)
+                    setRecurrencePattern('daily')
+                  }
+                }}
+                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
+              />
+              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                <span className="text-sm">🌱</span>
+                <span>Habit (repeats daily)</span>
+              </span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={e => setIsRecurring(e.target.checked)}
+                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
+              />
+              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                <Repeat className="w-3.5 h-3.5" />
+                <span>Recurring Task</span>
+              </span>
+            </label>
+          </div>
+          {isRecurring && (
+            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <select
+                value={recurrencePattern}
+                onChange={e => setRecurrencePattern(e.target.value)}
+                className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+              >
+                <option value="">Repeat...</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+                <option value="weekdays">Weekdays (Mon-Fri)</option>
+              </select>
+              <input
+                type="date"
+                value={recurrenceEnd}
+                onChange={e => setRecurrenceEnd(e.target.value)}
+                className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                placeholder="End date (optional)"
+              />
+            </div>
+          )}
+              </div>
+            )}
+          </Card>
+
+{viewMode === 'timeline' ? (
+            <div className="glass rounded-[8px] overflow-hidden flex select-none animate-fadeIn border border-white/10">
+              <div className="overflow-y-auto flex w-full" style={{ maxHeight: 'min(1536px, 55vh)' }}>
+              <div className="w-20 shrink-0 border-r border-white/10 bg-black/20 relative z-10" style={{ height: `${24 * 64}px` }}>
+                {hours.map(hour => (
+                  <div key={hour} className="absolute left-0 right-0 text-right pr-3 text-[10px] font-mono text-ink/40" style={{ top: `${hour * 64 + 6}px`, height: '64px' }}>
+                    {formatHourLabel(hour)}
                   </div>
-                  <div className="flex items-center space-x-3 shrink-0">
-                    <span className={`text-[9px] flex items-center space-x-1 ${task.startTime ? 'text-gold' : 'text-ink/30'}`}>
-                      <Clock className="w-3 h-3" />
-                      <span>{task.startTime ? 'Scheduled' : 'No time'}</span>
-                    </span>
-                    {task.startTime && (
-                      <span className="text-[10px] font-mono text-ink/40">{format(new Date(task.startTime), 'h:mm a')}</span>
-                    )}
-                    <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 hover:bg-red-500/10 rounded-lg transition text-ink/30 hover:text-red-500" title="Delete">
-                      <Trash2 className="w-4 h-4" />
+                ))}
+              </div>
+              <div className="flex-1 relative cursor-crosshair" style={{ height: `${24 * 64}px` }} onClick={handleGridClick}>
+                {hours.map(hour => (
+                  <div key={hour} className="absolute left-0 right-0 border-b border-white/5" style={{ top: `${hour * 64}px`, height: '64px' }} />
+                ))}
+                {nowLineTop !== null && (
+                  <div className="absolute left-0 right-0 flex items-center z-20 pointer-events-none" style={{ top: `${nowLineTop}px` }}>
+                    <div className="w-2 h-2 rounded-full bg-ember -ml-1" />
+                    <div className="flex-1 h-0.5 bg-ember" />
+                  </div>
+                )}
+                {getPositionedTasks(allTasks).map(({ task, top, height, left, width }) => {
+                  const goalItem = findItem(task.goalId)
+                  const taskBorderColor = task.color || (task.completed ? '#8fbc8f' : '#d4af37')
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={(e) => { e.stopPropagation(); handleOpenDeed(task) }}
+                      className={`absolute rounded-xl border p-2.5 text-left text-xs flex flex-col justify-between transition-all cursor-pointer group/task select-none overflow-hidden task-block ${task.completed ? 'glass text-ink/50 opacity-80' : 'text-ink hover:-translate-y-0.5'}`}
+                      style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10, borderLeft: `4px solid ${taskBorderColor}`, borderColor: task.completed ? `${taskBorderColor}40` : taskBorderColor, background: task.completed ? `${taskBorderColor}20` : `${taskBorderColor}35` }}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="flex items-center space-x-1.5 min-w-0">
+                          <button onClick={(e) => { e.stopPropagation(); handleToggleTask(task) }} className="shrink-0">
+                            {task.completed ? <CheckCircle2 className="w-3.5 h-3.5 text-sage" /> : <Circle className="w-3.5 h-3.5 text-ink/30" />}
+                          </button>
+                          <span className={`font-semibold truncate ${task.completed ? 'line-through' : ''}`}>{task.title}</span>
+                        </div>
+                        <button onClick={(e) => handleDeleteTask(e, task.id)} className="shrink-0 p-0.5 opacity-0 group-hover/task:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]" title="Delete">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="space-y-1 mt-1">
+                        {task.startTime && task.endTime && (
+                          <div className="text-[10px] text-ink/40 font-mono">
+                            {format(new Date(task.startTime), 'h:mm a')} - {format(new Date(task.endTime), 'h:mm a')}
+                          </div>
+                        )}
+                        {task.categoryId && (() => {
+                          const category = items.find(i => i.id === task.categoryId)
+                          return category ? (
+                            <span className="inline-block text-[8px] font-bold uppercase tracking-wider bg-gold/20 text-gold px-1.5 py-0.5 rounded">
+                              {category.title}
+                            </span>
+                          ) : null
+                        })()}
+                        <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
+                          <span className="text-[9px] text-ink/40">Wt</span>
+                          <input
+                            type="number" min="1" max="100" value={task.weight}
+                            onChange={e => goalItem && handleUpdateTaskWeight(task.id, goalItem.id, parseFloat(e.target.value) || 1)}
+                            className="w-8 px-0.5 py-0.5 bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono text-[10px]"
+                          />
+                          <span className="text-[9px] text-ink/40">%</span>
+                        </div>
+                        <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
+                          <span className="text-[9px] text-ink/40">Prog</span>
+                          <input
+                            type="range" min="0" max="100" step="1" value={Math.round(task.progress)}
+                            onChange={e => goalItem && handleUpdateTaskProgress(task.id, goalItem.id, parseFloat(e.target.value) || 0)}
+                            className="flex-1 h-1 bg-mist rounded-full appearance-none cursor-pointer accent-gold"
+                          />
+                          <span className="text-[9px] font-mono text-ink/40 w-6 text-right">{Math.round(task.progress)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              </div>
+            </div>
+          ) : (
+            <div className="glass rounded-[8px] overflow-hidden border border-white/10 animate-fadeIn">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 bg-black/20">
+                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Time</th>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Deed</th>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Weight</th>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Status</th>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Reflection</th>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allTasks.sort((a, b) => {
+                    if (!a.startTime) return 1
+                    if (!b.startTime) return -1
+                    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+                  }).map(t => {
+                    const goalItem = findItem(t.goalId)
+                    return (
+                      <tr key={t.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => handleOpenDeed(t)}>
+                        <td className="p-3 font-mono text-xs text-ink/50">
+                          {t.startTime ? format(new Date(t.startTime), 'h:mm a') : '—'}
+                          {t.endTime ? `–${format(new Date(t.endTime), 'h:mm a')}` : ''}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center space-x-2">
+                            <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
+                              {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
+                            </button>
+                            <span className={t.completed ? 'line-through text-ink/50' : 'text-ink'}>{t.title}</span>
+                          </div>
+                        </td>
+                        <td className="p-3" onClick={e => e.stopPropagation()}>
+                          <div className="space-y-1">
+                            <div className="flex items-center">
+                              <span className="text-[9px] text-ink/40 mr-1">Wt</span>
+                              <input
+                                type="number" min="1" max="100" value={t.weight}
+                                onChange={e => goalItem && handleUpdateTaskWeight(t.id, goalItem.id, parseFloat(e.target.value) || 1)}
+                                className="w-10 px-1 py-0.5 text-[10px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none font-mono"
+                              />
+                              <span className="text-[10px] text-ink/40 ml-0.5">%</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.completed ? 'bg-sage/20 text-sage' : 'bg-gold/20 text-gold'}`}>
+                            {t.completed ? 'Done' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs text-ink/40 max-w-[200px] truncate">{t.reflection || '—'}</td>
+                        <td className="p-3">
+                          <button
+                            onClick={(e) => handleDeleteTask(e, t.id)}
+                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78]"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {allTasks.length === 0 && (
+                    <tr><td colSpan={6} className="p-6 text-center text-ink/40">No deeds scheduled for today.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {allTasks.filter(t => !t.startTime && !t.isHabit).length > 0 && viewMode === 'timeline' && (
+            <div className="mt-6">
+              <h3 className="text-sm font-bold text-ink/60 uppercase tracking-wider mb-3">Unscheduled</h3>
+              <div className="space-y-2">
+                {allTasks.filter(t => !t.startTime && !t.isHabit).map(t => {
+                  const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === t.id))
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => handleOpenDeed(t)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition-all group cursor-pointer ${t.completed ? 'glass border-sage/20 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold hover:bg-black/40'}`}
+                    >
+                      <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
+                        {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
+                      </button>
+                      <span className={`flex-1 ${t.completed ? 'line-through text-ink/50' : ''}`}>{t.title}</span>
+                      <div className="flex items-center shrink-0 space-x-1" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="number" min="1" max="100" value={t.weight}
+                          onChange={e => goalItem && handleUpdateTaskWeight(t.id, goalItem.id, parseFloat(e.target.value) || 1)}
+                          className="w-10 px-1 py-0.5 text-[10px] bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono"
+                        />
+                        <span className="text-[10px] font-mono text-ink/40">%</span>
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteTask(e, t.id)}
+                        className="shrink-0 p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-6">
+
+{/* Eat That Frog — top priority */}
+          <Card className="p-4 sm:p-5 border border-gold/30">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-gold" />
+                <h3 className="font-display font-bold text-ink">Eat That Frog</h3>
+              </div>
+              <button onClick={() => setAddingDeed(true)} className="px-2.5 py-1 text-[11px] font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 transition flex items-center gap-1">
+                <Plus className="w-3 h-3" />
+                <span>Add</span>
+              </button>
+            </div>
+            {frogTasks.length === 0 ? (
+              <p className="text-xs text-ink/40 py-2">No frogs yet. Highlight your hardest task of the day.</p>
+            ) : (
+              <div className="space-y-2">
+                {frogTasks.map((task, idx) => (
+                  <div key={task.id} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
+                    <button onClick={() => handleToggleTask(task)} className="shrink-0">
+                      {task.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
+                    </button>
+                    <span className="text-[9px] font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full shrink-0 uppercase">Frog #{idx + 1}</span>
+                    <span className={`flex-1 text-sm font-medium truncate ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
+                    {task.startTime && <span className="text-[10px] font-mono text-ink/40 shrink-0">{format(new Date(task.startTime), 'h:mm a')}</span>}
+                    <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] shrink-0" title="Delete">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+{/* Day Reflection */}
+          <Card className="p-4 sm:p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-gold" />
+              <h3 className="font-display font-bold text-ink">Day Reflection</h3>
+            </div>
+            <textarea
+              value={reflectionText}
+              onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
+              placeholder="Reflect on today..."
+              className="w-full h-40 bg-black/20 border border-white/10 rounded-xl p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
+            />
+            <p className="text-[10px] text-ink/40">Auto-saves as you type</p>
+          </Card>
+
+<Card className="p-4 sm:p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <StickyNote className="w-5 h-5 text-gold" />
+            <h2 className="text-xl font-display font-bold text-ink">Day Notes</h2>
+          </div>
+          <button
+            onClick={() => { setEditingNote(null); setShowNoteModal(true) }}
+            className="px-3 py-1.5 text-xs font-medium bg-ink text-surface rounded hover:bg-ink/90 transition flex items-center space-x-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Note</span>
+          </button>
+        </div>
+        {dayNotes.length === 0 ? (
+          <p className="text-xs text-ink/40 text-center py-4">No notes for this day yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {dayNotes.map(note => (
+              <div key={note.id} className="bg-black/20 border border-white/10 rounded-xl p-4 hover:border-gold/50 transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-bold text-sm text-ink">{note.title}</h4>
+                    <div
+                      className="text-xs text-ink/70 mt-1 prose prose-sm max-w-none line-clamp-2"
+                      dangerouslySetInnerHTML={{ __html: note.content }}
+                    />
+                    <p className="text-[10px] text-ink/40 mt-2 font-mono">
+                      {new Date(note.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-1 ml-3">
+                    <button
+                      onClick={() => { setEditingNote(note); setShowNoteModal(true) }}
+                      className="p-1.5 hover:bg-mist rounded transition text-ink/50 hover:text-gold"
+                      title="Edit note"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-              )
-            })}
-            {frogTasks.length === 0 && (
-              <p className="text-xs text-ink/40 py-2">No frogs designated for today. Identify your hardest task!</p>
-            )}
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </Card>
 
-      {/* Daily Tracker — now the unified Habit Tracker */}
-      <Card className="p-5 border border-gold/30 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <Activity className="w-24 h-24 text-gold" />
+<Card className="p-6 space-y-4">
+              <p className="text-xs font-bold uppercase text-ink/50">Today's Goals</p>
+              {(() => {
+                // Only show the primary daily goal (the one that actually has tasks, or the first one)
+                const activeGoal = primaryGoal || dailyGoals[0]
+                if (!activeGoal) return <p className="text-xs text-ink/40">No daily goals for this date.</p>
+                return (
+                  <div key={activeGoal.id} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-ink truncate">{activeGoal.title}</span>
+                      <span className="font-mono text-xs text-ink/50">{Math.round(completionMap[activeGoal.id] || 0)}%</span>
+                    </div>
+                    <ProgressBar progress={completionMap[activeGoal.id] || 0} colorClass="bg-sage" />
+                  </div>
+                )
+              })()}
+            </Card>
+
+{primaryGoal && (
+              <Card className="p-5 space-y-3">
+                <p className="text-xs font-bold uppercase text-ink/50">Contributes To</p>
+                {(() => {
+                  const chain: Item[] = []
+                  let current: Item | undefined = primaryGoal
+                  while (current?.parentId) {
+                    const parent = findItem(current.parentId)
+                    if (parent) {
+                      chain.push(parent)
+                      current = parent
+                    } else break
+                  }
+                  return chain.map(ancestor => (
+                    <div key={ancestor.id} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center space-x-2 flex-1 min-w-0">
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                          ancestor.layer === 0 ? 'bg-gold-dim/20 text-gold-dim' :
+                            ancestor.layer === 1 ? 'bg-gold/15 text-gold' :
+                              ancestor.layer === 2 ? 'bg-moss/15 text-[#7fa871]' :
+                                ancestor.layer === 3 ? 'bg-ember/15 text-[#cf8f78]' :
+                                  ancestor.layer === 4 ? 'bg-parchment/10 text-parchment/70' :
+                                    'bg-mist/30 text-parchment/60'
+                        }`}>
+                          {ancestor.layer === 0 ? 'Year' :
+                            ancestor.layer === 1 ? 'Cat' :
+                              ancestor.layer === 2 ? 'Annual' :
+                                ancestor.layer === 3 ? 'Qtr' :
+                                  ancestor.layer === 4 ? 'Month' :
+                                    'Week'}
+                        </span>
+                        <span className="truncate text-ink/70">{ancestor.title}</span>
+                      </div>
+                      <span className="font-mono text-xs text-ink/40 shrink-0 ml-2">{Math.round(completionMap[ancestor.id] || 0)}%</span>
+                    </div>
+                  ))
+                })()}
+              </Card>
+            )}
+
         </div>
+
+      </div>
+
+{/* Daily Tracker — now the unified Habit Tracker */}
+      <Card className="p-4 sm:p-5 border border-gold/30">
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -947,7 +1393,7 @@ export default function DayPage() {
                     await handleQuickAddHabit(title, newHabitPattern)
                   }
                 }}
-                className="px-3 py-2 text-xs font-bold bg-gold text-paper rounded-lg hover:bg-gold-glow transition flex items-center space-x-1"
+                className="px-3 py-2 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-[#cbaa6f] transition flex items-center space-x-1"
               >
                 <Plus className="w-3 h-3" />
                 <span>Add</span>
@@ -975,11 +1421,11 @@ export default function DayPage() {
                   <span className={`font-bold text-sm ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
                 </div>
                 <div className="relative">
-                  <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 hover:bg-red-500/10 rounded-lg transition text-ink/30 hover:text-red-500" title="Delete">
+                  <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78]" title="Delete">
                     <Trash2 className="w-4 h-4" />
                   </button>
                   {showDeleteHabitMenu === task.id && (
-                    <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl shadow-xl p-2 min-w-[180px] animate-fadeIn">
+                    <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl  p-2 min-w-[180px] animate-fadeIn">
                       <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
                       <button onClick={() => performDeleteTask(task.id, true)} className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
                         <Repeat className="w-3.5 h-3.5" />
@@ -1048,7 +1494,7 @@ export default function DayPage() {
                         <span>Custom</span>
                       </button>
                       {showGraphDatePicker && (
-                        <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl shadow-xl p-3 min-w-[240px] animate-fadeIn">
+                        <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl  p-3 min-w-[240px] animate-fadeIn">
                           <div className="space-y-2">
                             <div>
                               <label className="text-[9px] text-ink/50 font-bold uppercase">From</label>
@@ -1062,7 +1508,7 @@ export default function DayPage() {
                             </div>
                             <button
                               onClick={() => { if (habitGraphCustomStart && habitGraphCustomEnd) { setHabitGraphRange('custom'); setShowGraphDatePicker(false); fetchHabitHistory() } }}
-                              className="w-full px-3 py-1.5 text-xs font-bold bg-gold text-paper rounded-lg hover:bg-gold-glow transition"
+                              className="w-full px-3 py-1.5 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-[#cbaa6f] transition"
                             >
                               Apply
                             </button>
@@ -1183,451 +1629,13 @@ export default function DayPage() {
         </div>
       </Card>
 
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <StickyNote className="w-5 h-5 text-gold" />
-            <h2 className="text-xl font-display font-bold text-ink">Day Notes</h2>
-          </div>
-          <button
-            onClick={() => { setEditingNote(null); setShowNoteModal(true) }}
-            className="px-3 py-1.5 text-xs font-medium bg-ink text-surface rounded hover:bg-ink/90 transition flex items-center space-x-1"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Note</span>
-          </button>
-        </div>
-        {dayNotes.length === 0 ? (
-          <p className="text-xs text-ink/40 text-center py-4">No notes for this day yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {dayNotes.map(note => (
-              <div key={note.id} className="bg-black/20 border border-white/10 rounded-xl p-4 hover:border-gold/50 transition-all">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-bold text-sm text-ink">{note.title}</h4>
-                    <div
-                      className="text-xs text-ink/70 mt-1 prose prose-sm max-w-none line-clamp-2"
-                      dangerouslySetInnerHTML={{ __html: note.content }}
-                    />
-                    <p className="text-[10px] text-ink/40 mt-2 font-mono">
-                      {new Date(note.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-1 ml-3">
-                    <button
-                      onClick={() => { setEditingNote(note); setShowNoteModal(true) }}
-                      className="p-1.5 hover:bg-mist rounded transition text-ink/50 hover:text-gold"
-                      title="Edit note"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <div className="flex items-center space-x-4">
-        <button
-          onClick={() => setViewMode('timeline')}
-          className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'timeline' ? 'bg-gold text-paper shadow-lg shadow-gold/20' : 'bg-black/20 border border-white/10 text-ink/60 hover:text-gold hover:border-gold/30'}`}
-        >
-          <Clock className="w-4 h-4 inline mr-1.5" />24h Timeline
-        </button>
-        <button
-          onClick={() => setViewMode('table')}
-          className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'table' ? 'bg-gold text-paper shadow-lg shadow-gold/20' : 'bg-black/20 border border-white/10 text-ink/60 hover:text-gold hover:border-gold/30'}`}
-        >
-          <Target className="w-4 h-4 inline mr-1.5" />Table
-        </button>
-        <div className="flex-1" />
-        <button onClick={() => setAddingDeed(!addingDeed)} className="p-2.5 bg-black/20 border border-white/10 rounded-xl transition-all text-ink/50 hover:text-gold hover:border-gold/30">
-          {addingDeed ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-        </button>
-      </div>
-
-      {addingDeed && (
-        <Card className="p-5 space-y-4 animate-fadeIn">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input type="text" value={newDeedTitle} onChange={e => setNewDeedTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddDeed()}
-              placeholder="Deed title..." className="col-span-2 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" autoFocus />
-            <input type="time" value={newDeedStart} onChange={e => setNewDeedStart(e.target.value)}
-              className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-            <input type="time" value={newDeedEnd} onChange={e => setNewDeedEnd(e.target.value)}
-              className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-            <select value={newDeedCategory} onChange={e => setNewDeedCategory(e.target.value)} className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80">
-              <option value="">Category</option>
-              {getFlatItems().filter(i => i.layer === 1).map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
-            </select>
-            <div className="flex space-x-2">
-              <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}
-                min="1" max="100" placeholder="Wt"
-                className="w-16 px-3 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-              <button onClick={() => handleAddDeed()} disabled={savingDeed} className="flex-1 px-4 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20 disabled:opacity-50">{savingDeed ? 'Adding...' : 'Add'}</button>
-            </div>
-          </div>
-          {/* Color picker */}
-          <div className="md:col-span-6 space-y-2">
-            <p className="text-[9px] font-bold uppercase text-ink/40 tracking-wider">Color</p>
-            <div className="flex flex-wrap gap-2">
-              {['#d4af37', '#8fbc8f', '#6495ed', '#ff7f50', '#9370db', '#3cb371', '#ffd700', '#00bfff', '#ff6b6b', '#a8e6cf', '#ffb347', '#ba68c8'].map(c => (
-                <button
-                  key={c}
-                  onClick={() => setDeedColor(deedColor === c ? '' : c)}
-                  className="w-7 h-7 rounded-full border-2 transition-all"
-                  style={{ backgroundColor: c, borderColor: deedColor === c ? 'white' : 'transparent' }}
-                />
-              ))}
-              <button onClick={() => setDeedColor('')} className={`px-2 py-0.5 text-[9px] font-bold rounded border ${!deedColor ? 'bg-white/20 border-white/40 text-ink' : 'border-white/10 text-ink/50'}`}>None</button>
-            </div>
-          </div>
-          <div className="md:col-span-6 border-t border-white/10 pt-4 flex items-center space-x-6">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isFrog}
-                onChange={e => setIsFrog(e.target.checked)}
-                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
-              />
-              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                <span className="text-sm">🐸</span>
-                <span>Eat That Frog</span>
-              </span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isHabit}
-                onChange={e => {
-                  setIsHabit(e.target.checked)
-                  if (e.target.checked) {
-                    setIsRecurring(true)
-                    setRecurrencePattern('daily')
-                  }
-                }}
-                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
-              />
-              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                <span className="text-sm">🌱</span>
-                <span>Habit (repeats daily)</span>
-              </span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isRecurring}
-                onChange={e => setIsRecurring(e.target.checked)}
-                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
-              />
-              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                <Repeat className="w-3.5 h-3.5" />
-                <span>Recurring Task</span>
-              </span>
-            </label>
-          </div>
-          {isRecurring && (
-            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-              <select
-                value={recurrencePattern}
-                onChange={e => setRecurrencePattern(e.target.value)}
-                className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-              >
-                <option value="">Repeat...</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Biweekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-                <option value="weekdays">Weekdays (Mon-Fri)</option>
-              </select>
-              <input
-                type="date"
-                value={recurrenceEnd}
-                onChange={e => setRecurrenceEnd(e.target.value)}
-                className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                placeholder="End date (optional)"
-              />
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* Hidden button to trigger habit add via input */}
+{/* Hidden button to trigger habit add via input */}
       <button id="trigger-habit-add" className="hidden" onClick={() => {
         if (!newDeedTitle.trim()) return
         handleAddDeed({ isHabit: true, isRecurring: true, recurrencePattern: 'daily' })
       }} />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <div className="xl:col-span-2">
-          {viewMode === 'timeline' ? (
-            <div className="relative glass rounded-2xl overflow-hidden flex select-none animate-fadeIn border border-white/10" style={{ height: `${24 * 64}px` }}>
-              <div className="w-20 shrink-0 border-r border-white/10 bg-black/20 relative z-10">
-                {hours.map(hour => (
-                  <div key={hour} className="absolute left-0 right-0 text-right pr-3 text-[10px] font-mono text-ink/40" style={{ top: `${hour * 64 + 6}px`, height: '64px' }}>
-                    {formatHourLabel(hour)}
-                  </div>
-                ))}
-              </div>
-              <div className="flex-1 relative cursor-crosshair" onClick={handleGridClick}>
-                {hours.map(hour => (
-                  <div key={hour} className="absolute left-0 right-0 border-b border-white/5" style={{ top: `${hour * 64}px`, height: '64px' }} />
-                ))}
-                {nowLineTop !== null && (
-                  <div className="absolute left-0 right-0 flex items-center z-20 pointer-events-none" style={{ top: `${nowLineTop}px` }}>
-                    <div className="w-2 h-2 rounded-full bg-red-500 -ml-1" />
-                    <div className="flex-1 h-0.5 bg-red-500" />
-                  </div>
-                )}
-                {getPositionedTasks(allTasks).map(({ task, top, height, left, width }) => {
-                  const goalItem = findItem(task.goalId)
-                  const taskBorderColor = task.color || (task.completed ? '#8fbc8f' : '#d4af37')
-                  return (
-                    <div
-                      key={task.id}
-                      onClick={(e) => { e.stopPropagation(); handleOpenDeed(task) }}
-                      className={`absolute rounded-xl border p-2.5 text-left text-xs flex flex-col justify-between transition-all hover:shadow-lg cursor-pointer group/task select-none overflow-hidden task-block ${task.completed ? 'glass text-ink/50 opacity-80' : 'text-ink hover:-translate-y-0.5'}`}
-                      style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10, borderLeft: `4px solid ${taskBorderColor}`, borderColor: task.completed ? `${taskBorderColor}40` : taskBorderColor, background: task.completed ? `${taskBorderColor}20` : `${taskBorderColor}35` }}
-                    >
-                      <div className="flex items-start justify-between gap-1">
-                        <div className="flex items-center space-x-1.5 min-w-0">
-                          <button onClick={(e) => { e.stopPropagation(); handleToggleTask(task) }} className="shrink-0">
-                            {task.completed ? <CheckCircle2 className="w-3.5 h-3.5 text-sage" /> : <Circle className="w-3.5 h-3.5 text-ink/30" />}
-                          </button>
-                          <span className={`font-semibold truncate ${task.completed ? 'line-through' : ''}`}>{task.title}</span>
-                        </div>
-                        <button onClick={(e) => handleDeleteTask(e, task.id)} className="shrink-0 p-0.5 opacity-0 group-hover/task:opacity-100 hover:bg-red-50 rounded transition text-ink/30 hover:text-red-500" title="Delete">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <div className="space-y-1 mt-1">
-                        {task.startTime && task.endTime && (
-                          <div className="text-[10px] text-ink/40 font-mono">
-                            {format(new Date(task.startTime), 'h:mm a')} - {format(new Date(task.endTime), 'h:mm a')}
-                          </div>
-                        )}
-                        {task.categoryId && (() => {
-                          const category = items.find(i => i.id === task.categoryId)
-                          return category ? (
-                            <span className="inline-block text-[8px] font-bold uppercase tracking-wider bg-gold/20 text-gold px-1.5 py-0.5 rounded">
-                              {category.title}
-                            </span>
-                          ) : null
-                        })()}
-                        <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
-                          <span className="text-[9px] text-ink/40">Wt</span>
-                          <input
-                            type="number" min="1" max="100" value={task.weight}
-                            onChange={e => goalItem && handleUpdateTaskWeight(task.id, goalItem.id, parseFloat(e.target.value) || 1)}
-                            className="w-8 px-0.5 py-0.5 bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono text-[10px]"
-                          />
-                          <span className="text-[9px] text-ink/40">%</span>
-                        </div>
-                        <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
-                          <span className="text-[9px] text-ink/40">Prog</span>
-                          <input
-                            type="range" min="0" max="100" step="1" value={Math.round(task.progress)}
-                            onChange={e => goalItem && handleUpdateTaskProgress(task.id, goalItem.id, parseFloat(e.target.value) || 0)}
-                            className="flex-1 h-1 bg-mist rounded-full appearance-none cursor-pointer accent-gold"
-                          />
-                          <span className="text-[9px] font-mono text-ink/40 w-6 text-right">{Math.round(task.progress)}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ) : (
-            <div className="glass rounded-2xl overflow-hidden border border-white/10 animate-fadeIn">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/10 bg-black/20">
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Time</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Deed</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Weight</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Status</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Reflection</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allTasks.sort((a, b) => {
-                    if (!a.startTime) return 1
-                    if (!b.startTime) return -1
-                    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-                  }).map(t => {
-                    const goalItem = findItem(t.goalId)
-                    return (
-                      <tr key={t.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => handleOpenDeed(t)}>
-                        <td className="p-3 font-mono text-xs text-ink/50">
-                          {t.startTime ? format(new Date(t.startTime), 'h:mm a') : '—'}
-                          {t.endTime ? `–${format(new Date(t.endTime), 'h:mm a')}` : ''}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center space-x-2">
-                            <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
-                              {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
-                            </button>
-                            <span className={t.completed ? 'line-through text-ink/50' : 'text-ink'}>{t.title}</span>
-                          </div>
-                        </td>
-                        <td className="p-3" onClick={e => e.stopPropagation()}>
-                          <div className="space-y-1">
-                            <div className="flex items-center">
-                              <span className="text-[9px] text-ink/40 mr-1">Wt</span>
-                              <input
-                                type="number" min="1" max="100" value={t.weight}
-                                onChange={e => goalItem && handleUpdateTaskWeight(t.id, goalItem.id, parseFloat(e.target.value) || 1)}
-                                className="w-10 px-1 py-0.5 text-[10px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none font-mono"
-                              />
-                              <span className="text-[10px] text-ink/40 ml-0.5">%</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.completed ? 'bg-sage/20 text-sage' : 'bg-gold/20 text-gold'}`}>
-                            {t.completed ? 'Done' : 'Pending'}
-                          </span>
-                        </td>
-                        <td className="p-3 text-xs text-ink/40 max-w-[200px] truncate">{t.reflection || '—'}</td>
-                        <td className="p-3">
-                          <button
-                            onClick={(e) => handleDeleteTask(e, t.id)}
-                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {allTasks.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-ink/40">No deeds scheduled for today.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {allTasks.filter(t => !t.startTime && !t.isHabit).length > 0 && viewMode === 'timeline' && (
-            <div className="mt-6">
-              <h3 className="text-sm font-bold text-ink/60 uppercase tracking-wider mb-3">Unscheduled</h3>
-              <div className="space-y-2">
-                {allTasks.filter(t => !t.startTime && !t.isHabit).map(t => {
-                  const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === t.id))
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => handleOpenDeed(t)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition-all group cursor-pointer ${t.completed ? 'glass border-sage/20 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold hover:bg-black/40'}`}
-                    >
-                      <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
-                        {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
-                      </button>
-                      <span className={`flex-1 ${t.completed ? 'line-through text-ink/50' : ''}`}>{t.title}</span>
-                      <div className="flex items-center shrink-0 space-x-1" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="number" min="1" max="100" value={t.weight}
-                          onChange={e => goalItem && handleUpdateTaskWeight(t.id, goalItem.id, parseFloat(e.target.value) || 1)}
-                          className="w-10 px-1 py-0.5 text-[10px] bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono"
-                        />
-                        <span className="text-[10px] font-mono text-ink/40">%</span>
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteTask(e, t.id)}
-                        className="shrink-0 p-1 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded transition text-ink/30 hover:text-red-500"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="xl:col-span-1">
-          <div className="sticky top-6 space-y-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <BookOpen className="w-5 h-5 text-gold" />
-              <h2 className="text-2xl font-display font-bold text-ink">Day Reflection</h2>
-            </div>
-            <Card className="p-6">
-              <textarea
-                value={reflectionText}
-                onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
-                placeholder="Reflect on today..."
-                className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
-              />
-              <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
-            </Card>
-            <Card className="p-6 space-y-4">
-              <p className="text-xs font-bold uppercase text-ink/50">Today's Goals</p>
-              {(() => {
-                // Only show the primary daily goal (the one that actually has tasks, or the first one)
-                const activeGoal = primaryGoal || dailyGoals[0]
-                if (!activeGoal) return <p className="text-xs text-ink/40">No daily goals for this date.</p>
-                return (
-                  <div key={activeGoal.id} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-ink truncate">{activeGoal.title}</span>
-                      <span className="font-mono text-xs text-ink/50">{Math.round(completionMap[activeGoal.id] || 0)}%</span>
-                    </div>
-                    <ProgressBar progress={completionMap[activeGoal.id] || 0} colorClass="bg-sage" />
-                  </div>
-                )
-              })()}
-            </Card>
-            {primaryGoal && (
-              <Card className="p-5 space-y-3">
-                <p className="text-xs font-bold uppercase text-ink/50">Contributes To</p>
-                {(() => {
-                  const chain: Item[] = []
-                  let current: Item | undefined = primaryGoal
-                  while (current?.parentId) {
-                    const parent = findItem(current.parentId)
-                    if (parent) {
-                      chain.push(parent)
-                      current = parent
-                    } else break
-                  }
-                  return chain.map(ancestor => (
-                    <div key={ancestor.id} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-2 flex-1 min-w-0">
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${ancestor.layer === 0 ? 'bg-purple-100 text-purple-600' :
-                          ancestor.layer === 1 ? 'bg-blue-100 text-blue-600' :
-                            ancestor.layer === 2 ? 'bg-cyan-100 text-cyan-600' :
-                              ancestor.layer === 3 ? 'bg-emerald-100 text-emerald-600' :
-                                ancestor.layer === 4 ? 'bg-amber-100 text-amber-600' :
-                                  'bg-rose-100 text-rose-600'
-                          }`}>
-                          {ancestor.layer === 0 ? 'Year' :
-                            ancestor.layer === 1 ? 'Cat' :
-                              ancestor.layer === 2 ? 'Annual' :
-                                ancestor.layer === 3 ? 'Qtr' :
-                                  ancestor.layer === 4 ? 'Month' :
-                                    'Week'}
-                        </span>
-                        <span className="truncate text-ink/70">{ancestor.title}</span>
-                      </div>
-                      <span className="font-mono text-xs text-ink/40 shrink-0 ml-2">{Math.round(completionMap[ancestor.id] || 0)}%</span>
-                    </div>
-                  ))
-                })()}
-              </Card>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {showNoteModal && (
+{showNoteModal && (
         <RichNoteModal
           onClose={() => { setShowNoteModal(false); setEditingNote(null) }}
           onSaved={() => { fetchDayNotes(); fetchItems() }}
@@ -1636,11 +1644,9 @@ export default function DayPage() {
         />
       )}
 
-      {selectedDeed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn" onClick={() => setSelectedDeed(null)}>
-          <div className="glass rounded-3xl border border-white/20 shadow-2xl shadow-black/50 w-full max-w-lg mx-4 animate-slideUp overflow-hidden" onClick={e => e.stopPropagation()} style={{ borderLeft: `6px solid var(--deed-color, #d4af37)` }}>
-            {/* Color accent bar */}
-            <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #d4af37, #8fbc8f, #6495ed, #ff7f50, #9370db)' }} />
+{selectedDeed && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70" onClick={() => setSelectedDeed(null)}>
+          <div className="w-full max-w-lg mx-4 overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid" onClick={e => e.stopPropagation()}>
 
             {/* Header */}
             <div className="px-7 pt-7 pb-4">
@@ -1667,7 +1673,7 @@ export default function DayPage() {
                       }}
                       className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedDeed.task.completed
                         ? 'bg-sage/20 text-sage border border-sage/30'
-                        : 'bg-gold/10 text-gold border border-gold/30 hover:bg-gold/20'
+                        : 'border-gold-dim/30 text-parchment/80 hover:border-gold hover:bg-mist'
                         }`}
                     >
                       {selectedDeed.task.completed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
@@ -1752,7 +1758,7 @@ export default function DayPage() {
                     </button>
                     <button
                       onClick={() => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, startTime: null as any, endTime: null as any } })}
-                      className="px-3 py-1 text-[10px] font-bold text-ink/50 border border-dashed border-white/20 rounded-lg hover:border-coral/50 hover:text-coral transition"
+                      className="px-3 py-1 text-[10px] font-bold text-ink/50 border border-dashed border-white/20 rounded-lg hover:border-ember/60 hover:text-[#e0a093] transition"
                     >
                       Clear time
                     </button>
@@ -1918,14 +1924,14 @@ export default function DayPage() {
                   await handleDeleteTask(e, selectedDeed.task.id)
                   setSelectedDeed(null)
                 }}
-                className="flex items-center space-x-1.5 px-3 py-2 text-xs text-coral hover:bg-coral/10 rounded-xl transition"
+                className="flex items-center space-x-1.5 px-3 py-2 text-xs text-[#cf8f78] hover:bg-ember/10 rounded-xl transition"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete</span>
               </button>
               <div className="flex items-center space-x-3">
                 <button onClick={() => setSelectedDeed(null)} className="px-5 py-2.5 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition">Cancel</button>
-                <button onClick={handleSaveDeedChanges} className="px-6 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20 flex items-center space-x-2">
+                <button onClick={handleSaveDeedChanges} className="px-6 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70   flex items-center space-x-2">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Save</span>
                 </button>
@@ -1934,12 +1940,9 @@ export default function DayPage() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
 
-// Helper function to trigger habit add
-async function handleAddHabitViaInput() {
-  const btn = document.getElementById('trigger-habit-add')
-  if (btn) btn.click()
+    </div>
+
+  )
+
 }

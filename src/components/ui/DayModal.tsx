@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { X, CheckCircle, Circle } from 'lucide-react'
@@ -32,7 +32,7 @@ export function DayModal({ goalId, onClose }: DayModalProps) {
     if (!goal) {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 backdrop-blur-sm p-4">
-                <div className="bg-paper w-full max-w-md rounded-2xl shadow-2xl p-6">
+                <div className="bg-paper w-full max-w-md rounded-[8px]  p-6">
                     <p className="text-ink/60 text-center">Daily Goal not found.</p>
                     <button onClick={onClose} className="mt-4 w-full py-2 bg-ink text-surface rounded-lg">Close</button>
                 </div>
@@ -60,7 +60,7 @@ export function DayModal({ goalId, onClose }: DayModalProps) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 backdrop-blur-sm p-4">
-            <div className="bg-paper w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="bg-paper w-full max-w-lg rounded-[8px]  overflow-hidden max-h-[90vh] flex flex-col">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-mist shrink-0">
                     <div>
                         <h3 className="font-bold text-ink">Daily Goal</h3>

@@ -20,16 +20,13 @@ export function ProgressRing({
   const circumference = radius * 2 * Math.PI
   const strokeDashoffset = circumference - (safeProgress / 100) * circumference
 
-  // Determine glow filter based on color
-  const glowFilter = colorClass.includes('sage')
-    ? 'drop-shadow(0 0 6px rgba(123,160,91,0.5))'
-    : colorClass.includes('coral')
-      ? 'drop-shadow(0 0 6px rgba(232,104,106,0.5))'
-      : 'drop-shadow(0 0 6px rgba(212,175,55,0.5))'
-
-  // Dynamic color based on progress
-  const progressColor = safeProgress >= 80 ? '#7BA05B' : safeProgress >= 40 ? '#D4AF37' : '#E8686A'
-  const useAutoColor = colorClass === 'text-gold' // Only auto-color when using default
+  // Quiet token palette — no glows (v2 F2). Completed rollups → readable moss,
+  // most progress → gold, low → readable ember. Explicit colorClass wins.
+  const progressColor =
+    safeProgress >= 100 ? '#7fa871'
+    : safeProgress >= 40 ? '#b8935a'
+    : '#cf8a68'
+  const useAutoColor = colorClass === 'text-gold'
 
   return (
     <div className={`relative inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
@@ -37,7 +34,6 @@ export function ProgressRing({
         className="transform -rotate-90"
         width={size}
         height={size}
-        style={{ filter: safeProgress > 0 ? glowFilter : 'none' }}
       >
         {/* Track */}
         <circle
@@ -67,10 +63,10 @@ export function ProgressRing({
           } as React.CSSProperties}
         />
       </svg>
-      <div className="absolute flex items-center justify-center text-xs font-mono font-bold"
+      <div className="absolute flex items-center justify-center font-mono font-bold"
         style={{ fontSize: size < 48 ? '9px' : '11px' }}>
         {Math.round(safeProgress)}
-        <span className="text-ink/30" style={{ fontSize: size < 48 ? '7px' : '9px' }}>%</span>
+        <span style={{ fontSize: size < 48 ? '7px' : '9px', color: 'rgba(243,239,230,0.35)' }}>%</span>
       </div>
     </div>
   )

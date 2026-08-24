@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
@@ -159,7 +159,7 @@ export default function CalendarPage() {
       <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-mist bg-surface/95 backdrop-blur-sm">
         <button
           onClick={() => navigate('prev')}
-          className="p-2.5 -ml-2 active:scale-90 transition-all touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-2.5 -ml-2 active:opacity-70 transition-all touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Previous month"
         >
           <ChevronLeft className="w-6 h-6 text-ink/70" />
@@ -175,7 +175,7 @@ export default function CalendarPage() {
         </div>
         <button
           onClick={() => navigate('next')}
-          className="p-2.5 -mr-2 active:scale-90 transition-all touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-2.5 -mr-2 active:opacity-70 transition-all touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Next month"
         >
           <ChevronRight className="w-6 h-6 text-ink/70" />
@@ -185,16 +185,16 @@ export default function CalendarPage() {
       {/* Left sidebar - desktop only */}
       <div className="hidden lg:flex w-72 bg-surface border-r border-mist p-4 flex-col shrink-0 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => navigate('prev')} className="p-2 hover:bg-mist rounded-full transition active:scale-90">
+          <button onClick={() => navigate('prev')} className="p-2 hover:bg-mist rounded-full transition active:opacity-70">
             <ChevronLeft className="w-5 h-5 text-ink/70" />
           </button>
           <h2 className="text-lg font-display font-bold text-ink">{monthLabel}</h2>
-          <button onClick={() => navigate('next')} className="p-2 hover:bg-mist rounded-full transition active:scale-90">
+          <button onClick={() => navigate('next')} className="p-2 hover:bg-mist rounded-full transition active:opacity-70">
             <ChevronRight className="w-5 h-5 text-ink/70" />
           </button>
         </div>
 
-        <button onClick={goToToday} className="w-full py-2 mb-4 text-sm font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/10 transition active:scale-95">
+        <button onClick={goToToday} className="w-full py-2 mb-4 text-sm font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/10 transition active:opacity-70">
           Today
         </button>
 
@@ -260,14 +260,14 @@ export default function CalendarPage() {
           <div className="flex items-center space-x-4">
             <h2 className="text-xl font-display font-bold text-ink">{monthLabel}</h2>
             <div className="flex items-center space-x-1">
-              <button onClick={() => navigate('prev')} className="p-2 hover:bg-mist rounded-full transition active:scale-90">
+              <button onClick={() => navigate('prev')} className="p-2 hover:bg-mist rounded-full transition active:opacity-70">
                 <ChevronLeft className="w-5 h-5 text-ink/70" />
               </button>
-              <button onClick={() => navigate('next')} className="p-2 hover:bg-mist rounded-full transition active:scale-90">
+              <button onClick={() => navigate('next')} className="p-2 hover:bg-mist rounded-full transition active:opacity-70">
                 <ChevronRight className="w-5 h-5 text-ink/70" />
               </button>
             </div>
-            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/10 transition active:scale-95">
+            <button onClick={goToToday} className="px-3 py-1.5 text-sm font-medium text-gold border border-gold/30 rounded-lg hover:bg-gold/10 transition active:opacity-70">
               Today
             </button>
           </div>
@@ -314,7 +314,7 @@ export default function CalendarPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-0.5 lg:gap-px bg-mist/30 rounded-xl lg:rounded-2xl overflow-hidden border border-mist/30">
+            <div className="grid grid-cols-7 gap-0.5 lg:gap-px bg-mist/30 rounded-xl lg:rounded-[8px] overflow-hidden border border-mist/30">
               {monthDates.map((date, i) => {
                 const inMonth = isSameMonth(date, currentMonth)
                 const isSelected = selectedDay && isSameDay(date, selectedDay)
@@ -331,7 +331,7 @@ export default function CalendarPage() {
                     className={`
                       min-h-[60px] lg:min-h-[110px] bg-surface p-1 lg:p-2 border-b border-r border-mist/20
                       transition-all duration-200 cursor-pointer
-                      active:scale-95 active:bg-mist/20 touch-manipulation
+                      active:opacity-70 active:bg-mist/20 touch-manipulation
                       ${!inMonth ? 'opacity-30 lg:opacity-40' : ''}
                       ${isSelected ? 'ring-2 ring-gold ring-inset bg-gold/5' : ''}
                       hover:bg-mist/10 lg:hover:bg-mist/10
@@ -341,7 +341,7 @@ export default function CalendarPage() {
                     <div className="flex items-start justify-between mb-0.5 lg:mb-1">
                       <div className={`
                         text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full
-                        active:scale-110 transition-transform
+                        transition-colors
                         ${today ? 'bg-gold text-surface' : 'text-ink'}
                       `}>
                         {format(date, 'd')}
@@ -393,7 +393,7 @@ export default function CalendarPage() {
                     {dayDeeds.length > 0 && (
                       <div className="w-full h-1 bg-mist rounded-full mt-1 overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${dayScore >= 80 ? 'bg-sage' : dayScore >= 50 ? 'bg-gold' : 'bg-coral'
+                          className={`h-full rounded-full transition-all ${dayScore >= 80 ? 'bg-sage' : dayScore >= 50 ? 'bg-gold' : 'bg-ember'
                             }`}
                           style={{ width: `${dayScore}%` }}
                         />

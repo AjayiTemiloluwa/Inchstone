@@ -37,19 +37,19 @@ export function NudgeModal({ partnerId, partnerName, onClose, onSent }: NudgeMod
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 backdrop-blur-sm p-4">
-            <div className="bg-paper w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-mist">
-                    <h3 className="font-bold text-ink">Nudge {partnerName}</h3>
-                    <button onClick={onClose} className="p-1 hover:bg-mist rounded-full transition-colors">
-                        <X className="w-5 h-5 text-ink/60" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4">
+            <div className="w-full max-w-md overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid">
+                <div className="flex items-center justify-between border-b border-gold-dim/20 px-6 py-4">
+                    <h3 className="font-semibold text-parchment">Nudge {partnerName}</h3>
+                    <button onClick={onClose} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-md text-parchment/50 transition-colors hover:text-parchment">
+                        <X className="h-5 w-5" strokeWidth={1.5} />
                     </button>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="space-y-4 p-6">
                     {sent ? (
-                        <div className="text-center py-8">
-                            <Send className="w-12 h-12 mx-auto text-sage mb-3" />
-                            <p className="font-semibold text-sage">Nudge sent!</p>
+                        <div className="py-8 text-center">
+                            <Send className="mx-auto mb-3 h-12 w-12 text-moss" strokeWidth={1.5} />
+                            <p className="font-semibold text-moss">Nudge sent!</p>
                         </div>
                     ) : (
                         <>
@@ -57,20 +57,20 @@ export function NudgeModal({ partnerId, partnerName, onClose, onSent }: NudgeMod
                                 value={message}
                                 onChange={e => setMessage(e.target.value)}
                                 placeholder="Send a quick message to your partner..."
-                                className="w-full rounded-lg border border-mist p-3 text-sm bg-surface h-28 resize-none"
+                                className="h-28 w-full resize-none rounded-[6px] border border-gold-dim/25 bg-ink p-3 text-sm text-parchment transition-colors placeholder:text-parchment/30 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
                                 maxLength={500}
                             />
-                            <p className="text-xs text-ink/40 text-right">{message.length}/500</p>
+                            <p className="text-right font-mono text-xs text-parchment/40">{message.length}/500</p>
                             <button
                                 onClick={handleSend}
                                 disabled={sending || !message.trim()}
-                                className="w-full py-2.5 bg-gold text-surface font-semibold rounded-lg hover:bg-gold/90 transition disabled:opacity-50 flex items-center justify-center space-x-2"
+                                className="w-full rounded-md bg-gold py-2.5 font-semibold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 {sending ? (
-                                    <span>Sending...</span>
+                                    <span>Sending…</span>
                                 ) : (
                                     <>
-                                        <Send className="w-4 h-4" />
+                                        <Send className="h-4 w-4" strokeWidth={1.5} />
                                         <span>Send Nudge</span>
                                     </>
                                 )}

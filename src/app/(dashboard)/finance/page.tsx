@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { TransactionForm } from '@/components/finance/TransactionForm'
@@ -48,9 +48,10 @@ interface Purse {
 const PURSE_ICONS = ['👜', '🏦', '💰', '💳', '🐷', '🏪', '📦', '🎯', '⭐', '💎', '🌴', '🚗', '🏠', '📚', '✈️', '🎓']
 
 const PURSE_COLORS = [
-  '#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444',
-  '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
-  '#06B6D4', '#D946EF', '#0EA5E9', '#22C55E', '#EAB308', '#A855F7',
+  '#8a6d42', '#b8935a', '#4a5d45', '#7fa871',
+  '#7a3b2e', '#cf8f78', '#5c6b8a', '#6b5c7a',
+  '#7a6f5c', '#3f5a5a', '#6b7a4a', '#8a6a4a',
+  '#9a8f7a', '#4a5a6b', '#5a4a3f', '#7a6a8a',
 ]
 
 export default function FinancePage() {
@@ -78,7 +79,7 @@ export default function FinancePage() {
   const [showAddPurse, setShowAddPurse] = useState(false)
   const [newPurseName, setNewPurseName] = useState('')
   const [newPurseIcon, setNewPurseIcon] = useState('👜')
-  const [newPurseColor, setNewPurseColor] = useState('#3B82F6')
+  const [newPurseColor, setNewPurseColor] = useState('#8a6d42')
   const [addPurseLoading, setAddPurseLoading] = useState(false)
 
   // Delete purse state
@@ -325,7 +326,7 @@ export default function FinancePage() {
 
   const getPurseColor = (name: string) => {
     const purse = purses.find(p => p.name === name)
-    return purse?.color || '#3B82F6'
+    return purse?.color || '#8a6d42'
   }
 
   if (loading) {
@@ -353,7 +354,7 @@ export default function FinancePage() {
 
         {/* Add Purse Form */}
         {showAddPurse && (
-          <form onSubmit={handleAddPurse} className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
+          <form onSubmit={handleAddPurse} className="mb-4 p-4 bg-surface-solid border-hairline rounded-xl border border-gold-dim/20 space-y-3">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Purse Name</label>
               <input
@@ -361,7 +362,7 @@ export default function FinancePage() {
                 value={newPurseName}
                 onChange={(e) => setNewPurseName(e.target.value)}
                 required
-                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g. Emergency Fund, Travel, Business..."
               />
             </div>
@@ -373,7 +374,7 @@ export default function FinancePage() {
                     key={icon}
                     type="button"
                     onClick={() => setNewPurseIcon(icon)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-all ${newPurseIcon === icon ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 scale-110' : 'bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-blue-300'}`}
+                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-all ${newPurseIcon === icon ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 scale-110' : 'bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 hover:border-blue-300'}`}
                   >
                     {icon}
                   </button>
@@ -411,7 +412,7 @@ export default function FinancePage() {
             return (
               <div
                 key={purse.id}
-                className="relative group rounded-xl border shadow-sm p-4 text-white transition-all hover:shadow-md"
+                className="relative group rounded-xl border p-4 text-white transition-all "
                 style={{ backgroundColor: purse.color }}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -436,7 +437,7 @@ export default function FinancePage() {
                       <div className="flex gap-2 justify-center">
                         <button
                           onClick={() => handleDeletePurse(purse.id)}
-                          className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600"
+                          className="px-3 py-1 bg-ember text-white text-xs rounded-lg hover:bg-ember"
                         >
                           Delete
                         </button>
@@ -457,7 +458,7 @@ export default function FinancePage() {
       </div>
 
       {/* Start of Month: Add Money to Sections */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -465,7 +466,7 @@ export default function FinancePage() {
             </h2>
             <p className="text-xs text-gray-500 mt-1">
               Assign money to each section for the month of {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
-              Allocated: <span className="font-semibold text-blue-600">₦{totalAllocated.toFixed(2)}</span>
+              Allocated: <span className="font-semibold text-parchment">₦{totalAllocated.toFixed(2)}</span>
             </p>
           </div>
         </div>
@@ -486,13 +487,13 @@ export default function FinancePage() {
                     <span>{getSectionIcon(section)}</span>
                     <span className="font-semibold text-sm">{section}</span>
                   </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${allocated > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${allocated > 0 ? 'bg-moss/15 text-[#7fa871] dark:bg-green-900/30 dark:text-[#7fa871]' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                     ₦{allocated.toFixed(0)}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-2">
                   <div
-                    className={`h-1.5 rounded-full ${remaining < 0 ? 'bg-red-500' : pct > 85 ? 'bg-yellow-500' : section === 'Need' ? 'bg-blue-500' : section === 'Want' ? 'bg-amber-500' : section === 'Offerings' ? 'bg-emerald-500' : 'bg-purple-500'}`}
+                    className={`h-1.5 rounded-full ${remaining < 0 ? 'bg-ember' : pct > 85 ? 'bg-yellow-500' : section === 'Need' ? 'bg-blue-500' : section === 'Want' ? 'bg-amber-500' : section === 'Offerings' ? 'bg-emerald-500' : 'bg-purple-500'}`}
                     style={{ width: `${Math.max(pct, 2)}%` }}
                   ></div>
                 </div>
@@ -532,7 +533,7 @@ export default function FinancePage() {
       </div>
 
       {/* Transfer Card */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">🔄 Transfer Between Purses</h2>
           <button
@@ -551,7 +552,7 @@ export default function FinancePage() {
                 <select
                   value={transferFrom}
                   onChange={(e) => setTransferFrom(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                 >
                   {purses.map(p => (
                     <option key={p.id} value={p.name}>
@@ -560,13 +561,13 @@ export default function FinancePage() {
                   ))}
                 </select>
               </div>
-              <div className="w-8 text-center text-gray-400 pb-2">→</div>
+              <div className="w-8 text-center text-parchment/40 pb-2">→</div>
               <div className="flex-1">
                 <label className="block text-xs text-gray-500 mb-1">To</label>
                 <select
                   value={transferTo}
                   onChange={(e) => setTransferTo(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                 >
                   {purses.filter(p => p.name !== transferFrom).map(p => (
                     <option key={p.id} value={p.name}>
@@ -581,14 +582,14 @@ export default function FinancePage() {
               <div className="flex-1">
                 <label className="block text-xs text-gray-500 mb-1">Amount</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-gray-400">₦</span>
+                  <span className="absolute left-3 top-2.5 text-parchment/40">₦</span>
                   <input
                     type="number"
                     step="0.01"
                     value={transferAmount}
                     onChange={(e) => setTransferAmount(e.target.value)}
                     required
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 pl-7 pr-3 text-sm"
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 pl-7 pr-3 text-sm"
                     placeholder="0.00"
                   />
                 </div>
@@ -599,7 +600,7 @@ export default function FinancePage() {
                   type="text"
                   value={transferDesc}
                   onChange={(e) => setTransferDesc(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                   placeholder="e.g. Building savings"
                 />
               </div>
@@ -617,7 +618,7 @@ export default function FinancePage() {
       </div>
 
       {/* Savings Target */}
-      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">🎯 Monthly Savings Goal</h2>
           {!editSavings ? (
@@ -633,13 +634,13 @@ export default function FinancePage() {
         {editSavings ? (
           <div className="flex items-center gap-3">
             <div className="relative flex-1 max-w-xs">
-              <span className="absolute left-3 top-2.5 text-gray-400">₦</span>
+              <span className="absolute left-3 top-2.5 text-parchment/40">₦</span>
               <input
                 type="number"
                 step="0.01"
                 value={savingsInput}
                 onChange={(e) => setSavingsInput(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="500.00"
                 autoFocus
               />
@@ -661,12 +662,12 @@ export default function FinancePage() {
                 </div>
                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                   <div
-                    className={`h-3 rounded-full ${savingsProgress >= 100 ? 'bg-green-500' : savingsProgress >= 50 ? 'bg-purple-500' : 'bg-blue-500'}`}
+                    className={`h-3 rounded-full ${savingsProgress >= 100 ? 'bg-moss/100' : savingsProgress >= 50 ? 'bg-purple-500' : 'bg-blue-500'}`}
                     style={{ width: `${Math.max(savingsProgress, 2)}%` }}
                   ></div>
                 </div>
                 {currentSavings >= savingsTarget && (
-                  <p className="text-xs text-green-600 mt-2 font-medium">✓ Savings goal reached this month!</p>
+                  <p className="text-xs text-[#7fa871] mt-2 font-medium">✓ Savings goal reached this month!</p>
                 )}
               </div>
             ) : (
@@ -709,7 +710,7 @@ export default function FinancePage() {
         {/* Transactions Table with Running Balance */}
         <div>
           <h2 className="text-lg font-semibold mb-3">Transactions Ledger</h2>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="bg-surface-solid border-hairline rounded-xl border border-gold-dim/20 overflow-hidden">
             {entries.length === 0 ? (
               <div className="p-6 text-sm text-gray-500 text-center">No transactions yet. Add your first one!</div>
             ) : (
@@ -735,20 +736,20 @@ export default function FinancePage() {
                           {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
                         <td className="p-3">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">{entry.description || entry.category}</div>
-                          <div className="text-xs text-gray-400">
+                          <div className="font-medium text-parchment">{entry.description || entry.category}</div>
+                          <div className="text-xs text-parchment/40">
                             {entry.category}
                             {entry.priority && <span className="ml-1.5 text-[10px] px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">({entry.priority})</span>}
                           </div>
                         </td>
-                        <td className="p-3 text-right font-medium text-red-600 whitespace-nowrap">
+                        <td className="p-3 text-right font-medium text-[#cf8f78] whitespace-nowrap">
                           {entry.type === 'expense' || entry.type === 'transfer_out' ? `₦${entry.amount.toFixed(2)}` : '-'}
                         </td>
-                        <td className="p-3 text-right font-medium text-green-600 whitespace-nowrap">
+                        <td className="p-3 text-right font-medium text-[#7fa871] whitespace-nowrap">
                           {entry.type === 'income' || entry.type === 'transfer_in' ? `₦${entry.amount.toFixed(2)}` : '-'}
                         </td>
                         <td className="p-3 text-right font-semibold whitespace-nowrap">
-                          <span className={entry.balance >= 0 ? 'text-blue-600' : 'text-red-600'}>
+                          <span className={entry.balance >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}>
                             ₦{entry.balance.toFixed(2)}
                           </span>
                         </td>
@@ -765,7 +766,7 @@ export default function FinancePage() {
                         </td>
                         <td className="p-3 text-xs">
                           {entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) ? (
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-parchment' :
                               entry.priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                                 entry.priority === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                                   'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
@@ -773,14 +774,14 @@ export default function FinancePage() {
                               {entry.priority === 'Need' ? '💪' : entry.priority === 'Want' ? '🌟' : entry.priority === 'Offerings' ? '🙏' : '🏦'} {entry.priority}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-gray-400">-</span>
+                            <span className="text-[10px] text-parchment/40">-</span>
                           )}
                         </td>
                         <td className="p-3 text-xs text-gray-500 max-w-[120px] truncate">
                           {entry.comments || '-'}
                         </td>
                         <td className="p-3 text-right">
-                          <button onClick={() => handleDeleteEntry(entry.id)} className="text-gray-400 hover:text-red-500 text-lg leading-none">
+                          <button onClick={() => handleDeleteEntry(entry.id)} className="text-parchment/40 hover:text-[#cf8f78] text-lg leading-none">
                             ×
                           </button>
                         </td>

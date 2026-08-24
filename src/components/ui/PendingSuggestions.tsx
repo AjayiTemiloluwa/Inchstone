@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { Check, X, Sparkles, Loader2 } from 'lucide-react'
@@ -128,7 +128,7 @@ export function PendingSuggestions({
                 <div className="flex items-center space-x-2">
                   <button 
                     onClick={() => updateSuggestionStatus(s.id, 'rejected')}
-                    className="p-1.5 hover:bg-red-50 text-red-500 rounded-md transition"
+                    className="p-1.5 hover:bg-ember/15 text-[#cf8f78] rounded-md transition"
                     title="Reject"
                   >
                     <X className="w-4 h-4" />

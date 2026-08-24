@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import React, { useState } from 'react'
 import { BudgetProgress } from './BudgetProgress'
@@ -30,14 +30,14 @@ interface SectionBudgetCardProps {
 const sectionConfig = {
     Need: {
         icon: '💪',
-        gradient: 'from-blue-500/20 via-blue-500/5 to-transparent',
-        borderGlow: 'shadow-blue-500/10',
-        accent: 'bg-blue-500',
-        accentGradient: 'from-blue-500 to-blue-600',
-        lightAccent: 'bg-blue-50 dark:bg-blue-500/10',
-        text: 'text-blue-600 dark:text-blue-400',
-        border: 'border-blue-200/60 dark:border-blue-800/40',
-        progressBar: 'bg-gradient-to-r from-blue-400 to-blue-600',
+        gradient: 'from-amber-500/20 via-amber-500/5 to-transparent',
+        borderGlow: 'shadow-gold-dim/10',
+        accent: 'bg-amber-500',
+        accentGradient: 'from-amber-500 to-amber-600',
+        lightAccent: 'bg-parchment/10 dark:bg-amber-500/10',
+        text: 'text-parchment dark:text-parchment',
+        border: 'border-gold-dim/20 dark:border-gold-dim/20',
+        progressBar: 'bg-gradient-to-r from-amber/10-400 to-blue-600',
         description: 'Essential expenses for living'
     },
     Want: {
@@ -193,9 +193,9 @@ export function SectionBudgetCard({
 
     return (
         <div className={`
-            relative rounded-2xl border ${config.border} bg-white dark:bg-gray-900/60
-            shadow-sm ${config.borderGlow}
-            overflow-hidden transition-all duration-300 hover:shadow-lg
+            relative rounded-[8px] border ${config.border} bg-white dark:bg-gray-900/60
+              ${config.borderGlow}
+            overflow-hidden transition-all duration-300 hover:
             flex flex-col h-full
         `}>
             {/* Top decorative gradient bar */}
@@ -205,7 +205,7 @@ export function SectionBudgetCard({
             <div className="p-5 pb-3">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl ${config.lightAccent} flex items-center justify-center text-lg shadow-sm`}>
+                        <div className={`w-10 h-10 rounded-xl ${config.lightAccent} flex items-center justify-center text-lg  `}>
                             {getSectionIcon(section)}
                         </div>
                         <div>
@@ -235,7 +235,7 @@ export function SectionBudgetCard({
                 {/* Progress Bar */}
                 <div className="relative pt-1">
                     <div className="flex items-center justify-between mb-1.5">
-                        <span className={`text-[11px] font-semibold tabular-nums ${remaining < 0 ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        <span className={`text-[11px] font-semibold tabular-nums ${remaining < 0 ? 'text-[#cf8f78]' : 'text-emerald-600 dark:text-emerald-400'}`}>
                             {remaining >= 0 ? `₦${remaining.toFixed(0)} left` : `₦${Math.abs(remaining).toFixed(0)} over`}
                         </span>
                         <span className="text-[11px] font-medium text-gray-400 tabular-nums">{percentage.toFixed(0)}%</span>
@@ -253,17 +253,17 @@ export function SectionBudgetCard({
             <div className="px-5 py-3 flex gap-2">
                 <button
                     onClick={() => { setShowAllocate(!showAllocate); setShowAddCategory(false); setShowExpenses(false); setQuickAddCategory(null) }}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:scale-[0.97]
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:opacity-70
                         ${showAllocate
                             ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                            : `bg-gradient-to-r ${config.accentGradient} text-white shadow-sm hover:shadow-md`
+                            : `bg-gradient-to-r ${config.accentGradient} text-white   hover:shadow-md`
                         }`}
                 >
                     {showAllocate ? 'Cancel' : '+ Allocate'}
                 </button>
                 <button
                     onClick={() => { setShowAddCategory(!showAddCategory); setShowAllocate(false); setShowExpenses(false); setQuickAddCategory(null) }}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:scale-[0.97]
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:opacity-70
                         ${showAddCategory
                             ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                             : `border-2 ${config.border} ${config.text} hover:bg-gray-50 dark:hover:bg-gray-800/50`
@@ -273,9 +273,9 @@ export function SectionBudgetCard({
                 </button>
                 <button
                     onClick={() => { setShowExpenses(!showExpenses); setShowAllocate(false); setShowAddCategory(false); setQuickAddCategory(null) }}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:scale-[0.97]
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 active:opacity-70
                         ${showExpenses
-                            ? `bg-gradient-to-r ${config.accentGradient} text-white shadow-sm`
+                            ? `bg-gradient-to-r ${config.accentGradient} text-white  `
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                         }`}
                 >
@@ -297,7 +297,7 @@ export function SectionBudgetCard({
                             />
                         </div>
                         <button type="submit"
-                            className={`px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-gradient-to-r ${config.accentGradient} hover:shadow-md active:scale-[0.97] transition-all`}>
+                            className={`px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-gradient-to-r ${config.accentGradient} hover:shadow-md active:opacity-70 transition-all`}>
                             Set
                         </button>
                     </form>
@@ -319,7 +319,7 @@ export function SectionBudgetCard({
                                     placeholder="Budget" />
                             </div>
                             <button type="submit"
-                                className={`px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-gradient-to-r ${config.accentGradient} hover:shadow-md active:scale-[0.97] transition-all`}>
+                                className={`px-5 py-2.5 text-sm font-bold rounded-xl text-white bg-gradient-to-r ${config.accentGradient} hover:shadow-md active:opacity-70 transition-all`}>
                                 Add
                             </button>
                         </div>
@@ -330,7 +330,7 @@ export function SectionBudgetCard({
                             <div className="flex flex-wrap gap-1.5">
                                 {suggestedUnused.slice(0, 6).map(cat => (
                                     <button key={cat.label} type="button" onClick={() => handleQuickAdd(cat)}
-                                        className="text-[11px] px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all flex items-center gap-1 shadow-sm">
+                                        className="text-[11px] px-2.5 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 active:opacity-70 transition-all flex items-center gap-1  ">
                                         <span>{cat.icon}</span>
                                         <span className="font-semibold tabular-nums">₦{defaultBudgetAmounts[cat.label] || 100}</span>
                                     </button>
@@ -367,13 +367,13 @@ export function SectionBudgetCard({
                                                     setQuickAddAmount('')
                                                     setQuickAddDesc('')
                                                 }}
-                                                className="w-5 h-5 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600 transition-all shadow-md"
+                                                className="w-5 h-5 bg-amber-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600 transition-all shadow-md"
                                                 title="Quick add expense"
                                             >
                                                 +
                                             </button>
                                             <button onClick={() => onDeleteBudget(budget.id)}
-                                                className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition-all shadow-md">
+                                                className="w-5 h-5 bg-ember text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition-all shadow-md">
                                                 ×
                                             </button>
                                         </div>
@@ -453,9 +453,9 @@ export function SectionBudgetCard({
                                             <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">{entry.category}</span>
                                             {entry.description && <span className="text-[10px] text-gray-400 ml-1.5">· {entry.description}</span>}
                                         </td>
-                                        <td className="p-3 text-right text-[12px] font-bold text-red-500 tabular-nums">-₦{entry.amount.toFixed(0)}</td>
+                                        <td className="p-3 text-right text-[12px] font-bold text-[#cf8f78] tabular-nums">-₦{entry.amount.toFixed(0)}</td>
                                         <td className="p-3 text-right">
-                                            <button onClick={() => onDeleteEntry(entry.id)} className="text-gray-300 hover:text-red-500 text-sm transition-colors">×</button>
+                                            <button onClick={() => onDeleteEntry(entry.id)} className="text-gray-300 hover:text-[#cf8f78] text-sm transition-colors">×</button>
                                         </td>
                                     </tr>
                                 ))}

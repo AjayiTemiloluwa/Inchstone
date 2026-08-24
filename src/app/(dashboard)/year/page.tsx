@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
@@ -420,7 +420,7 @@ export default function YearPage() {
       </div>
       <button
         onClick={() => router.push('/dashboard')}
-        className="px-6 py-3 bg-gold text-surface font-semibold rounded-xl hover:bg-gold-glow active:scale-95 transition-all shadow-lg shadow-gold/20 min-h-[44px]"
+        className="px-6 py-3 bg-gold text-surface font-semibold rounded-xl hover:bg-[#cbaa6f] active:opacity-70 transition-all   min-h-[44px]"
       >
         Go to Dashboard
       </button>
@@ -438,15 +438,15 @@ export default function YearPage() {
   return (
     <div className="space-y-6 sm:space-y-8 max-w-full pb-24 lg:pb-12 stagger-children" id="report-content">
       {/* Year Vision Banner */}
-      <div className="glass-gold glow-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 text-center animate-slideUp border border-gold/20">
+      <div className="glass-gold  rounded-[8px] sm:rounded-[8px] p-6 sm:p-8 text-center animate-slideUp border border-gold/20">
         <h1 className="text-4xl sm:text-5xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent mb-3">{yearItem.title || new Date().getFullYear()}</h1>
         {yearItem.theme && <p className="text-lg sm:text-xl text-gold font-serif italic mb-3">"{yearItem.theme}"</p>}
         {yearItem.anchorScripture && <p className="text-xs sm:text-sm text-ink/50 font-mono mb-5">{yearItem.anchorScripture}</p>}
         <p className="text-xs sm:text-sm text-ink/80 max-w-xl mx-auto leading-relaxed px-4">{yearItem.description}</p>
-        <div className="max-w-md mx-auto mt-6 sm:mt-8 bg-black/20 p-4 sm:p-6 rounded-2xl backdrop-blur-sm border border-white/5">
+        <div className="max-w-md mx-auto mt-6 sm:mt-8 bg-black/20 p-4 sm:p-6 rounded-[8px] backdrop-blur-sm border border-white/5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold uppercase text-ink/60">Overall Progress</span>
-            <button onClick={handleDownloadReport} className="px-3 py-2 bg-gold/10 text-gold border border-gold/30 text-xs font-bold rounded-lg hover:bg-gold/20 active:scale-95 transition-all flex items-center space-x-1.5 min-h-[36px]">
+            <button onClick={handleDownloadReport} className="px-3 py-2 bg-gold/10 text-gold border border-gold/30 text-xs font-bold rounded-lg hover:bg-gold/20 active:opacity-70 transition-all flex items-center space-x-1.5 min-h-[36px]">
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Report</span>
             </button>
@@ -469,11 +469,11 @@ export default function YearPage() {
             </h2>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-3 overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
-            <button onClick={() => setAddingCategory(!addingCategory)} className="flex items-center space-x-1.5 text-xs sm:text-sm text-ink/50 hover:text-gold active:scale-95 transition min-h-[36px] px-3 py-2 rounded-lg hover:bg-white/5">
+            <button onClick={() => setAddingCategory(!addingCategory)} className="flex items-center space-x-1.5 text-xs sm:text-sm text-ink/50 hover:text-gold active:opacity-70 transition min-h-[36px] px-3 py-2 rounded-lg hover:bg-white/5">
               {addingCategory ? <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               <span>{addingCategory ? 'Cancel' : 'Add Category'}</span>
             </button>
-            <button onClick={resetWeights} className="flex items-center space-x-1.5 text-xs sm:text-sm text-gold hover:text-gold/80 active:scale-95 transition min-h-[36px] px-3 py-2 rounded-lg hover:bg-gold/5">
+            <button onClick={resetWeights} className="flex items-center space-x-1.5 text-xs sm:text-sm text-gold hover:text-gold/80 active:opacity-70 transition min-h-[36px] px-3 py-2 rounded-lg hover:bg-gold/5">
               <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Reset Equal</span>
             </button>
@@ -487,7 +487,7 @@ export default function YearPage() {
               placeholder="New category..."
               className="flex-1 px-4 py-3 text-sm bg-white/[0.04] border border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/40 transition-all placeholder:text-ink/30 min-h-[44px]"
               autoFocus />
-            <button onClick={handleAddCategory} className="px-5 py-3 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow hover:glow-gold transition-all shadow-lg shadow-gold/20 active:scale-95 min-h-[44px] px-6">
+            <button onClick={handleAddCategory} className="px-5 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all   active:opacity-70 min-h-[44px] px-6">
               Add
             </button>
           </div>
@@ -502,7 +502,7 @@ export default function YearPage() {
             const goalWeightSum = categoryGoals.reduce((s, g) => s + (g.weight || 0), 0)
 
             return (
-              <Card key={category.id} className="p-4 sm:p-5 space-y-3 sm:space-y-4 active:scale-[0.99] transition-transform">
+              <Card key={category.id} className="p-4 sm:p-5 space-y-3 sm:space-y-4 active:opacity-70 transition-transform">
                 {/* Category Header */}
                 <div className="space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -531,7 +531,7 @@ export default function YearPage() {
                         <span className="text-[9px] text-ink/50">%</span>
                       </div>
                       <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(w)}%</span>
-                      <button onClick={(e) => handleDelete(e, category.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0" title="Delete Category">
+                      <button onClick={(e) => handleDelete(e, category.id)} className="p-1.5 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0" title="Delete Category">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -547,10 +547,10 @@ export default function YearPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase text-ink/50">Goals</span>
                     <div className="flex items-center space-x-2">
-                      <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
+                      <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-[#cf8f78]'}`}>
                         Total: {Math.round(goalWeightSum)}%
                       </span>
-                      <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-2 hover:bg-mist rounded-lg active:scale-90 transition text-ink/50 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center">
+                      <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-2 hover:bg-mist rounded-lg active:opacity-70 transition text-ink/50 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center">
                         {addingGoal === category.id ? <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                       </button>
                     </div>
@@ -563,7 +563,7 @@ export default function YearPage() {
                         placeholder="New annual goal..."
                         className="flex-1 px-4 py-3 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all min-h-[44px]"
                         autoFocus />
-                      <button onClick={() => handleAddGoal(category.id)} className="px-4 py-3 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20 min-h-[44px] px-6">
+                      <button onClick={() => handleAddGoal(category.id)} className="px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70   min-h-[44px] px-6">
                         Add
                       </button>
                     </div>
@@ -573,7 +573,7 @@ export default function YearPage() {
                     {categoryGoals.map(goal => {
                       const gScore = completionMap[goal.id] || 0
                       return (
-                        <Card key={goal.id} className="p-3 sm:p-4 hover:border-gold active:scale-[0.98] transition-all group relative">
+                        <Card key={goal.id} className="p-3 sm:p-4 hover:border-gold active:opacity-70 transition-all group relative">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-1 min-w-0 flex-1">
                               {editingTitle === goal.id ? (
@@ -637,7 +637,7 @@ export default function YearPage() {
                                 className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-sage touch-manipulation" />
                             </div>
                           </div>
-                          <button onClick={(e) => handleDelete(e, goal.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg transition text-ink/50 hover:text-red-400 z-10 min-w-[36px] min-h-[36px] flex items-center justify-center" title="Delete Goal">
+                          <button onClick={(e) => handleDelete(e, goal.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-ember/20 rounded-lg transition text-ink/50 hover:text-[#d39a82] z-10 min-w-[36px] min-h-[36px] flex items-center justify-center" title="Delete Goal">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </Card>
@@ -679,7 +679,7 @@ export default function YearPage() {
           </h2>
           <button
             onClick={handleStartAddHabit}
-            className="flex items-center space-x-1.5 px-3 py-2 text-xs sm:text-sm font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 active:scale-95 transition min-h-[36px]"
+            className="flex items-center space-x-1.5 px-3 py-2 text-xs sm:text-sm font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 active:opacity-70 transition min-h-[36px]"
           >
             <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Add Habit</span>
@@ -699,7 +699,7 @@ export default function YearPage() {
                 autoFocus
               />
               <div className="flex space-x-2">
-                <button onClick={handleAddHabit} className="flex-1 sm:flex-none px-4 py-3 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20 min-h-[44px]">
+                <button onClick={handleAddHabit} className="flex-1 sm:flex-none px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70   min-h-[44px]">
                   Create Habit
                 </button>
                 <button onClick={() => setAddingHabit(false)} className="px-4 py-3 text-ink/50 hover:text-ink hover:bg-white/5 rounded-xl transition min-h-[44px]">
@@ -715,24 +715,24 @@ export default function YearPage() {
           {habitTitles.map(ht => {
             const pct = ht.total > 0 ? Math.round((ht.completed / ht.total) * 100) : 0
             return (
-              <Card key={ht.title} className="p-4 space-y-3 hover:border-gold/50 active:scale-[0.98] transition-colors group">
+              <Card key={ht.title} className="p-4 space-y-3 hover:border-gold/50 active:opacity-70 transition-colors group">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-ink text-sm">{ht.title}</h3>
                   <div className="relative">
                     <button
                       onClick={() => setDeleteHabitMenu(deleteHabitMenu === ht.title ? null : ht.title)}
-                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 rounded transition text-ink/30 hover:text-red-500 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] min-w-[36px] min-h-[36px] flex items-center justify-center"
                     >
                       <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
                     {deleteHabitMenu === ht.title && (
-                      <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl shadow-xl p-2 min-w-[200px] animate-fadeIn">
+                      <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl  p-2 min-w-[200px] animate-fadeIn">
                         <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
                         <button onClick={() => handleDeleteHabitFuture(ht.title)} className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
                           <X className="w-3.5 h-3.5" />
                           <span>Delete future instances only</span>
                         </button>
-                        <button onClick={() => handleDeleteHabitAll(ht.title)} className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-red-500/10 rounded-lg transition flex items-center space-x-2">
+                        <button onClick={() => handleDeleteHabitAll(ht.title)} className="w-full text-left px-3 py-2 text-xs text-[#cf8f78] hover:bg-ember/15 rounded-lg transition flex items-center space-x-2">
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Delete completely (including past)</span>
                         </button>
@@ -747,7 +747,7 @@ export default function YearPage() {
                   <span>{ht.completed}/{ht.total} days done</span>
                   <span className="font-mono font-bold text-gold">{pct}%</span>
                 </div>
-                <ProgressBar progress={pct} colorClass={pct >= 80 ? 'bg-sage' : pct >= 40 ? 'bg-gold' : 'bg-coral'} />
+                <ProgressBar progress={pct} colorClass={pct >= 80 ? 'bg-sage' : pct >= 40 ? 'bg-gold' : 'bg-ember'} />
               </Card>
             )
           })}
@@ -766,7 +766,7 @@ export default function YearPage() {
           {quarterGroups.map(({ label, items: qItems, avgScore }) => {
             const firstQ = qItems[0]
             return (
-              <Card key={label} className={`p-5 transition-colors group ${firstQ ? 'hover:border-gold cursor-pointer active:scale-95' : 'opacity-50 cursor-not-allowed'}`}
+              <Card key={label} className={`p-5 transition-colors group ${firstQ ? 'hover:border-gold cursor-pointer active:opacity-70' : 'opacity-50 cursor-not-allowed'}`}
                 onClick={() => { if (firstQ) router.push(`/year/${label}`) }}>
                 <div className="flex items-center justify-between mb-4">
                   <div>

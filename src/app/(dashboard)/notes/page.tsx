@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { Card } from '@/components/ui/Card'
 
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
-import { BookOpen, Plus, Download, FileText } from 'lucide-react'
+import { BookOpen, Plus, Download } from 'lucide-react'
 import Link from 'next/link'
 
 export default function NotesPage() {
@@ -46,62 +46,65 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="max-w-[720px] mx-auto space-y-6 pb-24">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold text-ink">Notes & Brain Dumps</h1>
-          <p className="text-xs text-ink/50 mt-1">Rich text notes with PDF export</p>
+          <h1 className="text-h1 text-parchment">Notes</h1>
+          <p className="mt-1 font-mono text-xs text-parchment/50">Rich text notes with PDF export</p>
         </div>
         <button
           onClick={() => { setEditingNote(null); setShowModal(true) }}
-          className="px-4 py-2 bg-ink text-surface rounded hover:bg-ink/90 font-medium flex items-center space-x-2"
+          className="rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink hover:bg-[#cbaa6f] transition-colors flex items-center gap-2"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" strokeWidth={1.5} />
           <span>New Note</span>
         </button>
       </div>
 
       {notes.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-mist rounded-2xl">
-          <BookOpen className="w-12 h-12 text-ink/20 mx-auto mb-3" />
-          <p className="text-ink/60">No notes yet. Create your first note to get started.</p>
+        <div className="rounded-[8px] border border-dashed border-gold-dim/30 py-16 text-center">
+          <BookOpen className="mx-auto mb-3 h-10 w-10 text-gold-dim" strokeWidth={1.5} />
+          <p className="text-sm text-parchment/60">
+            Nothing written yet — a single honest sentence today is enough. Start with your first note.
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {notes.map(note => (
-            <Card key={note.id} className="hover:border-gold transition-colors flex flex-col">
+            <Card key={note.id} className="hover:border-gold/40 transition-colors flex flex-col">
               <div className="flex-1">
-                <h3 className="font-bold text-ink mb-2">{note.title}</h3>
+                <h3 className="font-semibold text-parchment mb-2">{note.title}</h3>
                 <div
-                  className="text-sm text-ink/70 line-clamp-3 prose prose-sm max-w-none"
+                  className="text-sm text-parchment/70 line-clamp-3 prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{ __html: note.content }}
                 />
-                <div className="flex items-center space-x-2 mt-3">
-                  <span className="text-[10px] text-ink/40 font-mono">
+                <div className="flex items-center gap-2 mt-3">
+                  <span className="font-mono text-[11px] text-parchment/40">
                     {new Date(note.createdAt).toLocaleDateString()}
                   </span>
                   {note.itemId && (
                     <Link
                       href={`/day/${new Date(note.itemId).toISOString().split('T')[0]}`}
-                      className="text-[10px] text-gold hover:underline"
+                      className="font-mono text-[11px] text-gold hover:text-gold/80"
                     >
                       View Day
                     </Link>
                   )}
                 </div>
               </div>
-              <div className="flex items-center space-x-2 mt-4 pt-3 border-t border-mist">
+              <div className="mt-4 flex items-center gap-2 border-t border-gold-dim/15 pt-3">
                 <button
                   onClick={() => handleEdit(note)}
-                  className="flex-1 px-3 py-1.5 text-xs font-medium text-ink/70 hover:text-ink border border-mist rounded hover:border-gold transition"
+                  className="flex-1 rounded-md border hairline px-3 py-1.5 text-xs text-parchment/80 hover:border-gold transition-colors"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => handleDownload(note)}
-                  className="px-3 py-1.5 text-xs font-medium text-ink/70 hover:text-ink border border-mist rounded hover:border-gold transition flex items-center space-x-1"
+                  aria-label="Download note"
+                  className="rounded-md border hairline px-3 py-1.5 text-parchment/80 hover:border-gold transition-colors flex items-center gap-1"
                 >
-                  <Download className="w-3 h-3" />
+                  <Download className="w-3 h-3" strokeWidth={1.5} />
                 </button>
               </div>
             </Card>

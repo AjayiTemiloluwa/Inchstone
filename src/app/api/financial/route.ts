@@ -95,8 +95,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
     }
 
-    // Validate purse exists
-    const purseName = purse || 'Main'
+    // BUSINESS RULE: Income always goes into the "Main" purse.
+    // Expenses can come from any selected purse.
+    const purseName = type === 'income' ? 'Main' : (purse || 'Main')
     const existingPurse = await prisma.purse.findFirst({ where: { userId, name: purseName } })
     if (!existingPurse) {
       return NextResponse.json({ error: `Purse "${purseName}" not found` }, { status: 400 })

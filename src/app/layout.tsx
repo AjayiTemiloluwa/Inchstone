@@ -1,22 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Lora } from "next/font/google";
+import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import Script from 'next/script'
 import { InstallPrompt } from '@/components/ui/InstallPrompt'
+import { CursorGlow } from '@/components/ui/CursorGlow'
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
-const lora = Lora({
-  variable: "--font-lora",
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
 });
 
@@ -30,7 +31,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#000000",
+  themeColor: "#0A0908", // --ink
 };
 
 export default function RootLayout({
@@ -48,7 +49,7 @@ export default function RootLayout({
     >
       <html
         lang="en"
-        className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} h-full antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} dark h-full antialiased`}
         suppressHydrationWarning
       >
         <head>
@@ -101,6 +102,7 @@ export default function RootLayout({
             }}
           />
           <InstallPrompt />
+          <CursorGlow />
           {children}
         </body>
       </html>

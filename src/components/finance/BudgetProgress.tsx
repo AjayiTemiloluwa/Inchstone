@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import React from 'react'
 
@@ -19,7 +19,7 @@ export function BudgetProgress({ category, budgeted, spent, onEdit }: BudgetProg
       <div className="flex items-start justify-between mb-2.5">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm" />
+            <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gradient-to-br from-blue-400 to-blue-600  " />
             <h3 className="font-semibold text-[13px] text-gray-800 dark:text-gray-200 truncate leading-tight">
               {category}
             </h3>
@@ -37,7 +37,7 @@ export function BudgetProgress({ category, budgeted, spent, onEdit }: BudgetProg
 
       <div className="flex items-end justify-between mb-2">
         <div className="flex items-baseline gap-1.5">
-          <span className={`text-base font-bold tabular-nums tracking-tight ${isOverBudget ? 'text-red-500' : 'text-gray-900 dark:text-gray-100'}`}>
+          <span className={`text-base font-bold tabular-nums tracking-tight ${isOverBudget ? 'text-[#cf8f78]' : 'text-gray-900 dark:text-gray-100'}`}>
             ₦{spent.toFixed(0)}
           </span>
           <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
@@ -56,7 +56,7 @@ export function BudgetProgress({ category, budgeted, spent, onEdit }: BudgetProg
               ? 'bg-gradient-to-r from-red-400 to-red-500'
               : percentage > 85
                 ? 'bg-gradient-to-r from-amber-400 to-amber-500'
-                : 'bg-gradient-to-r from-blue-400 to-blue-500'
+                : 'bg-gradient-to-r from-amber/10-400 to-blue-500'
               }`}
             style={{ width: `${Math.max(percentage, 2)}%` }}
           />

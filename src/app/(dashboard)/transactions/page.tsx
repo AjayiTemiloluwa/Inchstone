@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
 
@@ -119,7 +119,7 @@ export default function TransactionsPage() {
 
     const getPurseColor = (name: string) => {
         const p = purses.find(p => p.name === name)
-        return p?.color || '#3B82F6'
+        return p?.color || '#8a6d42'
     }
 
     const handleDownloadCSV = () => {
@@ -198,14 +198,14 @@ export default function TransactionsPage() {
             </div>
 
             {/* Filters */}
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="bg-surface-solid border-hairline p-4 rounded-xl border border-gold-dim/20 ">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div>
                         <label className="block text-xs text-gray-500 mb-1">Purse</label>
                         <select
                             value={filterPurse}
                             onChange={(e) => { setFilterPurse(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                         >
                             <option value="">All Purses</option>
                             {purses.map(p => (
@@ -218,7 +218,7 @@ export default function TransactionsPage() {
                         <select
                             value={filterType}
                             onChange={(e) => { setFilterType(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                         >
                             <option value="">All Types</option>
                             <option value="income">Income</option>
@@ -233,7 +233,7 @@ export default function TransactionsPage() {
                             type="text"
                             value={filterCategory}
                             onChange={(e) => { setFilterCategory(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                             placeholder="Filter category..."
                         />
                     </div>
@@ -243,7 +243,7 @@ export default function TransactionsPage() {
                             type="date"
                             value={startDate}
                             onChange={(e) => { setStartDate(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                         />
                     </div>
                     <div>
@@ -252,7 +252,7 @@ export default function TransactionsPage() {
                             type="date"
                             value={endDate}
                             onChange={(e) => { setEndDate(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                         />
                     </div>
                     <div>
@@ -261,7 +261,7 @@ export default function TransactionsPage() {
                             <select
                                 value={sortBy}
                                 onChange={(e) => setSortBy(e.target.value as any)}
-                                className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm"
+                                className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
                             >
                                 <option value="date">Date</option>
                                 <option value="amount">Amount</option>
@@ -269,7 +269,7 @@ export default function TransactionsPage() {
                             </select>
                             <button
                                 onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                                className="px-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm"
+                                className="px-2 bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg text-sm"
                             >
                                 {sortDir === 'asc' ? '↑' : '↓'}
                             </button>
@@ -281,13 +281,13 @@ export default function TransactionsPage() {
             {/* Analysis Summary */}
             {analysis && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/5 p-5 rounded-xl border border-green-200 dark:border-green-800/40">
-                        <div className="text-xs text-green-600 dark:text-green-400 font-medium uppercase tracking-wider mb-1">Total Income</div>
+                    <div className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/5 p-5 rounded-xl border border-moss/30 dark:border-moss/40/40">
+                        <div className="text-xs text-[#7fa871] dark:text-[#7fa871] font-medium uppercase tracking-wider mb-1">Total Income</div>
                         <div className="text-2xl font-bold text-green-700 dark:text-green-300">₦{analysis.totalIncome.toFixed(2)}</div>
                     </div>
-                    <div className="bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/5 p-5 rounded-xl border border-red-200 dark:border-red-800/40">
-                        <div className="text-xs text-red-600 dark:text-red-400 font-medium uppercase tracking-wider mb-1">Total Expenses</div>
-                        <div className="text-2xl font-bold text-red-700 dark:text-red-300">₦{analysis.totalExpense.toFixed(2)}</div>
+                    <div className="bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/5 p-5 rounded-xl border border-ember/30 dark:border-ember/40/40">
+                        <div className="text-xs text-[#cf8f78] dark:text-[#cf8f78] font-medium uppercase tracking-wider mb-1">Total Expenses</div>
+                        <div className="text-2xl font-bold text-[#cf8f78] dark:text-[#cf8f78]">₦{analysis.totalExpense.toFixed(2)}</div>
                     </div>
                     <div className={`bg-gradient-to-br p-5 rounded-xl border ${analysis.netFlow >= 0 ? 'from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-900/5 border-blue-200 dark:border-blue-800/40' : 'from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-900/5 border-orange-200 dark:border-orange-800/40'}`}>
                         <div className="text-xs font-medium uppercase tracking-wider mb-1 text-gray-500">Net Cash Flow</div>
@@ -300,7 +300,7 @@ export default function TransactionsPage() {
 
             {/* Category Breakdown */}
             {analysis && Object.keys(analysis.categoryBreakdown).length > 0 && (
-                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
                     <h2 className="text-lg font-semibold mb-4">📂 Category Breakdown</h2>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -318,12 +318,12 @@ export default function TransactionsPage() {
                                     .map(([cat, data]) => (
                                         <tr key={cat} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
                                             <td className="p-2 font-medium">{cat}</td>
-                                            <td className={`p-2 text-right font-semibold ${data.type === 'expense' ? 'text-red-600' : 'text-green-600'}`}>
+                                            <td className={`p-2 text-right font-semibold ${data.type === 'expense' ? 'text-[#cf8f78]' : 'text-[#7fa871]'}`}>
                                                 ₦{data.total.toFixed(2)}
                                             </td>
                                             <td className="p-2 text-right text-gray-500">{data.count}</td>
                                             <td className="p-2">
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${data.type === 'expense' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${data.type === 'expense' ? 'bg-red-100 text-red-700' : 'bg-moss/15 text-[#7fa871]'}`}>
                                                     {data.type}
                                                 </span>
                                             </td>
@@ -337,28 +337,28 @@ export default function TransactionsPage() {
 
             {/* Purse Breakdown */}
             {analysis && Object.keys(analysis.purseBreakdown).length > 0 && (
-                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
                     <h2 className="text-lg font-semibold mb-4">👛 Purse Breakdown</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {Object.entries(analysis.purseBreakdown).map(([name, data]) => (
-                            <div key={name} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                            <div key={name} className="p-4 rounded-xl border border-gold-dim/20 bg-gray-50 dark:bg-gray-900/50">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="text-xl">{getPurseIcon(name)}</span>
                                     <span className="font-semibold">{name}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                     <div>
-                                        <div className="text-[10px] text-gray-400">Income</div>
-                                        <div className="font-semibold text-green-600">₦{data.income.toFixed(0)}</div>
+                                        <div className="text-[10px] text-parchment/40">Income</div>
+                                        <div className="font-semibold text-[#7fa871]">₦{data.income.toFixed(0)}</div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] text-gray-400">Expense</div>
-                                        <div className="font-semibold text-red-600">₦{data.expense.toFixed(0)}</div>
+                                        <div className="text-[10px] text-parchment/40">Expense</div>
+                                        <div className="font-semibold text-[#cf8f78]">₦{data.expense.toFixed(0)}</div>
                                     </div>
                                 </div>
-                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="text-[10px] text-gray-400">Net</div>
-                                    <div className={`font-bold ${data.net >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                <div className="mt-2 pt-2 border-t border-gold-dim/20">
+                                    <div className="text-[10px] text-parchment/40">Net</div>
+                                    <div className={`font-bold ${data.net >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}`}>
                                         {data.net >= 0 ? '+' : ''}₦{data.net.toFixed(0)}
                                     </div>
                                 </div>
@@ -370,7 +370,7 @@ export default function TransactionsPage() {
 
             {/* Monthly Trend */}
             {analysis && Object.keys(analysis.monthlyTrend).length > 0 && (
-                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
                     <h2 className="text-lg font-semibold mb-4">📈 Monthly Trend</h2>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -390,9 +390,9 @@ export default function TransactionsPage() {
                                         return (
                                             <tr key={month} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
                                                 <td className="p-2 font-medium">{month}</td>
-                                                <td className="p-2 text-right text-green-600 font-semibold">₦{data.income.toFixed(0)}</td>
-                                                <td className="p-2 text-right text-red-600 font-semibold">₦{data.expense.toFixed(0)}</td>
-                                                <td className={`p-2 text-right font-bold ${net >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                <td className="p-2 text-right text-[#7fa871] font-semibold">₦{data.income.toFixed(0)}</td>
+                                                <td className="p-2 text-right text-[#cf8f78] font-semibold">₦{data.expense.toFixed(0)}</td>
+                                                <td className={`p-2 text-right font-bold ${net >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}`}>
                                                     {net >= 0 ? '+' : ''}₦{net.toFixed(0)}
                                                 </td>
                                             </tr>
@@ -405,7 +405,7 @@ export default function TransactionsPage() {
             )}
 
             {/* Transactions Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="bg-surface-solid border-hairline rounded-xl border border-gold-dim/20 overflow-hidden">
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                     <h2 className="text-lg font-semibold">📋 All Transactions</h2>
                     <span className="text-sm text-gray-500">{totalCount} total</span>
@@ -436,9 +436,9 @@ export default function TransactionsPage() {
                                             {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </td>
                                         <td className="p-3">
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${entry.type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                    entry.type === 'expense' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                        entry.type === 'transfer_in' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${entry.type === 'income' ? 'bg-moss/15 text-[#7fa871] dark:bg-green-900/30 dark:text-[#7fa871]' :
+                                                    entry.type === 'expense' ? 'bg-ember/15 text-[#cf8f78] dark:bg-ember/25' :
+                                                        entry.type === 'transfer_in' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-parchment' :
                                                             'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
                                                 }`}>
                                                 {entry.type === 'income' ? '📥' : entry.type === 'expense' ? '💸' : entry.type === 'transfer_in' ? '📩' : '📤'} {entry.type.replace('_', ' ')}
@@ -446,7 +446,7 @@ export default function TransactionsPage() {
                                         </td>
                                         <td className="p-3 font-medium">{entry.category}</td>
                                         <td className="p-3 text-gray-500 max-w-[200px] truncate">{entry.description || '-'}</td>
-                                        <td className={`p-3 text-right font-semibold whitespace-nowrap ${entry.type === 'income' || entry.type === 'transfer_in' ? 'text-green-600' : 'text-red-600'
+                                        <td className={`p-3 text-right font-semibold whitespace-nowrap ${entry.type === 'income' || entry.type === 'transfer_in' ? 'text-[#7fa871]' : 'text-[#cf8f78]'
                                             }`}>
                                             {entry.type === 'income' || entry.type === 'transfer_in' ? '+' : '-'}₦{entry.amount.toFixed(2)}
                                         </td>
@@ -463,7 +463,7 @@ export default function TransactionsPage() {
                                         </td>
                                         <td className="p-3 text-xs">
                                             {entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) ? (
-                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-parchment' :
                                                         entry.priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                                                             entry.priority === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                                                                 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'

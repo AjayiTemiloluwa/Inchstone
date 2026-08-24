@@ -3,7 +3,7 @@
 import { UserButton } from "@clerk/nextjs";
 import { PushNotificationManager } from "@/components/ui/PushNotificationManager";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Compass } from "lucide-react";
 import { useMobileMenu } from "@/components/ui/MobileMenuContext";
 
 export function Topbar() {
@@ -31,27 +31,28 @@ export function Topbar() {
   }
 
   return (
-    <header className="h-14 glass-strong flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
+    <header className="h-14 bg-ink border-b hairline-bottom flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
       {/* Left: menu button + page title */}
       <div className="flex items-center space-x-3">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-mist transition active:scale-90 min-w-[36px] min-h-[36px] flex items-center justify-center"
+          className="lg:hidden p-2 -ml-2 rounded-md hover:bg-mist transition text-gold-dim hover:text-parchment min-w-11 min-h-11 flex items-center justify-center"
           aria-label="Toggle menu"
         >
-          {isOpen ? <X className="w-5 h-5 text-ink" /> : <Menu className="w-5 h-5 text-ink" />}
+          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
-        <h2 className="text-sm font-bold text-ink/60">{getPageTitle()}</h2>
+        <h2 className="text-sm font-semibold text-parchment/80">{getPageTitle()}</h2>
       </div>
 
-      {/* Right: actions */}
+      {/* Right: small compass + divider + user */}
       <div className="flex items-center space-x-4">
         <PushNotificationManager />
-        <div className="w-px h-6 bg-white/[0.06]" />
+        <Compass className="h-5 w-5 text-gold-dim" strokeWidth={1.5} aria-hidden />
+        <div className="w-px h-5 bg-gold-dim/25" />
         <UserButton
           appearance={{
             elements: {
-              avatarBox: 'w-8 h-8 ring-2 ring-gold/20 ring-offset-2 ring-offset-paper',
+              avatarBox: 'w-8 h-8 ring-2 ring-gold-dim/30 ring-offset-2 ring-offset-ink',
             }
           }}
         />

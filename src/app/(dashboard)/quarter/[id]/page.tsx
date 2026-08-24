@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
@@ -224,8 +224,8 @@ export default function QuarterPage() {
       </div>
 
       {/* Quarter Header */}
-      <div className="bg-surface border border-mist rounded-2xl p-8 relative">
-        <button onClick={(e) => handleDelete(e, quarterItem.id)} className="absolute top-4 right-4 p-2 text-ink/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Delete Quarter">
+      <div className="bg-surface border border-mist rounded-[8px] p-8 relative">
+        <button onClick={(e) => handleDelete(e, quarterItem.id)} className="absolute top-4 right-4 p-2 text-ink/30 hover:text-[#cf8f78] hover:bg-ember/15 rounded-lg transition" title="Delete Quarter">
           <Trash2 className="w-5 h-5" />
         </button>
         <div className="flex items-center justify-between">
@@ -298,7 +298,7 @@ export default function QuarterPage() {
             <div className="space-y-3 pt-2 border-t border-mist">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase text-ink/50">Months</span>
-                <span className={`text-[10px] font-mono ${Math.round(monthWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
+                <span className={`text-[10px] font-mono ${Math.round(monthWeightSum) === 100 ? 'text-sage' : 'text-[#cf8f78]'}`}>
                   Total: {Math.round(monthWeightSum)}%
                 </span>
               </div>
@@ -339,7 +339,7 @@ export default function QuarterPage() {
                           <span className="text-[9px] font-mono text-ink/50">{Math.round(mScore)}%</span>
                         </div>
                       </div>
-                      <button onClick={(e) => handleDelete(e, month.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete Month">
+                      <button onClick={(e) => handleDelete(e, month.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] z-10" title="Delete Month">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </Card>
@@ -357,7 +357,7 @@ export default function QuarterPage() {
       {/* Reflection Popup */}
       {reflectionPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onClick={() => setReflectionPopup(null)}>
-          <div className="bg-surface rounded-2xl border border-mist shadow-xl p-5 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface rounded-[8px] border border-mist  p-5 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-2">
                 <BookOpen className="w-4 h-4 text-gold" />

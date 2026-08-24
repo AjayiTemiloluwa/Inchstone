@@ -1,4 +1,4 @@
-'use client'
+﻿﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
@@ -99,8 +99,8 @@ export default function GoalPage() {
             </div>
 
             {/* Goal Header */}
-            <div className="bg-surface border border-mist rounded-2xl p-8 relative">
-                <button onClick={(e) => handleDelete(e, goalItem.id)} className="absolute top-4 right-4 p-2 text-ink/30 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Delete Goal">
+            <div className="bg-surface border border-mist rounded-[8px] p-8 relative">
+                <button onClick={(e) => handleDelete(e, goalItem.id)} className="absolute top-4 right-4 p-2 text-ink/30 hover:text-[#cf8f78] hover:bg-ember/15 rounded-lg transition" title="Delete Goal">
                     <Trash2 className="w-5 h-5" />
                 </button>
                 <div className="flex items-center justify-between">
@@ -127,7 +127,7 @@ export default function GoalPage() {
                         const qLabel = quarter.title || `Q${idx + 1}`
                         return (
                             <Card key={quarter.id} className="p-5 hover:border-gold transition-colors cursor-pointer group relative" onClick={() => router.push(`/quarter/${quarter.id}`)}>
-                                <button onClick={(e) => handleDelete(e, quarter.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-lg transition text-ink/30 hover:text-red-500 z-10" title="Delete Quarter">
+                                <button onClick={(e) => handleDelete(e, quarter.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] z-10" title="Delete Quarter">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                                 <div className="flex items-center justify-between mb-3 pr-6">
@@ -156,7 +156,7 @@ export default function GoalPage() {
                 </div>
                 {quarters.length > 0 && (
                     <div className="flex justify-end mt-2">
-                        <span className={`text-[10px] font-mono ${Math.round(quarterWeightSum) === 100 ? 'text-sage' : 'text-coral'}`}>
+                        <span className={`text-[10px] font-mono ${Math.round(quarterWeightSum) === 100 ? 'text-sage' : 'text-[#cf8f78]'}`}>
                             Total: {Math.round(quarterWeightSum)}%
                         </span>
                     </div>
@@ -167,7 +167,7 @@ export default function GoalPage() {
             {/* Reflection Popup */}
             {reflectionPopup && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onClick={() => setReflectionPopup(null)}>
-                    <div className="bg-surface rounded-2xl border border-mist shadow-xl p-5 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+                    <div className="bg-surface rounded-[8px] border border-mist  p-5 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-2"><BookOpen className="w-4 h-4 text-gold" /><h3 className="font-bold text-ink text-sm">Reflection</h3></div>
                             <button onClick={() => setReflectionPopup(null)} className="p-1 hover:bg-mist rounded-lg transition text-ink/30 hover:text-ink"><X className="w-4 h-4" /></button>

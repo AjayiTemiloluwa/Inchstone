@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Card } from '@/components/ui/Card'
-import { Download, FileText, BarChart3 } from 'lucide-react'
+import { Download, FileText } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import jsPDF from 'jspdf'
 
@@ -60,11 +60,11 @@ export default function ReportsPage() {
         const contentWidth = pageWidth - margin * 2
         let y = 20
 
-        // Colors matching the app theme
-        const gold: [number, number, number] = [212, 175, 55]
-        const ink: [number, number, number] = [30, 30, 30]
-        const sage: [number, number, number] = [143, 188, 143]
-        const mist: [number, number, number] = [200, 200, 200]
+        // Colors matching the app theme — muted ink/gold/moss tokens
+        const gold: [number, number, number] = [184, 147, 90]   // #B8935A
+        const ink: [number, number, number] = [30, 26, 22]       // warm near-black text on light paper
+        const sage: [number, number, number] = [74, 93, 69]      // moss #4A5D45
+        const mist: [number, number, number] = [200, 192, 180]   // muted hairline (gold-dim at 20% on paper)
 
         // Helper functions
         const addSectionTitle = (title: string) => {
@@ -210,33 +210,32 @@ export default function ReportsPage() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6">
-            <div className="flex items-center space-x-3">
-                <BarChart3 className="w-6 h-6 text-gold" />
+        <div className="max-w-[900px] mx-auto space-y-6 pb-24">
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-display font-bold text-ink">Reports</h1>
-                    <p className="text-xs text-ink/50">Download activity reports by period</p>
+                    <h1 className="text-h1 text-parchment">Reports</h1>
+                    <p className="mt-1 font-mono text-xs text-parchment/50">Activity reports by period</p>
                 </div>
             </div>
 
-            <Card className="p-6">
-                <div className="flex items-center space-x-4">
+            <Card className="border hairline p-5">
+                <div className="flex flex-wrap items-center gap-3">
                     <select
                         value={reportType}
                         onChange={e => setReportType(e.target.value as ReportType)}
-                        className="px-4 py-2 text-sm bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30"
+                        className="rounded-[6px] border border-gold-dim/25 bg-ink px-4 py-2.5 text-sm text-parchment transition-colors focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
                     >
                         <option value="weekly">Weekly</option>
                         <option value="monthly">Monthly</option>
                         <option value="quarterly">Quarterly</option>
                         <option value="yearly">Yearly</option>
                     </select>
-                    <button onClick={fetchReport} disabled={loading} className="px-4 py-2 bg-ink text-surface rounded-lg font-medium hover:bg-ink/90 transition disabled:opacity-50">
-                        {loading ? 'Loading...' : 'Generate Report'}
+                    <button onClick={fetchReport} disabled={loading} className="rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50">
+                        {loading ? 'Generating…' : 'Generate Report'}
                     </button>
                     {report && (
-                        <button onClick={downloadPDF} className="px-4 py-2 border border-mist rounded-lg text-sm font-medium hover:border-gold transition flex items-center space-x-2">
-                            <Download className="w-4 h-4" />
+                        <button onClick={downloadPDF} className="flex items-center gap-2 rounded-md border hairline px-4 py-2.5 text-sm text-parchment transition-colors hover:border-gold">
+                            <Download className="h-4 w-4" strokeWidth={1.5} />
                             <span>Download PDF</span>
                         </button>
                     )}
@@ -244,54 +243,55 @@ export default function ReportsPage() {
             </Card>
 
             {report && (
-                <Card className="p-6 space-y-4">
+                <Card className="space-y-5 p-6 border hairline">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-ink capitalize">{report.type} Report</h2>
-                        <span className="text-xs text-ink/50 font-mono">
+                        <h2 className="text-lg font-semibold text-parchment capitalize">{report.type} Report</h2>
+                        <span className="font-mono text-xs text-parchment/50">
                             {format(parseISO(report.period.start), 'MMM d, yyyy')} - {format(parseISO(report.period.end), 'MMM d, yyyy')}
                         </span>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-paper border border-mist rounded-lg p-4 text-center">
-                            <p className="text-2xl font-bold text-ink">{report.stats.totalTasks}</p>
-                            <p className="text-[10px] uppercase text-ink/50 font-bold">Total Tasks</p>
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                        <div className="rounded-[6px] border hairline p-4 text-center">
+                            <p className="font-mono text-2xl font-bold text-parchment tabular-nums">{report.stats.totalTasks}</p>
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-parchment/45">Total Tasks</p>
                         </div>
-                        <div className="bg-paper border border-mist rounded-lg p-4 text-center">
-                            <p className="text-2xl font-bold text-sage">{report.stats.completedTasks}</p>
-                            <p className="text-[10px] uppercase text-ink/50 font-bold">Completed</p>
+                        <div className="rounded-[6px] border hairline p-4 text-center">
+                            <p className="font-mono text-2xl font-bold text-moss tabular-nums">{report.stats.completedTasks}</p>
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-parchment/45">Completed</p>
                         </div>
-                        <div className="bg-paper border border-mist rounded-lg p-4 text-center">
-                            <p className="text-2xl font-bold text-gold">{report.stats.totalNotes}</p>
-                            <p className="text-[10px] uppercase text-ink/50 font-bold">Notes</p>
+                        <div className="rounded-[6px] border hairline p-4 text-center">
+                            <p className="font-mono text-2xl font-bold text-gold-dim tabular-nums">{report.stats.totalNotes}</p>
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-parchment/45">Notes</p>
                         </div>
-                        <div className="bg-paper border border-mist rounded-lg p-4 text-center">
-                            <p className="text-2xl font-bold text-ink">{report.stats.avgScore}%</p>
-                            <p className="text-[10px] uppercase text-ink/50 font-bold">Avg Score</p>
+                        <div className="rounded-[6px] border hairline p-4 text-center">
+                            <p className="font-mono text-2xl font-bold text-gold tabular-nums">{report.stats.avgScore}%</p>
+                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-parchment/45">Avg Score</p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-parchment/45">Avg Score</p>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <h3 className="text-xs font-bold uppercase text-ink/50">Daily Breakdown</h3>
+                    <div className="space-y-3">
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-parchment/45">Daily Breakdown</h3>
                         {report.days.map((day: ReportDay) => (
-                            <div key={day.date} className="border border-mist rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-bold text-ink">{format(parseISO(day.date), 'EEEE, MMM d, yyyy')}</span>
-                                    <span className="text-xs font-mono text-ink/50">{day.score}%</span>
+                            <div key={day.date} className="rounded-[6px] border hairline p-4">
+                                <div className="mb-2 flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-parchment">{format(parseISO(day.date), 'EEEE, MMM d, yyyy')}</span>
+                                    <span className="font-mono text-xs text-parchment/50 tabular-nums">{day.score}%</span>
                                 </div>
                                 <div className="space-y-1">
                                     {day.tasks.length === 0 && day.notes.length === 0 && (
-                                        <p className="text-xs text-ink/40">No activity</p>
+                                        <p className="text-xs text-parchment/40">No activity</p>
                                     )}
                                     {day.tasks.map((t: any) => (
-                                        <div key={t.id} className="flex items-center space-x-2 text-xs">
-                                            <span className={`w-2 h-2 rounded-full ${t.completed ? 'bg-sage' : 'bg-gold'}`} />
-                                            <span className={t.completed ? 'line-through text-ink/50' : 'text-ink'}>{t.title}</span>
-                                            <span className="text-ink/40 font-mono">{t.weight}%</span>
+                                        <div key={t.id} className="flex items-center gap-2 text-xs">
+                                            <span className={`h-2 w-2 shrink-0 rounded-full ${t.completed ? 'bg-moss' : 'bg-gold'}`} />
+                                            <span className={t.completed ? 'line-through text-parchment/45' : 'text-parchment'}>{t.title}</span>
+                                            <span className="font-mono text-parchment/40 tabular-nums">{t.weight}%</span>
                                         </div>
                                     ))}
                                     {day.notes.map((n: any) => (
-                                        <div key={n.id} className="flex items-center space-x-2 text-xs">
-                                            <FileText className="w-3 h-3 text-gold" />
-                                            <span className="text-ink">{n.title}</span>
+                                        <div key={n.id} className="flex items-center gap-2 text-xs">
+                                            <FileText className="h-3 w-3 shrink-0 text-gold-dim" strokeWidth={1.5} />
+                                            <span className="text-parchment">{n.title}</span>
                                         </div>
                                     ))}
                                 </div>

@@ -2,9 +2,8 @@
 
 import React from 'react'
 import { useMobileMenu } from './MobileMenuContext'
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, X, MessageSquare, UserPlus, Bell } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, X, UserPlus, Bell } from 'lucide-react'
 
 export function MobileMenu() {
     const { isOpen, setIsOpen } = useMobileMenu()
@@ -44,84 +43,72 @@ export function MobileMenu() {
 
     return (
         <>
-            {/* Overlay */}
             {isOpen && (
-                <div
-                    className="mobile-menu-overlay"
-                    onClick={() => setIsOpen(false)}
-                />
+                <div className="mobile-menu-overlay" onClick={() => setIsOpen(false)} />
             )}
 
-            {/* Panel */}
-            <div className={`fixed top-0 left-0 bottom-0 w-[85%] max-w-[320px] bg-paper z-50 shadow-xl overflow-y-auto transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-mist">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center">
-                            <span className="text-gold font-bold text-sm">I</span>
+            <div className={`fixed top-0 left-0 bottom-0 w-[85%] max-w-[320px] z-50 overflow-y-auto bg-surface-solid border-r hairline-right transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <div className="flex items-center justify-between border-b border-gold-dim/15 p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gold-dim/20">
+                            <span className="text-sm font-bold text-gold">I</span>
                         </div>
-                        <span className="font-display font-bold text-ink">Inchstone</span>
+                        <span className="font-display font-bold text-parchment">Inchstone</span>
                     </div>
                     <button
                         onClick={() => setIsOpen(false)}
-                        className="p-2 hover:bg-mist rounded-lg active:scale-90 transition min-w-[36px] min-h-[36px] flex items-center justify-center"
+                        className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-parchment/60 transition-colors hover:bg-mist hover:text-parchment"
                         aria-label="Close menu"
                     >
-                        <X className="w-5 h-5 text-ink/60" />
+                        <X className="h-5 w-5" strokeWidth={1.5} />
                     </button>
                 </div>
 
-                {/* Nav Links */}
-                <nav className="p-3 space-y-1">
+                <nav className="space-y-1 p-3">
                     {links.map((link) => {
                         const Icon = link.icon
                         const active = isActive(link.href)
                         return (
-                            <button
+                            <div
                                 key={link.name}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => handleNavigate(link.href)}
-                                className={`
-                  w-full flex items-center space-x-3 px-4 py-3.5 rounded-xl transition-all duration-200 text-left
-                  ${active
-                                        ? 'bg-gold/10 text-gold font-semibold border border-gold/20'
-                                        : 'text-ink/60 hover:text-ink hover:bg-mist'
-                                    }
-                `}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate(link.href) }}
+                                className={`relative flex cursor-pointer items-center gap-3 rounded-md px-4 py-3.5 text-left transition-colors ${
+                                    active ? 'text-parchment' : 'text-parchment/55 hover:bg-mist hover:text-parchment'
+                                }`}
                             >
-                                <Icon className={`w-5 h-5 ${active ? 'text-gold' : ''}`} />
-                                <span className="text-sm">{link.name}</span>
-                                {active && (
-                                    <div className="ml-auto w-2 h-2 rounded-full bg-gold" />
-                                )}
-                            </button>
+                                <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-gold' : 'text-gold-dim'}`} strokeWidth={1.5} />
+                                <span className="text-sm font-medium">{link.name}</span>
+                                {active && <span aria-hidden className="absolute inset-x-3 -bottom-px h-0.5 bg-gold" />}
+                            </div>
                         )
                     })}
                 </nav>
 
-                {/* Quick Actions */}
-                <div className="p-3 border-t border-mist mt-2">
-                    <p className="text-[10px] font-bold uppercase text-ink/30 tracking-wider px-4 mb-2">Quick Actions</p>
+                <div className="mt-2 border-t border-gold-dim/15 p-3">
+                    <p className="px-4 pb-2 text-[10px] font-semibold uppercase tracking-wider text-parchment/35">Quick Actions</p>
                     <div className="space-y-1">
                         <button
                             onClick={() => handleNavigate('/partners')}
-                            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-ink/60 hover:text-ink hover:bg-mist transition text-left"
+                            className="flex w-full items-center gap-3 rounded-md px-4 py-3 text-left text-parchment/55 transition-colors hover:bg-mist hover:text-parchment"
                         >
-                            <UserPlus className="w-4 h-4" />
+                            <UserPlus className="h-4 w-4 text-gold-dim" strokeWidth={1.5} />
                             <span className="text-sm">Add Partner</span>
                         </button>
                         <button
                             onClick={() => handleNavigate('/settings')}
-                            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-ink/60 hover:text-ink hover:bg-mist transition text-left"
+                            className="flex w-full items-center gap-3 rounded-md px-4 py-3 text-left text-parchment/55 transition-colors hover:bg-mist hover:text-parchment"
                         >
-                            <Bell className="w-4 h-4" />
+                            <Bell className="h-4 w-4 text-gold-dim" strokeWidth={1.5} />
                             <span className="text-sm">Notifications</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="p-4 border-t border-mist mt-2">
-                    <p className="text-[10px] text-ink/20 text-center font-mono">v1.0 · Built with purpose</p>
+                <div className="mt-2 border-t border-gold-dim/15 p-4">
+                    <p className="text-center font-mono text-[10px] text-parchment/25">v2 · by small deeds</p>
                 </div>
             </div>
         </>

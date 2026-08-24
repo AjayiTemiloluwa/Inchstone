@@ -160,76 +160,76 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn">
-            <div className="glass rounded-3xl border border-white/20 shadow-2xl shadow-black/50 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-slideUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4">
+            <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid">
                 {/* Header */}
-                <div className="flex items-center justify-between px-8 py-5 border-b border-white/10">
-                    <h3 className="text-xl font-display font-bold text-ink">{note?.id ? 'Edit Note' : 'New Note'}</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-ink/50 hover:text-ink">
-                        <X className="w-5 h-5" />
+                <div className="flex shrink-0 items-center justify-between border-b border-gold-dim/20 px-6 py-4">
+                    <h3 className="text-lg font-semibold text-parchment">{note?.id ? 'Edit Note' : 'New Note'}</h3>
+                    <button onClick={onClose} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-md text-parchment/50 transition-colors hover:text-parchment">
+                        <X className="h-5 w-5" strokeWidth={1.5} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-8 space-y-5 overflow-y-auto flex-1">
+                <div className="flex-1 space-y-5 overflow-y-auto p-6">
                     <div>
-                        <label className="text-xs font-bold text-ink/70 mb-2 block uppercase tracking-wider">Title</label>
+                        <label className="mb-1.5 block text-xs text-parchment/55">Title</label>
                         <input
                             type="text"
                             value={title}
                             onChange={e => setTitle(e.target.value)}
-                            className="w-full rounded-xl border border-white/10 p-3 text-sm bg-black/20 focus:outline-none focus:ring-2 focus:ring-gold/30 transition-all text-ink"
+                            className="w-full rounded-[6px] border border-gold-dim/25 bg-ink p-3 text-sm text-parchment transition-colors focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
                             placeholder="Note title..."
                             autoFocus
                         />
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-ink/70 mb-2 block uppercase tracking-wider">Link to Date (optional)</label>
+                        <label className="mb-1.5 block text-xs text-parchment/55">Link to date (optional)</label>
                         <input
                             type="date"
                             value={noteDate}
                             onChange={e => setNoteDate(e.target.value)}
-                            className="w-full rounded-xl border border-white/10 p-3 text-sm bg-black/20 focus:outline-none focus:ring-2 focus:ring-gold/30 transition-all text-ink/80"
+                            className="w-full rounded-[6px] border border-gold-dim/25 bg-ink p-3 text-sm text-parchment transition-colors focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
                         />
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-ink/70 mb-2 block uppercase tracking-wider">Content</label>
-                        <div className="border border-white/10 rounded-xl bg-black/20 overflow-hidden">
+                        <label className="mb-1.5 block text-xs text-parchment/55">Content</label>
+                        <div className="overflow-hidden rounded-[6px] border border-gold-dim/25 bg-ink">
                             {editor && (
-                                <div className="flex items-center space-x-1 px-3 py-2 border-b border-white/10 bg-black/40">
-                                    <button onClick={() => editor.chain().focus().toggleBold().run()} className={`p-1.5 rounded-lg hover:bg-white/10 transition-colors ${editor.isActive('bold') ? 'bg-white/20 text-gold' : 'text-ink/70'}`}>
+                                <div className="flex items-center gap-1 border-b border-gold-dim/20 bg-mist px-3 py-2">
+                                    <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-9 min-w-9 items-center justify-center rounded-md transition-colors ${editor.isActive('bold') ? 'bg-gold/20 text-gold' : 'text-parchment/70 hover:bg-mist'}`}>
                                         <span className="text-xs font-bold px-1">B</span>
                                     </button>
-                                    <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`p-1.5 rounded-lg hover:bg-white/10 transition-colors ${editor.isActive('italic') ? 'bg-white/20 text-gold' : 'text-ink/70'}`}>
-                                        <span className="text-xs italic px-1">I</span>
+                                    <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`flex h-9 min-w-9 items-center justify-center rounded-md transition-colors ${editor.isActive('italic') ? 'bg-gold/20 text-gold' : 'text-parchment/70 hover:bg-mist'}`}>
+                                        <span className="px-1 italic text-xs">I</span>
                                     </button>
-                                    <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`p-1.5 rounded-lg hover:bg-white/10 transition-colors ${editor.isActive('bulletList') ? 'bg-white/20 text-gold' : 'text-ink/70'}`}>
-                                        <span className="text-xs px-1">• List</span>
+                                    <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`flex h-9 min-w-9 items-center justify-center rounded-md transition-colors ${editor.isActive('bulletList') ? 'bg-gold/20 text-gold' : 'text-parchment/70 hover:bg-mist'}`}>
+                                        <span className="px-1 text-xs">• List</span>
                                     </button>
-                                    <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-1.5 rounded-lg hover:bg-white/10 transition-colors ${editor.isActive('heading', { level: 2 }) ? 'bg-white/20 text-gold' : 'text-ink/70'}`}>
-                                        <span className="text-xs font-bold px-1">H2</span>
+                                    <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`flex h-9 min-w-9 items-center justify-center rounded-md transition-colors ${editor.isActive('heading', { level: 2 }) ? 'bg-gold/20 text-gold' : 'text-parchment/70 hover:bg-mist'}`}>
+                                        <span className="px-1 text-xs font-bold">H2</span>
                                     </button>
                                 </div>
                             )}
-                            <EditorContent editor={editor} className="text-ink" />
+                            <EditorContent editor={editor} className="text-parchment" />
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-between items-center px-8 py-5 border-t border-white/10 bg-black/20">
-                    <button onClick={handleDownloadPDF} className="px-4 py-2 text-sm text-ink/70 hover:text-gold hover:bg-gold/10 rounded-xl transition-all flex items-center space-x-2">
-                        <Download className="w-4 h-4" />
+                <div className="flex shrink-0 items-center justify-between border-t border-gold-dim/20 px-6 py-4">
+                    <button onClick={handleDownloadPDF} className="flex items-center gap-2 rounded-md px-4 py-2 text-sm text-parchment/70 transition-colors hover:text-[#cf8f78]">
+                        <Download className="w-4 h-4" strokeWidth={1.5} />
                         <span>Download PDF</span>
                     </button>
-                    <div className="flex space-x-3">
-                        <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition-all">
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="rounded-md px-5 py-2.5 text-sm text-parchment/70 transition-colors hover:text-parchment">
                             Cancel
                         </button>
-                        <button onClick={handleSave} disabled={saving || !title.trim()} className="px-5 py-2.5 bg-gold text-paper text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:scale-95 shadow-lg shadow-gold/20 disabled:opacity-50 flex items-center space-x-2">
-                            <Save className="w-4 h-4" />
+                        <button onClick={handleSave} disabled={saving || !title.trim()} className="rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50 flex items-center gap-2">
+                            <Save className="w-4 h-4" strokeWidth={1.5} />
                             <span>{saving ? 'Saving...' : 'Save Note'}</span>
                         </button>
                     </div>
