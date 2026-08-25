@@ -4,9 +4,9 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { TransactionForm } from '@/components/finance/TransactionForm'
 import { BudgetProgress } from '@/components/finance/BudgetProgress'
 import { SectionBudgetCard } from '@/components/finance/SectionBudgetCard'
-import { getSectionIcon } from '@/components/finance/budgetCategories'
 
 const SECTION_KEYS = ['Need', 'Want', 'Offerings', 'Savings'] as const
+const SECTION_TINT: Record<string, string> = { Need: '#B8935A', Want: '#CF8F78', Offerings: '#7FA871', Savings: '#8FA3BF' }
 type Section = typeof SECTION_KEYS[number]
 
 interface Entry {
@@ -310,14 +310,18 @@ export default function FinancePage() {
   const currentSavings = totalIncome - totalExpense
   const savingsProgress = savingsTarget > 0 ? Math.min((currentSavings / savingsTarget) * 100, 100) : 0
 
-  // Build entries with running balance
-  const sortedEntries = [...entries].sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime())
+  // Running balance across the FULL history (chronological), displayed newest-first
+  const chronological = [...entries].sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime())
+  const balanceById = new Map<string, number>()
   let runningBalance = 0
-  const entriesWithBalance = sortedEntries.slice(0, 50).map(entry => {
-    if (entry.type === 'income') runningBalance += entry.amount
-    else if (entry.type === 'expense') runningBalance -= entry.amount
-    return { ...entry, balance: runningBalance }
+  chronological.forEach(entry => {
+    if (entry.type === 'income' || entry.type === 'transfer_in') runningBalance += entry.amount
+    else runningBalance -= entry.amount
+    balanceById.set(entry.id, runningBalance)
   })
+  const recentEntries = [...entries]
+    .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
+    .slice(0, 30)
 
   const getPurseIcon = (name: string) => {
     const purse = purses.find(p => p.name === name)
@@ -330,14 +334,73 @@ export default function FinancePage() {
   }
 
   if (loading) {
-    return <div className="p-4">Loading financial data...</div>
+    return (
+    <div className="px-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 pb-24 animate-pulse">
+      <div className="h-7 w-56 rounded bg-white/5" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map(i => <div key={i} className="h-24 rounded-xl bg-white/5" />)}
+      </div>
+      <div className="h-32 rounded-xl bg-white/5" />
+      <div className="h-64 rounded-xl bg-white/5" />
+    </div>
+  )
   }
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 pb-24">
-      <div>
-        <h1 className="text-2xl font-bold mb-1">Finance & Budgeting</h1>
-        <p className="text-sm text-gray-500">Track every naira — income, expenses, and savings.</p>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-display font-bold mb-1 text-parchment">Finance</h1>
+          <p className="text-sm text-parchment/50">Track every naira — income, expenses, and savings.</p>
+        </div>
+        <span className="px-2.5 py-1 rounded-lg bg-black/20 border border-white/10 text-xs font-mono text-parchment/60">
+          {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </span>
+      </div>
+      {/* Overview */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-white/10 bg-surface-solid p-4">
+          <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>📥</span> Income</p>
+          <p className="mt-1 text-xl font-bold font-mono tabular-nums text-[#7fa871]">₦{totalIncome.toFixed(2)}</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-surface-solid p-4">
+          <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>💸</span> Expenses</p>
+          <p className="mt-1 text-xl font-bold font-mono tabular-nums text-[#cf8f78]">₦{totalExpense.toFixed(2)}</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-surface-solid p-4">
+          <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>⚖️</span> Net</p>
+          <p className={`mt-1 text-xl font-bold font-mono tabular-nums ${currentSavings >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}`}>₦{currentSavings.toFixed(2)}</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-surface-solid p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold truncate">🎯 Savings Goal</p>
+            <button onClick={() => { setEditSavings(!editSavings); setSavingsInput(savingsTarget.toString()) }} className="text-[10px] font-bold text-gold hover:text-[#cbaa6f] transition-colors shrink-0">
+              {editSavings ? 'Cancel' : savingsTarget > 0 ? 'Edit' : 'Set'}
+            </button>
+          </div>
+          {editSavings ? (
+            <div className="mt-2 flex items-center gap-1.5">
+              <div className="relative flex-1 min-w-0">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-parchment/40 text-xs">₦</span>
+                <input type="number" step="0.01" value={savingsInput} onChange={(e) => setSavingsInput(e.target.value)}
+                  className="w-full bg-black/20 border border-white/10 rounded-lg py-1.5 pl-6 pr-2 text-xs focus:outline-none focus:ring-2 focus:ring-gold/30" placeholder="500" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleSaveSavingsTarget()} />
+              </div>
+              <button onClick={handleSaveSavingsTarget} className="px-2.5 py-1.5 rounded-lg bg-gold text-ink text-xs font-bold hover:bg-[#cbaa6f] transition-colors shrink-0">Save</button>
+            </div>
+          ) : savingsTarget > 0 ? (
+            <>
+              <p className="mt-1 text-lg font-bold font-mono tabular-nums text-parchment truncate">
+                ₦{Math.max(currentSavings, 0).toFixed(0)} <span className="text-xs text-parchment/40 font-sans">/ ₦{savingsTarget.toFixed(0)}</span>
+              </p>
+              <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-700 ${savingsProgress >= 100 ? 'bg-moss' : 'bg-gold'}`} style={{ width: `${Math.max(savingsProgress, 2)}%` }} />
+              </div>
+              {savingsProgress >= 100 && <p className="mt-1 text-[10px] font-bold text-[#7fa871]">Goal reached ✓</p>}
+            </>
+          ) : (
+            <p className="mt-1 text-xs text-parchment/40">Tap Set to add a monthly target.</p>
+          )}
+        </div>
       </div>
 
       {/* Balance Sheet Overview */}
@@ -346,7 +409,7 @@ export default function FinancePage() {
           <h2 className="text-lg font-semibold">Purses</h2>
           <button
             onClick={() => setShowAddPurse(!showAddPurse)}
-            className="text-sm text-blue-500 hover:underline font-medium"
+            className="text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
           >
             {showAddPurse ? 'Cancel' : '+ Add Purse'}
           </button>
@@ -356,25 +419,25 @@ export default function FinancePage() {
         {showAddPurse && (
           <form onSubmit={handleAddPurse} className="mb-4 p-4 bg-surface-solid border-hairline rounded-xl border border-gold-dim/20 space-y-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Purse Name</label>
+              <label className="block text-xs text-parchment/50 mb-1">Purse Name</label>
               <input
                 type="text"
                 value={newPurseName}
                 onChange={(e) => setNewPurseName(e.target.value)}
                 required
-                className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
                 placeholder="e.g. Emergency Fund, Travel, Business..."
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Icon</label>
+              <label className="block text-xs text-parchment/50 mb-1">Icon</label>
               <div className="flex flex-wrap gap-1.5">
                 {PURSE_ICONS.map(icon => (
                   <button
                     key={icon}
                     type="button"
                     onClick={() => setNewPurseIcon(icon)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-all ${newPurseIcon === icon ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30 scale-110' : 'bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 hover:border-blue-300'}`}
+                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-all ${newPurseIcon === icon ? 'ring-2 ring-gold bg-gold/15 scale-110' : 'bg-black/20 border border-white/10 hover:border-white/25'}`}
                   >
                     {icon}
                   </button>
@@ -382,14 +445,14 @@ export default function FinancePage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Color</label>
+              <label className="block text-xs text-parchment/50 mb-1">Color</label>
               <div className="flex flex-wrap gap-1.5">
                 {PURSE_COLORS.map(color => (
                   <button
                     key={color}
                     type="button"
                     onClick={() => setNewPurseColor(color)}
-                    className={`w-8 h-8 rounded-lg transition-all ${newPurseColor === color ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`}
+                    className={`w-8 h-8 rounded-lg transition-all ${newPurseColor === color ? 'ring-2 ring-offset-2 ring-ink ring-parchment/60 scale-110' : ''}`}
                     style={{ backgroundColor: color }}
                   />
                 ))}
@@ -398,7 +461,7 @@ export default function FinancePage() {
             <button
               type="submit"
               disabled={addPurseLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="w-full bg-gold text-ink hover:bg-[#cbaa6f] font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
             >
               {addPurseLoading ? 'Creating...' : 'Create Purse'}
             </button>
@@ -412,7 +475,7 @@ export default function FinancePage() {
             return (
               <div
                 key={purse.id}
-                className="relative group rounded-xl border p-4 text-white transition-all "
+                className="relative group rounded-xl p-4 text-white transition-all shadow-lg shadow-black/20"
                 style={{ backgroundColor: purse.color }}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -420,14 +483,14 @@ export default function FinancePage() {
                   {purses.length > 1 && (
                     <button
                       onClick={() => setDeleteConfirm(deleteConfirm === purse.id ? null : purse.id)}
-                      className="text-white/60 hover:text-white text-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="text-white/70 hover:text-white text-base leading-none transition-opacity"
                     >
                       ✕
                     </button>
                   )}
                 </div>
-                <div className="text-xs text-white/80 mb-1">{purse.name}</div>
-                <div className="text-lg font-bold">₦{balance.toFixed(2)}</div>
+                <div className="text-[10px] uppercase tracking-wider font-bold text-white/85 mb-1">{purse.name}</div>
+                <div className="text-xl font-bold font-mono tabular-nums">₦{balance.toFixed(2)}</div>
 
                 {/* Delete confirmation */}
                 {deleteConfirm === purse.id && (
@@ -457,61 +520,16 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {/* Start of Month: Add Money to Sections */}
-      <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <span>📋</span> Start of Month Allocation
-            </h2>
-            <p className="text-xs text-gray-500 mt-1">
-              Assign money to each section for the month of {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
-              Allocated: <span className="font-semibold text-parchment">₦{totalAllocated.toFixed(2)}</span>
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {SECTION_KEYS.map(section => {
-            const allocated = sectionAllocations[section]
-            const spent = sectionSpending[section]
-            const remaining = allocated - spent
-            const pct = allocated > 0 ? Math.min((spent / allocated) * 100, 100) : 0
-            return (
-              <div key={section} className={`p-4 rounded-xl border ${section === 'Need' ? 'border-blue-200 bg-blue-50/50 dark:bg-blue-900/5 dark:border-blue-800' :
-                section === 'Want' ? 'border-amber-200 bg-amber-50/50 dark:bg-amber-900/5 dark:border-amber-800' :
-                  section === 'Offerings' ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/5 dark:border-emerald-800' :
-                    'border-purple-200 bg-purple-50/50 dark:bg-purple-900/5 dark:border-purple-800'
-                }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span>{getSectionIcon(section)}</span>
-                    <span className="font-semibold text-sm">{section}</span>
-                  </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${allocated > 0 ? 'bg-moss/15 text-[#7fa871] dark:bg-green-900/30 dark:text-[#7fa871]' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
-                    ₦{allocated.toFixed(0)}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-2">
-                  <div
-                    className={`h-1.5 rounded-full ${remaining < 0 ? 'bg-ember' : pct > 85 ? 'bg-yellow-500' : section === 'Need' ? 'bg-blue-500' : section === 'Want' ? 'bg-amber-500' : section === 'Offerings' ? 'bg-emerald-500' : 'bg-purple-500'}`}
-                    style={{ width: `${Math.max(pct, 2)}%` }}
-                  ></div>
-                </div>
-                <div className="text-[10px] text-gray-500 flex justify-between">
-                  <span>₦{spent.toFixed(0)} spent</span>
-                  <span>{remaining >= 0 ? `₦${remaining.toFixed(0)} left` : `₦${Math.abs(remaining).toFixed(0)} over`}</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Section Budgets (Need, Want, Offerings, Savings) */}
       <div>
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <span>📊</span> Budget by Sections
-        </h2>
+        <div className="flex items-end justify-between gap-3 flex-wrap mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <span>📊</span> Budget by Sections
+          </h2>
+          <p className="text-xs text-parchment/40 font-mono">
+            Allocated ₦{totalAllocated.toFixed(0)} · Spent ₦{Object.values(sectionSpending).reduce((s: number, v: number) => s + v, 0).toFixed(0)}
+          </p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {SECTION_KEYS.map(section => (
             <SectionBudgetCard
@@ -538,7 +556,7 @@ export default function FinancePage() {
           <h2 className="text-lg font-semibold">🔄 Transfer Between Purses</h2>
           <button
             onClick={() => setShowTransfer(!showTransfer)}
-            className="text-sm text-blue-500 hover:underline"
+            className="text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
           >
             {showTransfer ? 'Cancel' : 'Transfer'}
           </button>
@@ -548,11 +566,11 @@ export default function FinancePage() {
           <form onSubmit={handleTransfer} className="space-y-3">
             <div className="flex gap-3 items-end">
               <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">From</label>
+                <label className="block text-xs text-parchment/50 mb-1">From</label>
                 <select
                   value={transferFrom}
                   onChange={(e) => setTransferFrom(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm"
                 >
                   {purses.map(p => (
                     <option key={p.id} value={p.name}>
@@ -563,11 +581,11 @@ export default function FinancePage() {
               </div>
               <div className="w-8 text-center text-parchment/40 pb-2">→</div>
               <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">To</label>
+                <label className="block text-xs text-parchment/50 mb-1">To</label>
                 <select
                   value={transferTo}
                   onChange={(e) => setTransferTo(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm"
                 >
                   {purses.filter(p => p.name !== transferFrom).map(p => (
                     <option key={p.id} value={p.name}>
@@ -580,7 +598,7 @@ export default function FinancePage() {
 
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">Amount</label>
+                <label className="block text-xs text-parchment/50 mb-1">Amount</label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-parchment/40">₦</span>
                   <input
@@ -589,18 +607,18 @@ export default function FinancePage() {
                     value={transferAmount}
                     onChange={(e) => setTransferAmount(e.target.value)}
                     required
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 pl-7 pr-3 text-sm"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-7 pr-3 text-sm"
                     placeholder="0.00"
                   />
                 </div>
               </div>
               <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">Note (Optional)</label>
+                <label className="block text-xs text-parchment/50 mb-1">Note (Optional)</label>
                 <input
                   type="text"
                   value={transferDesc}
                   onChange={(e) => setTransferDesc(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                  className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm"
                   placeholder="e.g. Building savings"
                 />
               </div>
@@ -609,7 +627,7 @@ export default function FinancePage() {
             <button
               type="submit"
               disabled={transferLoading || transferFrom === transferTo}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="w-full bg-gold text-ink hover:bg-[#cbaa6f] font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
             >
               {transferLoading ? 'Transferring...' : `Transfer ${transferFrom ? getPurseIcon(transferFrom) : ''} → ${transferTo ? getPurseIcon(transferTo) : ''}`}
             </button>
@@ -617,68 +635,8 @@ export default function FinancePage() {
         )}
       </div>
 
-      {/* Savings Target */}
-      <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">🎯 Monthly Savings Goal</h2>
-          {!editSavings ? (
-            <button
-              onClick={() => { setEditSavings(true); setSavingsInput(savingsTarget.toString()) }}
-              className="text-sm text-blue-500 hover:underline"
-            >
-              {savingsTarget > 0 ? 'Edit' : 'Set Goal'}
-            </button>
-          ) : null}
-        </div>
-
-        {editSavings ? (
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-xs">
-              <span className="absolute left-3 top-2.5 text-parchment/40">₦</span>
-              <input
-                type="number"
-                step="0.01"
-                value={savingsInput}
-                onChange={(e) => setSavingsInput(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="500.00"
-                autoFocus
-              />
-            </div>
-            <button onClick={handleSaveSavingsTarget} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
-            <button onClick={() => setEditSavings(false)} className="text-sm text-gray-500 hover:underline">Cancel</button>
-          </div>
-        ) : (
-          <div>
-            {savingsTarget > 0 ? (
-              <div>
-                <div className="flex justify-between items-end mb-1">
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    <span className="font-semibold text-purple-600">₦{Math.min(currentSavings, savingsTarget).toFixed(2)}</span> saved of <span className="font-semibold">₦{savingsTarget.toFixed(2)}</span>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    ₦{Math.max(savingsTarget - currentSavings, 0).toFixed(2)} remaining
-                  </div>
-                </div>
-                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                  <div
-                    className={`h-3 rounded-full ${savingsProgress >= 100 ? 'bg-moss/100' : savingsProgress >= 50 ? 'bg-purple-500' : 'bg-blue-500'}`}
-                    style={{ width: `${Math.max(savingsProgress, 2)}%` }}
-                  ></div>
-                </div>
-                {currentSavings >= savingsTarget && (
-                  <p className="text-xs text-[#7fa871] mt-2 font-medium">✓ Savings goal reached this month!</p>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 italic">Set a monthly savings target to track your progress.</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+<div className="space-y-6">
           {/* Add Transaction */}
           <div>
             <h2 className="text-lg font-semibold mb-3">Add Transaction</h2>
@@ -690,7 +648,7 @@ export default function FinancePage() {
             <h2 className="text-lg font-semibold mb-3">All Budgets Overview</h2>
             <div className="space-y-3">
               {budgets.length === 0 ? (
-                <div className="text-sm text-gray-500 italic p-4 bg-gray-50 dark:bg-gray-900 rounded-xl">
+                <div className="text-sm text-parchment/50 italic p-4 bg-black/20 rounded-xl">
                   No budgets set for {currentMonth}. Use the section cards above to assign every naira a job!
                 </div>
               ) : (
@@ -706,96 +664,79 @@ export default function FinancePage() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Transactions Table with Running Balance */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3">Transactions Ledger</h2>
-          <div className="bg-surface-solid border-hairline rounded-xl border border-gold-dim/20 overflow-hidden">
-            {entries.length === 0 ? (
-              <div className="p-6 text-sm text-gray-500 text-center">No transactions yet. Add your first one!</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                      <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Date</th>
-                      <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Description</th>
-                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Debit (₦)</th>
-                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Credit (₦)</th>
-                      <th className="text-right p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Balance (₦)</th>
-                      <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Purse</th>
-                      <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Section</th>
-                      <th className="text-left p-3 font-semibold text-gray-600 dark:text-gray-300 text-xs uppercase tracking-wider">Comments</th>
-                      <th className="p-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {entriesWithBalance.map(entry => (
-                      <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                        <td className="p-3 whitespace-nowrap text-xs text-gray-500">
-                          {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+{/* Ledger */}
+      <div>
+        <div className="flex items-end justify-between gap-3 flex-wrap mb-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <span>🧾</span> Ledger
+          </h2>
+          <p className="text-xs text-parchment/40 font-mono">{entries.length} transactions · newest first</p>
+        </div>
+        <div className="bg-surface-solid border border-white/10 rounded-xl overflow-hidden">
+          {entries.length === 0 ? (
+            <div className="p-6 text-sm text-parchment/40 text-center">No transactions yet. Add your first one above.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead>
+                  <tr className="border-b border-white/10 bg-black/20">
+                    <th className="text-left p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Date</th>
+                    <th className="text-left p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Transaction</th>
+                    <th className="text-left p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Purse</th>
+                    <th className="text-right p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Amount</th>
+                    <th className="text-right p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Balance</th>
+                    <th className="p-3 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {recentEntries.map(entry => {
+                    const isCredit = entry.type === 'income' || entry.type === 'transfer_in'
+                    return (
+                      <tr key={entry.id} className="hover:bg-white/[0.03] transition-colors group">
+                        <td className="p-3 whitespace-nowrap text-xs text-parchment/40 font-mono">
+                          {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </td>
                         <td className="p-3">
-                          <div className="font-medium text-parchment">{entry.description || entry.category}</div>
-                          <div className="text-xs text-parchment/40">
-                            {entry.category}
-                            {entry.priority && <span className="ml-1.5 text-[10px] px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">({entry.priority})</span>}
+                          <div className="font-medium text-parchment truncate max-w-[280px]">{entry.description || entry.category}</div>
+                          <div className="text-[11px] text-parchment/40 flex items-center gap-1.5 mt-0.5 min-w-0">
+                            <span className="truncate">{entry.category}</span>
+                            {entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) && (
+                              <span className="px-1 py-px rounded text-[9px] font-bold shrink-0"
+                                style={{ backgroundColor: `${SECTION_TINT[entry.priority]}22`, color: SECTION_TINT[entry.priority] }}>
+                                {entry.priority}
+                              </span>
+                            )}
                           </div>
                         </td>
-                        <td className="p-3 text-right font-medium text-[#cf8f78] whitespace-nowrap">
-                          {entry.type === 'expense' || entry.type === 'transfer_out' ? `₦${entry.amount.toFixed(2)}` : '-'}
-                        </td>
-                        <td className="p-3 text-right font-medium text-[#7fa871] whitespace-nowrap">
-                          {entry.type === 'income' || entry.type === 'transfer_in' ? `₦${entry.amount.toFixed(2)}` : '-'}
-                        </td>
-                        <td className="p-3 text-right font-semibold whitespace-nowrap">
-                          <span className={entry.balance >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}>
-                            ₦{entry.balance.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="p-3 text-xs">
-                          <span
-                            className="px-1.5 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1"
-                            style={{
-                              backgroundColor: `${getPurseColor(entry.purse)}20`,
-                              color: getPurseColor(entry.purse),
-                            }}
-                          >
+                        <td className="p-3">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap"
+                            style={{ backgroundColor: `${getPurseColor(entry.purse)}22`, color: getPurseColor(entry.purse) }}>
                             {getPurseIcon(entry.purse)} {entry.purse}
                           </span>
                         </td>
-                        <td className="p-3 text-xs">
-                          {entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) ? (
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-parchment' :
-                              entry.priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                                entry.priority === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                  'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                              }`}>
-                              {entry.priority === 'Need' ? '💪' : entry.priority === 'Want' ? '🌟' : entry.priority === 'Offerings' ? '🙏' : '🏦'} {entry.priority}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-parchment/40">-</span>
-                          )}
+                        <td className={`p-3 text-right font-mono tabular-nums whitespace-nowrap font-medium ${isCredit ? 'text-[#7fa871]' : 'text-[#cf8f78]'}`}>
+                          {isCredit ? '+' : '−'}₦{entry.amount.toFixed(2)}
                         </td>
-                        <td className="p-3 text-xs text-gray-500 max-w-[120px] truncate">
-                          {entry.comments || '-'}
+                        <td className="p-3 text-right font-mono tabular-nums text-parchment/80 whitespace-nowrap">
+                          ₦{(balanceById.get(entry.id) ?? 0).toFixed(2)}
                         </td>
                         <td className="p-3 text-right">
-                          <button onClick={() => handleDeleteEntry(entry.id)} className="text-parchment/40 hover:text-[#cf8f78] text-lg leading-none">
-                            ×
-                          </button>
+                          <button onClick={() => handleDeleteEntry(entry.id)} aria-label="Delete transaction"
+                            className="w-7 h-7 rounded-lg text-parchment/30 hover:text-[#cf8f78] hover:bg-ember/10 transition-colors leading-none opacity-100 lg:opacity-0 lg:group-hover:opacity-100">×</button>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-          {entries.length > 50 && (
-            <p className="text-xs text-gray-500 mt-2 text-center">Showing 50 of {entries.length} transactions</p>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
+        {entries.length > 30 && (
+          <p className="text-xs text-parchment/40 mt-2 text-center">Showing latest 30 of {entries.length} transactions.</p>
+        )}
       </div>
     </div>
   )

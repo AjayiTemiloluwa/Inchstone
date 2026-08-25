@@ -128,7 +128,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+    <form onSubmit={handleSubmit} className="space-y-4 bg-surface-solid p-4 rounded-xl border border-white/10">
       {error && (
         <div className="p-3 bg-ember/10 dark:bg-ember/20 border border-ember/30 dark:border-ember/40 rounded-lg text-xs text-[#cf8f78] dark:text-[#cf8f78]">
           {error}
@@ -149,7 +149,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
             // Restore the previously selected expense purse if any
             if (lastExpensePurse) setPurse(lastExpensePurse)
           }}
-          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'expense' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-[#cf8f78] ring-2 ring-red-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'expense' ? 'bg-ember/15 text-[#cf8f78] ring-2 ring-ember/40' : 'bg-black/20 text-parchment/50'}`}
         >
           💸 Expense (Debit)
         </button>
@@ -161,7 +161,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
             setType('income')
             setPurse('Main')
           }}
-          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'income' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-[#7fa871] ring-2 ring-green-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'income' ? 'bg-moss/15 text-[#7fa871] ring-2 ring-moss/40' : 'bg-black/20 text-parchment/50'}`}
         >
           📥 Income (Credit)
         </button>
@@ -169,28 +169,28 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
 
       {/* Date */}
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Date</label>
+        <label className="block text-xs text-parchment/50 mb-1">Date</label>
         <input
           type="date"
           value={entryDate}
           onChange={(e) => setEntryDate(e.target.value)}
           required
-          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
         />
       </div>
 
       {/* Amount */}
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Amount</label>
+        <label className="block text-xs text-parchment/50 mb-1">Amount</label>
         <div className="relative">
-          <span className="absolute left-3 top-2.5 text-gray-400">₦</span>
+          <span className="absolute left-3 top-2.5 text-parchment/40">₦</span>
           <input
             type="number"
             step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             required
-            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
             placeholder="0.00"
           />
         </div>
@@ -198,7 +198,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
 
       {/* Category */}
       <div className="relative">
-        <label className="block text-xs text-gray-500 mb-1">Category</label>
+        <label className="block text-xs text-parchment/50 mb-1">Category</label>
         <input
           type="text"
           value={category}
@@ -209,11 +209,11 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
           required
-          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
           placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe...' : 'e.g. Salary, Freelance...'}
         />
         {showSuggestions && category.length > 0 && filteredSuggestions.length > 0 && (
-          <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg  max-h-48 overflow-y-auto">
+          <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-[#16120f] border border-white/10 rounded-lg max-h-48 overflow-y-auto">
             {filteredSuggestions.map(s => (
               <button
                 key={s.label}
@@ -222,7 +222,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
                   setCategory(s.label)
                   setShowSuggestions(false)
                 }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-white/5 flex items-center gap-2"
               >
                 <span>{s.icon}</span>
                 <span>{s.label}</span>
@@ -233,7 +233,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
         {/* Quick Category Pills */}
         {categorySuggestions.length > 0 && (
           <div className="mt-2">
-            <label className="block text-xs text-gray-400 mb-1">Quick Select (tap to fill)</label>
+            <label className="block text-xs text-parchment/40 mb-1">Quick Select (tap to fill)</label>
             <div className="flex flex-wrap gap-1.5">
               {categorySuggestions.slice(0, 6).map(s => (
                 <button
@@ -241,8 +241,8 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
                   type="button"
                   onClick={() => setCategory(s.label)}
                   className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${category === s.label
-                    ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700 dark:text-parchment'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
+                    ? 'bg-gold/15 border-gold/40 text-gold'
+                    : 'bg-black/20 border-white/10 text-parchment/50 hover:border-white/25'
                     }`}
                 >
                   {s.icon} {s.label.split(' ')[0]}
@@ -255,38 +255,38 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
 
       {/* Description */}
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Description</label>
+        <label className="block text-xs text-parchment/50 mb-1">Description</label>
         <input
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
           placeholder="What was this for?"
         />
       </div>
 
       {/* Comments */}
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Comments (Optional)</label>
+        <label className="block text-xs text-parchment/50 mb-1">Comments (Optional)</label>
         <textarea
           value={comments}
           onChange={(e) => setComments(e.target.value)}
           rows={2}
-          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
           placeholder="Any notes about this transaction..."
         />
       </div>
 
       {/* Purse selector */}
       <div>
-        <label className="block text-xs text-gray-500 mb-1">
-          Purse {type === 'income' && <span className="text-gray-400">(income always goes to Main)</span>}
+        <label className="block text-xs text-parchment/50 mb-1">
+          Purse {type === 'income' && <span className="text-parchment/40">(income always goes to Main)</span>}
         </label>
         <select
           value={purse}
           onChange={(e) => setPurse(e.target.value)}
           disabled={type === 'income'}
-          className={`w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${type === 'income' ? 'opacity-60 cursor-not-allowed' : ''}`}
+          className={`w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 ${type === 'income' ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
           {purses.map(p => (
             <option key={p.id} value={p.name}>
@@ -295,7 +295,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
           ))}
         </select>
         {type === 'income' && (
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-parchment/40 mt-1">
             All income is deposited into the 👜 Main purse. Use transfers to move funds to other purses.
           </p>
         )}
@@ -304,33 +304,33 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
       {/* Section selector for expenses */}
       {type === 'expense' && (
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Section (Budget Category)</label>
+          <label className="block text-xs text-parchment/50 mb-1">Section (Budget Category)</label>
           <div className="flex gap-1.5">
             <button
               type="button"
               onClick={() => setSection('Need')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-parchment ring-2 ring-blue-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Need' ? 'bg-[#B8935A]/15 text-[#B8935A] ring-2 ring-[#B8935A]/40' : 'bg-black/20 text-parchment/50'}`}
             >
               💪 Need
             </button>
             <button
               type="button"
               onClick={() => setSection('Want')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 ring-2 ring-amber-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Want' ? 'bg-[#CF8F78]/15 text-[#CF8F78] ring-2 ring-[#CF8F78]/40' : 'bg-black/20 text-parchment/50'}`}
             >
               🌟 Want
             </button>
             <button
               type="button"
               onClick={() => setSection('Offerings')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 ring-2 ring-emerald-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Offerings' ? 'bg-[#7FA871]/15 text-[#7FA871] ring-2 ring-[#7FA871]/40' : 'bg-black/20 text-parchment/50'}`}
             >
               🙏 Offerings
             </button>
             <button
               type="button"
               onClick={() => setSection('Savings')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Savings' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 ring-2 ring-purple-500' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
+              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Savings' ? 'bg-[#8FA3BF]/15 text-[#8FA3BF] ring-2 ring-[#8FA3BF]/40' : 'bg-black/20 text-parchment/50'}`}
             >
               🏦 Savings
             </button>
@@ -341,7 +341,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+        className="w-full bg-gold text-ink hover:bg-[#cbaa6f] font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
       >
         {loading ? 'Adding...' : `Add to ${getPurseIcon(purse)} ${purse || 'Purse'}`}
       </button>
