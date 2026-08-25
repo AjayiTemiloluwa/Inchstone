@@ -1079,7 +1079,8 @@ export default function DayPage() {
             </div>
           ) : (
             <div className="glass rounded-[8px] overflow-hidden border border-white/10 animate-fadeIn">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-black/20">
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Time</th>
@@ -1147,6 +1148,7 @@ export default function DayPage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
           {allTasks.filter(t => !t.startTime && !t.isHabit).length > 0 && viewMode === 'timeline' && (
@@ -1212,7 +1214,7 @@ export default function DayPage() {
                       {task.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
                     </button>
                     <span className="text-[9px] font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full shrink-0 uppercase">Frog #{idx + 1}</span>
-                    <span className={`flex-1 text-sm font-medium truncate ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
+                    <span className={`flex-1 min-w-0 text-sm font-medium truncate ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
                     {task.startTime && <span className="text-[10px] font-mono text-ink/40 shrink-0">{format(new Date(task.startTime), 'h:mm a')}</span>}
                     <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] shrink-0" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1350,7 +1352,7 @@ export default function DayPage() {
 {/* Daily Tracker — now the unified Habit Tracker */}
       <Card className="p-4 sm:p-5 border border-gold/30">
         <div className="relative z-10">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 mb-4">
             <div>
               <h2 className="text-xl font-display font-bold text-ink flex items-center space-x-2">
                 <Activity className="w-5 h-5 text-gold" />
@@ -1358,7 +1360,7 @@ export default function DayPage() {
               </h2>
               <p className="text-xs text-ink/60 mt-1">Track your daily habits. Each habit repeats every day once created.</p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <input
                 type="text"
                 value={newHabitTitle}
@@ -1371,7 +1373,7 @@ export default function DayPage() {
                   }
                 }}
                 placeholder="New habit..."
-                className="px-3 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 w-40"
+                className="px-3 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 flex-1 min-w-[140px] sm:flex-none sm:w-40"
               />
               <select
                 value={newHabitPattern}
@@ -1405,7 +1407,7 @@ export default function DayPage() {
           <div className="space-y-2 mb-6">
             {(todayHabits.length > 0 ? todayHabits : habitTasks).map((task: any) => (
               <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
-                <div className="flex items-center space-x-3 flex-1">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <button onClick={async () => {
                     // Toggle via API directly since habit may not be in the goal's task list
                     await fetch(`/api/tasks/${task.id}`, {
@@ -1418,7 +1420,7 @@ export default function DayPage() {
                   }} className="shrink-0">
                     {task.completed ? <CheckCircle2 className="w-5 h-5 text-sage" /> : <Circle className="w-5 h-5 text-ink/30" />}
                   </button>
-                  <span className={`font-bold text-sm ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
+                  <span className={`min-w-0 flex-1 truncate font-bold text-sm ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
                 </div>
                 <div className="relative">
                   <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78]" title="Delete">
@@ -1464,7 +1466,7 @@ export default function DayPage() {
             return (
               <div className="mt-6 pt-4 border-t border-white/10">
                 {/* Range selector */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
                   <div className="flex items-center space-x-2">
                     <BarChart3 className="w-4 h-4 text-gold" />
                     <h3 className="text-xs font-bold uppercase text-ink/50">Habit Completion</h3>

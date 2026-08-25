@@ -63,11 +63,22 @@ html {
   background: var(--bg);
   color: var(--fg);
   -webkit-text-size-adjust: 100%;
+  /* Mobile fit: never allow horizontal panning / empty space to the right.
+     `clip` avoids turning the page into a scroll container (keeps position:sticky
+     working); `hidden` is the fallback for older browsers. */
+  overflow-x: hidden;
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+  /* Long unbroken strings (IDs, emails, URLs) wrap instead of stretching layout */
+  overflow-wrap: break-word;
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -1348,6 +1359,7 @@ body.mobile-menu-open .main-content-wrapper {
   inset: 0;
   z-index: 70; /* above app chrome, below OS-level portals */
   pointer-events: none;
+  overflow: hidden; /* halo/core may extend past the viewport — never let them widen the page */
   /* Blend the whole group with the page beneath it. Must live on the container:
      fixed + z-index makes this a stacking context, so child-level blend modes
      would be isolated from the page and never light up the UI. */
