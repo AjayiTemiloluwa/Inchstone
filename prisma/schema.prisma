@@ -283,3 +283,107 @@ model SectionAllocation {
 
   @@unique([userId, section, month])
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Long-Term Plans module (Plan → Section → Goal → Milestone)
+// ─────────────────────────────────────────────────────────────────
+
+model LongTermPlan {
+  id            String   @id @default(uuid())
+  userId        String
+  title         String
+  startMonth    String // "YYYY-MM"
+  endMonth      String // "YYYY-MM" — actual duration control (§2)
+  anchorNote    String? // guiding phrase / mission statement
+  reviewCadence String   @default("monthly") // weekly | monthly | quarterly | biannual | annual
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sections       PlanSection[]
+  reviewSessions ReviewSession[]
+
+  @@index([userId])
+}
+
+model PlanSection {
+  id          String       @id @default(uuid())
+  userId      String
+  planId      String
+  plan        LongTermPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  orderIndex  Int          @default(0)
+
+  goals PlanGoal[]
+
+  @@index([userId, planId])
+}
+
+model PlanGoal {
+  id        String      @id @default(uuid())
+  userId    String
+  sectionId String
+  section   PlanSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  // Six PDP fields — nullable because Goals may be saved as drafts (§3)
+  overallGoal            String?
+  developmentOpportunity String?
+  actionsPlanned         String?
+  resourcesAndSupport    String?
+  successCriteria        String?
+  targetDate             DateTime
+
+  startDate DateTime // Gantt bar start; defaults to Plan.start_month
+  status    String   @default("not_started") // not_started | in_progress | at_risk | achieved
+
+  isDraft    Boolean @default(false) // saved with fewer than all 6 fields
+  archived   Boolean @default(false)
+  orderIndex Int     @default(0)
+
+  // Optional link into the existing single-year tracker (§8, additive only)
+  linkedItemId String?
+
+  milestones PlanMilestone[]
+
+  @@index([userId, sectionId])
+  @@index([linkedItemId])
+}
+
+model PlanMilestone {
+  id           String   @id @default(uuid())
+  userId       String
+  goalId       String
+  goal         PlanGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title        String
+  targetDate   DateTime // must sit between goal.startDate and goal.targetDate (§4)
+  status       String   @default("not_started")
+  notes        String?
+  linkedItemId String?
+
+  @@index([userId, goalId])
+}
+
+model StatusLogEntry {
+  id         String   @id @default(uuid())
+  userId     String
+  parentType String // goal | milestone
+  parentId   String
+  oldStatus  String?
+  newStatus  String
+  note       String?
+  loggedAt   DateTime @default(now())
+
+  @@index([parentType, parentId])
+  @@index([userId])
+}
+
+model ReviewSession {
+  id          String       @id @default(uuid())
+  userId      String
+  planId      String
+  plan        LongTermPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  conductedAt DateTime     @default(now())
+  summaryNote String?
+
+  @@index([userId, planId])
+}

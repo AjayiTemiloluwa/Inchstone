@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Compass } from 'lucide-react'
+import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Compass, Target } from 'lucide-react'
 import { useState } from 'react'
 
 export function BottomNav() {
@@ -18,6 +18,7 @@ export function BottomNav() {
   ]
 
   const moreLinks = [
+    { name: 'Long-Term Plans', href: '/plans', icon: Target, desc: 'Goals across months, years & decades' },
     { name: 'Notes', href: '/notes', icon: FileText, desc: 'Notes & journal entries' },
     { name: 'Partners', href: '/partners', icon: Users, desc: 'Accountability partners & messaging' },
     { name: 'Reports', href: '/reports', icon: BarChart3, desc: 'Progress reports & analytics' },
