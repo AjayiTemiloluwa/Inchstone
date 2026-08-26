@@ -10,6 +10,8 @@ import {
 } from 'date-fns'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
 import { DayPanel } from '@/components/ui/DayPanel'
+import { Scramble } from '@/components/ui/motion'
+import { Loader } from '@/components/ui/Loader'
 
 export default function CalendarPage() {
   const { items, completionMap, setItems, getFlatItems } = useHierarchyStore()
@@ -82,6 +84,7 @@ export default function CalendarPage() {
   const monthlyMilestones = getMonthlyMilestones()
   const totalDeedCount = flatItems.filter(i => i.layer === 5).length
   const completedDeedCount = flatItems.filter(i => i.layer === 5 && (completionMap[i.id] || 0) >= 100).length
+  const completionPct = totalDeedCount > 0 ? Math.round((completedDeedCount / totalDeedCount) * 100) : 0
 
   const navigate = (dir: 'prev' | 'next') => {
     setCurrentMonth(dir === 'next' ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1))
@@ -139,7 +142,7 @@ export default function CalendarPage() {
     setPullDistance(0)
   }
 
-  if (loading) return <div className="flex items-center justify-center h-full"><span className="text-ink/60">Loading...</span></div>
+  if (loading) return <Loader label="Spawning the calendar grid…" />
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const monthLabel = format(currentMonth, 'MMMM yyyy')
@@ -155,30 +158,28 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Mobile Month Navigator - sticky header on mobile */}
-      <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-mist bg-surface/95 backdrop-blur-sm">
+      {/* Month header — mobile (stats built in, tap label for today) */}
+      <div className="lg:hidden sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-3 border-b border-mist bg-surface/95 backdrop-blur-sm">
         <button
           onClick={() => navigate('prev')}
-          className="p-2.5 -ml-2 active:opacity-70 transition-all touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-2.5 -ml-2 active:opacity-70 transition-all touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-mist/40"
           aria-label="Previous month"
         >
-          <ChevronLeft className="w-6 h-6 text-ink/70" />
+          <ChevronLeft className="w-5 h-5 text-ink/70" />
         </button>
-        <div className="text-center flex-1">
-          <h2 className="text-lg font-display font-bold text-ink">{monthLabel}</h2>
-          <button
-            onClick={goToToday}
-            className="text-xs text-gold font-semibold mt-0.5 active:opacity-70 transition px-3 py-1 rounded-full hover:bg-gold/10"
-          >
-            Today
-          </button>
-        </div>
+        <button onClick={goToToday} className="text-center min-w-0 flex-1 group" title="Jump to today">
+          <h2 className="text-lg font-display font-bold text-ink truncate group-hover:text-gold transition-colors"><Scramble text={monthLabel} className="text-ink" /></h2>
+          <p className="font-mono text-[10px] text-ink/45 tabular-nums">
+            {totalDeedCount} deeds · {completedDeedCount} done · {completionPct}%
+            {!isSameMonth(currentMonth, new Date()) && <span className="text-gold ml-1">· today ↺</span>}
+          </p>
+        </button>
         <button
           onClick={() => navigate('next')}
-          className="p-2.5 -mr-2 active:opacity-70 transition-all touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-2.5 -mr-2 active:opacity-70 transition-all touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-mist/40"
           aria-label="Next month"
         >
-          <ChevronRight className="w-6 h-6 text-ink/70" />
+          <ChevronRight className="w-5 h-5 text-ink/70" />
         </button>
       </div>
 
@@ -271,30 +272,13 @@ export default function CalendarPage() {
               Today
             </button>
           </div>
-          <div className="text-sm text-ink/60">
-            {totalDeedCount} deeds this month
-          </div>
-        </div>
-
-        {/* Mobile stats bar */}
-        <div className="lg:hidden px-4 py-2 bg-surface/50 border-b border-mist/50">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center space-x-4">
-              <div>
-                <span className="text-ink/50">Total:</span>
-                <span className="font-semibold ml-1">{totalDeedCount}</span>
-              </div>
-              <div>
-                <span className="text-ink/50">Done:</span>
-                <span className="font-semibold ml-1 text-sage">{completedDeedCount}</span>
-              </div>
-              <div>
-                <span className="text-ink/50">Score:</span>
-                <span className="font-semibold ml-1 text-gold">
-                  {totalDeedCount > 0 ? Math.round((completedDeedCount / totalDeedCount) * 100) : 0}%
-                </span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-sm text-ink/60">{totalDeedCount} deeds</span>
+            <span className={`px-2 py-0.5 rounded-full font-mono text-xs font-bold ${
+              completionPct >= 80 ? 'bg-sage/15 text-[#7fa871]' : completionPct >= 40 ? 'bg-gold/15 text-gold' : 'bg-ember/15 text-[#cf8f78]'
+            }`}>
+              {completionPct}%
+            </span>
           </div>
         </div>
 
@@ -310,11 +294,11 @@ export default function CalendarPage() {
           <div className="w-full min-w-0 lg:min-w-[480px]">
             <div className="grid grid-cols-7 mb-1 lg:mb-2">
               {weekDays.map(d => (
-                <div key={d} className="text-center text-[10px] lg:text-xs font-semibold text-ink/50 uppercase tracking-wider py-1.5 lg:py-2">{d}</div>
+                <div key={d} className="text-center text-[10px] lg:text-xs font-semibold text-ink/50 uppercase tracking-wider py-1.5 lg:py-2"><span className="sm:hidden">{d[0]}</span><span className="hidden sm:inline">{d}</span></div>
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-0.5 lg:gap-px bg-mist/30 rounded-xl lg:rounded-[8px] overflow-hidden border border-mist/30">
+            <div key={format(currentMonth, 'yyyy-MM')} className="grid grid-cols-7 gap-0.5 lg:gap-px bg-mist/30 rounded-xl lg:rounded-[8px] overflow-hidden border border-mist/30">
               {monthDates.map((date, i) => {
                 const inMonth = isSameMonth(date, currentMonth)
                 const isSelected = selectedDay && isSameDay(date, selectedDay)
@@ -328,8 +312,9 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={i}
-                    className={`
-                      min-h-[60px] lg:min-h-[110px] bg-surface p-1 lg:p-2 border-b border-r border-mist/20
+                    style={{ animationDelay: `${Math.min(i * 12, 380)}ms` }}
+                    className={`cal-pop
+                      min-h-[52px] sm:min-h-[76px] lg:min-h-[110px] bg-surface p-1 sm:p-1.5 lg:p-2 border-b border-r border-mist/20
                       transition-all duration-200 cursor-pointer
                       active:opacity-70 active:bg-mist/20 touch-manipulation
                       ${!inMonth ? 'opacity-30 lg:opacity-40' : ''}
@@ -340,16 +325,29 @@ export default function CalendarPage() {
                   >
                     <div className="flex items-start justify-between mb-0.5 lg:mb-1">
                       <div className={`
-                        text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full
+                        text-xs sm:text-sm font-semibold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full
                         transition-colors
                         ${today ? 'bg-gold text-surface' : 'text-ink'}
                       `}>
                         {format(date, 'd')}
                       </div>
                       {dayDeeds.length > 0 && (
-                        <div className="text-[10px] font-mono text-ink/50">{dayCompleted}/{dayDeeds.length}</div>
+                        <div className="hidden sm:block text-[10px] font-mono text-ink/50">{dayCompleted}/{dayDeeds.length}</div>
                       )}
                     </div>
+
+                    {/* Mobile: status dots (one per deed) */}
+                    {dayDeeds.length > 0 && (
+                      <div className="flex items-center flex-wrap gap-1 mt-1 sm:hidden min-h-[6px]">
+                        {dayDeeds.slice(0, 4).map(deed => {
+                          const pct = completionMap[deed.id] || 0
+                          return <span key={deed.id} className={`w-1.5 h-1.5 rounded-full ${pct >= 100 ? 'bg-sage' : pct > 0 ? 'bg-gold' : 'bg-mist'}`} />
+                        })}
+                        {dayDeeds.length > 4 && (
+                          <span className="text-[8px] font-mono text-ink/40 leading-none">+{dayDeeds.length - 4}</span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Mobile: show only 2 items, Desktop: show 3 */}
                     <div className="space-y-0.5 hidden sm:block">
@@ -389,9 +387,9 @@ export default function CalendarPage() {
                       )}
                     </div>
 
-                    {/* Progress bar */}
+                    {/* Progress bar — desktop only (mobile uses dots) */}
                     {dayDeeds.length > 0 && (
-                      <div className="w-full h-1 bg-mist rounded-full mt-1 overflow-hidden">
+                      <div className="hidden sm:block w-full h-1 bg-mist rounded-full mt-1 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${dayScore >= 80 ? 'bg-sage' : dayScore >= 50 ? 'bg-gold' : 'bg-ember'
                             }`}
@@ -400,14 +398,6 @@ export default function CalendarPage() {
                       </div>
                     )}
 
-                    {/* Mobile: show count badge if deeds exist */}
-                    {dayDeeds.length > 0 && (
-                      <div className="sm:hidden mt-0.5">
-                        <span className="text-[9px] font-mono text-ink/50">
-                          {dayCompleted}/{dayDeeds.length}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 )
               })}

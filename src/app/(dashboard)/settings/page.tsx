@@ -6,6 +6,8 @@ import { PushNotificationManager } from '@/components/ui/PushNotificationManager
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
 import { useState, useEffect } from 'react'
 import { Calendar, CheckCircle, XCircle, ExternalLink, Smartphone, Trash2, Database, ChevronDown } from 'lucide-react'
+import { Loader } from '@/components/ui/Loader'
+import { Scramble } from '@/components/ui/motion'
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser()
@@ -99,12 +101,12 @@ export default function SettingsPage() {
   }
 
   if (!isLoaded) {
-    return <div className="flex justify-center items-center h-full font-mono text-sm text-parchment/40">Loading…</div>
+    return <Loader label="Tuning your settings…" />
   }
 
   return (
     <div className="max-w-[720px] mx-auto space-y-8 pb-24">
-      <h1 className="text-h1 text-parchment">Settings</h1>
+      <h1 className="text-h1 text-parchment"><Scramble text="Settings" mono={false} /></h1>
 
       {/* Profile */}
       <Card className="space-y-4 p-5 border hairline">

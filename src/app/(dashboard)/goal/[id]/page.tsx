@@ -8,6 +8,8 @@ import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen } from 'lucide-react'
 import { format } from 'date-fns'
+import { Loader } from '@/components/ui/Loader'
+import { Scramble } from '@/components/ui/motion'
 
 export default function GoalPage() {
     const router = useRouter()
@@ -83,7 +85,7 @@ export default function GoalPage() {
         } catch (e) { console.error(e) }
     }
 
-    if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+    if (loading) return <Loader label="Leveling up this goal…" />
     if (!goalItem) return <div className="p-6 text-ink/60">Goal not found.</div>
 
     const gScore = completionMap[goalItem.id] || 0
@@ -118,7 +120,7 @@ export default function GoalPage() {
             {/* Quarters Section */}
             <div>
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-2xl font-display font-bold text-ink">Quarters</h2>
+                    <h2 className="text-2xl font-display font-bold text-ink"><Scramble text="Quarters" mono={false} /></h2>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

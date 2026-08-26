@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { Download, FileText } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import jsPDF from 'jspdf'
+import { Scramble } from '@/components/ui/motion'
 
 type ReportType = 'weekly' | 'monthly' | 'quarterly' | 'yearly'
 
@@ -213,7 +214,7 @@ export default function ReportsPage() {
         <div className="max-w-[900px] mx-auto space-y-6 pb-24">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-h1 text-parchment">Reports</h1>
+                    <h1 className="text-h1 text-parchment"><Scramble text="Reports" mono={false} /></h1>
                     <p className="mt-1 font-mono text-xs text-parchment/50">Activity reports by period</p>
                 </div>
             </div>

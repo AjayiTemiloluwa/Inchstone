@@ -9,6 +9,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
+import { Loader } from '@/components/ui/Loader'
 
 export default function YearQuarterMonthWeekPage() {
     const router = useRouter()
@@ -265,7 +266,7 @@ export default function YearQuarterMonthWeekPage() {
         ? matchingWeeks.reduce((s, w) => s + (completionMap[w.id] || 0), 0) / matchingWeeks.length
         : 0
 
-    if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+    if (loading) return <Loader label="Unlocking the week…" />
     if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
 
     // Build day groups across all matching weeks

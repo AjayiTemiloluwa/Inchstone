@@ -8,6 +8,7 @@ import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
 import { format, addDays } from 'date-fns'
+import { Loader } from '@/components/ui/Loader'
 
 export default function WeekPage() {
   const router = useRouter()
@@ -199,7 +200,7 @@ export default function WeekPage() {
     } catch (e) { console.error(e) }
   }
 
-  if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+  if (loading) return <Loader label="Charting the week ahead…" />
   if (!weekItem) return <div className="p-6 text-ink/60">Week not found.</div>
 
   const wScore = completionMap[weekItem.id] || 0

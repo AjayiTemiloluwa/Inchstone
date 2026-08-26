@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation'
 import { format, startOfYear, differenceInDays } from 'date-fns'
 import { ArrowRight, Check, MessageSquare, Sun, X } from 'lucide-react'
 import { Compass } from '@/components/ui/Compass'
+import { WordReveal, WordRotator, Marquee, Scramble } from '@/components/ui/motion'
+import { useUser } from '@clerk/nextjs'
+import { Loader } from '@/components/ui/Loader'
 
 interface Nudge {
   id: string
@@ -16,6 +19,7 @@ interface Nudge {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { user } = useUser()
   const { items, completionMap, setItems, getFlatItems, updateItem } = useHierarchyStore()
   const [loading, setLoading] = useState(true)
   const [dailyScore, setDailyScore] = useState<{ totalTasks: number; completedTasks: number; score: number } | null>(null)
@@ -94,11 +98,7 @@ export default function DashboardPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <p className="text-sm text-parchment/40 font-mono">Loading…</p>
-      </div>
-    )
+    return <Loader label="Rolling out your dashboard…" />
   }
 
   if (items.length === 0) {
@@ -106,7 +106,7 @@ export default function DashboardPage() {
       <div className="flex flex-col items-center justify-center h-full gap-6 px-6">
         <Compass alignment={0} size={120} className="opacity-80" />
         <div className="text-center max-w-sm space-y-2">
-          <h1 className="text-h1 text-parchment">Inchstone</h1>
+          <h1 className="text-h1 text-parchment"><Scramble text="Inchstone" mono={false} /></h1>
           <p className="text-body text-parchment/60">
             Start with your Why — the one sentence this year is really about.
           </p>
@@ -147,19 +147,28 @@ export default function DashboardPage() {
           interactiveLabel="Open year view"
           className="hidden sm:inline-flex"
         />
-        {whyItem && (
-          <p className="mt-4 text-center text-caption text-parchment/55">
-            {greeting},{' '}
-            <span className="text-parchment/85">{String(whyItem.title).slice(0, 40)}</span>
-            {String(whyItem.title).length > 40 ? '…' : ''}
-          </p>
-        )}
+        {(() => {
+          const firstName = user?.firstName?.trim() || ''
+          return (
+            <p className="mt-4 text-center text-caption text-parchment/55">
+              <WordReveal text={firstName ? `${greeting}, ${firstName}` : `${greeting}.`} />
+            </p>
+          )
+        })()}
+        <p className="mt-1.5 text-center text-caption text-parchment/45">
+          Build{' '}
+          <WordRotator
+            className="font-semibold text-gold"
+            words={['discipline', 'momentum', 'clarity', 'faith', 'streaks']}
+          />
+          {' '}one day at a time.
+        </p>
       </div>
 
       {/* ── Today's Deeds ── */}
       <section aria-labelledby="deeds-heading">
         <div className="flex items-center justify-between border-b hairline-bottom pb-3">
-          <h2 id="deeds-heading" className="text-heading text-parchment">Today&apos;s Deeds</h2>
+          <h2 id="deeds-heading" className="text-heading text-parchment"><Scramble text="Today's Deeds" mono={false} /></h2>
           <button
             onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
             className="text-sm font-medium text-parchment/70 hover:text-parchment transition-colors flex items-center gap-1"
@@ -228,6 +237,15 @@ export default function DashboardPage() {
           </button>
         </div>
       </section>
+
+      {/* Ambient deeds ticker */}
+      <Marquee duration={36} className="-mx-4 sm:-mx-6 border-y border-white/5 py-2.5">
+        <span className="mx-6 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.18em] text-parchment/35">
+          {todayDeeds.length > 0
+            ? todayDeeds.slice(0, 8).map(d => `${d.title} ✦`).join('  ')
+            : 'Consistency compounds ✦ Small deeds, every day ✦ Inchstone ✦'}
+        </span>
+      </Marquee>
 
       {/* ── One quiet strip: nudge or reflect, never both ── */}
       {!nudgeDismissed && latestNudge ? (

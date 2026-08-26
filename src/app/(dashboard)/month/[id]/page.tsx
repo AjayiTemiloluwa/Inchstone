@@ -9,6 +9,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
 import { format } from 'date-fns'
 import { getWeeksInMonth } from '@/lib/calendarUtils'
+import { Loader } from '@/components/ui/Loader'
+import { Scramble } from '@/components/ui/motion'
 
 export default function MonthPage() {
   const router = useRouter()
@@ -194,7 +196,7 @@ export default function MonthPage() {
     } catch (e) { console.error(e) }
   }
 
-  if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+  if (loading) return <Loader label="Summoning this month…" />
   if (!monthItem) return <div className="p-6 text-ink/60">Month not found.</div>
 
   const mScore = completionMap[monthItem.id] || 0
@@ -229,7 +231,7 @@ export default function MonthPage() {
       {/* Month & Weeks Section (Exact Features of Categories & Goals) */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-display font-bold text-ink">Month & Weeks</h2>
+          <h2 className="text-2xl font-display font-bold text-ink"><Scramble text="Month & Weeks" mono={false} /></h2>
           <div className="flex items-center space-x-4">
             <button onClick={resetWeights} className="flex items-center space-x-1.5 text-xs text-gold hover:text-gold/80 transition">
               <RotateCcw className="w-3.5 h-3.5" />

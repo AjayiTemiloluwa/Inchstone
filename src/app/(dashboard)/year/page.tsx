@@ -10,6 +10,9 @@ import { useRouter } from 'next/navigation'
 import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen, Download, Database, Edit3, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
+import { YearFilm } from '@/components/ui/YearFilm'
+import { Reveal, CountUp, Scramble } from '@/components/ui/motion'
+import { Loader } from '@/components/ui/Loader'
 
 export default function YearPage() {
   const router = useRouter()
@@ -407,7 +410,7 @@ export default function YearPage() {
     }
   }
 
-  if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+  if (loading) return <Loader label="Painting your year…" />
 
   if (!yearItem) return (
     <div className="flex flex-col items-center justify-center h-full p-6 space-y-4">
@@ -438,7 +441,9 @@ export default function YearPage() {
   return (
     <div className="space-y-6 sm:space-y-8 max-w-full pb-24 lg:pb-12 stagger-children" id="report-content">
       {/* Year Vision Banner */}
-      <div className="glass-gold  rounded-[8px] sm:rounded-[8px] p-6 sm:p-8 text-center animate-slideUp border border-gold/20">
+      <div className="glass-gold  rounded-[8px] sm:rounded-[8px] p-6 sm:p-8 text-center animate-slideUp border border-gold/20 relative overflow-hidden">
+        <div aria-hidden="true" data-parallax="0.22" className="pointer-events-none absolute -top-28 -right-16 w-80 h-80 rounded-full bg-gold/10 blur-3xl" />
+        <div aria-hidden="true" data-parallax="-0.14" className="pointer-events-none absolute -bottom-24 -left-16 w-64 h-64 rounded-full bg-sage/10 blur-3xl" />
         <h1 className="text-4xl sm:text-5xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent mb-3">{yearItem.title || new Date().getFullYear()}</h1>
         {yearItem.theme && <p className="text-lg sm:text-xl text-gold font-serif italic mb-3">"{yearItem.theme}"</p>}
         {yearItem.anchorScripture && <p className="text-xs sm:text-sm text-ink/50 font-mono mb-5">{yearItem.anchorScripture}</p>}
@@ -452,11 +457,16 @@ export default function YearPage() {
             </button>
           </div>
           <div className="flex justify-between items-end mb-2">
-            <span className="text-2xl sm:text-3xl font-bold font-mono bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{Math.round(completionMap[yearItem.id] || 0)}%</span>
+            <span className="text-2xl sm:text-3xl font-bold font-mono bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent"><CountUp value={completionMap[yearItem.id] || 0} format={n => `${Math.round(n)}%`} /></span>
           </div>
           <ProgressBar progress={completionMap[yearItem.id] || 0} />
         </div>
       </div>
+
+      {/* {year} at a Glance */}
+      <Reveal>
+        <YearFilm year={new Date(yearItem?.startDate || new Date()).getFullYear()} />
+      </Reveal>
 
       {/* Categories with Goals */}
       <div>
@@ -464,7 +474,7 @@ export default function YearPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
           <div>
             <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink flex items-center gap-2 sm:gap-3">
-              Categories & Goals
+              <Scramble text="Categories & Goals" mono={false} />
               <span className="text-[10px] sm:text-xs font-mono font-normal bg-white/10 px-2 py-0.5 sm:py-1 rounded-full text-ink/60">{categories.length}</span>
             </h2>
           </div>
@@ -761,12 +771,13 @@ export default function YearPage() {
 
       {/* Quarters Section - below reflection */}
       <div>
-        <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink mb-4 sm:mb-6">Quarters</h2>
+        <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink mb-4 sm:mb-6"><Scramble text="Quarters" mono={false} /></h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {quarterGroups.map(({ label, items: qItems, avgScore }) => {
+          {quarterGroups.map(({ label, items: qItems, avgScore }, qi) => {
             const firstQ = qItems[0]
             return (
-              <Card key={label} className={`p-5 transition-colors group ${firstQ ? 'hover:border-gold cursor-pointer active:opacity-70' : 'opacity-50 cursor-not-allowed'}`}
+              <Reveal key={label} delay={qi * 90}>
+              <Card className={`p-5 transition-colors group ${firstQ ? 'hover:border-gold cursor-pointer active:opacity-70' : 'opacity-50 cursor-not-allowed'}`}
                 onClick={() => { if (firstQ) router.push(`/year/${label}`) }}>
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -784,6 +795,7 @@ export default function YearPage() {
                   </div>
                 </div>
               </Card>
+              </Reveal>
             )
           })}
         </div>

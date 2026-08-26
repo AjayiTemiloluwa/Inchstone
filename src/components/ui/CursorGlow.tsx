@@ -22,6 +22,7 @@ export function CursorGlow() {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const haloRef = useRef<HTMLDivElement | null>(null)
   const coreRef = useRef<HTMLDivElement | null>(null)
+  const labelRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const root = rootRef.current
@@ -43,6 +44,8 @@ export function CursorGlow() {
     let active = false
     let pressing = false
     let scale = 1
+    let hovering = false
+    let hoverScale = 1
 
     // Start off-screen; snapped onto the cursor on first movement.
     const target = { x: -2000, y: -2000 }
@@ -56,9 +59,13 @@ export function CursorGlow() {
       corePos.y += (target.y - corePos.y) * CORE_EASE
 
       scale += ((pressing ? PRESS_SCALE : 1) - scale) * 0.18
+      hoverScale += ((hovering ? 1.55 : 1) - hoverScale) * 0.16
 
       halo.style.transform = `translate3d(${haloPos.x}px, ${haloPos.y}px, 0) translate(-50%, -50%) scale(${scale})`
-      core.style.transform = `translate3d(${corePos.x}px, ${corePos.y}px, 0) translate(-50%, -50%) scale(${scale})`
+      core.style.transform = `translate3d(${corePos.x}px, ${corePos.y}px, 0) translate(-50%, -50%) scale(${scale * hoverScale})`
+      if (labelRef.current) {
+        labelRef.current.style.transform = `translate3d(${corePos.x}px, ${corePos.y + 26}px, 0) translate(-50%, 0)`
+      }
 
       const settled =
         Math.abs(target.x - haloPos.x) < REST_EPSILON &&
@@ -111,9 +118,24 @@ export function CursorGlow() {
     const onUp = () => { pressing = false; wake() }
     const onLeaveWindow = () => hide()
 
+    // Interactive-element awareness: grow the core over anything clickable,
+    // and surface an optional data-cursor="…" label beneath it.
+    const INTERACTIVE = 'a, button, [role="button"], input, select, textarea, summary, [data-cursor]'
+    const onOver = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null
+      const hit = target?.closest?.(INTERACTIVE) as HTMLElement | null
+      hovering = !!hit
+      const label = hit?.getAttribute('data-cursor') || ''
+      if (labelRef.current) {
+        labelRef.current.textContent = label
+        labelRef.current.style.opacity = label ? '1' : '0'
+      }
+    }
+
     window.addEventListener('pointermove', onMove, { passive: true })
     window.addEventListener('pointerdown', onDown, { passive: true })
     window.addEventListener('pointerup', onUp, { passive: true })
+    window.addEventListener('pointerover', onOver, { passive: true })
     document.documentElement.addEventListener('pointerleave', onLeaveWindow)
     window.addEventListener('blur', onLeaveWindow)
 
@@ -122,6 +144,7 @@ export function CursorGlow() {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerdown', onDown)
       window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointerover', onOver)
       document.documentElement.removeEventListener('pointerleave', onLeaveWindow)
       window.removeEventListener('blur', onLeaveWindow)
     }
@@ -131,6 +154,7 @@ export function CursorGlow() {
     <div ref={rootRef} className="cursor-glow" aria-hidden="true">
       <div ref={haloRef} className="cursor-glow-halo" />
       <div ref={coreRef} className="cursor-glow-core" />
+      <div ref={labelRef} className="cursor-glow-label" />
     </div>
   )
 }

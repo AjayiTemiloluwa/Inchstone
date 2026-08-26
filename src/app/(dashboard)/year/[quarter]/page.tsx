@@ -9,6 +9,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format, addMonths } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
+import { Loader } from '@/components/ui/Loader'
 
 export default function YearQuarterPage() {
     const router = useRouter()
@@ -249,7 +250,7 @@ export default function YearQuarterPage() {
         ? matchingQuarters.reduce((s, q) => s + (completionMap[q.id] || 0), 0) / matchingQuarters.length
         : 0
 
-    if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+    if (loading) return <Loader label="Firing up the quarter…" />
     if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
 
     // Group months by label for the months section

@@ -8,10 +8,13 @@ import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown } from 'lucide-react'
 import { format, parseISO, subDays, subWeeks, subMonths, subYears, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfDay, endOfDay, eachDayOfInterval, addDays, differenceInDays } from 'date-fns'
+import { AnimatePresence, motion } from 'motion/react'
+import { Scramble } from '@/components/ui/motion'
 import dynamic from 'next/dynamic'
 
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 import { useToast } from '@/components/ui/ToastProvider'
+import { Loader } from '@/components/ui/Loader'
 
 type GraphRange = 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
 
@@ -57,6 +60,7 @@ export default function DayPage() {
   const [showGraphDatePicker, setShowGraphDatePicker] = useState(false)
   const [showDeleteHabitMenu, setShowDeleteHabitMenu] = useState<string | null>(null)
   const [savingDeed, setSavingDeed] = useState(false)
+  const [habitHover, setHabitHover] = useState<number | null>(null)
 
   const activeCategories = getFlatItems().filter(i => i.layer === 1)
   const currentDate = parseISO(dateStr)
@@ -114,6 +118,18 @@ export default function DayPage() {
     const interval = setInterval(updateNowLine, 60000)
     return () => clearInterval(interval)
   }, [dateStr])
+
+  // Auto-scroll the 24h timeline to the current hour when today opens
+  useEffect(() => {
+    if (viewMode !== 'timeline' || dateStr !== format(new Date(), 'yyyy-MM-dd')) return
+    const t = window.setTimeout(() => {
+      timelineScrollRef.current?.scrollTo({
+        top: Math.max(0, new Date().getHours() * 64 - 150),
+        behavior: 'smooth',
+      })
+    }, 400)
+    return () => window.clearTimeout(t)
+  }, [viewMode, dateStr])
 
   const fetchDayNotes = async () => {
     try {
@@ -333,6 +349,20 @@ export default function DayPage() {
     ? deedTasks.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0) / totalWeight * 100
     : 0
   const primaryGoal = dailyGoals[0]
+
+  // 🎉 Celebrate a perfect day — confetti + haptic, once per date
+  const prevScoreRef = useRef(dayScore)
+  const timelineScrollRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    let already = false
+    try { already = window.localStorage.getItem(`inchstone-celebrated-${dateStr}`) === '1' } catch {}
+    if (!already && prevScoreRef.current < 100 && dayScore >= 100 && deedTasks.length >= 3) {
+      import('@/components/ui/Confetti').then(m => m.fireConfetti())
+      navigator.vibrate?.(35)
+      try { window.localStorage.setItem(`inchstone-celebrated-${dateStr}`, '1') } catch {}
+    }
+    prevScoreRef.current = dayScore
+  }, [dayScore, deedTasks.length, dateStr])
 
   useEffect(() => {
     if (primaryGoal?.reflection && reflectionText === '') {
@@ -812,7 +842,7 @@ export default function DayPage() {
     }
   }
 
-  if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+  if (loading) return <Loader label="Spinning the day slots…" />
 
   return (
 <div className="space-y-6 max-w-full pb-12 stagger-children">
@@ -870,7 +900,7 @@ export default function DayPage() {
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-gold" />
-                <h2 className="text-lg sm:text-xl font-display font-bold text-ink">Deeds</h2>
+                <h2 className="text-lg sm:text-xl font-display font-bold text-ink"><Scramble text="Deeds" mono={false} /></h2>
                 <span className="text-xs font-mono text-ink/40">{completedTasks.length}/{deedTasks.length}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -999,7 +1029,7 @@ export default function DayPage() {
 
 {viewMode === 'timeline' ? (
             <div className="glass rounded-[8px] overflow-hidden flex select-none animate-fadeIn border border-white/10">
-              <div className="overflow-y-auto flex w-full" style={{ maxHeight: 'min(1536px, 55vh)' }}>
+              <div ref={timelineScrollRef} className="overflow-y-auto flex w-full" style={{ maxHeight: 'min(1536px, 55vh)' }}>
               <div className="w-20 shrink-0 border-r border-white/10 bg-black/20 relative z-10" style={{ height: `${24 * 64}px` }}>
                 {hours.map(hour => (
                   <div key={hour} className="absolute left-0 right-0 text-right pr-3 text-[10px] font-mono text-ink/40" style={{ top: `${hour * 64 + 6}px`, height: '64px' }}>
@@ -1197,7 +1227,7 @@ export default function DayPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Target className="w-4 h-4 text-gold" />
-                <h3 className="font-display font-bold text-ink">Eat That Frog</h3>
+                <h3 className="font-display font-bold text-ink"><Scramble text="Eat That Frog" mono={false} /></h3>
               </div>
               <button onClick={() => setAddingDeed(true)} className="px-2.5 py-1 text-[11px] font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 transition flex items-center gap-1">
                 <Plus className="w-3 h-3" />
@@ -1229,7 +1259,7 @@ export default function DayPage() {
           <Card className="p-4 sm:p-5 space-y-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-gold" />
-              <h3 className="font-display font-bold text-ink">Day Reflection</h3>
+              <h3 className="font-display font-bold text-ink"><Scramble text="Day Reflection" mono={false} /></h3>
             </div>
             <textarea
               value={reflectionText}
@@ -1244,7 +1274,7 @@ export default function DayPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <StickyNote className="w-5 h-5 text-gold" />
-            <h2 className="text-xl font-display font-bold text-ink">Day Notes</h2>
+            <h2 className="text-xl font-display font-bold text-ink"><Scramble text="Day Notes" mono={false} /></h2>
           </div>
           <button
             onClick={() => { setEditingNote(null); setShowNoteModal(true) }}
@@ -1356,7 +1386,7 @@ export default function DayPage() {
             <div>
               <h2 className="text-xl font-display font-bold text-ink flex items-center space-x-2">
                 <Activity className="w-5 h-5 text-gold" />
-                <span>Habit Tracker</span>
+                <span><Scramble text="Habit Tracker" mono={false} /></span>
               </h2>
               <p className="text-xs text-ink/60 mt-1">Track your daily habits. Each habit repeats every day once created.</p>
             </div>
@@ -1532,7 +1562,18 @@ export default function DayPage() {
                 </div>
 
                 {/* SVG Line Graph — ultra smooth flowing curve with colored bottom */}
-                <div className="h-48">
+                <div
+                  className="relative h-48"
+                  data-cursor="Explore"
+                  onPointerMove={(e) => {
+                    if (!graph || graph.points.length === 0) { setHabitHover(null); return }
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const vx = ((e.clientX - rect.left) / rect.width) * graph.width
+                    const idx = Math.round((vx - graph.padding.left) / graph.stepX)
+                    setHabitHover(Math.max(0, Math.min(graph.points.length - 1, idx)))
+                  }}
+                  onPointerLeave={() => setHabitHover(null)}
+                >
                   <svg viewBox={`0 0 ${graph.width} ${graph.height}`} className="w-full h-full" preserveAspectRatio="none">
                     <defs>
                       {/* Rich gradient fill under the curve — colored bottom */}
@@ -1583,8 +1624,19 @@ export default function DayPage() {
 
                     {/* Smooth line with glow */}
                     {graph.smoothPath && (
-                      <path d={graph.smoothPath} fill="none" stroke={graph.gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#habitGlow)" opacity="0.95" />
+                      <path d={graph.smoothPath} fill="none" stroke={graph.gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#habitGlow)" opacity="0.95" pathLength={1} strokeDasharray={1} className="graph-draw" />
                     )}
+
+                    {/* Hover crosshair */}
+                    {habitHover != null && graph.points[habitHover] && (() => {
+                      const p = graph.points[habitHover]
+                      return (
+                        <g pointerEvents="none">
+                          <line x1={p.x} y1={graph.padding.top} x2={p.x} y2={graph.padding.top + graph.chartH} stroke="rgba(243,239,230,0.25)" strokeWidth="0.5" />
+                          <circle cx={p.x} cy={p.y} r="2.4" fill="#f3efe6" stroke={graph.gold} strokeWidth="1" />
+                        </g>
+                      )
+                    })()}
 
                     {/* X-Axis Date Labels */}
                     {graph.dates && graph.dates.length > 1 && (() => {
@@ -1624,6 +1676,24 @@ export default function DayPage() {
                     {/* Bottom gradient overlay bar */}
                     <rect x={graph.padding.left} y={graph.padding.top + graph.chartH - 8} width={graph.chartW} height={8} fill={`url(#bottomGlow)`} opacity="0.6" />
                   </svg>
+
+                  {/* Hover tooltip */}
+                  {habitHover != null && graph.points[habitHover] && (() => {
+                    const p = graph.points[habitHover]
+                    return (
+                      <div
+                        className="pointer-events-none absolute z-10 px-2 py-1 rounded-lg bg-surface-solid border border-gold-dim/30 shadow-lg text-[10px] font-mono whitespace-nowrap"
+                        style={{
+                          left: `calc(${(p.x / graph.width) * 100}% )`,
+                          top: `calc(${(p.y / graph.height) * 100}% )`,
+                          transform: 'translate(-50%, -130%)',
+                        }}
+                      >
+                        <span className="text-parchment/70">{format(parseISO(p.date), 'MMM d')}</span>
+                        <span className="text-gold font-bold ml-1.5">{Math.round(p.rawRate)}%</span>
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             )
@@ -1646,9 +1716,10 @@ export default function DayPage() {
         />
       )}
 
-{selectedDeed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70" onClick={() => setSelectedDeed(null)}>
-          <div className="w-full max-w-lg mx-4 overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid" onClick={e => e.stopPropagation()}>
+<AnimatePresence>
+      {selectedDeed && (
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={() => setSelectedDeed(null)}>
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 6 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} className="w-full max-w-lg mx-4 overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid" onClick={e => e.stopPropagation()}>
 
             {/* Header */}
             <div className="px-7 pt-7 pb-4">
@@ -1939,9 +2010,10 @@ export default function DayPage() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
     </div>
 

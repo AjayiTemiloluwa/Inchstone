@@ -3,6 +3,8 @@
 import { Card } from '@/components/ui/Card'
 import { ReviewModal } from '@/components/ui/ReviewModal'
 import { useState, useEffect } from 'react'
+import { Magnetic, Scramble } from '@/components/ui/motion'
+import { Loader } from '@/components/ui/Loader'
 
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<any[]>([])
@@ -25,18 +27,20 @@ export default function ReviewsPage() {
   return (
     <div className="max-w-[720px] mx-auto space-y-6 pb-24">
       <div className="flex items-center justify-between">
-        <h1 className="text-h1 text-parchment">Periodic Reviews</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink hover:bg-[#cbaa6f] transition-colors"
-        >
-          New Review
-        </button>
+        <h1 className="text-h1 text-parchment"><Scramble text="Periodic Reviews" mono={false} /></h1>
+        <Magnetic>
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-shine rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink hover:bg-[#cbaa6f] transition-colors"
+          >
+            New Review
+          </button>
+        </Magnetic>
       </div>
 
-      <div className="space-y-4">
+      <div>
         {loading ? (
-          <p className="py-10 text-center font-mono text-sm text-parchment/40">Loading…</p>
+          <Loader compact label="Snagging your reviews…" />
         ) : reviews.length === 0 ? (
           <div className="rounded-[8px] border border-dashed border-gold-dim/30 py-12 text-center">
             <p className="text-sm text-parchment/60">
@@ -50,31 +54,45 @@ export default function ReviewsPage() {
             </button>
           </div>
         ) : (
-          reviews.map(review => (
-            <Card key={review.id} className="hover:border-gold/40 transition-colors">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-parchment">
-                    {review.periodType} Review
-                  </h3>
-                  <p className="mt-0.5 font-mono text-xs text-parchment/50">
-                    {new Date(review.periodStart).toLocaleDateString()}
-                  </p>
+          reviews.map((review, i) => (
+            <div
+              key={review.id}
+              className={i > 0 ? 'mt-5' : ''}
+              style={
+                reviews.length > 1
+                  ? { position: 'sticky', top: `${96 + i * 18}px`, zIndex: i + 1 }
+                  : undefined
+              }
+            >
+              <Card
+                className={`hover:border-gold/40 transition-colors bg-surface-solid ${
+                  i < reviews.length - 1 ? 'shadow-xl shadow-black/30' : ''
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-parchment">
+                      {review.periodType} Review
+                    </h3>
+                    <p className="mt-0.5 font-mono text-xs text-parchment/50">
+                      {new Date(review.periodStart).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="whitespace-nowrap font-mono text-xs text-parchment/60 tabular-nums">
+                    <span>mood {review.mood} / 4</span>
+                    <span className="text-gold-dim"> · </span>
+                    <span>energy {review.energy} / 10</span>
+                  </div>
                 </div>
-                <div className="whitespace-nowrap font-mono text-xs text-parchment/60 tabular-nums">
-                  <span>mood {review.mood} / 4</span>
-                  <span className="text-gold-dim"> · </span>
-                  <span>energy {review.energy} / 10</span>
-                </div>
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-parchment/80">{review.reflection}</p>
-              {review.wins && (
-                <div className="mt-3 border-l-2 border-moss pl-3">
-                  <p className="font-mono text-xs uppercase tracking-wider text-parchment/50">Wins</p>
-                  <p className="mt-1 text-sm text-parchment/70">{review.wins}</p>
-                </div>
-              )}
-            </Card>
+                <p className="mt-3 text-sm leading-relaxed text-parchment/80">{review.reflection}</p>
+                {review.wins && (
+                  <div className="mt-3 border-l-2 border-moss pl-3">
+                    <p className="font-mono text-xs uppercase tracking-wider text-parchment/50">Wins</p>
+                    <p className="mt-1 text-sm text-parchment/70">{review.wins}</p>
+                  </div>
+                )}
+              </Card>
+            </div>
           ))
         )}
       </div>

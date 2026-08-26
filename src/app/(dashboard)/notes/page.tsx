@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 import { BookOpen, Plus, Download } from 'lucide-react'
 import Link from 'next/link'
+import { Scramble } from '@/components/ui/motion'
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<any[]>([])
@@ -49,7 +50,7 @@ export default function NotesPage() {
     <div className="max-w-[720px] mx-auto space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-h1 text-parchment">Notes</h1>
+          <h1 className="text-h1 text-parchment"><Scramble text="Notes" mono={false} /></h1>
           <p className="mt-1 font-mono text-xs text-parchment/50">Rich text notes with PDF export</p>
         </div>
         <button

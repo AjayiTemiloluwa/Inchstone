@@ -1,3 +1,7 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
 interface ProgressRingProps {
   progress: number
   size?: number
@@ -18,7 +22,15 @@ export function ProgressRing({
   const safeProgress = Math.min(100, Math.max(0, progress))
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
-  const strokeDashoffset = circumference - (safeProgress / 100) * circumference
+  const targetOffset = circumference - (safeProgress / 100) * circumference
+
+  // Draw-in: start from an empty ring, then let the CSS transition fill it.
+  const [drawn, setDrawn] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setDrawn(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+  const strokeDashoffset = drawn ? targetOffset : circumference
 
   // Quiet token palette — no glows (v2 F2). Completed rollups → readable moss,
   // most progress → gold, low → readable ember. Explicit colorClass wins.

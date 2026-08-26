@@ -1,9 +1,10 @@
-﻿﻿'use client'
+﻿'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { TransactionForm } from '@/components/finance/TransactionForm'
 import { BudgetProgress } from '@/components/finance/BudgetProgress'
 import { SectionBudgetCard } from '@/components/finance/SectionBudgetCard'
+import { CountUp, SectionHeading, Scramble, Reveal } from '@/components/ui/motion'
 
 const SECTION_KEYS = ['Need', 'Want', 'Offerings', 'Savings'] as const
 const SECTION_TINT: Record<string, string> = { Need: '#B8935A', Want: '#CF8F78', Offerings: '#7FA871', Savings: '#8FA3BF' }
@@ -359,19 +360,19 @@ export default function FinancePage() {
       </div>
       {/* Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-white/10 bg-surface-solid p-4">
+        <div className="spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4">
           <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>📥</span> Income</p>
-          <p className="mt-1 text-xl font-bold font-mono tabular-nums text-[#7fa871]">₦{totalIncome.toFixed(2)}</p>
+          <p className="mt-1 text-xl font-bold font-mono text-[#7fa871]"><CountUp value={totalIncome} format={n => `₦${n.toFixed(2)}`} /></p>
         </div>
-        <div className="rounded-xl border border-white/10 bg-surface-solid p-4">
+        <div className="spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4">
           <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>💸</span> Expenses</p>
-          <p className="mt-1 text-xl font-bold font-mono tabular-nums text-[#cf8f78]">₦{totalExpense.toFixed(2)}</p>
+          <p className="mt-1 text-xl font-bold font-mono text-[#cf8f78]"><CountUp value={totalExpense} format={n => `₦${n.toFixed(2)}`} /></p>
         </div>
-        <div className="rounded-xl border border-white/10 bg-surface-solid p-4">
+        <div className="spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4">
           <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>⚖️</span> Net</p>
-          <p className={`mt-1 text-xl font-bold font-mono tabular-nums ${currentSavings >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}`}>₦{currentSavings.toFixed(2)}</p>
+          <p className={`mt-1 text-xl font-bold font-mono ${currentSavings >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}`}><CountUp value={currentSavings} format={n => `₦${n.toFixed(2)}`} /></p>
         </div>
-        <div className="rounded-xl border border-white/10 bg-surface-solid p-4">
+        <div className={`spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4 ${savingsProgress >= 100 ? 'border-beam' : ''}`}>
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold truncate">🎯 Savings Goal</p>
             <button onClick={() => { setEditSavings(!editSavings); setSavingsInput(savingsTarget.toString()) }} className="text-[10px] font-bold text-gold hover:text-[#cbaa6f] transition-colors shrink-0">
@@ -405,15 +406,19 @@ export default function FinancePage() {
 
       {/* Balance Sheet Overview */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Purses</h2>
-          <button
-            onClick={() => setShowAddPurse(!showAddPurse)}
-            className="text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
-          >
-            {showAddPurse ? 'Cancel' : '+ Add Purse'}
-          </button>
-        </div>
+        <SectionHeading
+          icon="👛"
+          text="Purses"
+          className="mb-4"
+          right={
+            <button
+              onClick={() => setShowAddPurse(!showAddPurse)}
+              className="link-slide text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
+            >
+              {showAddPurse ? 'Cancel' : '+ Add Purse'}
+            </button>
+          }
+        />
 
         {/* Add Purse Form */}
         {showAddPurse && (
@@ -470,12 +475,12 @@ export default function FinancePage() {
 
         {/* Purse Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {purses.map(purse => {
+          {purses.map((purse, i) => {
             const balance = purseBalances[purse.name] || 0
             return (
+              <Reveal key={purse.id} delay={i * 70}>
               <div
-                key={purse.id}
-                className="relative group rounded-xl p-4 text-white transition-all shadow-lg shadow-black/20"
+                className="tilt-card spotlight-card relative group rounded-xl p-4 text-white transition-all shadow-lg shadow-black/20"
                 style={{ backgroundColor: purse.color }}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -515,6 +520,7 @@ export default function FinancePage() {
                   </div>
                 )}
               </div>
+              </Reveal>
             )
           })}
         </div>
@@ -524,7 +530,7 @@ export default function FinancePage() {
       <div>
         <div className="flex items-end justify-between gap-3 flex-wrap mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span>📊</span> Budget by Sections
+            <span>📊</span> <Scramble text="Budget by Sections" />
           </h2>
           <p className="text-xs text-parchment/40 font-mono">
             Allocated ₦{totalAllocated.toFixed(0)} · Spent ₦{Object.values(sectionSpending).reduce((s: number, v: number) => s + v, 0).toFixed(0)}
@@ -553,7 +559,7 @@ export default function FinancePage() {
       {/* Transfer Card */}
       <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">🔄 Transfer Between Purses</h2>
+          <h2 className="text-lg font-semibold"><span className="mr-2">🔄</span><Scramble text="Transfer Between Purses" /></h2>
           <button
             onClick={() => setShowTransfer(!showTransfer)}
             className="text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
@@ -639,13 +645,13 @@ export default function FinancePage() {
 <div className="space-y-6">
           {/* Add Transaction */}
           <div>
-            <h2 className="text-lg font-semibold mb-3">Add Transaction</h2>
+            <h2 className="text-lg font-semibold mb-3"><Scramble text="Add Transaction" /></h2>
             <TransactionForm onSuccess={fetchData} purses={purses} />
           </div>
 
           {/* Monthly Budget Overview */}
           <div>
-            <h2 className="text-lg font-semibold mb-3">All Budgets Overview</h2>
+            <h2 className="text-lg font-semibold mb-3"><Scramble text="All Budgets Overview" /></h2>
             <div className="space-y-3">
               {budgets.length === 0 ? (
                 <div className="text-sm text-parchment/50 italic p-4 bg-black/20 rounded-xl">
@@ -670,7 +676,7 @@ export default function FinancePage() {
       <div>
         <div className="flex items-end justify-between gap-3 flex-wrap mb-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span>🧾</span> Ledger
+            <span>🧾</span> <Scramble text="Ledger" />
           </h2>
           <p className="text-xs text-parchment/40 font-mono">{entries.length} transactions · newest first</p>
         </div>

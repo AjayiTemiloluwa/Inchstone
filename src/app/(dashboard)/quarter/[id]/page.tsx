@@ -8,6 +8,7 @@ import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
 import { format } from 'date-fns'
+import { Loader } from '@/components/ui/Loader'
 
 export default function QuarterPage() {
   const router = useRouter()
@@ -206,7 +207,7 @@ export default function QuarterPage() {
     } catch (e) { console.error(e) }
   }
 
-  if (loading) return <div className="flex justify-center items-center h-full"><span className="text-ink/60">Loading...</span></div>
+  if (loading) return <Loader label="Carving this quarter…" />
   if (!quarterItem) return <div className="p-6 text-ink/60">Quarter not found.</div>
 
   const qScore = completionMap[quarterItem.id] || 0

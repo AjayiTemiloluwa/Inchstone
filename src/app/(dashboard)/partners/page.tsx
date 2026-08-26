@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Plus, X, Users, Mail, Loader2, Link as LinkIcon, Trash2, MessageSquare, Send, ArrowLeft, Bell } from 'lucide-react'
 import { format } from 'date-fns'
+import { Scramble } from '@/components/ui/motion'
 
 interface Partner {
   id: string
@@ -290,7 +291,7 @@ export default function PartnersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-h1 text-parchment">Partners</h1>
+          <h1 className="text-h1 text-parchment"><Scramble text="Partners" mono={false} /></h1>
           <p className="mt-1 text-sm text-parchment/55">Manage your accountability partners</p>
         </div>
         <div className="flex items-center gap-2">
