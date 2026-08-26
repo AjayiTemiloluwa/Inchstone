@@ -83,7 +83,7 @@ export function PlanFormModal({ initial, onClose, onSaved }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[8px] border hairline bg-ink p-6 space-y-5"
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[8px] border hairline bg-ink p-6 space-y-5" data-lenis-prevent
         onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

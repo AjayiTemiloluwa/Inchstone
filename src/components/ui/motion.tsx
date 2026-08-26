@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { FluidText } from '@/components/effects/fluid'
 
 /* ────────────────────────────────────────────────────────────
    Motion toolkit — small dependency-free primitives used across
@@ -415,4 +416,57 @@ export function useScrollParallax<T extends HTMLElement>(speed = 0.15) {
   }, [speed])
 
   return ref
+}
+
+/**
+ * Dion-style masked line reveal — each line rises out of an overflow-hidden
+ * mask with a staggered delay. Plays on mount, and because pages remount on
+ * every client-side navigation (including Back), it replays on every visit.
+ * Hidden state is identical on server and client (hydration-safe); reduced-
+ * motion users get static text via the CSS media query in globals.css.
+ */
+export function RevealLines({
+  lines,
+  className = '',
+  delay = 0,
+  step = 110,
+  fluid = false,
+}: {
+  lines: string[]
+  className?: string
+  /** ms before the first line starts */
+  delay?: number
+  /** ms between lines */
+  step?: number
+  /** glyphs then ripple away from the cursor (pointer-fine only) */
+  fluid?: boolean
+}) {
+  const [play, setPlay] = useState(false)
+
+  useEffect(() => {
+    // Double rAF: paint the hidden frame first so the transition runs.
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setPlay(true))
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [])
+
+  return (
+    <span className={className}>
+      {lines.map((line, i) => (
+        <span key={`${i}-${line}`} className="line-mask" aria-hidden={false}>
+          <span
+            className={`block ${play ? 'in' : ''}`}
+            style={{ transitionDelay: `${delay + i * step}ms` }}
+          >
+            {fluid ? <FluidText text={line} /> : line}
+          </span>
+        </span>
+      ))}
+    </span>
+  )
 }

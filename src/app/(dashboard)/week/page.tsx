@@ -103,7 +103,7 @@ export default function WeekPage() {
                     <p className="text-xl font-mono">{format(date, 'd')}</p>
                   </div>
                   
-                  <div className="p-3 flex-1 overflow-y-auto space-y-4 bg-paper text-sm">
+                  <div className="p-3 flex-1 overflow-y-auto space-y-4 bg-paper text-sm" data-lenis-prevent>
                     {dayGoals.map(dg => {
                       const tasks = dg.tasks || []
                       return (

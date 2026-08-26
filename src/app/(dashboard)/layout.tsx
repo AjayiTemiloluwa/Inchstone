@@ -38,7 +38,7 @@ export default function AppLayout({
               <div className="flex-1 flex flex-col min-w-0 overflow-hidden main-content-wrapper">
                 <Topbar />
                 <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 pt-16 lg:pt-8">
-                  {children}
+                  <div data-scroll-content>{children}</div>
                 </main>
               </div>
               <BottomNav />

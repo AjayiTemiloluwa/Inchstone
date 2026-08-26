@@ -1776,6 +1776,36 @@ html.lenis body {
   background: linear-gradient(180deg, rgba(10, 9, 8, 0.5) 0%, rgba(10, 9, 8, 0.66) 45%, rgba(10, 9, 8, 0.78) 100%);
 }
 
+/* ── Levitation (Float) ───────────────────────────────────────── */
+@keyframes float-y {
+  0%, 100% {
+    transform: translateY(calc(var(--float-amp, 6px) * -0.5)) rotate(var(--float-rot, 0deg));
+  }
+  50% {
+    transform: translateY(calc(var(--float-amp, 6px) * 0.5)) rotate(var(--float-rot, 0deg));
+  }
+}
+.floaty {
+  animation: float-y var(--float-dur, 8s) ease-in-out infinite;
+  animation-delay: var(--float-delay, 0s);
+  will-change: transform;
+}
+
+/* ── Masked line reveal (RevealLines) ────────────────────────── */
+.line-mask {
+  display: block;
+  overflow: hidden;
+}
+.line-mask > span {
+  display: block;
+  transform: translateY(115%);
+  transition: transform 950ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.line-mask > span.in {
+  transform: translateY(0);
+}
+
 /* ── Gamified pixel loading state ────────────────────────────── */
 .pixel-hero {
   will-change: transform;
@@ -1836,5 +1866,12 @@ html.lenis body {
   .pixel-bar-on,
   .pixel-bar-off {
     animation: none !important;
+  }
+  .floaty {
+    animation: none !important;
+  }
+  .line-mask > span {
+    transition: none !important;
+    transform: none !important;
   }
 }

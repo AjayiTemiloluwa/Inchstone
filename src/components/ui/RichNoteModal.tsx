@@ -171,7 +171,7 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 space-y-5 overflow-y-auto p-6">
+                <div className="flex-1 space-y-5 overflow-y-auto p-6" data-lenis-prevent>
                     <div>
                         <label className="mb-1.5 block text-xs text-parchment/55">Title</label>
                         <input

@@ -37,6 +37,8 @@ export interface Ambient {
   isWinter: boolean
   hour: number
   month: number
+  /** Minutes since midnight — drives the continuous sun path */
+  minuteOfDay: number
   /** Remaining daylight fraction 0..1 (used for sun/moon placement). */
   daylight: number
   /** Reactive "feel" descriptor — text/loader/particles read this. */
@@ -129,6 +131,7 @@ function emptyAmbient(): Ambient {
     isWinter: season === 'winter',
     hour,
     month,
+    minuteOfDay: hour * 60 + now.getMinutes(),
     daylight: daylightFor(hour),
     motion: motionFor(tod, 'clear'),
   }
@@ -206,6 +209,7 @@ export function AtmosphereProvider({ children }: { children: ReactNode }) {
       isWinter: season === 'winter',
       hour,
       month,
+      minuteOfDay: hour * 60 + now.getMinutes(),
       daylight: daylightFor(hour),
       motion: motionFor(tod, weather),
     }

@@ -1029,7 +1029,7 @@ export default function DayPage() {
 
 {viewMode === 'timeline' ? (
             <div className="glass rounded-[8px] overflow-hidden flex select-none animate-fadeIn border border-white/10">
-              <div ref={timelineScrollRef} className="overflow-y-auto flex w-full" style={{ maxHeight: 'min(1536px, 55vh)' }}>
+              <div ref={timelineScrollRef} className="overflow-y-auto flex w-full" data-lenis-prevent style={{ maxHeight: 'min(1536px, 55vh)' }}>
               <div className="w-20 shrink-0 border-r border-white/10 bg-black/20 relative z-10" style={{ height: `${24 * 64}px` }}>
                 {hours.map(hour => (
                   <div key={hour} className="absolute left-0 right-0 text-right pr-3 text-[10px] font-mono text-ink/40" style={{ top: `${hour * 64 + 6}px`, height: '64px' }}>
@@ -1773,7 +1773,7 @@ export default function DayPage() {
             </div>
 
             {/* Body */}
-            <div className="px-7 pb-6 space-y-5 max-h-[60vh] overflow-y-auto">
+            <div className="px-7 pb-6 space-y-5 max-h-[60vh] overflow-y-auto" data-lenis-prevent>
               {/* Time section - Google Calendar style */}
               <div className="space-y-3">
                 <p className="text-[10px] font-bold uppercase text-ink/40 tracking-wider flex items-center space-x-2">

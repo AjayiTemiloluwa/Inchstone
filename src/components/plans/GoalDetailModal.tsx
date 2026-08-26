@@ -84,7 +84,7 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="max-h-[92vh] w-full max-w-2xl space-y-6 overflow-y-auto rounded-[8px] border hairline bg-ink p-6"
+        className="max-h-[92vh] w-full max-w-2xl space-y-6 overflow-y-auto rounded-[8px] border hairline bg-ink p-6" data-lenis-prevent
         onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

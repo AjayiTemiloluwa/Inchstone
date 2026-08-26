@@ -84,7 +84,7 @@ export function ReviewModal({ onClose, onSaved }: ReviewModalProps) {
           </button>
         </div>
 
-        <div className="space-y-5 overflow-y-auto p-6">
+        <div className="space-y-5 overflow-y-auto p-6" data-lenis-prevent>
           <div>
             <label className={labelCls}>Period</label>
             <Segmented options={PERIOD_OPTIONS} value={periodType} onChange={setPeriodType} />

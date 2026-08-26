@@ -1,10 +1,13 @@
 ﻿'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { TransactionForm } from '@/components/finance/TransactionForm'
 import { BudgetProgress } from '@/components/finance/BudgetProgress'
 import { SectionBudgetCard } from '@/components/finance/SectionBudgetCard'
-import { CountUp, SectionHeading, Scramble, Reveal } from '@/components/ui/motion'
+import { CountUp, SectionHeading, Scramble, Reveal, RevealLines } from '@/components/ui/motion'
+import { Loader } from '@/components/ui/Loader'
+import { Float } from '@/components/effects/fluid'
 
 const SECTION_KEYS = ['Need', 'Want', 'Offerings', 'Savings'] as const
 const SECTION_TINT: Record<string, string> = { Need: '#B8935A', Want: '#CF8F78', Offerings: '#7FA871', Savings: '#8FA3BF' }
@@ -86,7 +89,25 @@ export default function FinancePage() {
   // Delete purse state
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+  // Month under inspection — toggle it from the header arrows
+  const [viewMonth, setViewMonth] = useState(() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
+  })
+  const nowKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const isCurrentMonth = viewMonth === nowKey
+
+  const shiftMonth = (delta: number) => {
+    const [y, m] = viewMonth.split('-').map(Number)
+    const d = new Date(y, m - 1 + delta, 1)
+    setViewMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  const viewMonthLabel = new Date(
+    Number(viewMonth.slice(0, 4)),
+    Number(viewMonth.slice(5, 7)) - 1,
+    1,
+  ).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   useEffect(() => {
     const stored = localStorage.getItem('monthlySavingsTarget')
@@ -98,7 +119,7 @@ export default function FinancePage() {
     try {
       const [finRes, budRes, purseRes] = await Promise.all([
         fetch('/api/financial'),
-        fetch(`/api/budgets?month=${currentMonth}`),
+        fetch(`/api/budgets?month=${viewMonth}`),
         fetch('/api/purses'),
       ])
 
@@ -132,7 +153,7 @@ export default function FinancePage() {
     } finally {
       setLoading(false)
     }
-  }, [currentMonth])
+  }, [viewMonth])
 
   useEffect(() => {
     fetchData()
@@ -143,7 +164,7 @@ export default function FinancePage() {
     await fetch('/api/allocations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section, amount, month: currentMonth })
+      body: JSON.stringify({ section, amount, month: viewMonth })
     })
     fetchData()
   }
@@ -153,7 +174,7 @@ export default function FinancePage() {
     await fetch('/api/budgets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section, category, amount, month: currentMonth })
+      body: JSON.stringify({ section, category, amount, month: viewMonth })
     })
     fetchData()
   }
@@ -278,7 +299,7 @@ export default function FinancePage() {
   // Calculate spent amounts per category
   const categorySpending: Record<string, number> = {}
   entries.forEach(entry => {
-    if (entry.type === 'expense' && entry.entryDate?.startsWith(currentMonth)) {
+    if (entry.type === 'expense' && entry.entryDate?.startsWith(viewMonth)) {
       categorySpending[entry.category] = (categorySpending[entry.category] || 0) + entry.amount
     }
   })
@@ -286,7 +307,7 @@ export default function FinancePage() {
   // Calculate spending per section
   const sectionSpending: Record<string, number> = { Need: 0, Want: 0, Offerings: 0, Savings: 0 }
   entries.forEach(entry => {
-    if (entry.type === 'expense' && entry.entryDate?.startsWith(currentMonth)) {
+    if (entry.type === 'expense' && entry.entryDate?.startsWith(viewMonth)) {
       const section = entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) ? entry.priority as Section : 'Need'
       sectionSpending[section] = (sectionSpending[section] || 0) + entry.amount
     }
@@ -320,7 +341,9 @@ export default function FinancePage() {
     else runningBalance -= entry.amount
     balanceById.set(entry.id, runningBalance)
   })
-  const recentEntries = [...entries]
+  // Transactions inside the viewed month (balance column still reads full history)
+  const entriesInMonth = entries.filter(e => e.entryDate?.startsWith(viewMonth))
+  const recentEntries = [...entriesInMonth]
     .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
     .slice(0, 30)
 
@@ -335,30 +358,57 @@ export default function FinancePage() {
   }
 
   if (loading) {
-    return (
-    <div className="px-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 pb-24 animate-pulse">
-      <div className="h-7 w-56 rounded bg-white/5" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[0, 1, 2, 3].map(i => <div key={i} className="h-24 rounded-xl bg-white/5" />)}
-      </div>
-      <div className="h-32 rounded-xl bg-white/5" />
-      <div className="h-64 rounded-xl bg-white/5" />
-    </div>
-  )
+    return <Loader label="Counting your coins…" />
   }
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 pb-24">
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-display font-bold mb-1 text-parchment">Finance</h1>
-          <p className="text-sm text-parchment/50">Track every naira — income, expenses, and savings.</p>
+      {/* ── Meta strip ── */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-white/5 pb-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">Ledger · {entries.length} entries</p>
+        <div className="flex items-center gap-1.5 rounded-lg bg-black/20 border border-white/10 px-1.5 py-1">
+          <button onClick={() => shiftMonth(-1)} aria-label="Previous month"
+            className="w-7 h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="min-w-[8.5rem] text-center text-xs font-mono text-parchment/80 tabular-nums">
+            {viewMonthLabel}
+          </span>
+          <button onClick={() => shiftMonth(1)} aria-label="Next month" disabled={isCurrentMonth}
+            className="w-7 h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors disabled:opacity-25 disabled:hover:bg-transparent">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          {!isCurrentMonth && (
+            <button onClick={() => setViewMonth(nowKey)}
+              className="ml-1 px-2 py-1 rounded-md bg-gold/15 border border-gold/30 text-[10px] font-bold uppercase tracking-wider text-gold hover:bg-gold/25 transition-colors">
+              Today
+            </button>
+          )}
         </div>
-        <span className="px-2.5 py-1 rounded-lg bg-black/20 border border-white/10 text-xs font-mono text-parchment/60">
-          {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-        </span>
       </div>
-      {/* Overview */}
+
+      {/* ── Hero: masked-line reveal, dion-style ── */}
+      <header data-noreveal>
+        <h1 className="font-display text-[clamp(2.6rem,6.5vw,4.6rem)] leading-[1.04] text-parchment">
+          <RevealLines
+            delay={80}
+            fluid
+            lines={[
+              'Every naira,',
+              'accounted for.',
+            ]}
+          />
+        </h1>
+        <div className="mt-5 flex items-center gap-4">
+          <span aria-hidden="true" className="h-px w-12 shrink-0 bg-gold/60" />
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/50">
+            Income, expenses & savings — {viewMonthLabel}
+          </p>
+        </div>
+      </header>
+
+      {/* ── Figures strip ── */}
+      <Float delay={0.5} duration={10} amp={6}>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4">
           <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>📥</span> Income</p>
@@ -403,6 +453,7 @@ export default function FinancePage() {
           )}
         </div>
       </div>
+      </Float>
 
       {/* Balance Sheet Overview */}
       <div>
@@ -546,7 +597,7 @@ export default function FinancePage() {
               budgets={budgetsBySection[section]}
               categorySpending={categorySpending}
               entries={entries}
-              currentMonth={currentMonth}
+              currentMonth={viewMonth}
               onAllocate={(amount) => handleAllocateToSection(section, amount)}
               onAddBudget={(category, amount) => handleAddBudgetCategory(section, category, amount)}
               onDeleteBudget={handleDeleteBudget}
@@ -655,7 +706,7 @@ export default function FinancePage() {
             <div className="space-y-3">
               {budgets.length === 0 ? (
                 <div className="text-sm text-parchment/50 italic p-4 bg-black/20 rounded-xl">
-                  No budgets set for {currentMonth}. Use the section cards above to assign every naira a job!
+                  No budgets set for {viewMonthLabel}. Use the section cards above to assign every naira a job!
                 </div>
               ) : (
                 budgets.map(budget => (
@@ -740,8 +791,10 @@ export default function FinancePage() {
             </div>
           )}
         </div>
-        {entries.length > 30 && (
-          <p className="text-xs text-parchment/40 mt-2 text-center">Showing latest 30 of {entries.length} transactions.</p>
+        {recentEntries.length >= 30 && (
+          <p className="text-xs text-parchment/40 mt-2 text-center">
+            Showing latest 30 of {entriesInMonth.length} transactions in {viewMonthLabel}.
+          </p>
         )}
       </div>
     </div>

@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { Plus, X, Users, Mail, Loader2, Link as LinkIcon, Trash2, MessageSquare, Send, ArrowLeft, Bell } from 'lucide-react'
 import { format } from 'date-fns'
 import { Scramble } from '@/components/ui/motion'
+import { Loader } from '@/components/ui/Loader'
 
 interface Partner {
   id: string
@@ -216,11 +217,9 @@ export default function PartnersPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3" data-lenis-prevent>
           {loadingMessages ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-moss" />
-            </div>
+            <Loader compact label="Fetching messages…" />
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12">
               <MessageSquare className="mb-4 h-12 w-12 text-gold-dim" strokeWidth={1.5} />
@@ -395,9 +394,7 @@ export default function PartnersPage() {
 
       {/* Partners List */}
       {loading ? (
-        <div className="flex justify-center p-12">
-          <Loader2 className="h-8 w-8 animate-spin text-moss" />
-        </div>
+        <Loader compact label="Gathering your partners…" />
       ) : partners.length === 0 ? (
         <div className="rounded-[8px] border border-dashed border-gold-dim/30 p-12 text-center">
           <Users className="mx-auto mb-4 h-12 w-12 text-gold-dim" strokeWidth={1.5} />

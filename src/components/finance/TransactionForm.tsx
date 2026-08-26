@@ -213,7 +213,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
           placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe...' : 'e.g. Salary, Freelance...'}
         />
         {showSuggestions && category.length > 0 && filteredSuggestions.length > 0 && (
-          <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-[#16120f] border border-white/10 rounded-lg max-h-48 overflow-y-auto">
+          <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-[#16120f] border border-white/10 rounded-lg max-h-48 overflow-y-auto" data-lenis-prevent>
             {filteredSuggestions.map(s => (
               <button
                 key={s.label}
