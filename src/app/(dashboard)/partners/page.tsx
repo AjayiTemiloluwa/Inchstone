@@ -194,6 +194,9 @@ export default function PartnersPage() {
     fetchIncomingNudges()
   }
 
+  // Full-page gamified loading gate — same pattern as every other route.
+  if (loading) return <Loader routeKey="partners" />
+
   // Chat view
   if (selectedPartner) {
     return (
@@ -219,7 +222,7 @@ export default function PartnersPage() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3" data-lenis-prevent>
           {loadingMessages ? (
-            <Loader compact label="Fetching messages…" />
+            <Loader compact label="Fetching messages…" routeKey="partners" />
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-12">
               <MessageSquare className="mb-4 h-12 w-12 text-gold-dim" strokeWidth={1.5} />
@@ -393,9 +396,7 @@ export default function PartnersPage() {
       )}
 
       {/* Partners List */}
-      {loading ? (
-        <Loader compact label="Gathering your partners…" />
-      ) : partners.length === 0 ? (
+      {partners.length === 0 ? (
         <div className="rounded-[8px] border border-dashed border-gold-dim/30 p-12 text-center">
           <Users className="mx-auto mb-4 h-12 w-12 text-gold-dim" strokeWidth={1.5} />
           <h3 className="text-lg font-semibold text-parchment/80">No partners yet</h3>

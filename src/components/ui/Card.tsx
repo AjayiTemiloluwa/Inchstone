@@ -9,6 +9,7 @@ interface CardProps {
 export function Card({ children, className = '', onClick }: CardProps) {
   return (
     <div
+      data-fx=""
       className={`
         rounded-[8px] p-5 border hairline
         transition-colors duration-200

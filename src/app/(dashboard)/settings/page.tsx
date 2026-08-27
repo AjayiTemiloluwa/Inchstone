@@ -101,7 +101,7 @@ export default function SettingsPage() {
   }
 
   if (!isLoaded) {
-    return <Loader label="Tuning your settings…" />
+    return <Loader label="Tuning your settings…" routeKey="settings" />
   }
 
   return (

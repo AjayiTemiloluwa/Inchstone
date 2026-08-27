@@ -196,7 +196,7 @@ export default function MonthPage() {
     } catch (e) { console.error(e) }
   }
 
-  if (loading) return <Loader label="Summoning this month…" />
+  if (loading) return <Loader label="Summoning this month…" routeKey="month" />
   if (!monthItem) return <div className="p-6 text-ink/60">Month not found.</div>
 
   const mScore = completionMap[monthItem.id] || 0

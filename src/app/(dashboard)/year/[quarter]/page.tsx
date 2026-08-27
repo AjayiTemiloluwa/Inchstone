@@ -10,6 +10,8 @@ import { ChevronRight, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format, addMonths } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 import { Loader } from '@/components/ui/Loader'
+import { useVoiceLine } from '@/lib/voice/use-voice-line'
+import { useActiveYear } from '@/lib/useActiveYear'
 
 export default function YearQuarterPage() {
     const router = useRouter()
@@ -18,6 +20,7 @@ export default function YearQuarterPage() {
 
     const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
     const { showToast, confirm } = useToast()
+    const emptyGoals = useVoiceLine('empty.goals')
     const [loading, setLoading] = useState(true)
 
     const [addingGoal, setAddingGoal] = useState<string | null>(null)
@@ -54,10 +57,10 @@ export default function YearQuarterPage() {
 
     const flatItems = getFlatItems()
 
-    const yearItem = flatItems.find(i => i.layer === 0)
+    const { yearItem, subtreeIds } = useActiveYear(flatItems)
     const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
-    const yearlyGoals = flatItems.filter(i => i.layer === 2)
-    const matchingQuarters = flatItems.filter(i => i.layer === 3 && i.title.includes(quarterLabel))
+    const yearlyGoals = flatItems.filter(i => i.layer === 2 && subtreeIds.has(i.id))
+    const matchingQuarters = flatItems.filter(i => i.layer === 3 && subtreeIds.has(i.id) && i.title.includes(quarterLabel))
 
     // Auto-create months if none exist for each quarter
     const ensureMonths = useCallback(async () => {
@@ -250,7 +253,7 @@ export default function YearQuarterPage() {
         ? matchingQuarters.reduce((s, q) => s + (completionMap[q.id] || 0), 0) / matchingQuarters.length
         : 0
 
-    if (loading) return <Loader label="Firing up the quarter…" />
+    if (loading) return <Loader label="Firing up the quarter…" routeKey="year-quarter" />
     if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
 
     // Group months by label for the months section
@@ -382,7 +385,7 @@ export default function YearQuarterPage() {
                                         })}
                                     </div>
                                     {catQuarters.length === 0 && !addingGoal && (
-                                        <p className="text-xs text-ink/40 italic">No goals yet. Click + to add one.</p>
+                                        <p className="text-xs text-ink/40 italic">{emptyGoals}</p>
                                     )}
                                 </div>
                             </Card>

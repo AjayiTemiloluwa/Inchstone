@@ -358,7 +358,7 @@ export default function FinancePage() {
   }
 
   if (loading) {
-    return <Loader label="Counting your coins…" />
+    return <Loader label="Counting your coins…" routeKey="finance" />
   }
 
   return (
@@ -394,7 +394,7 @@ export default function FinancePage() {
             delay={80}
             fluid
             lines={[
-              'Every naira,',
+              'Every sum,',
               'accounted for.',
             ]}
           />
@@ -583,8 +583,8 @@ export default function FinancePage() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <span>📊</span> <Scramble text="Budget by Sections" />
           </h2>
-          <p className="text-xs text-parchment/40 font-mono">
-            Allocated ₦{totalAllocated.toFixed(0)} · Spent ₦{Object.values(sectionSpending).reduce((s: number, v: number) => s + v, 0).toFixed(0)}
+          <p className="text-xs text-parchment/40 font-mono tabular-nums">
+            Allocated {totalAllocated.toFixed(0)} · Spent {Object.values(sectionSpending).reduce((s: number, v: number) => s + v, 0).toFixed(0)}
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -706,7 +706,7 @@ export default function FinancePage() {
             <div className="space-y-3">
               {budgets.length === 0 ? (
                 <div className="text-sm text-parchment/50 italic p-4 bg-black/20 rounded-xl">
-                  No budgets set for {viewMonthLabel}. Use the section cards above to assign every naira a job!
+                  No budgets set for {viewMonthLabel}. Use the section cards above to give each part of your plan a job!
                 </div>
               ) : (
                 budgets.map(budget => (

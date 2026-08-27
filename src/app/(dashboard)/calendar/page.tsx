@@ -141,7 +141,7 @@ export default function CalendarPage() {
     setPullDistance(0)
   }
 
-  if (loading) return <Loader label="Spawning the calendar grid…" />
+  if (loading) return <Loader label="Spawning the calendar grid…" routeKey="calendar" />
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const monthLabel = format(currentMonth, 'MMMM yyyy')

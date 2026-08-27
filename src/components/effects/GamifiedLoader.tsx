@@ -1,6 +1,51 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useVoiceLine } from '@/lib/voice/use-voice-line'
+import type { VoiceKey } from '@/lib/voice/types'
+
+/* Every route the app can load, mapped to a voice-bank key so the loader's
+   micro-copy is contextual AND time-of-day aware. */
+export type LoaderRouteKey =
+  | 'calendar'
+  | 'day'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'year'
+  | 'goal'
+  | 'finance'
+  | 'notes'
+  | 'partners'
+  | 'reports'
+  | 'plans'
+  | 'reviews'
+  | 'settings'
+  | 'dashboard'
+  | 'year-quarter'
+  | 'year-quarter-month'
+  | 'year-quarter-month-week'
+
+const ROUTE_TO_VOICE: Record<LoaderRouteKey, VoiceKey> = {
+  calendar: 'loading.calendar',
+  day: 'loading.day',
+  week: 'loading.week',
+  month: 'loading.month',
+  quarter: 'loading.quarter',
+  year: 'loading.year',
+  goal: 'loading.goal',
+  finance: 'loading.finance',
+  notes: 'loading.notes',
+  partners: 'loading.partners',
+  reports: 'loading.reports',
+  plans: 'loading.plans',
+  reviews: 'loading.reviews',
+  settings: 'loading.settings',
+  dashboard: 'loading.dashboard',
+  'year-quarter': 'loading.year-quarter',
+  'year-quarter-month': 'loading.year-quarter-month',
+  'year-quarter-month-week': 'loading.year-quarter-month-week',
+}
 
 /* ────────────────────────────────────────────────────────────────
    GamifiedLoader — a tiny retro platformer loading state.
@@ -53,9 +98,12 @@ const PIXEL = 4 // px per pixel cell
 export function GamifiedLoader({
   label = '',
   compact = false,
+  routeKey,
 }: {
   label?: string
   compact?: boolean
+  /** Optional route context — makes micro-copy contextual + time-aware. */
+  routeKey?: LoaderRouteKey
 }) {
   const [percent, setPercent] = useState(0)
   const [msg, setMsg] = useState(0)
@@ -91,7 +139,13 @@ export function GamifiedLoader({
 
   const coins = [12, 30, 52, 74, 90]
   const coinsCaught = coins.filter((c) => percent >= c).length
-  const status = label || MESSAGES[msg]
+
+  // When a routeKey is given, the micro-copy comes from the shared voice bank
+  // (contextual + time-of-day aware, no immediate repeats) and takes
+  // precedence. Otherwise fall back to the explicit label, then the classic
+  // rotating flavor line.
+  const voiceLine = useVoiceLine(routeKey ? ROUTE_TO_VOICE[routeKey] : 'loading.dashboard')
+  const status = routeKey ? voiceLine : (label || MESSAGES[msg])
 
   // Slim horizontal variant for tight inline spots (tables, cards).
   if (compact) {

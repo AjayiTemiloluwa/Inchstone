@@ -6,6 +6,7 @@ import { CalendarRange, Compass, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { usePlansStore } from '@/stores/plansStore'
 import { Card } from '@/components/ui/Card'
+import { Loader } from '@/components/ui/Loader'
 import { PlanFormModal } from '@/components/plans/PlanFormModal'
 import { ProgressSegments } from '@/components/plans/ProgressSegments'
 import { formatMonthRange, formatSpan } from '@/lib/plans/duration'
@@ -71,15 +72,7 @@ export default function PlansPage() {
       </header>
 
       {loadingPlans && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="rounded-[8px] border hairline p-5 space-y-3 animate-pulse">
-              <div className="h-5 w-3/4 rounded bg-parchment/10" />
-              <div className="h-3 w-1/2 rounded bg-parchment/10" />
-              <div className="h-1.5 w-full rounded bg-parchment/10" />
-            </div>
-          ))}
-        </div>
+        <Loader routeKey="plans" />
       )}
 
       {!loadingPlans && plansError && (

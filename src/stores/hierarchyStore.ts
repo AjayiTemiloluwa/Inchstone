@@ -22,6 +22,8 @@ export type Item = {
   focusQuestion: string | null
   anchorScripture: string | null
   reflection: string | null
+  createdAt?: string // ISO string from the API — used for stable ordering
+  updatedAt?: string
   children?: Item[]
   tasks?: Task[]
 }

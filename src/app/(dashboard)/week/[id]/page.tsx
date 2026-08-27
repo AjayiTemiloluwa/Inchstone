@@ -200,7 +200,7 @@ export default function WeekPage() {
     } catch (e) { console.error(e) }
   }
 
-  if (loading) return <Loader label="Charting the week ahead…" />
+  if (loading) return <Loader label="Charting the week ahead…" routeKey="week" />
   if (!weekItem) return <div className="p-6 text-ink/60">Week not found.</div>
 
   const wScore = completionMap[weekItem.id] || 0

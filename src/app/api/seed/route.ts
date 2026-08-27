@@ -25,11 +25,11 @@ export async function POST(req: Request) {
       data: {
         userId,
         layer: 0,
-        title: '2026 Identity',
-        description: 'I am a disciplined steward of my time, talents, and treasure.',
-        theme: 'The Year of Discipline',
-        anchorScripture: 'Proverbs 16:3',
-        focusQuestion: 'Did I steward today well?',
+        title: 'A Year in Focus',
+        description: 'A year of turning modest, daily choices into a life of quiet excellence.',
+        theme: 'Discipline & Deliberate Growth',
+        anchorScripture: 'Discipline is the quiet art of keeping your promises to yourself.',
+        focusQuestion: 'Did I grow a little closer to who I want to be today?',
       }
     })
 

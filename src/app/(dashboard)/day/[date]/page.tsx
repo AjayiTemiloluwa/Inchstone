@@ -11,6 +11,7 @@ import { format, parseISO, subDays, subWeeks, subMonths, subYears, startOfWeek, 
 import { AnimatePresence, motion } from 'motion/react'
 import { Scramble } from '@/components/ui/motion'
 import dynamic from 'next/dynamic'
+import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
 
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 import { useToast } from '@/components/ui/ToastProvider'
@@ -53,6 +54,8 @@ export default function DayPage() {
   const [editingNote, setEditingNote] = useState<any>(null)
   const [newHabitTitle, setNewHabitTitle] = useState('')
   const [newHabitPattern, setNewHabitPattern] = useState('daily')
+  const [showHabitAdd, setShowHabitAdd] = useState(false)
+  const [showHabitGraph, setShowHabitGraph] = useState(false)
   const [habitHistory, setHabitHistory] = useState<any[]>([])
   const [habitGraphRange, setHabitGraphRange] = useState<GraphRange>('month')
   const [habitGraphCustomStart, setHabitGraphCustomStart] = useState('')
@@ -61,6 +64,9 @@ export default function DayPage() {
   const [showDeleteHabitMenu, setShowDeleteHabitMenu] = useState<string | null>(null)
   const [savingDeed, setSavingDeed] = useState(false)
   const [habitHover, setHabitHover] = useState<number | null>(null)
+
+  // Live "now" ticker for scheduled-deed countdowns (1s cadence).
+  const countdownNow = useCountdown()
 
   const activeCategories = getFlatItems().filter(i => i.layer === 1)
   const currentDate = parseISO(dateStr)
@@ -341,6 +347,10 @@ export default function DayPage() {
     return a.title.localeCompare(b.title)
   })
   const habitTasks = allTasks.filter(t => t.isHabit)
+  // Habits rendered in the tracker = fetched per-day habits, else store fallback
+  const displayedHabits = todayHabits.length > 0 ? todayHabits : habitTasks
+  const habitsDone = displayedHabits.filter((h: any) => h.completed).length
+  const habitsTotal = displayedHabits.length
   // Day score counts only non-habit tasks (regular deeds)
   const deedTasks = allTasks.filter(t => !t.isHabit)
   const completedTasks = deedTasks.filter(t => t.completed)
@@ -349,6 +359,53 @@ export default function DayPage() {
     ? deedTasks.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0) / totalWeight * 100
     : 0
   const primaryGoal = dailyGoals[0]
+
+  // ── Live countdown of the next scheduled (time-ranged) deed ──────────
+  // Finds the soonest upcoming/live scheduled deed so we can surface a subtle
+  // "next up" ticker in the header and countdown chips in table + modal.
+  const nextScheduledDeed = useMemo(() => {
+    const candidates = scheduledTasks
+      .filter(t => !t.completed && t.startTime)
+      .map(t => ({
+        task: t,
+        parts: formatCountdown(countdownNow, new Date(t.startTime!), t.endTime ? new Date(t.endTime) : null),
+      }))
+      .sort((a, b) => a.parts.totalSeconds - b.parts.totalSeconds)
+    return candidates[0] || null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduledTasks, countdownNow.getTime()])
+
+  const countdownForDeed = (t: Task) => {
+    if (!t.startTime) return null
+    return formatCountdown(countdownNow, new Date(t.startTime), t.endTime ? new Date(t.endTime) : null)
+  }
+
+  // Compact live countdown chip — used in the table, timeline blocks and the
+  // deed edit modal. Colour reflects state: LIVE (moss), imminent (ember),
+  // upcoming (gold).
+  const renderCountdownChip = (t: Task) => {
+    if (!t.startTime) return null
+    const p = countdownForDeed(t)
+    if (!p) return null
+    const label = compactCountdownLabel(p)
+    const tone =
+      p.state === 'live'
+        ? 'bg-moss/15 text-sage border-sage/30'
+        : p.soon
+          ? 'bg-ember/15 text-[#e0a093] border-ember/40'
+          : 'bg-gold/15 text-gold border-gold/30'
+    const Icon = p.state === 'live' ? Activity : Clock
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide tabular-nums ${tone}`}
+        title={t.startTime ? `Scheduled ${format(new Date(t.startTime), 'h:mm a')}` : undefined}
+      >
+        <Icon className="w-3 h-3" />
+        {p.state === 'live' ? '● ' : ''}
+        {label}
+      </span>
+    )
+  }
 
   // 🎉 Celebrate a perfect day — confetti + haptic, once per date
   const prevScoreRef = useRef(dayScore)
@@ -842,7 +899,7 @@ export default function DayPage() {
     }
   }
 
-  if (loading) return <Loader label="Spinning the day slots…" />
+  if (loading) return <Loader label="Spinning the day slots…" routeKey="day" />
 
   return (
 <div className="space-y-6 max-w-full pb-12 stagger-children">
@@ -902,6 +959,12 @@ export default function DayPage() {
                 <Calendar className="w-5 h-5 text-gold" />
                 <h2 className="text-lg sm:text-xl font-display font-bold text-ink"><Scramble text="Deeds" mono={false} /></h2>
                 <span className="text-xs font-mono text-ink/40">{completedTasks.length}/{deedTasks.length}</span>
+                {nextScheduledDeed && (
+                  <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-gold tabular-nums animate-fadeIn">
+                    <Activity className="w-3 h-3" />
+                    next up · {compactCountdownLabel(nextScheduledDeed.parts)}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex rounded-xl border border-white/10 bg-black/20 p-1">
@@ -920,109 +983,144 @@ export default function DayPage() {
             </div>
 
             {addingDeed && (
-              <div className="pt-4 border-t border-white/10 animate-fadeIn">
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-            <input type="text" value={newDeedTitle} onChange={e => setNewDeedTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddDeed()}
-              placeholder="Deed title..." className="col-span-2 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" autoFocus />
-            <input type="time" value={newDeedStart} onChange={e => setNewDeedStart(e.target.value)}
-              className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-            <input type="time" value={newDeedEnd} onChange={e => setNewDeedEnd(e.target.value)}
-              className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-            <select value={newDeedCategory} onChange={e => setNewDeedCategory(e.target.value)} className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80">
-              <option value="">Category</option>
-              {getFlatItems().filter(i => i.layer === 1).map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
-            </select>
-            <div className="flex space-x-2">
-              <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}
-                min="1" max="100" placeholder="Wt"
-                className="w-16 px-3 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-              <button onClick={() => handleAddDeed()} disabled={savingDeed} className="flex-1 px-4 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70   disabled:opacity-50">{savingDeed ? 'Adding...' : 'Add'}</button>
-            </div>
-          </div>
-          {/* Color picker */}
-          <div className="md:col-span-6 space-y-2">
-            <p className="text-[9px] font-bold uppercase text-ink/40 tracking-wider">Color</p>
-            <div className="flex flex-wrap gap-2">
-              {['#d4af37', '#8fbc8f', '#6495ed', '#ff7f50', '#9370db', '#3cb371', '#ffd700', '#00bfff', '#ff6b6b', '#a8e6cf', '#ffb347', '#ba68c8'].map(c => (
-                <button
-                  key={c}
-                  onClick={() => setDeedColor(deedColor === c ? '' : c)}
-                  className="w-7 h-7 rounded-full border-2 transition-all"
-                  style={{ backgroundColor: c, borderColor: deedColor === c ? 'white' : 'transparent' }}
-                />
-              ))}
-              <button onClick={() => setDeedColor('')} className={`px-2 py-0.5 text-[9px] font-bold rounded border ${!deedColor ? 'bg-white/20 border-white/40 text-ink' : 'border-white/10 text-ink/50'}`}>None</button>
-            </div>
-          </div>
-          <div className="md:col-span-6 border-t border-white/10 pt-4 flex items-center space-x-6">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isFrog}
-                onChange={e => setIsFrog(e.target.checked)}
-                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
-              />
-              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                <span className="text-sm">🐸</span>
-                <span>Eat That Frog</span>
-              </span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isHabit}
-                onChange={e => {
-                  setIsHabit(e.target.checked)
-                  if (e.target.checked) {
-                    setIsRecurring(true)
-                    setRecurrencePattern('daily')
-                  }
-                }}
-                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
-              />
-              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                <span className="text-sm">🌱</span>
-                <span>Habit (repeats daily)</span>
-              </span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isRecurring}
-                onChange={e => setIsRecurring(e.target.checked)}
-                className="w-4 h-4 rounded border-mist text-gold focus:ring-gold"
-              />
-              <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                <Repeat className="w-3.5 h-3.5" />
-                <span>Recurring Task</span>
-              </span>
-            </label>
-          </div>
-          {isRecurring && (
-            <div className="md:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-              <select
-                value={recurrencePattern}
-                onChange={e => setRecurrencePattern(e.target.value)}
-                className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-              >
-                <option value="">Repeat...</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Biweekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-                <option value="weekdays">Weekdays (Mon-Fri)</option>
-              </select>
-              <input
-                type="date"
-                value={recurrenceEnd}
-                onChange={e => setRecurrenceEnd(e.target.value)}
-                className="px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                placeholder="End date (optional)"
-              />
-            </div>
-          )}
+              <div className="pt-4 border-t border-white/10 animate-fadeIn space-y-4">
+                {/* What → title */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">What are you doing?</label>
+                  <input
+                    type="text"
+                    value={newDeedTitle}
+                    onChange={e => setNewDeedTitle(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddDeed()}
+                    placeholder="Deed title…"
+                    autoFocus
+                    className="w-full px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 text-ink"
+                  />
+                </div>
+
+                {/* When → time range */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Time (optional)</label>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <input type="time" value={newDeedStart} onChange={e => setNewDeedStart(e.target.value)}
+                      className="px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
+                    <span className="text-ink/30 text-xs">–</span>
+                    <input type="time" value={newDeedEnd} onChange={e => setNewDeedEnd(e.target.value)}
+                      className="px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
+                  </div>
+                </div>
+
+                {/* Group → category + weight */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Category</label>
+                    <select value={newDeedCategory} onChange={e => setNewDeedCategory(e.target.value)} className="w-full px-3 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80">
+                      <option value="">None</option>
+                      {getFlatItems().filter(i => i.layer === 1).map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Weight</label>
+                    <div className="flex items-center gap-2">
+                      <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}
+                        min="1" max="100" placeholder="Wt"
+                        className="w-20 px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
+                      <span className="text-xs text-ink/40">% of the day</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Color */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Accent color</label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {['#d4af37', '#8fbc8f', '#6495ed', '#ff7f50', '#9370db', '#3cb371', '#ffd700', '#00bfff', '#ff6b6b', '#a8e6cf', '#ffb347', '#ba68c8'].map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setDeedColor(deedColor === c ? '' : c)}
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all ${
+                          deedColor === c ? 'border-white' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: c }}
+                        aria-label={`color ${c}`}
+                      >
+                        {deedColor === c && <span className="text-[#0a0908] font-bold text-xs">✓</span>}
+                      </button>
+                    ))}
+                    <button onClick={() => setDeedColor('')} className={`px-2 py-1 text-[9px] font-bold rounded border ${!deedColor ? 'bg-white/20 border-white/40 text-ink' : 'border-white/10 text-ink/50'}`}>None</button>
+                  </div>
+                </div>
+          {/* Flags */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-3">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked={isFrog} onChange={e => setIsFrog(e.target.checked)}
+                      className="w-4 h-4 rounded border-mist text-gold focus:ring-gold" />
+                    <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                      <span className="text-sm">🐸</span><span>Eat That Frog</span>
+                    </span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isHabit}
+                      onChange={e => {
+                        setIsHabit(e.target.checked)
+                        if (e.target.checked) { setIsRecurring(true); setRecurrencePattern('daily') }
+                      }}
+                      className="w-4 h-4 rounded accent-moss focus:ring-moss" />
+                    <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                      <span className="text-sm">🌱</span><span>Habit</span>
+                    </span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)}
+                      className="w-4 h-4 rounded accent-gold focus:ring-gold" />
+                    <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                      <Repeat className="w-3.5 h-3.5" /><span>Recurring</span>
+                    </span>
+                  </label>
+                  {isRecurring && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={recurrencePattern}
+                        onChange={e => setRecurrencePattern(e.target.value)}
+                        className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                      >
+                        <option value="">Every…</option>
+                        <option value="daily">Day</option>
+                        <option value="weekly">Week</option>
+                        <option value="biweekly">2 weeks</option>
+                        <option value="monthly">Month</option>
+                        <option value="yearly">Year</option>
+                        <option value="weekdays">Weekdays</option>
+                      </select>
+                      <input
+                        type="date"
+                        value={recurrenceEnd}
+                        onChange={e => setRecurrenceEnd(e.target.value)}
+                        className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                        placeholder="End date"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-2 border-t border-white/10 pt-3">
+                  <button
+                    onClick={() => setAddingDeed(false)}
+                    className="px-4 py-2.5 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleAddDeed()}
+                    disabled={savingDeed || !newDeedTitle.trim()}
+                    className="px-5 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {savingDeed ? 'Adding…' : '+ Add Deed'}
+                  </button>
+                </div>
               </div>
             )}
           </Card>
@@ -1070,8 +1168,11 @@ export default function DayPage() {
                       </div>
                       <div className="space-y-1 mt-1">
                         {task.startTime && task.endTime && (
-                          <div className="text-[10px] text-ink/40 font-mono">
-                            {format(new Date(task.startTime), 'h:mm a')} - {format(new Date(task.endTime), 'h:mm a')}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-ink/40 font-mono">
+                              {format(new Date(task.startTime), 'h:mm a')} - {format(new Date(task.endTime), 'h:mm a')}
+                            </span>
+                            {renderCountdownChip(task)}
                           </div>
                         )}
                         {task.categoryId && (() => {
@@ -1131,8 +1232,13 @@ export default function DayPage() {
                     return (
                       <tr key={t.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => handleOpenDeed(t)}>
                         <td className="p-3 font-mono text-xs text-ink/50">
-                          {t.startTime ? format(new Date(t.startTime), 'h:mm a') : '—'}
-                          {t.endTime ? `–${format(new Date(t.endTime), 'h:mm a')}` : ''}
+                          <div className="flex items-center gap-1.5">
+                            <span>
+                              {t.startTime ? format(new Date(t.startTime), 'h:mm a') : '—'}
+                              {t.endTime ? `–${format(new Date(t.endTime), 'h:mm a')}` : ''}
+                            </span>
+                            {renderCountdownChip(t)}
+                          </div>
                         </td>
                         <td className="p-3">
                           <div className="flex items-center space-x-2">
@@ -1382,15 +1488,40 @@ export default function DayPage() {
 {/* Daily Tracker — now the unified Habit Tracker */}
       <Card className="p-4 sm:p-5 border border-gold/30">
         <div className="relative z-10">
-          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 mb-4">
-            <div>
-              <h2 className="text-xl font-display font-bold text-ink flex items-center space-x-2">
-                <Activity className="w-5 h-5 text-gold" />
-                <span><Scramble text="Habit Tracker" mono={false} /></span>
-              </h2>
-              <p className="text-xs text-ink/60 mt-1">Track your daily habits. Each habit repeats every day once created.</p>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold/25 bg-gold/10">
+                <Activity className="w-4 h-4 text-gold" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display font-bold text-ink"><Scramble text="Habit Tracker" mono={false} /></h2>
+                  {habitsTotal > 0 && (
+                    <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
+                      habitsDone === habitsTotal ? 'border-sage/30 bg-sage/10 text-sage' : 'border-gold/25 bg-gold/10 text-gold'
+                    }`}>
+                      {habitsDone}/{habitsTotal} today
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-ink/45 truncate">Repeats automatically — check in each day</p>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+
+            <button
+              onClick={() => setShowHabitAdd(v => !v)}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+                showHabitAdd ? 'border-gold/40 bg-gold/15 text-gold' : 'border-gold/25 bg-gold/10 text-gold hover:bg-gold/20'
+              }`}
+            >
+              {showHabitAdd ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              {showHabitAdd ? 'Close' : 'New habit'}
+            </button>
+          </div>
+
+          {/* Quick-add (collapsible to keep the box compact) */}
+          {showHabitAdd && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 animate-fadeIn">
               <input
                 type="text"
                 value={newHabitTitle}
@@ -1402,13 +1533,14 @@ export default function DayPage() {
                     await handleQuickAddHabit(title, newHabitPattern)
                   }
                 }}
-                placeholder="New habit..."
-                className="px-3 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 flex-1 min-w-[140px] sm:flex-none sm:w-40"
+                autoFocus
+                placeholder="New habit title…"
+                className="flex-1 min-w-[150px] px-3 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 placeholder:text-ink/30"
               />
               <select
                 value={newHabitPattern}
                 onChange={e => setNewHabitPattern(e.target.value)}
-                className="px-3 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 w-28"
+                className="px-2.5 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -1425,21 +1557,21 @@ export default function DayPage() {
                     await handleQuickAddHabit(title, newHabitPattern)
                   }
                 }}
-                className="px-3 py-2 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-[#cbaa6f] transition flex items-center space-x-1"
+                className="px-3.5 py-2 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-[#cbaa6f] transition flex items-center space-x-1"
               >
                 <Plus className="w-3 h-3" />
                 <span>Add</span>
               </button>
             </div>
-          </div>
+          )}
 
-          {/* Today's Habits */}
-          <div className="space-y-2 mb-6">
-            {(todayHabits.length > 0 ? todayHabits : habitTasks).map((task: any) => (
-              <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <button onClick={async () => {
-                    // Toggle via API directly since habit may not be in the goal's task list
+          {/* Today's Habits — compact rows */}
+          <div className="space-y-1.5">
+            {displayedHabits.map((task: any, idx: number) => (
+              <div key={task.id} className={`group flex items-center gap-3 rounded-lg border px-2.5 py-2 transition-all ${task.completed ? 'border-sage/25 bg-sage/[0.05]' : 'border-white/10 bg-black/15 hover:border-gold/40'}`}>
+                <span className="w-4 shrink-0 text-center font-mono text-[10px] text-ink/30 tabular-nums">{idx + 1}</span>
+                <button
+                  onClick={async () => {
                     await fetch(`/api/tasks/${task.id}`, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
@@ -1447,17 +1579,26 @@ export default function DayPage() {
                     })
                     setTodayHabits(prev => prev.map((h: any) => h.id === task.id ? { ...h, completed: !h.completed } : h))
                     fetchHabitHistory()
-                  }} className="shrink-0">
-                    {task.completed ? <CheckCircle2 className="w-5 h-5 text-sage" /> : <Circle className="w-5 h-5 text-ink/30" />}
-                  </button>
-                  <span className={`min-w-0 flex-1 truncate font-bold text-sm ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
-                </div>
+                  }}
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border transition-colors ${
+                    task.completed ? 'border-sage bg-sage text-ink' : 'border-white/20 text-transparent hover:border-gold'
+                  }`}
+                  aria-label={`Mark ${task.title} ${task.completed ? 'incomplete' : 'complete'}`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </button>
+                <span className={`min-w-0 flex-1 truncate text-sm ${task.completed ? 'line-through text-ink/45' : 'text-ink font-medium'}`}>{task.title}</span>
+                {task.completed ? (
+                  <span className="shrink-0 rounded-full bg-sage/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sage">Done</span>
+                ) : (
+                  <span className="hidden shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink/40 sm:inline-block">Today</span>
+                )}
                 <div className="relative">
-                  <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78]" title="Delete">
-                    <Trash2 className="w-4 h-4" />
+                  <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1 rounded hover:bg-ember/15 transition opacity-0 group-hover:opacity-100 text-ink/30 hover:text-[#cf8f78]" title="Delete">
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                   {showDeleteHabitMenu === task.id && (
-                    <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl  p-2 min-w-[180px] animate-fadeIn">
+                    <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl p-2 min-w-[180px] animate-fadeIn">
                       <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
                       <button onClick={() => performDeleteTask(task.id, true)} className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
                         <Repeat className="w-3.5 h-3.5" />
@@ -1475,8 +1616,14 @@ export default function DayPage() {
                 </div>
               </div>
             ))}
-            {todayHabits.length === 0 && habitTasks.length === 0 && (
-              <p className="text-xs text-ink/40 text-center py-4">No habits yet. Add one and it will repeat every day going forward.</p>
+            {displayedHabits.length === 0 && (
+              <button
+                onClick={() => setShowHabitAdd(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 py-3 text-xs text-ink/40 transition hover:border-gold/40 hover:text-gold"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add your first habit
+              </button>
             )}
           </div>
 
@@ -1493,8 +1640,30 @@ export default function DayPage() {
               return { title, rate: total > 0 ? Math.round((done / total) * 100) : 0 }
             })
 
+            const overallRate = totalHabitTitles.length
+              ? Math.round(completionRates.reduce((s, c) => s + c.rate, 0) / completionRates.length)
+              : 0
+
             return (
-              <div className="mt-6 pt-4 border-t border-white/10">
+              <div className="mt-5 pt-4 border-t border-white/10">
+                {/* Trend toggle — keeps the tracker compact by default */}
+                <button
+                  onClick={() => setShowHabitGraph(v => !v)}
+                  className="mb-3 flex w-full items-center justify-between rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-xs font-bold text-ink/70 transition hover:border-gold/40 hover:text-gold"
+                >
+                  <span className="flex items-center gap-2">
+                    <BarChart3 className="w-3.5 h-3.5 text-gold" />
+                    Habit trend
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {overallRate > 0 && (
+                      <span className="rounded-full bg-gold/15 px-2 py-0.5 font-mono text-[10px] font-bold text-gold tabular-nums">{overallRate}% avg</span>
+                    )}
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showHabitGraph ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+                {showHabitGraph && (
+                <>
                 {/* Range selector */}
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
                   <div className="flex items-center space-x-2">
@@ -1695,6 +1864,8 @@ export default function DayPage() {
                     )
                   })()}
                 </div>
+                </>
+                )}
               </div>
             )
           })()}
@@ -1837,6 +2008,34 @@ export default function DayPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Live countdown for this scheduled deed */}
+                {(() => {
+                  const st = selectedDeed.task.startTime
+                  if (!st) return null
+                  const pt = countdownForDeed(selectedDeed.task)
+                  if (!pt) return null
+                  const label = compactCountdownLabel(pt)
+                  const isLive = pt.state === 'live'
+                  const isSoon = pt.state === 'future' && pt.soon
+                  return (
+                    <div
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 animate-fadeIn ${
+                        isLive ? 'border-moss/40 bg-moss/10' : isSoon ? 'border-ember/40 bg-ember/10' : 'border-gold/30 bg-gold/10'
+                      }`}
+                    >
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isLive ? 'bg-moss/20 text-sage' : isSoon ? 'bg-ember/20 text-[#e0a093]' : 'bg-gold/20 text-gold'}`}>
+                        {isLive ? <Activity className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                      </span>
+                      <div className="min-w-0">
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isLive ? 'text-sage' : isSoon ? 'text-[#e0a093]' : 'text-gold'}`}>
+                          {isLive ? '● In progress' : isSoon ? 'Starting soon' : 'Countdown'}
+                        </p>
+                        <p className="font-mono text-lg font-bold text-ink tabular-nums leading-tight">{label}</p>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Details section */}

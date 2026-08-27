@@ -1,23 +1,26 @@
 ﻿﻿'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { CategoryEditModal } from '@/components/ui/CategoryEditModal'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter } from 'next/navigation'
-import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen, Download, Database, Edit3, Check } from 'lucide-react'
+import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen, Download, Database, Edit3, Check, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 import { YearFilm } from '@/components/ui/YearFilm'
-import { Reveal, CountUp, Scramble } from '@/components/ui/motion'
+import { Reveal, CountUp, Scramble, RevealLines } from '@/components/ui/motion'
 import { Loader } from '@/components/ui/Loader'
+import { useVoiceLine } from '@/lib/voice/use-voice-line'
+import { useActiveYear } from '@/lib/useActiveYear'
 
 export default function YearPage() {
   const router = useRouter()
   const { items, completionMap, setItems, updateItem, getFlatItems, updateItemScoreMode } = useHierarchyStore()
   const { showToast, confirm } = useToast()
+  const emptyGoals = useVoiceLine('empty.goals')
   const [loading, setLoading] = useState(true)
   const [lockedWeights, setLockedWeights] = useState<Record<string, boolean>>({})
   const [categoryWeights, setCategoryWeights] = useState<Record<string, number>>({})
@@ -34,6 +37,8 @@ export default function YearPage() {
   const [editingTitle, setEditingTitle] = useState<string | null>(null)
   const [editTitleValue, setEditTitleValue] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  const [editYearName, setEditYearName] = useState(false)
+  const [yearNameDraft, setYearNameDraft] = useState('')
 
   // Fetch habits
   const fetchHabits = useCallback(async () => {
@@ -137,21 +142,41 @@ export default function YearPage() {
     fetchHabits()
   }, [fetchItems, fetchHabits])
 
-  // Layer references
+  // Layer references — scoped to the ACTIVE year (switchable, multi-year).
   const flatItems = getFlatItems()
-  const yearItem = flatItems.find(i => i.layer === 0)
-  const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
-  const yearlyGoals = flatItems.filter(i => i.layer === 2)
-  const quarters = flatItems.filter(i => i.layer === 3)
+  const { activeYear, yearItem, allYears, setYear, subtreeIds } = useActiveYear(flatItems)
+  // Categories belonging to the ACTIVE year (switchable, multi-year).
+  // Primary: direct children of this year's workspace item.
+  // Fallback: adopt layer-1 items with no parent that aren't owned by any
+  // other year — keeps legacy frameworks (pre-multi-year seeding) visible.
+  const categories = (() => {
+    const direct = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
+    if (direct.length > 0) return direct
+    const ownedByAYear = new Set(
+      allYears.flatMap(y => flatItems.filter(i => i.layer === 1 && i.parentId === y.id).map(i => i.id))
+    )
+    return flatItems.filter(i => i.layer === 1 && !i.parentId && !ownedByAYear.has(i.id))
+  })()
+  // Deterministic order — id is a random uuid, so DB tie-order isn't stable.
+  const orderedCategories = [...categories].sort((a, b) =>
+    (a.createdAt || '').localeCompare(b.createdAt || '') || a.title.localeCompare(b.title)
+  )
+  const yearlyGoals = flatItems.filter(i => i.layer === 2 && subtreeIds.has(i.id))
+  const quarters = flatItems.filter(i => i.layer === 3 && subtreeIds.has(i.id))
 
-  // Initialize category weights from data
+  // Initialize category weights for the ACTIVE year. Re-runs whenever the year
+  // workspace changes (initial localStorage adoption or a year switch), so the
+  // sliders never inherit another year's weights or locked state.
+  const weightsInitRef = useRef<string | null>(null)
   useEffect(() => {
-    if (categories.length > 0 && Object.keys(categoryWeights).length === 0) {
-      const w: Record<string, number> = {}
-      categories.forEach(c => { w[c.id] = c.weight })
-      setCategoryWeights(w)
-    }
-  }, [categories, categoryWeights])
+    if (!yearItem || orderedCategories.length === 0) return
+    if (weightsInitRef.current === yearItem.id) return
+    weightsInitRef.current = yearItem.id
+    const w: Record<string, number> = {}
+    orderedCategories.forEach(c => { w[c.id] = c.weight })
+    setCategoryWeights(w)
+    setLockedWeights({})
+  }, [yearItem, orderedCategories])
 
   // Initialize reflection text
   useEffect(() => {
@@ -378,7 +403,7 @@ export default function YearPage() {
       doc.text('Categories & Goals', margin, y)
       y += 7
 
-      categories.forEach(cat => {
+      orderedCategories.forEach(cat => {
         if (y > 270) { doc.addPage(); y = 20 }
         doc.setFontSize(10)
         doc.setTextColor(212, 175, 55)
@@ -410,7 +435,7 @@ export default function YearPage() {
     }
   }
 
-  if (loading) return <Loader label="Painting your year…" />
+  if (loading) return <Loader label="Painting your year…" routeKey="year" />
 
   if (!yearItem) return (
     <div className="flex flex-col items-center justify-center h-full p-6 space-y-4">
@@ -438,16 +463,138 @@ export default function YearPage() {
     return { label, items: qItems, avgScore }
   })
 
+  // A quiet, non-scriptural anchor. If the stored anchor looks like a Bible
+  // reference (e.g. the old seeded "Proverbs 16:3"), replace it with a warm,
+  // human quote instead of a citation.
+  const isBibleRef = (s: string) => /^\d?\s?[A-Za-z]+\s\d+:\d+$/i.test(s.trim())
+  const anchorLine = yearItem.anchorScripture && !isBibleRef(yearItem.anchorScripture)
+    ? yearItem.anchorScripture.trim()
+    : 'Discipline is the quiet art of keeping your promises to yourself.'
+
+  // ── Multi-year: move to another year, scaffolding it on demand ──
+  const switchToYear = async (target: number) => {
+    if (target < 1970 || target > 2100) return
+    const existing = allYears.find(y => new Date(y.startDate || 0).getFullYear() === target || y.title === String(target))
+    if (existing) { setYear(target); return }
+    setYear(target) // optimistically switch while we scaffold
+    try {
+      const res = await fetch('/api/years', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year: target }),
+      })
+      if (res.ok) {
+        showToast(`${target} opened — ready to shape`, 'success')
+      } else {
+        const d = await res.json().catch(() => null)
+        showToast(d?.error || `Could not open ${target}.`, 'error')
+      }
+      await fetchItems()
+    } catch {
+      showToast('Network error opening that year.', 'error')
+    }
+  }
+
+  // ── Optional year name — the user chooses whether the year has a name ──
+  const startNameEdit = () => {
+    setYearNameDraft(yearItem.theme || yearItem.title || '')
+    setEditYearName(true)
+  }
+  const saveYearName = () => {
+    if (!yearItem) return
+    const next = yearNameDraft.trim()
+    updateItem(yearItem.id, { theme: next || null, title: next ? `${activeYear} · ${next}` : String(activeYear) })
+    setEditYearName(false)
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8 max-w-full pb-24 lg:pb-12 stagger-children" id="report-content">
       {/* Year Vision Banner */}
       <div className="glass-gold  rounded-[8px] sm:rounded-[8px] p-6 sm:p-8 text-center animate-slideUp border border-gold/20 relative overflow-hidden">
         <div aria-hidden="true" data-parallax="0.22" className="pointer-events-none absolute -top-28 -right-16 w-80 h-80 rounded-full bg-gold/10 blur-3xl" />
         <div aria-hidden="true" data-parallax="-0.14" className="pointer-events-none absolute -bottom-24 -left-16 w-64 h-64 rounded-full bg-sage/10 blur-3xl" />
-        <h1 className="text-4xl sm:text-5xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent mb-3">{yearItem.title || new Date().getFullYear()}</h1>
-        {yearItem.theme && <p className="text-lg sm:text-xl text-gold font-serif italic mb-3">"{yearItem.theme}"</p>}
-        {yearItem.anchorScripture && <p className="text-xs sm:text-sm text-ink/50 font-mono mb-5">{yearItem.anchorScripture}</p>}
-        <p className="text-xs sm:text-sm text-ink/80 max-w-xl mx-auto leading-relaxed px-4">{yearItem.description}</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-parchment/40">A year in focus</p>
+
+        {/* The year number itself is the hero — large, like the finance headline */}
+        <div className="mt-1 font-display text-[clamp(4.5rem,16vw,11rem)] leading-[0.95] font-bold text-parchment tabular-nums tracking-[-0.02em]">
+          <RevealLines key={activeYear} delay={80} fluid lines={[String(activeYear)]} />
+        </div>
+
+        {/* Optional name — the user chooses whether to name the year */}
+        <div className="mt-5 flex min-h-[40px] items-center justify-center">
+          {editYearName ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={yearNameDraft}
+                onChange={e => setYearNameDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveYearName()
+                  if (e.key === 'Escape') setEditYearName(false)
+                }}
+                placeholder="Name this year (optional)"
+                className="w-64 sm:w-72 rounded-xl border border-gold/30 bg-black/25 px-4 py-2 text-center text-base font-semibold text-parchment focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-parchment/30"
+              />
+              <button onClick={saveYearName} aria-label="Save name"
+                className="grid h-9 w-9 place-items-center rounded-lg bg-gold/15 text-gold transition-colors hover:bg-gold/25">
+                <Check className="h-4 w-4" />
+              </button>
+              <button onClick={() => setEditYearName(false)} aria-label="Cancel"
+                className="grid h-9 w-9 place-items-center rounded-lg text-parchment/50 transition-colors hover:bg-white/5 hover:text-parchment">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button onClick={startNameEdit}
+              className={`group inline-flex items-center gap-2 rounded-full border border-dashed px-4 py-1.5 text-sm transition-colors ${
+                yearItem?.theme
+                  ? 'border-white/15 text-parchment/85 hover:border-gold/40 hover:text-gold'
+                  : 'border-white/12 text-parchment/45 hover:border-gold/40 hover:text-parchment'
+              }`}>
+              <span>{yearItem?.theme || 'Give this year a name'}</span>
+              <Pencil className="h-3.5 w-3.5 text-parchment/40 transition-colors group-hover:text-gold" />
+            </button>
+          )}
+        </div>
+
+        <p className="mx-auto mt-6 max-w-2xl font-serif text-lg italic leading-relaxed text-parchment/80 sm:text-xl">
+          &ldquo;{anchorLine}&rdquo;
+        </p>
+
+        {/* Focus question pill */}
+        {yearItem.focusQuestion && (
+          <p className="mx-auto mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs text-parchment/60">
+            <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+            {yearItem.focusQuestion}
+          </p>
+        )}
+
+        {/* Year switcher — move between workspaces (e.g. 2026 → 2027) */}
+        <div className="mx-auto mt-6 flex items-center justify-center gap-1 font-mono">
+          <button onClick={() => switchToYear(activeYear - 1)} aria-label="Previous year"
+            className="grid h-8 w-8 place-items-center rounded-md border border-white/10 text-parchment/50 transition-colors hover:border-gold/40 hover:text-gold">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/25 px-2 py-1">
+            {allYears.filter(y => {
+              const yv = new Date(y.startDate || 0).getFullYear()
+              return Number.isFinite(yv) && yv > 1900 || /^\d{4}$/.test(y.title || '')
+            }).map(y => {
+              const yv = new Date(y.startDate || 0).getFullYear() || Number(y.title) || 0
+              const current = yv === activeYear
+              return (
+                <button key={y.id} onClick={() => setYear(yv)}
+                  className={`rounded px-2 py-0.5 text-[11px] font-bold transition-colors ${current ? 'bg-gold/20 text-gold' : 'text-parchment/40 hover:text-parchment'}`}>
+                  {yv}
+                </button>
+              )
+            })}
+          </div>
+          <button onClick={() => switchToYear(activeYear + 1)} aria-label="Next year"
+            className="grid h-8 w-8 place-items-center rounded-md border border-white/10 text-parchment/50 transition-colors hover:border-gold/40 hover:text-gold">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
         <div className="max-w-md mx-auto mt-6 sm:mt-8 bg-black/20 p-4 sm:p-6 rounded-[8px] backdrop-blur-sm border border-white/5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-bold uppercase text-ink/60">Overall Progress</span>
@@ -504,7 +651,7 @@ export default function YearPage() {
         )}
 
         <div className="space-y-4 sm:space-y-6">
-          {categories.map(category => {
+          {orderedCategories.map(category => {
             const w = categoryWeights[category.id] ?? category.weight
             const isLocked = lockedWeights[category.id] || false
             const catScore = completionMap[category.id] || 0
@@ -655,7 +802,7 @@ export default function YearPage() {
                     })}
                   </div>
                   {categoryGoals.length === 0 && !addingGoal && (
-                    <p className="text-xs text-ink/40 italic">No goals yet. Click + to add one.</p>
+                    <p className="text-xs text-ink/40 italic">{emptyGoals}</p>
                   )}
                 </div>
               </Card>

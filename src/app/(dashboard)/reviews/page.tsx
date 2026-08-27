@@ -40,7 +40,7 @@ export default function ReviewsPage() {
 
       <div>
         {loading ? (
-          <Loader compact label="Snagging your reviews…" />
+          <Loader compact label="Snagging your reviews…" routeKey="reviews" />
         ) : reviews.length === 0 ? (
           <div className="rounded-[8px] border border-dashed border-gold-dim/30 py-12 text-center">
             <p className="text-sm text-parchment/60">

@@ -8,21 +8,23 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { seasonForMonth, type Season } from '@/lib/ambient/season-config'
 
 /* ────────────────────────────────────────────────────────────────
    Atmosphere engine — Inchstone's living backdrop.
    Resolves, from the local clock + month + a keyless weather lookup:
      · timeOfDay : dawn / morning / noon / afternoon / dusk / night
-     · season    : spring / summer / autumn / winter
-     · weather   : clear / clouds / rain / snow   (Open-Meteo, cached)
+     · season    : wet / dry  (climate-aware, defaults to Lagos wet-dry)
+     · weather   : clear / clouds / haze / rain / snow / storm
+                   (Open-Meteo, cached)
    Exposes an `ambient` descriptor so every other component (ambient
    background, text reveals, the game loader) can react differently at
    different times of day / seasons / weather.
    ──────────────────────────────────────────────────────────────── */
 
 export type TimeOfDay = 'dawn' | 'morning' | 'noon' | 'afternoon' | 'dusk' | 'night'
-export type Season = 'spring' | 'summer' | 'autumn' | 'winter'
-export type Weather = 'clear' | 'clouds' | 'rain' | 'snow'
+export type { Season } from '@/lib/ambient/season-config'
+export type Weather = 'clear' | 'clouds' | 'haze' | 'rain' | 'snow' | 'storm'
 
 export interface Ambient {
   timeOfDay: TimeOfDay
@@ -31,10 +33,11 @@ export interface Ambient {
   isNight: boolean
   isRaining: boolean
   isSnowing: boolean
-  isSpring: boolean
-  isSummer: boolean
-  isAutumn: boolean
-  isWinter: boolean
+  isStorm: boolean
+  isDry: boolean
+  isWet: boolean
+  /** Harmattan / dusty-haze flag for the dry season (renders a faint haze layer). */
+  isHazy: boolean
   hour: number
   month: number
   /** Minutes since midnight — drives the continuous sun path */
@@ -61,18 +64,21 @@ export function timeOfDayFromHour(hour: number): TimeOfDay {
   return 'night'
 }
 
+/** Climate-aware season resolver — delegates to the configurable model. */
 export function seasonFromMonth(month: number): Season {
-  if (month >= 2 && month <= 4) return 'spring'
-  if (month >= 5 && month <= 7) return 'summer'
-  if (month >= 8 && month <= 10) return 'autumn'
-  return 'winter'
+  return seasonForMonth(month).season
 }
 
+// Open-Meteo / WMO weather code → ambient overlay state.
+// Damage: clear(0–1), clouds(2–3), fog/haze/dust(5–7, 45, 48), drizzle+rain(51–67, 80–82),
+//         snow(71–77, 85–86), thunderstorm(95–99).
 function weatherFromCode(code: number): Weather {
   if (code === 0 || code === 1) return 'clear'
   if (code === 2 || code === 3) return 'clouds'
-  if (code >= 71 && code <= 77) return 'snow'
-  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 99)) return 'rain'
+  if ((code >= 5 && code <= 7) || code === 45 || code === 48) return 'haze'
+  if (code >= 95 && code <= 99) return 'storm'
+  if (code >= 71 && code <= 77 || code === 85 || code === 86) return 'snow'
+  if (code >= 51 && code <= 67 || code >= 80 && code <= 82) return 'rain'
   return 'clear'
 }
 
@@ -117,18 +123,18 @@ function emptyAmbient(): Ambient {
   const hour = now.getHours()
   const month = now.getMonth()
   const tod = timeOfDayFromHour(hour)
-  const season = seasonFromMonth(month)
+  const season = seasonForMonth(month)
   return {
     timeOfDay: tod,
-    season,
+    season: season.season,
     weather: 'clear',
     isNight: tod === 'night',
     isRaining: false,
     isSnowing: false,
-    isSpring: season === 'spring',
-    isSummer: season === 'summer',
-    isAutumn: season === 'autumn',
-    isWinter: season === 'winter',
+    isStorm: false,
+    isDry: season.season === 'dry',
+    isWet: season.season === 'wet',
+    isHazy: season.haze,
     hour,
     month,
     minuteOfDay: hour * 60 + now.getMinutes(),
@@ -195,18 +201,18 @@ export function AtmosphereProvider({ children }: { children: ReactNode }) {
     const hour = now.getHours()
     const month = now.getMonth()
     const tod = timeOfDayFromHour(hour)
-    const season = seasonFromMonth(month)
+    const season = seasonForMonth(month)
     return {
       timeOfDay: tod,
-      season,
+      season: season.season,
       weather,
       isNight: tod === 'night' || tod === 'dawn' || tod === 'dusk',
-      isRaining: weather === 'rain',
+      isRaining: weather === 'rain' || weather === 'storm',
       isSnowing: weather === 'snow',
-      isSpring: season === 'spring',
-      isSummer: season === 'summer',
-      isAutumn: season === 'autumn',
-      isWinter: season === 'winter',
+      isStorm: weather === 'storm',
+      isDry: season.season === 'dry',
+      isWet: season.season === 'wet',
+      isHazy: season.haze || weather === 'haze',
       hour,
       month,
       minuteOfDay: hour * 60 + now.getMinutes(),

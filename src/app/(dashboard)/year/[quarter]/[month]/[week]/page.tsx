@@ -10,6 +10,8 @@ import { ChevronRight, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 import { Loader } from '@/components/ui/Loader'
+import { useVoiceLine } from '@/lib/voice/use-voice-line'
+import { useActiveYear } from '@/lib/useActiveYear'
 
 export default function YearQuarterMonthWeekPage() {
     const router = useRouter()
@@ -23,6 +25,7 @@ export default function YearQuarterMonthWeekPage() {
 
     const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
     const { showToast, confirm } = useToast()
+    const emptyGoals = useVoiceLine('empty.goals')
     const [loading, setLoading] = useState(true)
 
     const [addingGoal, setAddingGoal] = useState<string | null>(null)
@@ -54,10 +57,10 @@ export default function YearQuarterMonthWeekPage() {
 
     const flatItems = getFlatItems()
 
-    const yearItem = flatItems.find(i => i.layer === 0)
+    const { yearItem, subtreeIds } = useActiveYear(flatItems)
     const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
-    const yearlyGoals = flatItems.filter(i => i.layer === 2)
-    const matchingQuarters = flatItems.filter(i => i.layer === 3 && i.title.includes(quarterLabel))
+    const yearlyGoals = flatItems.filter(i => i.layer === 2 && subtreeIds.has(i.id))
+    const matchingQuarters = flatItems.filter(i => i.layer === 3 && subtreeIds.has(i.id) && i.title.includes(quarterLabel))
 
     // Find the specific month matching both quarter and month label
     const matchingMonths = matchingQuarters.flatMap(q =>
@@ -266,7 +269,7 @@ export default function YearQuarterMonthWeekPage() {
         ? matchingWeeks.reduce((s, w) => s + (completionMap[w.id] || 0), 0) / matchingWeeks.length
         : 0
 
-    if (loading) return <Loader label="Unlocking the week…" />
+    if (loading) return <Loader label="Unlocking the week…" routeKey="year-quarter-month-week" />
     if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
 
     // Build day groups across all matching weeks
@@ -445,7 +448,7 @@ export default function YearQuarterMonthWeekPage() {
                                         })}
                                     </div>
                                     {catWeeks.length === 0 && !addingGoal && (
-                                        <p className="text-xs text-ink/40 italic">No goals for this week in this category.</p>
+                                        <p className="text-xs text-ink/40 italic">{emptyGoals}</p>
                                     )}
                                 </div>
                             </Card>

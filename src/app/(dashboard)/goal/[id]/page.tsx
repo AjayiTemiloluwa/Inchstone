@@ -85,7 +85,7 @@ export default function GoalPage() {
         } catch (e) { console.error(e) }
     }
 
-    if (loading) return <Loader label="Leveling up this goal…" />
+    if (loading) return <Loader label="Leveling up this goal…" routeKey="goal" />
     if (!goalItem) return <div className="p-6 text-ink/60">Goal not found.</div>
 
     const gScore = completionMap[goalItem.id] || 0

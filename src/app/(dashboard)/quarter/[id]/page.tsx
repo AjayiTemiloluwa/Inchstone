@@ -207,7 +207,7 @@ export default function QuarterPage() {
     } catch (e) { console.error(e) }
   }
 
-  if (loading) return <Loader label="Carving this quarter…" />
+  if (loading) return <Loader label="Carving this quarter…" routeKey="quarter" />
   if (!quarterItem) return <div className="p-6 text-ink/60">Quarter not found.</div>
 
   const qScore = completionMap[quarterItem.id] || 0

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { useAmbient, type Season } from './atmosphere'
 
@@ -39,13 +39,9 @@ const STOPS: SkyStop[] = [
 ]
 
 const SEASON_TINT: Record<Season, string> = {
-  spring: 'rgba(120, 190, 150, 0.10)',
-  summer: 'rgba(255, 214, 130, 0.10)',
-  autumn: 'rgba(214, 124, 62, 0.14)',
-  winter: 'rgba(170, 195, 230, 0.12)',
+  wet: 'rgba(96, 170, 170, 0.12)',   // cooler blue-green (rainy season)
+  dry: 'rgba(214, 160, 90, 0.10)',   // warmer, hazier (dry season)
 }
-
-const LEAF_COLORS = ['#b87333', '#c19a3f', '#a3522f', '#8f6b31']
 
 function clamp01(v: number) {
   return Math.min(1, Math.max(0, v))
@@ -102,7 +98,25 @@ export function AmbientBackground() {
   const clouds = useMemo(() => gen(6, 55, 0.9, 1.4, 7331), [])
   const rain = useMemo(() => gen(30, 100, 1, 1, 4242), [])
   const snow = useMemo(() => gen(40, 100, 2, 4, 9090), [])
-  const leaves = useMemo(() => gen(16, 100, 6, 11, 5150), [])
+
+  // Touch bursts — AmbientBackground reacts to taps/drags (fired by TouchFx on
+  // coarse pointers) with a fading radial glow. Reduced-motion: skip adding.
+  const [bursts, setBursts] = useState<{ id: number; x: number; y: number }[]>([])
+  useEffect(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduced) return
+    const onTouch = (e: Event) => {
+      const { x, y } = (e as CustomEvent).detail as { x: number; y: number }
+      const id = Date.now() + Math.random()
+      setBursts((b) => [
+        ...b.slice(-3),
+        { id, x: (x / window.innerWidth) * 100, y: (y / window.innerHeight) * 100 },
+      ])
+      window.setTimeout(() => setBursts((b) => b.filter((p) => p.id !== id)), 850)
+    }
+    window.addEventListener('inchstone:touch', onTouch)
+    return () => window.removeEventListener('inchstone:touch', onTouch)
+  }, [])
 
   /* Continuous sky — interpolate the palette at the current minute. */
   const h = amb.minuteOfDay / 60
@@ -142,6 +156,28 @@ export function AmbientBackground() {
   const glowAlpha = (lo.glow + (hi.glow - lo.glow) * k) * (0.35 + 0.65 * elevation)
   const orbSize = isDaylight ? 56 : 44
 
+  /*
+   * Sun / moon RAYS — brightness and reach are modelled off real light:
+   *  · elevation  — the higher the orb, the fuller the ray bloom
+   *  · glowAlpha  — time-of-day stops (dim at dawn/dusk, full at noon)
+   *  · weatherDim — clouds, rain, haze and storms physically block the rays
+   * Only the rays are tinted; the text/UI sits behind the dimming veil so
+   * the writing stays perfectly readable (the request: "do not affect the
+   * writeups").
+   */
+  let weatherDim = 1
+  if (amb.isStorm) weatherDim = 0.12
+  else if (amb.isRaining) weatherDim = 0.3
+  else if (amb.weather === 'clouds') weatherDim = 0.5
+  else if (amb.isHazy) weatherDim = 0.68
+
+  const rayIntensity = clamp01(
+    (isDaylight ? 0.18 + 0.82 * elevation : 0.10 + 0.5 * elevation) *
+    (0.35 + 0.65 * glowAlpha) *
+    weatherDim
+  )
+  const raySize = isDaylight ? orbSize * 3.5 : orbSize * 3.0
+
   const scene = `linear-gradient(180deg, ${top} 0%, ${mid} 55%, ${bottom} 100%)`
 
   return (
@@ -151,6 +187,17 @@ export function AmbientBackground() {
 
       {/* Sun by day, moon by night — one traveller, right → left */}
       <div className="ambient-layer ambient-orb-wrap" data-parallax="0.05">
+        {/* Rays — brightness follows elevation + time stops + weather */}
+        <div
+          className={`ambient-rays ${isDaylight ? 'ambient-rays--sun' : 'ambient-rays--moon'}`}
+          style={{
+            left: `${orbLeft}%`,
+            top: `${orbTop}%`,
+            width: raySize,
+            height: raySize,
+            opacity: rayIntensity,
+          }}
+        />
         <div
           className="ambient-orb"
           style={{
@@ -197,11 +244,25 @@ export function AmbientBackground() {
         </div>
       )}
 
-      {/* Autumn leaves drifting down */}
-      {amb.isAutumn && (
-        <div className="ambient-layer" style={{ opacity: 0.55 }}>
-          {leaves.map((l) => (
-            <span key={l.id} className="ambient-leaf" style={{ left: `${l.left}%`, top: `${l.top}%`, width: l.size, height: l.size * 0.7, background: LEAF_COLORS[l.id % LEAF_COLORS.length], animationDelay: `${l.delay}s`, animationDuration: `${l.duration}s` }} />
+      {/* Harmattan / dusty haze — faint warm veil during dry-season haze */}
+      {amb.isHazy && (
+        <div className="ambient-layer ambient-haze" style={{ opacity: 0.5 }} />
+      )}
+
+      {/* Thunderstorm — occasional lightning flash over the rain */}
+      {amb.isStorm && (
+        <div className="ambient-layer ambient-flash" aria-hidden="true" />
+      )}
+
+      {/* Touch-reactive glow bursts (mobile) — soft gold blooms where tapped/dragged */}
+      {bursts.length > 0 && (
+        <div className="ambient-layer">
+          {bursts.map((b) => (
+            <span
+              key={b.id}
+              className="ambient-touch-glow"
+              style={{ left: `${b.x}%`, top: `${b.y}%` }}
+            />
           ))}
         </div>
       )}

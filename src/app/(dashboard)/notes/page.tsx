@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { Card } from '@/components/ui/Card'
+import { Loader } from '@/components/ui/Loader'
 
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 import { BookOpen, Plus, Download } from 'lucide-react'
@@ -11,6 +12,7 @@ import { Scramble } from '@/components/ui/motion'
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingNote, setEditingNote] = useState<any>(null)
 
@@ -20,6 +22,7 @@ export default function NotesPage() {
       .then(data => {
         setNotes(data.notes || [])
       })
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => {
@@ -45,6 +48,9 @@ export default function NotesPage() {
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  // Full-page gamified loading gate — same pattern as every other route.
+  if (loading) return <Loader routeKey="notes" />
 
   return (
     <div className="max-w-[720px] mx-auto space-y-6 pb-24">

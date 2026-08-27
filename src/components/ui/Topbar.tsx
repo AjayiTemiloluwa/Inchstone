@@ -3,12 +3,10 @@
 import { UserButton } from "@clerk/nextjs";
 import { PushNotificationManager } from "@/components/ui/PushNotificationManager";
 import { usePathname } from "next/navigation";
-import { Menu, X, Compass } from "lucide-react";
-import { useMobileMenu } from "@/components/ui/MobileMenuContext";
+import { Compass } from "lucide-react";
 
 export function Topbar() {
   const pathname = usePathname()
-  const { isOpen, setIsOpen } = useMobileMenu();
 
   // Extract page title from path
   const getPageTitle = () => {
@@ -32,17 +30,8 @@ export function Topbar() {
 
   return (
     <header className="h-14 bg-ink border-b hairline-bottom flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
-      {/* Left: menu button + page title */}
-      <div className="flex items-center space-x-3">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="lg:hidden p-2 -ml-2 rounded-md hover:bg-mist transition text-gold-dim hover:text-parchment min-w-11 min-h-11 flex items-center justify-center"
-          aria-label="Toggle menu"
-        >
-          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-        <h2 className="text-sm font-semibold text-parchment/80">{getPageTitle()}</h2>
-      </div>
+      {/* Left: page title (navigation lives in the bottom bar on mobile, sidebar on desktop) */}
+      <h2 className="text-sm font-semibold text-parchment/80">{getPageTitle()}</h2>
 
       {/* Right: small compass + divider + user */}
       <div className="flex items-center space-x-4">

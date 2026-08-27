@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react'
 import { useHierarchyStore } from '@/stores/hierarchyStore'
 import { useRouter } from 'next/navigation'
 import { format, startOfYear, differenceInDays } from 'date-fns'
-import { ArrowRight, ArrowUpRight, Check, MessageSquare, Sun, X } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Check, MessageSquare, Sun, X, Activity, Clock } from 'lucide-react'
 import { WordRotator, Marquee, CountUp, RevealLines } from '@/components/ui/motion'
+import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
 import { useUser } from '@clerk/nextjs'
 import { Loader } from '@/components/ui/Loader'
 import { useAmbient } from '@/components/effects/atmosphere'
@@ -40,6 +41,7 @@ export default function DashboardPage() {
   const [nudges, setNudges] = useState<Nudge[]>([])
   const [greeting, setGreeting] = useState('')
   const [nudgeDismissed, setNudgeDismissed] = useState(false)
+  const countdownNow = useCountdown()
 
   useEffect(() => {
     const hour = new Date().getHours()
@@ -88,10 +90,31 @@ export default function DashboardPage() {
   const totalCompletion = whyItem ? completionMap[whyItem.id] || 0 : 0
 
   const today = new Date()
+  const todayIso = format(today, 'yyyy-MM-dd')
   const todayDeeds = flatItems.filter(
-    i => i.layer === 5 && i.startDate && format(new Date(i.startDate), 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
+    i => i.layer === 5 && i.startDate && format(new Date(i.startDate), 'yyyy-MM-dd') === todayIso
   )
   const doneToday = todayDeeds.filter(d => (completionMap[d.id] || 0) >= 100).length
+
+  // ── Next scheduled deed countdown ─────────────────────────────────
+  // Scans every task across today's goals for the soonest scheduled deed
+  // (startTime set, not completed) and surfaces a subtle countdown chip.
+  const nextScheduled = (() => {
+    const candidates: { title: string; parts: ReturnType<typeof formatCountdown> }[] = []
+    for (const item of flatItems) {
+      for (const t of item.tasks || []) {
+        if (!t.startTime || t.completed) continue
+        const d = new Date(t.date)
+        if (format(d, 'yyyy-MM-dd') !== todayIso) continue
+        candidates.push({
+          title: t.title,
+          parts: formatCountdown(countdownNow, new Date(t.startTime), t.endTime ? new Date(t.endTime) : null),
+        })
+      }
+    }
+    candidates.sort((a, b) => a.parts.totalSeconds - b.parts.totalSeconds)
+    return candidates[0] || null
+  })()
 
   const dayOfYear = differenceInDays(today, startOfYear(today)) + 1
   const alignment = dailyScore?.score ?? Math.round(totalCompletion)
@@ -103,7 +126,7 @@ export default function DashboardPage() {
   }
 
   if (loading) {
-    return <Loader label="Rolling out your dashboard…" />
+    return <Loader label="Rolling out your dashboard…" routeKey="dashboard" />
   }
 
   /* ── First-run: no Why yet ── */
@@ -130,6 +153,16 @@ export default function DashboardPage() {
   }
 
   const todWord = amb.timeOfDay.charAt(0).toUpperCase() + amb.timeOfDay.slice(1)
+  const todPhrase =
+    amb.timeOfDay === 'dawn'
+      ? 'First light'
+      : amb.timeOfDay === 'dusk'
+        ? 'Last light'
+        : amb.timeOfDay === 'noon'
+          ? 'High noon'
+          : amb.timeOfDay === 'night'
+            ? 'Night'
+            : todWord
 
   return (
     <div className="mx-auto max-w-[880px] space-y-10 px-1 pb-28 pt-2 sm:pt-4">
@@ -139,7 +172,7 @@ export default function DashboardPage() {
           {format(today, 'EEEE')} · {format(today, 'd MMM yyyy')}
         </p>
         <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">
-          Day {String(dayOfYear).padStart(3, '0')} · {todWord} practice
+          Day {String(dayOfYear).padStart(3, '0')} · {todPhrase}
         </p>
       </div>
 
@@ -194,6 +227,38 @@ export default function DashboardPage() {
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
+
+        {/* Subtle live countdown to the next scheduled deed */}
+        {nextScheduled && (
+          <button
+            onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
+            className={`-mx-2 mb-3 flex w-[calc(100%+16px)] items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors animate-fadeIn ${
+              nextScheduled.parts.state === 'live'
+                ? 'border-moss/25 bg-moss/[0.06] hover:border-moss/45'
+                : nextScheduled.parts.soon
+                  ? 'border-ember/25 bg-ember/[0.06] hover:border-ember/45'
+                  : 'border-gold-dim/20 bg-white/[0.02] hover:border-gold/40'
+            }`}
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.04]">
+              {nextScheduled.parts.state === 'live'
+                ? <Activity className="h-3.5 w-3.5 text-sage" />
+                : <Clock className="h-3.5 w-3.5 text-gold-dim" />}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm">
+              <span className={nextScheduled.parts.state === 'live' ? 'text-sage' : 'text-parchment/85'}>
+                {nextScheduled.title}
+              </span>
+            </span>
+            <span className={`shrink-0 font-mono text-xs tabular-nums ${
+              nextScheduled.parts.state === 'live' ? 'text-sage' : nextScheduled.parts.soon ? 'text-[#e0a093]' : 'text-gold'
+            }`}>
+              {nextScheduled.parts.state === 'live'
+                ? `● ${compactCountdownLabel(nextScheduled.parts)}`
+                : `in ${compactCountdownLabel(nextScheduled.parts)}`}
+            </span>
+          </button>
+        )}
 
         {todayDeeds.length > 0 ? (
           <ul className="-mx-2">

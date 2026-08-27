@@ -11,6 +11,8 @@ import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 import { getWeeksInMonth } from '@/lib/calendarUtils'
 import { Loader } from '@/components/ui/Loader'
+import { useVoiceLine } from '@/lib/voice/use-voice-line'
+import { useActiveYear } from '@/lib/useActiveYear'
 
 export default function YearQuarterMonthPage() {
     const router = useRouter()
@@ -20,6 +22,7 @@ export default function YearQuarterMonthPage() {
 
     const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
     const { showToast, confirm } = useToast()
+    const emptyGoals = useVoiceLine('empty.goals')
     const [loading, setLoading] = useState(true)
 
     const [addingGoal, setAddingGoal] = useState<string | null>(null)
@@ -49,10 +52,10 @@ export default function YearQuarterMonthPage() {
 
     const flatItems = getFlatItems()
 
-    const yearItem = flatItems.find(i => i.layer === 0)
+    const { yearItem, subtreeIds } = useActiveYear(flatItems)
     const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
-    const yearlyGoals = flatItems.filter(i => i.layer === 2)
-    const matchingQuarters = flatItems.filter(i => i.layer === 3 && i.title.includes(quarterLabel))
+    const yearlyGoals = flatItems.filter(i => i.layer === 2 && subtreeIds.has(i.id))
+    const matchingQuarters = flatItems.filter(i => i.layer === 3 && subtreeIds.has(i.id) && i.title.includes(quarterLabel))
 
     // Find all month items matching this month name across all quarters for this quarter label
     const matchingMonths = matchingQuarters.flatMap(q =>
@@ -240,7 +243,7 @@ export default function YearQuarterMonthPage() {
         ? matchingMonths.reduce((s, m) => s + (completionMap[m.id] || 0), 0) / matchingMonths.length
         : 0
 
-    if (loading) return <Loader label="Flipping over the month…" />
+    if (loading) return <Loader label="Flipping over the month…" routeKey="year-quarter-month" />
     if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
 
     // Build week groups across all matching months
@@ -387,7 +390,7 @@ export default function YearQuarterMonthPage() {
                                         })}
                                     </div>
                                     {catMonths.length === 0 && !addingGoal && (
-                                        <p className="text-xs text-ink/40 italic">No goals yet. Click + to add one.</p>
+                                        <p className="text-xs text-ink/40 italic">{emptyGoals}</p>
                                     )}
                                 </div>
                             </Card>
