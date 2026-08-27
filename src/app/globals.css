@@ -761,42 +761,9 @@ input[type="number"] {
   }
 }
 
-/* ── Main content shift on mobile menu open ── */
-body.mobile-menu-open .main-content-wrapper {
-  transform: translateX(85vw);
-}
-
 .main-content-wrapper {
-  transition: transform 0.3s ease;
   /* Readability floor — content never sits directly on the busy sky */
   background: rgba(10, 9, 8, 0.3);
-}
-
-/* ── Mobile Menu ── */
-.mobile-menu-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 40;
-  animation: fadeIn 0.2s ease-out;
-}
-
-.mobile-menu-panel {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 85%;
-  max-width: 320px;
-  background: var(--bg);
-  z-index: 50;
-  animation: slideInLeft 0.3s ease-out;
-  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.15);
-  overflow-y: auto;
-}
-
-.dark .mobile-menu-panel {
-  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Chat / Message Bubbles ── */
@@ -2024,62 +1991,99 @@ html.lenis body {
   }
 }
 
-/* ── Touch reactivity (mobile/coarse) — ripples, text pulse, sky bloom ── */
+/* ── Touch reactivity (mobile/coarse) — grand tap shockwaves + comet trail ── */
 .touchfx-layer {
   position: fixed;
   inset: 0;
   z-index: 70;
   pointer-events: none;
   overflow: hidden;
+  contain: strict;
 }
-/* Outer expanding ring */
+/* Tap: soft radial wash that lights the whole area under the finger */
+.touch-halo {
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(255, 236, 170, 0.22), rgba(212, 175, 55, 0.1) 45%, transparent 72%);
+  mix-blend-mode: screen;
+  transform: translate(-50%, -50%) scale(0.4);
+  animation: touch-halo 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+/* Outer shockwave ring */
 .touch-ripple {
   position: absolute;
   border-radius: 999px;
-  border: 1.5px solid rgba(184, 147, 90, 0.55);
-  box-shadow: 0 0 18px rgba(184, 147, 90, 0.18);
+  border: 1.5px solid rgba(230, 194, 120, 0.7);
+  box-shadow: 0 0 22px rgba(212, 175, 55, 0.28), inset 0 0 12px rgba(212, 175, 55, 0.14);
   transform: translate(-50%, -50%) scale(0);
-  opacity: 0.9;
-  animation: touch-ripple 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0.95;
+  animation: touch-ripple 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-/* Soft filled bloom inside the ring — tints the surface under the finger */
+/* Echo ring — fires 130ms later, thinner and wider, sells the "shockwave" */
+.touch-ripple--echo {
+  border-width: 1px;
+  border-color: rgba(232, 122, 106, 0.42);
+  box-shadow: 0 0 16px rgba(232, 122, 106, 0.14);
+  opacity: 0.7;
+  animation: touch-ripple 1s cubic-bezier(0.16, 1, 0.3, 1) 0.13s forwards;
+}
+/* Hot core flash */
 .touch-ripple-bloom {
   position: absolute;
   top: 50%;
   left: 50%;
   border-radius: 999px;
-  background: radial-gradient(closest-side, rgba(255, 243, 196, 0.34), rgba(184, 147, 90, 0.16) 55%, rgba(184, 147, 90, 0) 72%);
+  background: radial-gradient(closest-side, rgba(255, 248, 214, 0.5), rgba(212, 175, 55, 0.2) 55%, transparent 75%);
   mix-blend-mode: screen;
-  transform: translate(-50%, -50%) scale(0.35);
+  transform: translate(-50%, -50%) scale(0.3);
+  animation: touch-bloom 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+/* Sparks — gold embers flung outward on tap (angle/distance via --dx/--dy) */
+.touch-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px;
+  border-radius: 999px;
+  background: #ffe9a8;
+  box-shadow: 0 0 8px 1.5px rgba(255, 222, 130, 0.75);
+  transform: translate(0, 0) scale(1);
+  opacity: 1;
+  animation: touch-spark 0.75s cubic-bezier(0.12, 0.8, 0.3, 1) forwards;
+}
+.touch-spark--ember { background: #e87a6a; box-shadow: 0 0 8px 1.5px rgba(232, 122, 106, 0.7); }
+/* Scroll/drag: comet streak aligned to the swipe vector (--ang in deg) */
+.touch-streak {
+  position: absolute;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 240, 190, 0.85), rgba(212, 175, 55, 0.35) 55%, transparent);
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.35);
+  mix-blend-mode: screen;
+  transform-origin: 0 50%;
+  transform: rotate(var(--ang)) scaleX(0.2);
   opacity: 0.9;
-  animation: touch-bloom 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: touch-streak 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.touch-ripple--stream {
-  border-color: rgba(184, 147, 90, 0.4);
-  box-shadow: none;
-  opacity: 0.55;
-  animation-duration: 0.45s;
-}
-.touch-ripple-bloom--stream {
-  background: radial-gradient(closest-side, rgba(255, 243, 196, 0.26), rgba(184, 147, 90, 0.12) 55%, rgba(184, 147, 90, 0) 72%);
-  opacity: 0.55;
-  animation-duration: 0.4s;
+@keyframes touch-halo {
+  to { transform: translate(-50%, -50%) scale(1.25); opacity: 0; }
 }
 @keyframes touch-ripple {
-  to {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0;
-  }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 0; }
 }
 @keyframes touch-bloom {
-  0% {
-    transform: translate(-50%, -50%) scale(0.35);
-    opacity: 0.9;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.15);
-    opacity: 0;
-  }
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+}
+@keyframes touch-spark {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+}
+@keyframes touch-streak {
+  0% { transform: rotate(var(--ang)) scaleX(0.2); opacity: 0.9; }
+  100% { transform: rotate(var(--ang)) scaleX(1); opacity: 0; }
 }
 /* Text nearest the touch brightens and gently lifts — the "text reacts"
    layer. Brightness boost plus a tiny scale makes letters feel alive. */
@@ -2115,10 +2119,12 @@ html.lenis body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .touch-halo,
   .touch-ripple,
-  .touch-ripple--stream,
+  .touch-ripple--echo,
   .touch-ripple-bloom,
-  .touch-ripple-bloom--stream,
+  .touch-spark,
+  .touch-streak,
   .touch-pulse,
   .ambient-touch-glow {
     animation: none !important;

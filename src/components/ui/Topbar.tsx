@@ -1,7 +1,6 @@
 'use client'
 
 import { UserButton } from "@clerk/nextjs";
-import { PushNotificationManager } from "@/components/ui/PushNotificationManager";
 import { usePathname } from "next/navigation";
 import { Compass } from "lucide-react";
 
@@ -35,7 +34,6 @@ export function Topbar() {
 
       {/* Right: small compass + divider + user */}
       <div className="flex items-center space-x-4">
-        <PushNotificationManager />
         <Compass className="h-5 w-5 text-gold-dim" strokeWidth={1.5} aria-hidden />
         <div className="w-px h-5 bg-gold-dim/25" />
         <UserButton

@@ -9,9 +9,11 @@ import { RouteProgress } from "@/components/ui/RouteProgress";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ScrollFx } from "@/components/ui/ScrollFx";
 import { TouchFx } from "@/components/ui/TouchFx";
+import { AlarmRinger } from "@/components/ui/AlarmRinger";
 import { AtmosphereProvider } from "@/components/effects/atmosphere";
 import { AmbientBackground } from "@/components/effects/AmbientBackground";
 import { ScrollText } from "@/components/effects/ScrollText";
+import { GLProvider } from "@/components/gl/GLProvider";
 
 export default function AppLayout({
   children,
@@ -26,7 +28,9 @@ export default function AppLayout({
         <CommandPalette />
         <ScrollFx />
         <TouchFx />
+        <AlarmRinger />
         <ScrollText />
+        <GLProvider>
         <div className="app-shell relative flex h-screen w-full overflow-hidden">
           {/* Backdrop: living sky → dimming veil → app UI (back to front) */}
           <AmbientBackground />
@@ -42,6 +46,7 @@ export default function AppLayout({
             <BottomNav />
           </div>
         </div>
+        </GLProvider>
       </AtmosphereProvider>
     </ToastProvider>
   );

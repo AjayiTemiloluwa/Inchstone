@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inchstone-v2'
+const CACHE_NAME = 'inchstone-v3'
 const OFFLINE_URL = '/offline.html'
 
 // Pre-cache only the offline fallback page

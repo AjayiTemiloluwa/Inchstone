@@ -56,21 +56,6 @@ export default function PlansPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 lg:px-8 py-8 pb-24 lg:pb-12">
-      <header className="flex flex-wrap items-end justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-display text-2xl lg:text-3xl text-parchment">Long-Term Plans</h1>
-          <p className="mt-1 text-sm text-parchment/55">
-            Goals over any horizon — a month, a quarter, a year, or decades.
-          </p>
-        </div>
-        <button
-          onClick={() => setFormOpen(true)}
-          className="flex items-center gap-2 min-h-11 px-4 rounded-md bg-gold text-ink font-semibold text-sm hover:bg-gold-glow transition-colors"
-        >
-          <Plus className="w-4 h-4" /> New Long-Term Plan
-        </button>
-      </header>
-
       {loadingPlans && (
         <Loader routeKey="plans" />
       )}

@@ -387,3 +387,18 @@ model ReviewSession {
 
   @@index([userId, planId])
 }
+
+model Alarm {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String
+  time      String // "HH:mm"
+  days      String    @default("0,1,2,3,4,5,6") // weekdays, 0=Sun
+  enabled   Boolean   @default(true)
+  nextFire  DateTime?
+  lastFired DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, enabled])
+  @@index([enabled, nextFire])
+}

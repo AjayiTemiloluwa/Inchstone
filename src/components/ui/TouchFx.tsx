@@ -1,24 +1,22 @@
-'use client'
+﻿'use client'
 
 import { useEffect } from 'react'
 
 /**
  * TouchFx — mobile/coarse-pointer reactivity layer.
  *
- * Where ScrollFx handles desktop (hover/tilt/spotlight/parallax), this
- * handles touch devices: every tap spawns a soft gold ripple ring, dragging
- * (including the scroll drag) streams a light trail of ripples, the text
- * nearest the touch briefly brightens, and the ambient sky fires a glow
- * burst at that point (see AmbientBackground's 'inchstone:touch' listener).
+ * Every tap detonates a layered shockwave: a soft radial halo, a hot core
+ * flash, a gold ring with a delayed ember echo, and six sparks flung
+ * outward. Dragging (scroll swipes) streams comet streaks aligned to the
+ * swipe vector, the nearest text brightens, and the ambient sky fires a
+ * glow burst ('inchstone:touch' → AmbientBackground).
  *
  * Fully disabled for prefers-reduced-motion.
  */
 export function TouchFx() {
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduced) return
-    // Touch-only. Desktop keeps ScrollFx (spotlight/tilt/parallax).
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     if (!window.matchMedia('(pointer: coarse)').matches) return
 
     const host = document.createElement('div')
@@ -27,45 +25,70 @@ export function TouchFx() {
     document.body.appendChild(host)
 
     let lastStream = 0
+    let lastX = 0
+    let lastY = 0
     let activeTouchId: number | null = null
 
-    // Spawn a layered ripple: a soft filled bloom + an expanding ring. The
-    // bloom tints the surface beneath the finger so the effect reads over the
-    // dark UI, while the ring gives it the familiar "touch" shape.
-    const spawn = (x: number, y: number, size: number, stream = false) => {
-      const layer = document.createElement('div')
-      layer.className = 'touch-ripple'
-      layer.style.left = `${x}px`
-      layer.style.top = `${y}px`
-      layer.style.width = `${size}px`
-      layer.style.height = `${size}px`
-      if (stream) layer.classList.add('touch-ripple--stream')
-      host.appendChild(layer)
-
-      const bloom = document.createElement('div')
-      bloom.className = 'touch-ripple-bloom'
-      bloom.style.left = `${x}px`
-      bloom.style.top = `${y}px`
-      const bloomSize = Math.round(size * 0.66)
-      bloom.style.width = `${bloomSize}px`
-      bloom.style.height = `${bloomSize}px`
-      if (stream) bloom.classList.add('touch-ripple-bloom--stream')
-      layer.appendChild(bloom)
-
-      const done = () => {
-        layer.remove()
-        layer.removeEventListener('animationend', done)
-        bloom.removeEventListener('animationend', done)
+    const el = (cls: string, x: number, y: number, size: number) => {
+      const n = document.createElement('div')
+      n.className = cls
+      n.style.left = `${x}px`
+      n.style.top = `${y}px`
+      if (size) {
+        n.style.width = `${size}px`
+        n.style.height = `${size}px`
       }
-      layer.addEventListener('animationend', done)
-      bloom.addEventListener('animationend', done)
+      return n
+    }
 
-      // Ambient sky glow burst at this point.
-      window.dispatchEvent(new CustomEvent('inchstone:touch', { detail: { x, y } }))
+    const kill = (n: HTMLElement) =>
+      n.addEventListener('animationend', () => n.remove(), { once: true })
 
-      // Briefly brighten the nearest text block.
-      const el = document.elementFromPoint(x, y) as HTMLElement | null
-      const text = el?.closest?.(
+    /** Grand tap: halo + ring + echo ring + bloom + sparks. */
+    const shockwave = (x: number, y: number) => {
+      const size = 120
+      const wrap = document.createElement('div')
+      wrap.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%;`
+
+      const halo = el('touch-halo', x, y, 240)
+      const ring = el('touch-ripple', x, y, size)
+      const echo = el('touch-ripple touch-ripple--echo', x, y, Math.round(size * 1.25))
+      const bloom = el('touch-ripple-bloom', x, y, Math.round(size * 0.7))
+      ;[halo, ring, echo, bloom].forEach(n => {
+        kill(n)
+        wrap.appendChild(n)
+      })
+
+      // Six sparks in a fan — mixed gold/ember embers.
+      const count = 6
+      const base = Math.random() * Math.PI * 2
+      for (let i = 0; i < count; i++) {
+        const a = base + (i / count) * Math.PI * 2 + Math.random() * 0.5
+        const d = 26 + Math.random() * 30
+        const s = el(`touch-spark${i % 3 === 2 ? ' touch-spark--ember' : ''}`, x, y, 0)
+        s.style.setProperty('--dx', `${Math.cos(a) * d}px`)
+        s.style.setProperty('--dy', `${Math.sin(a) * d}px`)
+        kill(s)
+        wrap.appendChild(s)
+      }
+
+      host.appendChild(wrap)
+      window.setTimeout(() => wrap.remove(), 1300)
+    }
+
+    /** Scroll/drag: comet streak pointing along the movement vector. */
+    const streak = (x: number, y: number, ang: number, speed: number) => {
+      const len = Math.min(30 + speed * 0.28, 90)
+      const n = el('touch-streak', x, y, 0)
+      n.style.width = `${len}px`
+      n.style.setProperty('--ang', `${ang}rad`)
+      kill(n)
+      host.appendChild(n)
+    }
+
+    const pulseText = (x: number, y: number) => {
+      const target = document.elementFromPoint(x, y) as HTMLElement | null
+      const text = target?.closest?.(
         'h1,h2,h3,h4,h5,p,li,blockquote,figcaption,.scroll-text,[data-reveal-text],[data-touch-text]'
       ) as HTMLElement | null
       if (text && !text.closest('[data-noreveal]')) {
@@ -74,32 +97,51 @@ export function TouchFx() {
       }
     }
 
-    // Tap → single, slightly larger ripple. Drag / scroll → trail of smaller
-    // ripples. This layer only mounts on coarse (touch) pointers, where a
-    // native scroll fires pointercancel and stops pointermove — so we drive
-    // the scroll trail from touchstart/touchmove, and keep pointerdown for
-    // crisp tap ripples (pointerdown always fires on touch taps).
     const onDown = (e: PointerEvent | TouchEvent) => {
       if ('touches' in e) {
-        if (e.touches[0]) activeTouchId = e.touches[0].identifier
-        return // touchstart only tracks the finger; the tap ripple comes from pointerdown
+        const t = e.touches[0]
+        if (t) {
+          activeTouchId = t.identifier
+          lastX = t.clientX
+          lastY = t.clientY
+        }
+        return
       }
-      lastStream = Date.now()
-      spawn(e.clientX, e.clientY, 88)
+      lastX = e.clientX
+      lastY = e.clientY
+      shockwave(e.clientX, e.clientY)
+      pulseText(e.clientX, e.clientY)
+      window.dispatchEvent(new CustomEvent('inchstone:touch', { detail: { x: e.clientX, y: e.clientY } }))
     }
+
     const onMove = (e: PointerEvent | TouchEvent) => {
-      const touch = 'touches' in e ? Array.from(e.touches).find(t => t.identifier === activeTouchId) : null
-      const x = touch ? touch.clientX : (e as PointerEvent).clientX
-      const y = touch ? touch.clientY : (e as PointerEvent).clientY
+      const t =
+        'touches' in e
+          ? Array.from(e.touches).find(t => t.identifier === activeTouchId)
+          : (e as PointerEvent)
+      if (!t) return
+      const x = t.clientX
+      const y = t.clientY
       const now = Date.now()
-      if (now - lastStream < 90) return
+      if (now - lastStream < 70) return
       lastStream = now
-      spawn(x, y, 40, true)
+      const dx = x - lastX
+      const dy = y - lastY
+      const speed = Math.hypot(dx, dy)
+      if (speed < 2) return
+      streak(x, y, Math.atan2(dy, dx), speed)
+      if (speed > 34) {
+        // Fast flicks also kiss the sky.
+        window.dispatchEvent(new CustomEvent('inchstone:touch', { detail: { x, y } }))
+      }
+      lastX = x
+      lastY = y
     }
+
     const onEnd = (e: PointerEvent | TouchEvent) => {
       if ('touches' in e) {
-        const stillActive = Array.from(e.touches).some(t => t.identifier === activeTouchId)
-        if (!stillActive) activeTouchId = null
+        const still = Array.from(e.touches).some(t => t.identifier === activeTouchId)
+        if (!still) activeTouchId = null
       }
     }
 

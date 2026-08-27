@@ -3,6 +3,7 @@
 import { useUser } from '@clerk/nextjs'
 import { Card } from '@/components/ui/Card'
 import { PushNotificationManager } from '@/components/ui/PushNotificationManager'
+import { AlarmsCard } from '@/components/ui/AlarmsCard'
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
 import { useState, useEffect } from 'react'
 import { Calendar, CheckCircle, XCircle, ExternalLink, Smartphone, Trash2, Database, ChevronDown } from 'lucide-react'
@@ -182,6 +183,17 @@ export default function SettingsPage() {
           </div>
           <PushNotificationManager />
         </div>
+      </Card>
+
+      {/* Alarms */}
+      <Card className="space-y-5 p-5 border hairline">
+        <div>
+          <h2 className="text-heading text-parchment">Alarms</h2>
+          <p className="text-sm text-parchment/60 mt-1">
+            Rings in-app with sound, and pushes to your devices even when the app is closed.
+          </p>
+        </div>
+        <AlarmsCard />
       </Card>
 
       {/* Install App */}
