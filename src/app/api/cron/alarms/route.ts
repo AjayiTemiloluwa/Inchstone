@@ -3,15 +3,23 @@ import prisma from '@/lib/prisma'
 import { computeNextFire, pushAlarmToUser } from '@/lib/alarmScheduler'
 
 /**
- * GET /api/cron/alarms — fired every minute by Vercel Cron (vercel.json).
+ * GET /api/cron/alarms — alarm dispatcher, plan-agnostic.
+ *
+ * Vercel Hobby only allows daily crons, so vercel.json no longer declares
+ * one. Point any external every-minute scheduler (cron-job.org, Upstash
+ * QStash, GitHub Actions, or a Pro-plan Vercel Cron) at this endpoint.
+ * If CRON_SECRET is set, callers must send `Authorization: Bearer <secret>`
+ * or `x-cron-secret: <secret>` (Vercel Cron sends the Bearer automatically).
+ *
  * Pushes every due alarm (enabled, nextFire <= now) to its owner's devices,
  * then advances nextFire to the next occurrence.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET
   if (secret) {
-    const header = req.headers.get('authorization')
-    if (header !== `Bearer ${secret}`) {
+    const bearer = req.headers.get('authorization')
+    const alt = req.headers.get('x-cron-secret')
+    if (bearer !== `Bearer ${secret}` && alt !== secret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
   }
