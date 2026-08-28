@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { Card } from '@/components/ui/Card'
 import { Plus, X, Users, Mail, Loader2, Link as LinkIcon, Trash2, MessageSquare, Send, ArrowLeft, Bell } from 'lucide-react'
 import { format } from 'date-fns'
@@ -44,6 +45,8 @@ interface Message {
 }
 
 export default function PartnersPage() {
+  const { user } = useUser()
+  const myId = user?.id || null
   const [partners, setPartners] = useState<Partner[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -156,13 +159,47 @@ export default function PartnersPage() {
     }
   }
 
-  // Auto-refresh messages
+  // Auto-refresh messages via LONG-POLL: the request hangs on the server for
+  // up to ~25s and answers the moment the thread changes, so a quiet chat
+  // costs a couple of lightweight requests a minute — no 5-second hammering.
+  const messagesRef = useRef<Message[]>([])
+  useEffect(() => { messagesRef.current = messages }, [messages])
+
   useEffect(() => {
     if (!selectedPartner) return
-    const interval = setInterval(() => {
-      fetchMessages(selectedPartner.id)
-    }, 5000)
-    return () => clearInterval(interval)
+    let stop = false
+    const controller = new AbortController()
+    const partnerId = selectedPartner.id
+
+    const loop = async () => {
+      while (!stop) {
+        try {
+          const res = await fetch(
+            `/api/messages/wait?partnerId=${partnerId}&known=${messagesRef.current.length}`,
+            { signal: controller.signal, cache: 'no-store' }
+          )
+          if (stop) return
+          if (!res.ok) {
+            // Server hiccup — pause briefly, then resume watching.
+            await new Promise(r => setTimeout(r, 4000))
+            continue
+          }
+          const data = await res.json()
+          if (!stop && data.changed && Array.isArray(data.messages)) {
+            setMessages(data.messages)
+          }
+        } catch {
+          if (stop) return // aborted on unmount / partner switch
+          await new Promise(r => setTimeout(r, 4000))
+        }
+      }
+    }
+    loop()
+
+    return () => {
+      stop = true
+      controller.abort()
+    }
   }, [selectedPartner])
 
   useEffect(() => {
@@ -242,7 +279,13 @@ export default function PartnersPage() {
         })
       })
       if (res.ok) {
+        const data = await res.json()
         setNewMessage('')
+        // Show my message immediately — the long-poll covers the other side.
+        if (data.nudge) {
+          const mine: Message = { ...data.nudge, partner: { name: selectedPartner.name } }
+          setMessages(prev => (prev.some(m => m.id === mine.id) ? prev : [...prev, mine]))
+        }
         await fetchMessages(selectedPartner.id)
       }
     } catch (e) {
@@ -311,7 +354,7 @@ export default function PartnersPage() {
           ) : (
             <div className="flex flex-col space-y-3">
               {messages.map((msg) => {
-                const isSent = msg.senderId === msg.receiverId
+                const isSent = myId ? msg.senderId === myId : msg.senderId === msg.receiverId
                 return (
                   <div
                     key={msg.id}

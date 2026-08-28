@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { sendNotification } from '@/lib/pushNotifications'
+import { conversationAnchorId, conversationFilter } from '@/lib/partnerChat'
 
 export async function GET(req: Request) {
     try {
@@ -24,14 +25,13 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Partner not found' }, { status: 404 })
         }
 
-        // Get all nudges where this partner is involved (sent or received)
+        // Both sides of a partnership read the SAME thread: messages anchor to
+        // the conversation row (the earlier of the two partner rows), so it
+        // doesn't matter whose card the chat was opened from.
+        const anchorId = await conversationAnchorId(partner)
+
         const messages = await prisma.nudge.findMany({
-            where: {
-                OR: [
-                    { partnerId, senderId: userId },
-                    { partnerId, receiverId: userId },
-                ]
-            },
+            where: conversationFilter(anchorId, userId),
             orderBy: { createdAt: 'asc' },
             include: {
                 partner: {
@@ -72,9 +72,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Your partner has not accepted their invite yet.' }, { status: 400 })
         }
 
+        // Write into the shared conversation thread (see partnerChat.ts).
+        const anchorId = await conversationAnchorId(partner)
+
         const nudge = await prisma.nudge.create({
             data: {
-                partnerId,
+                partnerId: anchorId,
                 senderId: userId,
                 receiverId: partner.connectionUserId,
                 message,

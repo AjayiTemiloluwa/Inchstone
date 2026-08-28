@@ -15,6 +15,29 @@ export async function GET() {
             include: { partnerLinks: true }
         })
 
+        // Self-heal: every accepted link must have a reciprocal row on the
+        // other side, so both people see each other and can chat. Repairs
+        // partnerships created before mirroring existed (cheap & idempotent).
+        for (const p of partners) {
+            if (p.status !== 'accepted' || !p.connectionUserId) continue
+            const mirror = await prisma.partner.findFirst({
+                where: { userId: p.connectionUserId, connectionUserId: userId, status: 'accepted' },
+            })
+            if (!mirror) {
+                const myProfile = await prisma.profile.findUnique({ where: { userId } })
+                await prisma.partner.create({
+                    data: {
+                        userId: p.connectionUserId,
+                        name: myProfile?.name || 'Your partner',
+                        email: myProfile?.email || p.email,
+                        role: p.role || 'Accountability Partner',
+                        status: 'accepted',
+                        connectionUserId: userId,
+                    },
+                }).catch(() => {})
+            }
+        }
+
         return NextResponse.json({ success: true, partners })
     } catch (error) {
         console.error('Failed to get partners:', error)
@@ -71,6 +94,25 @@ export async function POST(req: Request) {
                 data: { status: 'accepted', connectionUserId: profile.userId },
             })
             const linked = { ...partner, status: 'accepted', connectionUserId: profile.userId }
+
+            // Mirror the row for THEM so their Partners page shows you and
+            // their chat opens on the same thread — without this they never
+            // see they were added.
+            const existingMirror = await prisma.partner.findFirst({
+                where: { userId: profile.userId, connectionUserId: userId, status: 'accepted' },
+            })
+            if (!existingMirror) {
+                await prisma.partner.create({
+                    data: {
+                        userId: profile.userId,
+                        name: myName,
+                        email: myEmail || '',
+                        role: partner.role || 'Accountability Partner',
+                        status: 'accepted',
+                        connectionUserId: userId,
+                    },
+                }).catch(() => {})
+            }
 
             await prisma.nudge.create({
                 data: {
