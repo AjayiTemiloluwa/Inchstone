@@ -7,7 +7,7 @@ import { AlarmsCard } from '@/components/ui/AlarmsCard'
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
 import { ThemeSwitch } from '@/components/ui/ThemeToggle'
 import { useState, useEffect } from 'react'
-import { Calendar, CheckCircle, XCircle, ExternalLink, Smartphone, Trash2, Database, ChevronDown, Sun } from 'lucide-react'
+import { Calendar, Mail, CheckCircle, XCircle, ExternalLink, Smartphone, Trash2, Database, ChevronDown, Sun } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
 import { Scramble } from '@/components/ui/motion'
 
@@ -18,24 +18,16 @@ export default function SettingsPage() {
   const [checkingCal, setCheckingCal] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [dangerOpen, setDangerOpen] = useState(false)
-
-  const checkCalendarStatus = async () => {
-    setCheckingCal(true)
-    try {
-      const res = await fetch('/api/calendar/events?timeMin=2026-01-01T00:00:00.000Z&timeMax=2026-01-02T00:00:00.000Z')
-      const data = await res.json()
-      if (data.needsAuth) setCalConnected(false)
-      else if (data.error === 'Calendar not connected') setCalConnected(false)
-      else setCalConnected(true)
-    } catch {
-      setCalConnected(false)
-    } finally {
-      setCheckingCal(false)
-    }
-  }
+  const [emailStatus, setEmailStatus] = useState<{
+    ready: boolean
+    apiKey: boolean
+    domain: boolean
+    devSender: boolean
+    from: string
+  } | null>(null)
 
   useEffect(() => {
-    // Initial status probe — `checkingCal` starts true, so no setState fires
+    // Initial status probes — states start true/null so no setState fires
     // synchronously in the effect body.
     let cancelled = false
     ;(async () => {
@@ -49,6 +41,14 @@ export default function SettingsPage() {
         if (!cancelled) setCalConnected(false)
       } finally {
         if (!cancelled) setCheckingCal(false)
+      }
+    })()
+    ;(async () => {
+      try {
+        const res = await fetch('/api/email-status', { cache: 'no-store' })
+        if (!cancelled && res.ok) setEmailStatus(await res.json())
+      } catch {
+        /* leave status null → card shows a quiet unknown state */
       }
     })()
     return () => { cancelled = true }
@@ -156,6 +156,55 @@ export default function SettingsPage() {
             Dark is the classic midnight look. Light is warm paper.
           </p>
           <ThemeSwitch />
+        </div>
+      </Card>
+
+      {/* Email delivery — partner invites */}
+      <Card className="p-5 border hairline">
+        <h2 className="text-heading text-parchment flex items-center gap-2">
+          <Mail className="w-4 h-4 text-gold-dim" strokeWidth={1.5} />
+          <span>Email delivery</span>
+        </h2>
+        <div className="mt-3 text-sm text-parchment/55">
+          {emailStatus === null ? (
+            <p>Checking…</p>
+          ) : emailStatus.ready ? (
+            <p className="flex items-center gap-2 text-moss">
+              <CheckCircle className="w-4 h-4" strokeWidth={1.5} />
+              Ready — partner invites are being emailed from {emailStatus.from}.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="flex items-center gap-2 text-ember">
+                <XCircle className="w-4 h-4" strokeWidth={1.5} />
+                {!emailStatus.apiKey
+                  ? 'Not set up — invite emails are turned off.'
+                  : 'Almost set up — invite emails can’t deliver to partners yet.'}
+              </p>
+              {emailStatus.apiKey && (
+                <p className="text-xs text-parchment/50">
+                  Resend only lets <span className="font-mono">onboarding@resend.dev</span> send to your own account,
+                  so partner invites are rejected until you verify a domain. Add one at{' '}
+                  <a
+                    href="https://resend.com/domains"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-gold underline decoration-gold/40 underline-offset-2"
+                  >
+                    resend.com/domains
+                  </a>{' '}
+                  and set <span className="font-mono">EMAIL_FROM</span> to an address on it (e.g.{' '}
+                  <span className="font-mono">hi@yourdomain.com</span>).
+                </p>
+              )}
+              {!emailStatus.apiKey && (
+                <p className="text-xs text-parchment/50">
+                  Add a <span className="font-mono">RESEND_API_KEY</span> to your environment to start sending invite
+                  emails.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 

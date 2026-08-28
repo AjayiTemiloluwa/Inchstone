@@ -134,21 +134,35 @@ export async function POST(req: Request) {
             }
 
             const tpl = linkedPartnerEmail(myName, name.trim())
-            const emailSent = await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
+            const emailRes = await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
 
-            return NextResponse.json({ success: true, partner: linked, linked: true, emailSent })
+            return NextResponse.json({
+              success: true,
+              partner: linked,
+              linked: true,
+              emailSent: emailRes.ok,
+              emailReason: emailRes.reason,
+              emailDetail: emailRes.detail?.slice(0, 300),
+            })
         }
 
         // ── Not onboarded yet → respectful invite email with an accept link ──
         const origin = new URL(req.url).origin
         const acceptUrl = `${origin}/partners/accept?code=${inviteCode}`
         const tpl = invitePartnerEmail(myName, acceptUrl)
-        const emailSent = await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
+        const emailRes = await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
 
-        // `emailSent` lets the UI fall back to a copyable invite link when the
-        // mail provider isn't configured (no RESEND_API_KEY) or refuses the
-        // send — the invite still works, it just travels by another channel.
-        return NextResponse.json({ success: true, partner, linked: false, emailSent, acceptUrl })
+        // `emailReason` lets the UI explain exactly why the fallback appears
+        // (no key / no verified domain) and what to do to unlock real sends.
+        return NextResponse.json({
+          success: true,
+          partner,
+          linked: false,
+          emailSent: emailRes.ok,
+          emailReason: emailRes.reason,
+          emailDetail: emailRes.detail?.slice(0, 300),
+          acceptUrl,
+        })
     } catch (error) {
         console.error('Failed to create partner:', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

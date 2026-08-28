@@ -9,13 +9,53 @@
  */
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+const RESEND_DOMAINS_ENDPOINT = 'https://api.resend.com/domains'
 const FROM = process.env.EMAIL_FROM || 'Inchstone <onboarding@resend.dev>'
+const USING_RESEND_DEV_SENDER = FROM.includes('@resend.dev')
 
-export async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<boolean> {
+/** Structured email result so the UI can say exactly what went wrong. */
+export type EmailResult = {
+  ok: boolean
+  reason?: 'no_key' | 'sender_not_verified' | 'rejected' | 'error'
+  detail?: string
+}
+
+let verifiedDomainsCache: { at: number; has: boolean } | null = null
+
+/**
+ * Whether this Resend account has at least one verified sending domain.
+ * onboarding@resend.dev can ONLY deliver to your own account email — inviting
+ * a partner (anyone else) is rejected with 403 until a domain is verified.
+ * Cached ~60s so the send path stays cheap.
+ */
+export async function hasVerifiedResendDomain(key: string): Promise<boolean> {
+  if (verifiedDomainsCache && Date.now() - verifiedDomainsCache.at < 60_000) {
+    return verifiedDomainsCache.has
+  }
+  try {
+    const res = await fetch(RESEND_DOMAINS_ENDPOINT, {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: 'no-store',
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { data?: Array<{ status?: string }> }
+      const has =
+        Array.isArray(data?.data) && data.data.some(d => d.status === 'verified')
+      verifiedDomainsCache = { at: Date.now(), has }
+      return has
+    }
+  } catch {
+    /* fall through to the send attempt — it will reveal the truth */
+  }
+  verifiedDomainsCache = { at: Date.now(), has: false }
+  return false
+}
+
+export async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<EmailResult> {
   const key = process.env.RESEND_API_KEY
   if (!key) {
     console.info(`[email] RESEND_API_KEY not set — skipped "${opts.subject}" → ${opts.to}`)
-    return false
+    return { ok: false, reason: 'no_key', detail: 'RESEND_API_KEY is not set.' }
   }
   try {
     const res = await fetch(RESEND_ENDPOINT, {
@@ -23,14 +63,21 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: FROM, to: [opts.to], subject: opts.subject, html: opts.html }),
     })
-    if (!res.ok) {
-      console.error('[email] Resend error', res.status, await res.text().catch(() => ''))
-      return false
+    if (res.ok) return { ok: true }
+    const detail = await res.text().catch(() => '')
+    // Classify the common failure: onboarding@resend.dev / unverified domain.
+    if (
+      res.status === 403 &&
+      (USING_RESEND_DEV_SENDER ||
+        /verify|own account|testing email/i.test(detail) ||
+        !(await hasVerifiedResendDomain(key)))
+    ) {
+      return { ok: false, reason: 'sender_not_verified', detail }
     }
-    return true
+    return { ok: false, reason: 'rejected', detail }
   } catch (e) {
     console.error('[email] send failed', e)
-    return false
+    return { ok: false, reason: 'error', detail: e instanceof Error ? e.message : 'network error' }
   }
 }
 

@@ -25,6 +25,8 @@ interface InviteNotice {
   name: string
   linked: boolean
   emailSent: boolean
+  emailReason?: string | null
+  emailDetail?: string | null
   acceptUrl: string | null
 }
 
@@ -226,9 +228,11 @@ export default function PartnersPage() {
         // link when email couldn't deliver (no provider key, restricted
         // sender domain, etc.) so the invite never dead-ends.
         setInviteNotice({
-          name: newName,
+          name: newName.trim(),
           linked: !!data.linked,
           emailSent: !!data.emailSent,
+          emailReason: data.emailReason || null,
+          emailDetail: data.emailDetail || null,
           acceptUrl: data.acceptUrl || null,
         })
         await fetchPartners()
@@ -450,7 +454,7 @@ export default function PartnersPage() {
               {inviteNotice.linked ? (
                 <>
                   <p className="text-sm font-semibold text-parchment">
-                    You and {inviteNotice.name} are linked — they were already on Inchstone.
+                    {`You and ${inviteNotice.name} are linked — they were already on Inchstone.`}
                   </p>
                   <p className="mt-1 text-xs text-parchment/50">
                     {inviteNotice.emailSent
@@ -460,16 +464,42 @@ export default function PartnersPage() {
                 </>
               ) : inviteNotice.emailSent ? (
                 <>
-                  <p className="text-sm font-semibold text-parchment">Invite email sent to {inviteNotice.name}.</p>
+                  <p className="text-sm font-semibold text-parchment">
+                    {`Invite email sent to ${inviteNotice.name}.`}
+                  </p>
                   <p className="mt-1 text-xs text-parchment/50">They&apos;ll accept from their inbox — the link stays valid here too.</p>
                 </>
               ) : (
                 <>
                   <p className="text-sm font-semibold text-parchment">
-                    {inviteNotice.name} was added, but the invite email couldn&apos;t be sent.
+                    {`${inviteNotice.name} was added, but the invite email couldn't be sent.`}
                   </p>
                   <p className="mt-1 text-xs text-parchment/50">
-                    Share their invite link with them directly — it opens the same accept page the email would.
+                    {inviteNotice.emailReason === 'sender_not_verified' ? (
+                      <>
+                        Your email provider is ready, but it needs a <strong>verified domain</strong> before it can
+                        deliver to anyone outside your own account. Add one at{' '}
+                        <a
+                          href="https://resend.com/domains"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-medium text-gold underline decoration-gold/40 underline-offset-2"
+                        >
+                          resend.com/domains
+                        </a>
+                        {' '}and set EMAIL_FROM to it — invite emails will then send automatically.
+                      </>
+                    ) : inviteNotice.emailReason === 'no_key' ? (
+                      <>
+                        Email isn&apos;t configured yet — add a RESEND_API_KEY to start sending invites. Until then,
+                        share the link below.
+                      </>
+                    ) : (
+                      <>
+                        Email delivery failed{inviteNotice.emailDetail ? ` (${inviteNotice.emailDetail.replace(/\s+/g, ' ').trim().slice(0, 140)})` : ''}.
+                        {' '}Share the link below, or try re-adding them in a moment.
+                      </>
+                    )}
                   </p>
                   {inviteNotice.acceptUrl && (
                     <div className="mt-2.5 flex flex-wrap items-center gap-2">
