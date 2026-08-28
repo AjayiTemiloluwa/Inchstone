@@ -21,12 +21,12 @@ export async function GET() {
   })
 }
 
-/** POST /api/alarms — create { title, time "HH:mm", days "0,1,2" }. */
+/** POST /api/alarms — create { title, time "HH:mm", days "0,1,2", tz }. */
 export async function POST(req: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, time, days } = await req.json()
+  const { title, time, days, tz } = await req.json()
   if (!title?.trim() || !/^([01]?\d|2[0-3]):[0-5]\d$/.test(time || '')) {
     return NextResponse.json({ error: 'Title and valid time (HH:mm) required' }, { status: 400 })
   }
@@ -38,7 +38,10 @@ export async function POST(req: Request) {
       title: title.trim().slice(0, 80),
       time,
       days: daysStr,
-      nextFire: computeNextFire(time, daysStr),
+      // The timezone the time was set in — HH:mm means THAT place's clock,
+      // never the server's.
+      tz: typeof tz === 'string' && tz ? tz : null,
+      nextFire: computeNextFire(time, daysStr, new Date(), typeof tz === 'string' ? tz : null),
     },
   })
   return NextResponse.json({ alarm })

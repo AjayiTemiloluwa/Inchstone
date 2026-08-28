@@ -15,6 +15,18 @@ export async function PATCH(req: Request, ctx: Ctx) {
   if (!alarm) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json().catch(() => ({}))
+  if (body.action === 'ack') {
+    // The in-app ringer just delivered this occurrence — advance to the next
+    // one so `due` clears. Without this, an alarm stays due forever (there is
+    // no every-minute cron on the Hobby plan) and rings again on every reload.
+    const next = computeNextFire(alarm.time, alarm.days, new Date(), alarm.tz)
+    const updated = await prisma.alarm.update({
+      where: { id },
+      data: { lastFired: new Date(), nextFire: next },
+    })
+    return NextResponse.json({ alarm: updated })
+  }
+
   if (body.action === 'snooze') {
     const next = new Date(Date.now() + 5 * 60 * 1000)
     const updated = await prisma.alarm.update({
@@ -29,7 +41,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     where: { id },
     data: {
       enabled,
-      nextFire: enabled ? computeNextFire(alarm.time, alarm.days) : null,
+      nextFire: enabled ? computeNextFire(alarm.time, alarm.days, new Date(), alarm.tz) : null,
     },
   })
   return NextResponse.json({ alarm: updated })

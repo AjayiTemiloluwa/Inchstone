@@ -48,7 +48,7 @@ export async function GET(req: Request) {
       where: { id: alarm.id },
       data: {
         lastFired: now,
-        nextFire: computeNextFire(alarm.time, alarm.days, now),
+        nextFire: computeNextFire(alarm.time, alarm.days, now, alarm.tz),
       },
     })
   }

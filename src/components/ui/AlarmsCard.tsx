@@ -59,7 +59,7 @@ export function AlarmsCard() {
       const res = await fetch('/api/alarms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, time, days }),
+        body: JSON.stringify({ title, time, days, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       })
       if (res.ok) {
         setTitle('')

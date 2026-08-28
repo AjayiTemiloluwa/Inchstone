@@ -430,8 +430,9 @@ model Alarm {
   id        String    @id @default(uuid())
   userId    String
   title     String
-  time      String // "HH:mm"
+  time      String // "HH:mm" in the alarm's timezone
   days      String    @default("0,1,2,3,4,5,6") // weekdays, 0=Sun
+  tz        String? // IANA timezone the time is set in (e.g. "Africa/Lagos")
   enabled   Boolean   @default(true)
   nextFire  DateTime?
   lastFired DateTime?

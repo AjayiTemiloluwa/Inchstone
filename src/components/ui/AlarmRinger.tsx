@@ -151,6 +151,13 @@ export function AlarmRinger() {
     if (ringing) {
       const key = `${ringing.id}:${ringing.nextFire ? new Date(ringing.nextFire).getTime() : 0}`
       dismissed.current.add(key)
+      // Ack: tell the server this occurrence was delivered so it advances
+      // nextFire — otherwise a due alarm rings again on every reload/poll.
+      fetch(`/api/alarms/${ringing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ack' }),
+      }).catch(() => {})
       // Self-heal: drop keys older than a day so the set can't grow forever.
       const cutoff = Date.now() - DAY_MS
       dismissed.current = new Set(
