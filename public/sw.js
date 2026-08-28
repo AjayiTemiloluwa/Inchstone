@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inchstone-v3'
+const CACHE_NAME = 'inchstone-v4'
 const OFFLINE_URL = '/offline.html'
 
 // Pre-cache only the offline fallback page
@@ -52,6 +52,14 @@ self.addEventListener('push', function (event) {
                 url: data.data?.url || '/dashboard',
             },
         }
+        // Countdown/reminder pushes arrive with a tag so an updated
+        // notification replaces the previous one instead of stacking up.
+        if (data.tag) {
+            options.tag = data.tag
+            options.renotify = true
+        }
+        if (data.requireInteraction) options.requireInteraction = true
+        if (data.vibrate) options.vibrate = data.vibrate
 
         event.waitUntil(
             self.registration.showNotification(data.title, options)

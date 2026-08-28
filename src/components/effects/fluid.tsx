@@ -3,7 +3,6 @@
 import {
   useEffect,
   useRef,
-  useState,
   type CSSProperties,
   type ReactNode,
 } from 'react'
@@ -18,7 +17,9 @@ import {
                  ripple reads across neighbours because the falloff
                  is spatial, so nearby glyphs move more than far ones
 
-   Both are pointer-fine only and fully disabled for reduced-motion.
+   Follows the mouse on pointer-fine devices AND the finger on touch
+   devices — touch-dragging (which is how mobile scrolls) parts the
+   glyphs exactly like the cursor does, and they spring back on lift.
    ──────────────────────────────────────────────────────────────── */
 
 export function Float({
@@ -71,7 +72,6 @@ export function FluidText({
   const offsets = useRef<{ cx: number; cy: number }[]>([])
   const springs = useRef<{ x: number; y: number; r: number }[]>([])
   const mouse = useRef({ x: -9999, y: -9999 })
-  const [, setReady] = useState(false)
 
   // Glyph centers relative to the wrapper — stable across scroll, so we
   // measure once (and on resize/fonts) instead of every frame.
@@ -89,7 +89,6 @@ export function FluidText({
     measure()
     const t = window.setTimeout(measure, 400) // after webfonts settle
     window.addEventListener('resize', measure)
-    setReady(true)
     return () => {
       window.clearTimeout(t)
       window.removeEventListener('resize', measure)
@@ -98,20 +97,18 @@ export function FluidText({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
     springs.current = Array.from({ length: text.length }, () => ({ x: 0, y: 0, r: 0 }))
 
-    const onMove = (e: PointerEvent) => {
-      mouse.current.x = e.clientX
-      mouse.current.y = e.clientY
-    }
-    window.addEventListener('pointermove', onMove, { passive: true })
+    const REST_EPSILON = 0.05 // px — springs closer than this to target are "at rest"
 
     let raf = 0
+    let running = false
+
     const tick = () => {
       const wrap = wrapRef.current
+      let settled = true
       if (wrap && springs.current.length === text.length) {
         const wr = wrap.getBoundingClientRect()
         for (let i = 0; i < text.length; i++) {
@@ -132,16 +129,78 @@ export function FluidText({
           st.y += (ty - st.y) * 0.13
           st.r += (tr - st.r) * 0.13
           el.style.transform = `translate(${st.x.toFixed(2)}px, ${st.y.toFixed(2)}px) rotate(${st.r.toFixed(2)}deg)`
+          if (
+            Math.abs(st.x - tx) > REST_EPSILON ||
+            Math.abs(st.y - ty) > REST_EPSILON ||
+            Math.abs(st.r - tr) > REST_EPSILON
+          ) {
+            settled = false
+          }
         }
+      }
+      // Sleep once every spring caught up with its target — the next
+      // pointer/touch/scroll event wakes it (battery & CPU friendly).
+      if (settled) {
+        running = false
+        return
       }
       raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
 
+    const wake = () => {
+      if (!running) {
+        running = true
+        raf = requestAnimationFrame(tick)
+      }
+    }
+
+    const onMove = (e: PointerEvent) => {
+      mouse.current.x = e.clientX
+      mouse.current.y = e.clientY
+      wake()
+    }
+
+    // Touch: the finger replaces the cursor. While dragging (how mobile
+    // scrolls) the glyphs part around the touch point exactly as they do
+    // around the mouse; on lift the pointer is parked far away so the
+    // glyphs relax back into place.
+    const onTouch = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (!t) return
+      mouse.current.x = t.clientX
+      mouse.current.y = t.clientY
+      wake()
+    }
+    const onTouchEnd = () => {
+      mouse.current.x = -9999
+      mouse.current.y = -9999
+      wake()
+    }
+
+    // Scrolling slides the page under a stationary cursor/finger — wake so
+    // the ripple tracks the viewport shift (glyph centers move, the stored
+    // pointer doesn't).
+    const onScroll = () => {
+      if (mouse.current.x > -1000) wake()
+    }
+
+    window.addEventListener('pointermove', onMove, { passive: true })
+    window.addEventListener('touchstart', onTouch, { passive: true })
+    window.addEventListener('touchmove', onTouch, { passive: true })
+    window.addEventListener('touchend', onTouchEnd, { passive: true })
+    window.addEventListener('touchcancel', onTouchEnd, { passive: true })
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    const chars = charRefs.current
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('pointermove', onMove)
-      charRefs.current.forEach(el => { if (el) el.style.transform = '' })
+      window.removeEventListener('touchstart', onTouch)
+      window.removeEventListener('touchmove', onTouch)
+      window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('touchcancel', onTouchEnd)
+      window.removeEventListener('scroll', onScroll)
+      chars.forEach(el => { if (el) el.style.transform = '' })
     }
   }, [text, radius, strength])
 

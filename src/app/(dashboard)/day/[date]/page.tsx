@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown } from 'lucide-react'
+import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown, Star } from 'lucide-react'
 import { format, parseISO, subDays, subWeeks, subMonths, subYears, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfDay, endOfDay, eachDayOfInterval, addDays, differenceInDays } from 'date-fns'
 import { AnimatePresence, motion } from 'motion/react'
 import { Scramble } from '@/components/ui/motion'
@@ -15,6 +15,7 @@ import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useC
 
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 import { useToast } from '@/components/ui/ToastProvider'
+import { HabitSparkline } from '@/components/ui/HabitSparkline'
 import { Loader } from '@/components/ui/Loader'
 
 type GraphRange = 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
@@ -47,6 +48,8 @@ export default function DayPage() {
   const [recurrencePattern, setRecurrencePattern] = useState('')
   const [recurrenceEnd, setRecurrenceEnd] = useState('')
   const [isFrog, setIsFrog] = useState(false)
+  const [newDeedImportant, setNewDeedImportant] = useState(false)
+  const [newDeedReminder, setNewDeedReminder] = useState('10')
   const [isHabit, setIsHabit] = useState(false)
   const [deedColor, setDeedColor] = useState('')
   const [dayNotes, setDayNotes] = useState<any[]>([])
@@ -173,6 +176,23 @@ export default function DayPage() {
   useEffect(() => {
     fetchTodayHabits()
   }, [fetchTodayHabits, dateStr])
+
+  // Last-30-day completion series per habit title — feeds the inline sparklines.
+  const habitSeriesByTitle = useMemo(() => {
+    const days = 30
+    const map: Record<string, boolean[]> = {}
+    const seriesStart = new Date(currentDate)
+    seriesStart.setDate(seriesStart.getDate() - (days - 1))
+    seriesStart.setHours(0, 0, 0, 0)
+    for (const h of habitHistory as any[]) {
+      const d = new Date(h.date)
+      const idx = Math.floor((d.getTime() - seriesStart.getTime()) / 86_400_000)
+      if (idx < 0 || idx >= days) continue
+      if (!map[h.title]) map[h.title] = Array(days).fill(false)
+      if (h.completed) map[h.title][idx] = true
+    }
+    return map
+  }, [habitHistory, currentDate])
 
   // Fetch habit history for graph
   const fetchHabitHistory = useCallback(async () => {
@@ -489,6 +509,8 @@ export default function DayPage() {
           recurrencePattern: task.recurrencePattern,
           isFrog: task.isFrog,
           isHabit: task.isHabit,
+          isImportant: task.isImportant,
+          reminderMinutes: task.isImportant ? (task.reminderMinutes ?? 10) : null,
           color: task.color,
         }),
       })
@@ -664,6 +686,8 @@ export default function DayPage() {
           color: finalColor || null,
           isFrog: finalIsFrog,
           isHabit: finalIsHabit,
+          isImportant: newDeedImportant,
+          reminderMinutes: newDeedImportant ? (parseInt(newDeedReminder, 10) || 0) : null,
         })
       })
       const resData = await res.json()
@@ -683,6 +707,8 @@ export default function DayPage() {
       setRecurrencePattern('')
       setRecurrenceEnd('')
       setIsFrog(false)
+      setNewDeedImportant(false)
+      setNewDeedReminder('10')
       setIsHabit(false)
       setDeedColor('')
       setAddingDeed(false)
@@ -1079,6 +1105,30 @@ export default function DayPage() {
                       <Repeat className="w-3.5 h-3.5" /><span>Recurring</span>
                     </span>
                   </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" checked={newDeedImportant} onChange={e => setNewDeedImportant(e.target.checked)}
+                      className="w-4 h-4 rounded accent-gold focus:ring-gold" />
+                    <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
+                      <Star className="w-3.5 h-3.5 text-gold" /><span>Very important</span>
+                    </span>
+                  </label>
+                  {newDeedImportant && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Ring alarm</span>
+                      <select
+                        value={newDeedReminder}
+                        onChange={e => setNewDeedReminder(e.target.value)}
+                        className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                      >
+                        <option value="0">At start time</option>
+                        <option value="5">5 min before</option>
+                        <option value="10">10 min before</option>
+                        <option value="15">15 min before</option>
+                        <option value="30">30 min before</option>
+                        <option value="60">1 hour before</option>
+                      </select>
+                    </div>
+                  )}
                   {isRecurring && (
                     <div className="flex flex-wrap items-center gap-2">
                       <select
@@ -1161,6 +1211,7 @@ export default function DayPage() {
                             {task.completed ? <CheckCircle2 className="w-3.5 h-3.5 text-sage" /> : <Circle className="w-3.5 h-3.5 text-ink/30" />}
                           </button>
                           <span className={`font-semibold truncate ${task.completed ? 'line-through' : ''}`}>{task.title}</span>
+                          {task.isImportant && <Star className="w-3 h-3 shrink-0 fill-gold text-gold" />}
                         </div>
                         <button onClick={(e) => handleDeleteTask(e, task.id)} className="shrink-0 p-0.5 opacity-0 group-hover/task:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]" title="Delete">
                           <Trash2 className="w-3 h-3" />
@@ -1588,6 +1639,8 @@ export default function DayPage() {
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </button>
                 <span className={`min-w-0 flex-1 truncate text-sm ${task.completed ? 'line-through text-ink/45' : 'text-ink font-medium'}`}>{task.title}</span>
+                <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={96} height={20} className="hidden sm:block" />
+                <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={44} height={20} className="sm:hidden" />
                 {task.completed ? (
                   <span className="shrink-0 rounded-full bg-sage/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sage">Done</span>
                 ) : (
@@ -1929,6 +1982,12 @@ export default function DayPage() {
                         <span>Frog</span>
                       </span>
                     )}
+                    {selectedDeed.task.isImportant && (
+                      <span className="flex items-center space-x-1 px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full">
+                        <Star className="w-3 h-3 fill-amber-400" />
+                        <span>Important</span>
+                      </span>
+                    )}
                     {selectedDeed.task.isHabit && (
                       <span className="flex items-center space-x-1 px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">
                         <Repeat className="w-3 h-3" />
@@ -2044,6 +2103,34 @@ export default function DayPage() {
                   <Target className="w-3.5 h-3.5" />
                   <span>Details</span>
                 </p>
+                {/* Very-important toggle + its alarm lead */}
+                <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition ${selectedDeed.task.isImportant ? 'border-gold/40 bg-gold/10' : 'border-white/10 bg-black/10'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, isImportant: !selectedDeed.task.isImportant } })}
+                    className="flex items-center space-x-2 text-left"
+                  >
+                    <Star className={`w-4 h-4 shrink-0 ${selectedDeed.task.isImportant ? 'fill-gold text-gold' : 'text-ink/40'}`} />
+                    <span>
+                      <span className="block text-xs font-bold text-ink">Very important</span>
+                      <span className="block text-[10px] text-ink/50">Rings an alarm before it starts</span>
+                    </span>
+                  </button>
+                  {selectedDeed.task.isImportant && (
+                    <select
+                      value={String(selectedDeed.task.reminderMinutes ?? 10)}
+                      onChange={e => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, reminderMinutes: parseInt(e.target.value, 10) } })}
+                      className="shrink-0 px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                    >
+                      <option value="0">At start time</option>
+                      <option value="5">5 min before</option>
+                      <option value="10">10 min before</option>
+                      <option value="15">15 min before</option>
+                      <option value="30">30 min before</option>
+                      <option value="60">1 hour before</option>
+                    </select>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[9px] text-ink/40 font-bold uppercase">Weight</label>

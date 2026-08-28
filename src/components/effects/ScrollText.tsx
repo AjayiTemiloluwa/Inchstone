@@ -47,11 +47,11 @@ export function ScrollText() {
       io = new IntersectionObserver(
         (entries) => {
           for (const e of entries) {
-            if (e.isIntersecting) {
-              const el = e.target as HTMLElement
-              el.classList.add('scroll-in')
-              io?.unobserve(el)
-            }
+            const el = e.target as HTMLElement
+            // REPLAY: the class toggles with viewport presence, so the text
+            // loads up again every time it re-enters — scrolling down OR up.
+            if (e.isIntersecting) el.classList.add('scroll-in')
+            else el.classList.remove('scroll-in')
           }
         },
         { rootMargin: '0px 0px -8% 0px', threshold: 0.05 },

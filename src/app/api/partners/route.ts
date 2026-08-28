@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { sendNotification } from '@/lib/pushNotifications'
+import { sendEmail, invitePartnerEmail, linkedPartnerEmail } from '@/lib/email'
 
 export async function GET(req: Request) {
     try {
@@ -27,54 +28,82 @@ export async function POST(req: Request) {
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const { name, email, role } = await req.json()
-
-        if (!name || !email) {
+        if (!name?.trim() || !email?.trim()) {
             return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
         }
+        const cleanEmail = String(email).trim().toLowerCase()
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+            return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
+        }
 
+        // My identity — so the partner can find and message me back.
+        const me = await currentUser()
+        const myEmail = me?.primaryEmailAddress?.emailAddress?.toLowerCase() || null
+        const myName = me?.firstName || me?.username || 'Your partner'
+        if (myEmail && cleanEmail === myEmail) {
+            return NextResponse.json({ error: 'That is your own email — accountability works best with someone else.' }, { status: 400 })
+        }
+        if (myEmail) {
+            await prisma.profile.upsert({
+                where: { userId },
+                update: { email: myEmail, name: myName },
+                create: { userId, email: myEmail, name: myName },
+            })
+        }
+
+        const inviteCode = crypto.randomUUID()
         const partner = await prisma.partner.create({
             data: {
                 userId,
-                name,
-                email,
-                role: role || 'Accountability Partner'
-            }
+                name: name.trim(),
+                email: cleanEmail,
+                role: role || 'Accountability Partner',
+                status: 'pending',
+                inviteCode,
+            },
         })
 
-        // Look up if the partner email belongs to a registered user
-        // Try to find this user's partner by email across all users
-        // This is a best-effort check - we search for any user with this email in Clerk
-        try {
-            // Check if the partner's email matches another user in our system
-            // We look for push subscriptions that might belong to this partner
-            const existingSubscriptions = await prisma.pushSubscription.findMany({
-                where: {
-                    userId: { not: userId } // Not the current user
+        // ── Linked in real time when that email is already onboarded ──
+        const profile = await prisma.profile.findUnique({ where: { email: cleanEmail } })
+        if (profile && profile.userId !== userId) {
+            await prisma.partner.update({
+                where: { id: partner.id },
+                data: { status: 'accepted', connectionUserId: profile.userId },
+            })
+            const linked = { ...partner, status: 'accepted', connectionUserId: profile.userId }
+
+            await prisma.nudge.create({
+                data: {
+                    partnerId: partner.id,
+                    senderId: userId,
+                    receiverId: profile.userId,
+                    message: `${name.trim()} added you as their accountability partner — you can now cheer them on and message each other.`,
+                    read: false,
                 },
-                distinct: ['userId']
             })
 
-            // For each potential partner, check if they have a matching email
-            // Since we don't have direct email lookup, create a nudge for the partner
-            // and try to push notify them if they have subscriptions
-            for (const sub of existingSubscriptions) {
-                // Create a nudge for this partner notification
-                await prisma.nudge.create({
-                    data: {
-                        partnerId: partner.id,
-                        senderId: userId,
-                        receiverId: sub.userId,
-                        message: `${name} has been added as an accountability partner! Say hi and start tracking goals together.`,
-                        read: false
-                    }
-                })
+            const subs = await prisma.pushSubscription.findMany({ where: { userId: profile.userId } })
+            for (const s of subs) {
+                const ok = await sendNotification(
+                    { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
+                    { title: 'Accountability partner linked', body: `${name.trim()} linked with you on Inchstone.`, url: '/partners' },
+                )
+                if (!ok) await prisma.pushSubscription.delete({ where: { id: s.id } }).catch(() => {})
             }
-        } catch (e) {
-            // Non-critical - partner was still created
-            console.error('Failed to send partner notification:', e)
+
+            const tpl = linkedPartnerEmail(myName, name.trim())
+            await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
+
+            return NextResponse.json({ success: true, partner: linked, linked: true })
         }
 
-        return NextResponse.json({ success: true, partner })
+        // ── Not onboarded yet → respectful invite email with an accept link ──
+        const origin = new URL(req.url).origin
+        const acceptUrl = `${origin}/partners/accept?code=${inviteCode}`
+        const tpl = invitePartnerEmail(myName, acceptUrl)
+        await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
+
+        return NextResponse.json({ success: true, partner, linked: false })
     } catch (error) {
         console.error('Failed to create partner:', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

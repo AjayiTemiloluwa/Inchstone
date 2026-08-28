@@ -12,7 +12,15 @@ interface Partner {
   name: string
   email: string
   role: string
+  status: string
+  shareProgress: boolean
+  connectionUserId?: string | null
   partnerLinks: any[]
+}
+
+interface SharedSummary {
+  sharedWithMe: Array<{ id: string; name: string; email: string; tasksTotal: number; tasksDone: number }>
+  iShareWith: Array<{ name: string; email: string }>
 }
 
 interface Message {
@@ -40,6 +48,7 @@ export default function PartnersPage() {
   const [sendingMessage, setSendingMessage] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [incomingNudges, setIncomingNudges] = useState<Message[]>([])
+  const [shared, setShared] = useState<SharedSummary | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showNudges, setShowNudges] = useState(false)
 
@@ -54,6 +63,32 @@ export default function PartnersPage() {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchShared = async () => {
+    try {
+      const res = await fetch('/api/partners/shared')
+      const data = await res.json()
+      if (data.success) setShared({ sharedWithMe: data.sharedWithMe || [], iShareWith: data.iShareWith || [] })
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleToggleShare = async (partner: Partner) => {
+    const next = !partner.shareProgress
+    setPartners(prev => prev.map(p => (p.id === partner.id ? { ...p, shareProgress: next } : p)))
+    try {
+      const res = await fetch(`/api/partners/${partner.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareProgress: next }),
+      })
+      if (!res.ok) throw new Error()
+      fetchShared()
+    } catch {
+      setPartners(prev => prev.map(p => (p.id === partner.id ? { ...p, shareProgress: !next } : p)))
     }
   }
 
@@ -72,6 +107,7 @@ export default function PartnersPage() {
   useEffect(() => {
     fetchPartners()
     fetchIncomingNudges()
+    fetchShared()
   }, [])
 
   // Auto-refresh messages
@@ -395,6 +431,37 @@ export default function PartnersPage() {
         </Card>
       )}
 
+      {/* Shared progress — consent-gated, both directions */}
+      {shared && (shared.sharedWithMe.length > 0 || shared.iShareWith.length > 0) && (
+        <Card className="p-5">
+          <h3 className="font-semibold text-parchment">Shared progress</h3>
+          <p className="mb-4 mt-1 text-xs text-parchment/50">
+            Only what each side explicitly opts in to — nothing is shared by default.
+          </p>
+          {shared.sharedWithMe.length > 0 && (
+            <div className="space-y-2">
+              {shared.sharedWithMe.map(s => {
+                const pct = s.tasksTotal > 0 ? Math.round((s.tasksDone / s.tasksTotal) * 100) : 0
+                return (
+                  <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/15 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-parchment">{s.name}</p>
+                      <p className="text-[11px] text-parchment/45">{s.tasksDone}/{s.tasksTotal} deeds done today</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-gold/15 px-2.5 py-1 font-mono text-xs font-bold text-gold tabular-nums">{pct}%</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {shared.iShareWith.length > 0 && (
+            <p className="mt-3 text-[11px] text-parchment/40">
+              You share your daily progress with {shared.iShareWith.map(s => s.name).join(', ')}.
+            </p>
+          )}
+        </Card>
+      )}
+
       {/* Partners List */}
       {partners.length === 0 ? (
         <div className="rounded-[8px] border border-dashed border-gold-dim/30 p-12 text-center">
@@ -432,6 +499,31 @@ export default function PartnersPage() {
                   aria-label="Remove partner"
                 >
                   <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+              </div>
+
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                {partner.status === 'accepted' ? (
+                  <span className="flex items-center gap-1.5 rounded-full border border-moss/30 bg-moss/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-moss">
+                    <LinkIcon className="h-3 w-3" strokeWidth={1.5} />
+                    Linked
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-gold">
+                    <Mail className="h-3 w-3" strokeWidth={1.5} />
+                    Invite sent
+                  </span>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleToggleShare(partner) }}
+                  title="Let this partner see your daily progress"
+                  className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                    partner.shareProgress
+                      ? 'border-moss/40 bg-moss/10 text-moss'
+                      : 'border-white/15 text-parchment/45 hover:border-gold/40 hover:text-gold'
+                  }`}
+                >
+                  {partner.shareProgress ? '✓ Sharing progress' : 'Share progress'}
                 </button>
               </div>
 

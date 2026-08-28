@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useHierarchyStore } from '@/stores/hierarchyStore'
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
 import { useRouter } from 'next/navigation'
 import { format, startOfYear, differenceInDays } from 'date-fns'
-import { ArrowRight, ArrowUpRight, Check, MessageSquare, Sun, X, Activity, Clock } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Check, MessageSquare, Sun, X, Activity, Clock, Star } from 'lucide-react'
 import { WordRotator, Marquee, CountUp, RevealLines } from '@/components/ui/motion'
 import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
 import { useUser } from '@clerk/nextjs'
@@ -31,6 +31,43 @@ function Stat({ label, value, suffix = '' }: { label: string; value: number; suf
   )
 }
 
+/* Section chrome — a labeled hairline header plus a quiet card body. This
+   gives every block on the home page a visible boundary so the layout reads
+   as organized sections (especially on mobile, where spacing alone doesn't
+   read as structure). */
+const CARD = 'rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 sm:rounded-lg sm:p-6'
+
+/* Greeting from the local clock — an external value that changes outside
+   React, so it's read with useSyncExternalStore: server snapshot renders
+   empty (hydration-safe) and the client picks the real one after mount,
+   with no setState-in-effect render cascade. */
+const noopSubscribe = () => () => {}
+function greetingForHour(hour: number): string {
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function SectionHeader({
+  id,
+  label,
+  action,
+}: {
+  id?: string
+  label: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <h2 id={id} className="shrink-0 font-mono text-[11px] uppercase tracking-[0.26em] text-parchment/40">
+        {label}
+      </h2>
+      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-white/[0.06]" />
+      {action}
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const { user } = useUser()
@@ -39,16 +76,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [dailyScore, setDailyScore] = useState<{ totalTasks: number; completedTasks: number; score: number } | null>(null)
   const [nudges, setNudges] = useState<Nudge[]>([])
-  const [greeting, setGreeting] = useState('')
   const [nudgeDismissed, setNudgeDismissed] = useState(false)
   const countdownNow = useCountdown()
-
-  useEffect(() => {
-    const hour = new Date().getHours()
-    if (hour < 12) setGreeting('Good morning')
-    else if (hour < 17) setGreeting('Good afternoon')
-    else setGreeting('Good evening')
-  }, [])
+  const greeting = useSyncExternalStore(
+    noopSubscribe,
+    () => greetingForHour(new Date().getHours()),
+    () => '', // server snapshot — filled in right after hydration
+  )
 
   useEffect(() => {
     const todayIso = new Date().toISOString()
@@ -66,17 +100,19 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch('/api/items')
       .then(res => res.json())
-      .then(data => {
+      .then((data: { items?: Item[] }) => {
         if (data.items) {
-          const itemMap = new Map()
-          data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-          const tree: any[] = []
-          data.items.forEach((item: any) => {
+          const itemMap = new Map<string, Item>()
+          data.items.forEach(item => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+          const tree: Item[] = []
+          data.items.forEach(item => {
             if (item.parentId) {
               const parent = itemMap.get(item.parentId)
-              if (parent) parent.children.push(itemMap.get(item.id))
+              const child = itemMap.get(item.id)
+              if (parent && child) parent.children!.push(child)
             } else {
-              tree.push(itemMap.get(item.id))
+              const root = itemMap.get(item.id)
+              if (root) tree.push(root)
             }
           })
           setItems(tree)
@@ -100,7 +136,7 @@ export default function DashboardPage() {
   // Scans every task across today's goals for the soonest scheduled deed
   // (startTime set, not completed) and surfaces a subtle countdown chip.
   const nextScheduled = (() => {
-    const candidates: { title: string; parts: ReturnType<typeof formatCountdown> }[] = []
+    const candidates: { title: string; isImportant: boolean; parts: ReturnType<typeof formatCountdown> }[] = []
     for (const item of flatItems) {
       for (const t of item.tasks || []) {
         if (!t.startTime || t.completed) continue
@@ -108,6 +144,7 @@ export default function DashboardPage() {
         if (format(d, 'yyyy-MM-dd') !== todayIso) continue
         candidates.push({
           title: t.title,
+          isImportant: !!t.isImportant,
           parts: formatCountdown(countdownNow, new Date(t.startTime), t.endTime ? new Date(t.endTime) : null),
         })
       }
@@ -165,7 +202,7 @@ export default function DashboardPage() {
             : todWord
 
   return (
-    <div className="mx-auto max-w-[880px] space-y-10 px-1 pb-28 pt-2 sm:pt-4">
+    <div className="mx-auto max-w-[880px] space-y-8 px-1 pb-28 pt-2 sm:space-y-10 sm:pt-4">
       {/* ── Meta strip ── */}
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-b border-white/5 pb-3">
         <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">
@@ -195,7 +232,11 @@ export default function DashboardPage() {
             Build{' '}
             <WordRotator
               className="font-semibold normal-case tracking-normal text-gold"
-              words={['discipline', 'momentum', 'clarity', 'faith', 'streaks']}
+              words={[
+                'discipline', 'momentum', 'clarity', 'faith', 'streaks',
+                'consistency', 'purpose', 'courage', 'focus', 'gratitude',
+                'patience', 'strength',
+              ]}
             />{' '}
             one day at a time
           </p>
@@ -203,36 +244,13 @@ export default function DashboardPage() {
       </header>
       </Float>
 
-      {/* ── Figures strip (the compass, translated into type) ── */}
-      <Float delay={0.7} duration={10} amp={6}>
-      <section aria-label="Progress" className="grid grid-cols-3 divide-x divide-white/[0.06] border-y border-white/[0.06] py-6">
-        <Stat label="Alignment" value={Math.round(alignment)} suffix="%" />
-        <Stat label="Done today" value={doneToday} suffix={`/${todayDeeds.length}`} />
-        <Stat label="Day of year" value={dayOfYear} suffix="/365" />
-      </section>
-      </Float>
-
-      <Float delay={1.2} duration={11} amp={5}>
-      {/* ── Today's deeds: numbered index ── */}
-      <section aria-labelledby="deeds-heading">
-        <div className="flex items-center justify-between pb-3">
-          <h2 id="deeds-heading" className="font-mono text-[11px] uppercase tracking-[0.26em] text-parchment/40">
-            Today&rsquo;s deeds
-          </h2>
+      {/* ── Next up — the next scheduled deed with a live countdown ── */}
+      {nextScheduled && (
+        <section aria-labelledby="nextup-heading">
+          <SectionHeader id="nextup-heading" label="Next up" />
           <button
             onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
-            className="flex items-center gap-1 font-mono text-xs uppercase tracking-[0.18em] text-parchment/45 transition-colors hover:text-parchment"
-          >
-            Open day
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Subtle live countdown to the next scheduled deed */}
-        {nextScheduled && (
-          <button
-            onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
-            className={`-mx-2 mb-3 flex w-[calc(100%+16px)] items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors animate-fadeIn ${
+            className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors animate-fadeIn ${
               nextScheduled.parts.state === 'live'
                 ? 'border-moss/25 bg-moss/[0.06] hover:border-moss/45'
                 : nextScheduled.parts.soon
@@ -246,6 +264,9 @@ export default function DashboardPage() {
                 : <Clock className="h-3.5 w-3.5 text-gold-dim" />}
             </span>
             <span className="min-w-0 flex-1 truncate text-sm">
+              {nextScheduled.isImportant && (
+                <Star aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5 fill-gold text-gold" />
+              )}
               <span className={nextScheduled.parts.state === 'live' ? 'text-sage' : 'text-parchment/85'}>
                 {nextScheduled.title}
               </span>
@@ -258,9 +279,41 @@ export default function DashboardPage() {
                 : `in ${compactCountdownLabel(nextScheduled.parts)}`}
             </span>
           </button>
-        )}
+        </section>
+      )}
 
-        {todayDeeds.length > 0 ? (
+      {/* ── Figures strip (the compass, translated into type) ── */}
+      <Float delay={0.7} duration={10} amp={6}>
+      <section aria-labelledby="progress-heading">
+        <SectionHeader id="progress-heading" label="Progress" />
+        <div className={CARD}>
+          <div className="grid grid-cols-3 divide-x divide-white/[0.06]">
+            <Stat label="Alignment" value={Math.round(alignment)} suffix="%" />
+            <Stat label="Done today" value={doneToday} suffix={`/${todayDeeds.length}`} />
+            <Stat label="Day of year" value={dayOfYear} suffix="/365" />
+          </div>
+        </div>
+      </section>
+      </Float>
+
+      <Float delay={1.2} duration={11} amp={5}>
+      {/* ── Today's deeds: numbered index ── */}
+      <section aria-labelledby="deeds-heading">
+        <SectionHeader
+          id="deeds-heading"
+          label="Today's deeds"
+          action={
+            <button
+              onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
+              className="flex shrink-0 items-center gap-1 font-mono text-xs uppercase tracking-[0.18em] text-parchment/45 transition-colors hover:text-parchment"
+            >
+              Open day
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          }
+        />
+        <div className={CARD}>
+          {todayDeeds.length > 0 ? (
           <ul className="-mx-2">
             {todayDeeds.slice(0, 6).map((deed, i) => {
               const pct = completionMap[deed.id] || 0
@@ -315,6 +368,7 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
+        </div>
       </section>
       </Float>
 
@@ -328,7 +382,9 @@ export default function DashboardPage() {
       </Marquee>
 
       {/* ── One quiet strip: nudge or reflect, never both ── */}
-      {!nudgeDismissed && latestNudge ? (
+      <section aria-labelledby="touchpoint-heading">
+        <SectionHeader id="touchpoint-heading" label={latestNudge && !nudgeDismissed ? 'From your partner' : 'Reflect'} />
+        {!nudgeDismissed && latestNudge ? (
         <div className="flex items-start gap-3 rounded-md border border-white/[0.06] p-4">
           <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} />
           <div className="min-w-0 flex-1">
@@ -352,7 +408,8 @@ export default function DashboardPage() {
           <span className="flex-1 text-sm text-parchment/75">Take a quiet moment — reflect on today.</span>
           <ArrowRight className="h-4 w-4 text-parchment/45" />
         </button>
-      )}
+        )}
+      </section>
 
       {/* ── Closing CTA ── */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.06] pt-7">

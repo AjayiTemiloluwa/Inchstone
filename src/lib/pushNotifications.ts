@@ -30,7 +30,15 @@ export function isVapidConfigured(): boolean {
 
 export async function sendNotification(
     subscription: { endpoint: string; p256dh: string; auth: string },
-    payload: { title: string; body: string; icon?: string; url?: string }
+    payload: {
+        title: string
+        body: string
+        icon?: string
+        url?: string
+        tag?: string // replaces a previous notification with the same tag (renotify)
+        requireInteraction?: boolean
+        vibrate?: number[]
+    }
 ) {
     ensureVapidConfigured()
     if (!vapidConfigured) return true // Silently succeed if not configured
@@ -51,6 +59,11 @@ export async function sendNotification(
                 data: {
                     url: payload.url || '/dashboard',
                 },
+                // Pass-through options the service worker applies to
+                // showNotification (see public/sw.js).
+                ...(payload.tag ? { tag: payload.tag, renotify: true } : {}),
+                ...(payload.requireInteraction ? { requireInteraction: true } : {}),
+                ...(payload.vibrate ? { vibrate: payload.vibrate } : {}),
             })
         )
         return true

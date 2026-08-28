@@ -10,7 +10,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         const { id: taskId } = await params
         const body = await req.json()
-        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern } = body
+        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, isImportant, reminderMinutes } = body
 
         const task = await prisma.task.findFirst({
             where: { id: taskId, userId },
@@ -36,6 +36,21 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (reflection !== undefined) updateData.reflection = reflection
         if (isFrog !== undefined) updateData.isFrog = isFrog
         if (isHabit !== undefined) updateData.isHabit = isHabit
+        if (isImportant !== undefined) updateData.isImportant = isImportant
+        if (reminderMinutes !== undefined) updateData.reminderMinutes = reminderMinutes
+        // Re-arm notifications whenever the schedule or reminder changed —
+        // clearing the stamps lets the countdown / reminder / start pushes
+        // fire again against the new times.
+        if (
+            startTime !== undefined ||
+            endTime !== undefined ||
+            reminderMinutes !== undefined ||
+            isImportant !== undefined
+        ) {
+            updateData.reminderNotifiedAt = null
+            updateData.startNotifiedAt = null
+            updateData.countdownNotifiedAt = null
+        }
         if (color !== undefined) updateData.color = color
         if (isRecurring !== undefined) updateData.isRecurring = isRecurring
         if (recurrencePattern !== undefined) updateData.recurrencePattern = recurrencePattern
@@ -129,6 +144,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                         recurrenceEnd: effectiveEndDate,
                         isFrog: updateData.isFrog !== undefined ? updateData.isFrog : task.isFrog,
                         isHabit: updateData.isHabit !== undefined ? updateData.isHabit : task.isHabit,
+                        isImportant: updateData.isImportant !== undefined ? updateData.isImportant : task.isImportant,
+                        reminderMinutes: updateData.reminderMinutes !== undefined ? updateData.reminderMinutes : task.reminderMinutes,
                     })
                 }
                 currentDate.setUTCDate(currentDate.getUTCDate() + 1)

@@ -46,6 +46,12 @@ export type Task = {
   priority: string | null
   isFrog: boolean
   isHabit: boolean
+  // Notification fields (optional so cached store data stays valid)
+  isImportant?: boolean
+  reminderMinutes?: number | null
+  countdownNotifiedAt?: string | null
+  reminderNotifiedAt?: string | null
+  startNotifiedAt?: string | null
   isRecurring: boolean
   recurrencePattern: string | null
   recurrenceEnd: string | null
@@ -125,14 +131,14 @@ export const useHierarchyStore = create<HierarchyState>((set, get) => ({
 
     // Refresh items to get updated data
     const res = await fetch('/api/items')
-    const data = await res.json()
+    const data: { items?: Item[] } = await res.json()
     if (data.items) {
-      const itemMap = new Map()
-      data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-      const tree: any[] = []
-      data.items.forEach((item: any) => {
-        if (item.parentId) { const parent = itemMap.get(item.parentId); if (parent) parent.children.push(itemMap.get(item.id)) }
-        else { tree.push(itemMap.get(item.id)) }
+      const itemMap = new Map<string, Item>()
+      data.items.forEach(item => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+      const tree: Item[] = []
+      data.items.forEach(item => {
+        if (item.parentId) { const parent = itemMap.get(item.parentId); const child = itemMap.get(item.id); if (parent && child) parent.children!.push(child) }
+        else { const root = itemMap.get(item.id); if (root) tree.push(root) }
       })
       set({ items: tree })
     }

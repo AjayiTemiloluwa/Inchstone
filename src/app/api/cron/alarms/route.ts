@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { computeNextFire, pushAlarmToUser } from '@/lib/alarmScheduler'
+import {
+  buildTaskPayload,
+  dueTaskNotifications,
+  pushTaskToUser,
+  stampTaskNotification,
+  TASK_SCAN_WINDOW_HOURS,
+} from '@/lib/taskNotifications'
 
 /**
  * GET /api/cron/alarms — alarm dispatcher, plan-agnostic.
@@ -46,5 +53,31 @@ export async function GET(req: Request) {
     })
   }
 
-  return NextResponse.json({ ok: true, fired: sent, checked: due.length })
+  // ── Task notifications (deeds with a schedule) ─────────────────────────
+  // Countdown heads-up (every scheduled task), the very-important alarm and
+  // the starting-now push. Same stamp logic as /api/tasks/due, so this cron
+  // and the in-app ringer never double-fire.
+  const scheduled = await prisma.task.findMany({
+    where: {
+      startTime: {
+        gte: new Date(now.getTime() - TASK_SCAN_WINDOW_HOURS * 60 * 60 * 1000),
+        lte: new Date(now.getTime() + TASK_SCAN_WINDOW_HOURS * 60 * 60 * 1000),
+      },
+    },
+  })
+
+  let taskPushes = 0
+  for (const t of scheduled) {
+    for (const kind of dueTaskNotifications(t, now)) {
+      try {
+        await pushTaskToUser(t.userId, buildTaskPayload(t, kind))
+        taskPushes++
+      } catch (e) {
+        console.error('Task notification dispatch failed', t.id, kind, e)
+      }
+      await stampTaskNotification(t.id, kind, now)
+    }
+  }
+
+  return NextResponse.json({ ok: true, fired: sent, checked: due.length, taskPushes })
 }

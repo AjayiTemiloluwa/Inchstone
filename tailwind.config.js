@@ -8,18 +8,20 @@ module.exports = {
     theme: {
         extend: {
             colors: {
-                // ── v2 canonical six tokens ──
-                ink: '#0A0908', // background (warm near-black)
-                parchment: '#F3EFE6', // primary text / light surfaces
-                gold: '#B8935A', // the single accent (muted brass)
-                'gold-dim': '#8A6D42', // gold at rest / secondary
-                ember: '#7A3B2E', // warnings / overdue / destructive
-                moss: '#4A5D45', // completed / rollup-achieved
-                // ── deprecated aliases (mapped to tokens; components migrating off these) ──
-                'gold-glow': '#cbaa6f', // hover brass
-                sage: '#4A5D45', // → moss
-                'sage-glow': '#7fa871',
-                coral: '#7A3B2E', // → ember
+                // ── v2 canonical six tokens — wired to CSS vars so BOTH themes work.
+                // The vars live in globals.css (:root = light, .dark = dark) and the
+                // <html> class decides which set is active.
+                ink: 'rgb(var(--ink-rgb) / <alpha-value>)', // background surface
+                parchment: 'rgb(var(--parchment-rgb) / <alpha-value>)', // primary text
+                gold: 'rgb(var(--gold-rgb) / <alpha-value>)', // the single accent
+                'gold-dim': 'rgb(var(--gold-dim-rgb) / <alpha-value>)', // gold at rest
+                ember: 'rgb(var(--ember-rgb) / <alpha-value>)', // warnings / destructive
+                moss: 'rgb(var(--moss-rgb) / <alpha-value>)', // completed / achieved
+                // ── deprecated aliases (mapped to token vars; components migrating off these) ──
+                'gold-glow': 'rgb(var(--gold-glow-rgb) / <alpha-value>)', // hover brass
+                sage: 'rgb(var(--moss-rgb) / <alpha-value>)', // → moss
+                'sage-glow': 'rgb(var(--sage-glow-rgb) / <alpha-value>)',
+                coral: 'rgb(var(--ember-rgb) / <alpha-value>)', // → ember
             },
             fontFamily: {
                 sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],

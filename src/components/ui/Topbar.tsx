@@ -3,6 +3,8 @@
 import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { Compass } from "lucide-react";
+import { YearPickerChip } from "@/components/ui/YearPicker";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export function Topbar() {
   const pathname = usePathname()
@@ -32,8 +34,12 @@ export function Topbar() {
       {/* Left: page title (navigation lives in the bottom bar on mobile, sidebar on desktop) */}
       <h2 className="text-sm font-semibold text-parchment/80">{getPageTitle()}</h2>
 
-      {/* Right: small compass + divider + user */}
-      <div className="flex items-center space-x-4">
+      {/* Right: year workspace picker + compass + user */}
+      <div className="flex items-center space-x-3 sm:space-x-4">
+        <YearPickerChip />
+        <div className="w-px h-5 bg-gold-dim/25" />
+        <ThemeToggle />
+        <div className="w-px h-5 bg-gold-dim/25" />
         <Compass className="h-5 w-5 text-gold-dim" strokeWidth={1.5} aria-hidden />
         <div className="w-px h-5 bg-gold-dim/25" />
         <UserButton

@@ -81,8 +81,21 @@ model Task {
   color             String? // Hex color for timeline display (e.g. "#d4af37")
   reflection        String?
 
+  // ── Notifications ──
+  // "Very important" deeds ring an alarm reminderMinutes before startTime.
+  // The *NotifiedAt stamps make each push one-shot (cron + in-app ringer both
+  // check them); they are cleared whenever the schedule/reminder changes.
+  isImportant         Boolean   @default(false)
+  reminderMinutes     Int? // minutes before startTime the important-alarm fires (0 = at start)
+  countdownNotifiedAt DateTime? // stamped when the 10-min countdown push fired
+  reminderNotifiedAt  DateTime? // stamped when the important-task alarm fired
+  startNotifiedAt     DateTime? // stamped when the "starting now" push fired
+
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId, startTime])
 }
 
 model Note {
@@ -125,11 +138,36 @@ model Partner {
   name      String
   email     String
   role      String
+
+  // Invite/connection state ("real-time" linking):
+  //   pending  = invite emailed, waiting for the partner to join Inchstone
+  //   accepted = linked to a real account (connectionUserId set)
+  status           String  @default("accepted")
+  inviteCode       String? @unique
+  connectionUserId String?
+
+  // Consent-gated sharing — the owner chooses what this partner can see.
+  shareProgress Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   partnerLinks PartnerLink[]
   nudges       Nudge[]
+
+  @@index([connectionUserId])
+  @@index([email])
+}
+
+// Lightweight identity map: Clerk userId ↔ email. Lets partners find each
+// other by email and unlock messaging + consent-based progress sharing.
+model Profile {
+  id     String @id @default(uuid())
+  userId String @unique
+  email  String @unique
+  name   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PartnerLink {

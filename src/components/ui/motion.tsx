@@ -39,6 +39,31 @@ export function useInViewOnce<T extends HTMLElement>(rootMargin = '0px 0px -10% 
 }
 
 /**
+ * Repeats EVERY time the element enters the viewport — leaving resets it, so
+ * reveals play again on each pass (scrolling down or back up), on every visit.
+ */
+export function useInViewReplay<T extends HTMLElement>(rootMargin = '0px 0px -10% 0px') {
+  const ref = useRef<T | null>(null)
+  const [inView, setInView] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') { setInView(true); return }
+    const io = new IntersectionObserver(
+      entries => {
+        for (const e of entries) setInView(e.isIntersecting)
+      },
+      { rootMargin },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [rootMargin])
+
+  return { ref, inView }
+}
+
+/**
  * Tweened number display. Animates from the previous value to the new one,
  * and waits to be in view before its first run.
  */
@@ -112,7 +137,7 @@ export function WordReveal({
   )
 }
 
-/** Fades/rises children into place once in view. */
+/** Fades/rises children into place — replays on every viewport entry. */
 export function Reveal({
   children,
   delay = 0,
@@ -124,7 +149,7 @@ export function Reveal({
   className?: string
   as?: React.ElementType
 }) {
-  const { ref, inView } = useInViewOnce<HTMLDivElement>()
+  const { ref, inView } = useInViewReplay<HTMLDivElement>()
   const Component = Tag as React.ElementType
   return (
     <Component
@@ -179,10 +204,25 @@ export function WordRotator({
 
   useEffect(() => {
     if (prefersReducedMotion() || words.length < 2) return
-    const id = window.setInterval(() => setIdxSafe(), interval)
-    const setIdxSafe = () => setI(v => (v + 1) % words.length)
-    return () => window.clearInterval(id)
-  }, [words.length, interval])
+
+    // Random, never-fixed rhythm: the next word is picked at random (never an
+    // immediate repeat) and the delay jitters between 0.7× and 1.7×, so the
+    // rotation feels alive instead of metronomic.
+    let timer = 0
+    let idx = 0
+    const schedule = () => {
+      const jitter = 0.7 + Math.random()
+      timer = window.setTimeout(() => {
+        let next = Math.floor(Math.random() * words.length)
+        if (next === idx) next = (next + 1 + Math.floor(Math.random() * (words.length - 1))) % words.length
+        idx = next
+        setI(next)
+        schedule()
+      }, Math.round(interval * jitter))
+    }
+    schedule()
+    return () => window.clearTimeout(timer)
+  }, [words, interval])
 
   const longest = words.reduce((a, b) => (b.length > a.length ? b : a), '')
 

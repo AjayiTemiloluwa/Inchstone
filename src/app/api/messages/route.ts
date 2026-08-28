@@ -67,32 +67,37 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Partner not found' }, { status: 404 })
         }
 
-        // Create the nudge/message
+        // Deliver to the REAL partner — messages only flow once linked.
+        if (partner.status !== 'accepted' || !partner.connectionUserId) {
+            return NextResponse.json({ error: 'Your partner has not accepted their invite yet.' }, { status: 400 })
+        }
+
         const nudge = await prisma.nudge.create({
             data: {
                 partnerId,
                 senderId: userId,
-                receiverId: userId, // For now, messages are self-contained
+                receiverId: partner.connectionUserId,
                 message,
                 read: false
             }
         })
 
-        // Try to send push notification to the partner if they have subscriptions
+        // Real-time-ish delivery: web push to the partner's devices only.
         try {
             const subscriptions = await prisma.pushSubscription.findMany({
-                where: { userId: { not: userId } }
+                where: { userId: partner.connectionUserId }
             })
 
             for (const sub of subscriptions) {
-                await sendNotification(
+                const ok = await sendNotification(
                     { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
                     {
                         title: `Message from ${partner.name}`,
-                        body: message,
+                        body: message.slice(0, 140),
                         url: '/partners'
                     }
                 )
+                if (!ok) await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {})
             }
         } catch (e) {
             console.error('Failed to send push notification for message:', e)
