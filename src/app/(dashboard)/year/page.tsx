@@ -16,7 +16,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { YearDropdownFloating } from '@/components/ui/YearPicker'
 import { Loader } from '@/components/ui/Loader'
 import { useVoiceLine } from '@/lib/voice/use-voice-line'
-import { useActiveYear } from '@/lib/useActiveYear'
+import { useActiveYear, yearOf } from '@/lib/useActiveYear'
 
 export default function YearPage() {
   const router = useRouter()
@@ -149,6 +149,11 @@ export default function YearPage() {
   // Layer references — scoped to the ACTIVE year (switchable, multi-year).
   const flatItems = getFlatItems()
   const { activeYear, yearItem, allYears, subtreeIds } = useActiveYear(flatItems)
+
+  // Canonical year window — derived from the year NUMBER, never from "today".
+  // Renamed workspaces without startDate ("2026 Identity") still resolve.
+  const yearStartIso = new Date(Date.UTC(yearOf(yearItem), 0, 1)).toISOString()
+  const yearEndIso = new Date(Date.UTC(yearOf(yearItem), 11, 31, 23, 59, 59, 999)).toISOString()
   // Categories belonging to the ACTIVE year (switchable, multi-year).
   // Primary: direct children of this year's workspace item.
   // Fallback: adopt layer-1 items with no parent that aren't owned by any
@@ -261,8 +266,8 @@ export default function YearPage() {
           parentId: categoryId,
           title: newGoalTitle.trim(),
           weight: equalWeight,
-          startDate: yearItem?.startDate || new Date().toISOString(),
-          endDate: yearItem?.endDate || new Date().toISOString(),
+          startDate: yearItem?.startDate || yearStartIso,
+          endDate: yearItem?.endDate || yearEndIso,
         })
       })
       const goalData = await goalRes.json()
@@ -283,7 +288,7 @@ export default function YearPage() {
           { title: 'Q3 Objective', startMonth: 6, endMonth: 8 },
           { title: 'Q4 Objective', startMonth: 9, endMonth: 11 },
         ]
-        const year = new Date(yearItem?.startDate || new Date()).getFullYear()
+        const year = yearOf(yearItem)
         await Promise.all(quartersToCreate.map(q => {
           const qStart = new Date(year, q.startMonth, 1)
           const qEnd = new Date(year, q.endMonth + 1, 0)
@@ -325,8 +330,8 @@ export default function YearPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           layer: 1, parentId: yearItem.id, title: newCategoryTitle.trim(), weight: 0,
-          startDate: yearItem.startDate || new Date().toISOString(),
-          endDate: yearItem.endDate || new Date().toISOString(),
+          startDate: yearItem.startDate || yearStartIso,
+          endDate: yearItem.endDate || yearEndIso,
         })
       })
       const postData = await resPost.json()

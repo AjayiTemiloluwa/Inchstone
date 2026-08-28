@@ -5,8 +5,9 @@ import { Card } from '@/components/ui/Card'
 import { PushNotificationManager } from '@/components/ui/PushNotificationManager'
 import { AlarmsCard } from '@/components/ui/AlarmsCard'
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
+import { ThemeSwitch } from '@/components/ui/ThemeToggle'
 import { useState, useEffect } from 'react'
-import { Calendar, CheckCircle, XCircle, ExternalLink, Smartphone, Trash2, Database, ChevronDown } from 'lucide-react'
+import { Calendar, CheckCircle, XCircle, ExternalLink, Smartphone, Trash2, Database, ChevronDown, Sun } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
 import { Scramble } from '@/components/ui/motion'
 
@@ -34,7 +35,23 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    checkCalendarStatus()
+    // Initial status probe — `checkingCal` starts true, so no setState fires
+    // synchronously in the effect body.
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/calendar/events?timeMin=2026-01-01T00:00:00.000Z&timeMax=2026-01-02T00:00:00.000Z')
+        const data = await res.json()
+        if (cancelled) return
+        if (data.needsAuth || data.error === 'Calendar not connected') setCalConnected(false)
+        else setCalConnected(true)
+      } catch {
+        if (!cancelled) setCalConnected(false)
+      } finally {
+        if (!cancelled) setCheckingCal(false)
+      }
+    })()
+    return () => { cancelled = true }
   }, [])
 
   const handleConnectCalendar = async () => {
@@ -125,6 +142,20 @@ export default function SettingsPage() {
             <p className="text-sm text-parchment/60">{user?.primaryEmailAddress?.emailAddress || 'No email'}</p>
             <p className="text-xs text-parchment/40 mt-1">Account managed via Clerk</p>
           </div>
+        </div>
+      </Card>
+
+      {/* Appearance — the Light/Dark switch */}
+      <Card className="p-5 border hairline">
+        <h2 className="text-heading text-parchment flex items-center gap-2">
+          <Sun className="w-4 h-4 text-gold-dim" strokeWidth={1.5} />
+          <span>Appearance</span>
+        </h2>
+        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-sm text-parchment/55">
+            Dark is the classic midnight look. Light is warm paper.
+          </p>
+          <ThemeSwitch />
         </div>
       </Card>
 

@@ -28,8 +28,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Please provide a valid year (e.g. 2027).' }, { status: 400 })
     }
 
-    const start = new Date(y, 0, 1)
-    const end = new Date(y, 11, 31, 23, 59, 59, 999)
+    const start = new Date(Date.UTC(y, 0, 1))
+    const end = new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999))
 
     // Already exists? Return it so the UI can just switch to it.
     // Matches BOTH plain year workspaces (startDate year) and renamed ones
