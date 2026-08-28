@@ -143,8 +143,17 @@ export function SmoothScroll() {
     let velocity = 0 // smoothed, frame-equivalent px
     let bend = 0
 
+    // For the touch dip we transform the content wrapper too (not `main`).
+    // Note: a solid pill (the hint) sits in body and must not be clipped.
     const tick = () => {
       const content = wrapper.querySelector<HTMLElement>('[data-scroll-content]')
+      if (!content) {
+        running = false
+        return
+      }
+      if (content.style.transformOrigin !== '50% 0%') {
+        content.style.transformOrigin = '50% 0%'
+      }
       velocity *= 0.9 // momentum decay between scroll events
       const target = Math.max(-TOUCH_BEND_MAX_DEG, Math.min(TOUCH_BEND_MAX_DEG, velocity * BEND_GAIN))
       bend += (target - bend) * BEND_EASE

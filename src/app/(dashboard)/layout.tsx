@@ -44,7 +44,7 @@ export default function AppLayout({
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden main-content-wrapper">
               <Topbar />
-              <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 pt-16 lg:pt-8">
+              <main className="flex-1 overflow-auto px-4 sm:px-6 lg:px-8 pt-4 lg:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+7rem)] lg:pb-8">
                 <PageTransition>
                   <div data-scroll-content>{children}</div>
                 </PageTransition>

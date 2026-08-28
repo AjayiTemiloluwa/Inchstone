@@ -30,17 +30,20 @@ export function Topbar() {
   }
 
   return (
-    <header className="h-14 bg-ink border-b hairline-bottom flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
+    <header className="topbar-h bg-ink border-b hairline-bottom flex items-center justify-between px-4 sm:px-6 lg:px-8 shrink-0">
       {/* Left: page title (navigation lives in the bottom bar on mobile, sidebar on desktop) */}
       <h2 className="text-sm font-semibold text-parchment/80">{getPageTitle()}</h2>
 
-      {/* Right: year workspace picker + compass + user */}
-      <div className="flex items-center space-x-3 sm:space-x-4">
+      {/* Right: year workspace picker + theme + user.
+          The decorative compass is desktop-only — on mobile the bottom bar's
+          active glyph already carries the brand mark, so the top row stays
+          lean (that's the premium mobile-app pattern). */}
+      <div className="flex items-center gap-3 sm:gap-4">
         <YearPickerChip />
         <div className="w-px h-5 bg-gold-dim/25" />
         <ThemeToggle />
-        <div className="w-px h-5 bg-gold-dim/25" />
-        <Compass className="h-5 w-5 text-gold-dim" strokeWidth={1.5} aria-hidden />
+        <div className="hidden sm:block w-px h-5 bg-gold-dim/25" />
+        <Compass className="hidden sm:block h-5 w-5 text-gold-dim" strokeWidth={1.5} aria-hidden />
         <div className="w-px h-5 bg-gold-dim/25" />
         <UserButton
           appearance={{
