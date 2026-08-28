@@ -36,6 +36,24 @@ export function buildSubtree(item: Item | null | undefined): Set<string> {
   return set
 }
 
+/** How many nodes live in `item`'s subtree (including itself). */
+export function subtreeSize(item: Item | null | undefined): number {
+  if (!item) return 0
+  let n = 1
+  ;(item.children || []).forEach(c => { n += subtreeSize(c) })
+  return n
+}
+
+/**
+ * When several layer-0 items resolve to the same calendar year (e.g. an old
+ * "2026 Identity" workspace plus a bare scaffold), the one with the most
+ * content is the real workspace — pick it and collapse the rest.
+ */
+export function pickYearItem(candidates: Item[]): Item | null {
+  if (candidates.length === 0) return null
+  return candidates.reduce((best, c) => (subtreeSize(c) > subtreeSize(best) ? c : best))
+}
+
 /**
  * Resolves the "active" year from the store's layer-0 items.
  * Options:
@@ -57,7 +75,11 @@ export function useActiveYear(items: Item[]) {
 
   const fallback = allYears.length ? yearOf(allYears[0]) : new Date().getFullYear()
   const activeNum = year ?? fallback
-  const yearItem = allYears.find(i => yearOf(i) === activeNum) || allYears[0] || null
+  // Among duplicates of the same year, the subtree with the most content wins.
+  const yearItem = useMemo(() => {
+    const matches = allYears.filter(i => yearOf(i) === activeNum)
+    return pickYearItem(matches) || pickYearItem(allYears)
+  }, [allYears, activeNum])
 
   const setYear = (year: number) => {
     setStoredYear(year)

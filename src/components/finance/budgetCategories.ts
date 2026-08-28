@@ -47,6 +47,17 @@ export const SECTION_CATEGORIES: Record<string, BudgetCategoryOption[]> = {
     ],
 }
 
+/** Built-in suggestions for the income side of a transaction. */
+export const INCOME_CATEGORIES: BudgetCategoryOption[] = [
+    { label: 'Salary / Wages', icon: '💰' },
+    { label: 'Freelance / Side Hustle', icon: '💼' },
+    { label: 'Business Income', icon: '🏪' },
+    { label: 'Investment Returns', icon: '📈' },
+    { label: 'Gifts Received', icon: '🎁' },
+    { label: 'Refunds / Rebates', icon: '🔄' },
+    { label: 'Other Income', icon: '📥' },
+]
+
 export function getSectionIcon(section: string): string {
     const icons: Record<string, string> = {
         Need: '💪',

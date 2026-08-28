@@ -1,7 +1,9 @@
 ﻿﻿'use client'
 
 import React, { useState, useEffect } from 'react'
-import { SECTION_CATEGORIES, BudgetCategoryOption } from './budgetCategories'
+import { SECTION_CATEGORIES, INCOME_CATEGORIES, BudgetCategoryOption } from './budgetCategories'
+import { CategorySelect } from './CategorySelect'
+import type { CustomCategoryScope } from './customCategories'
 
 interface Purse {
   id: string
@@ -23,52 +25,38 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
   const [description, setDescription] = useState('')
   const [comments, setComments] = useState('')
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
-  const [section, setSection] = useState('Need')
+  const [section, setSection] = useState<CustomCategoryScope>('Need')
   const [purse, setPurse] = useState('')
-  const [purses, setPurses] = useState<Purse[]>([])
+  // Derived: externally supplied purses win; otherwise the fetched fallback.
+  // No setState needed during render or effect.
+  const [fetchedPurses, setFetchedPurses] = useState<Purse[]>([])
+  const purses = externalPurses && externalPurses.length > 0 ? externalPurses : fetchedPurses
+  const effectivePurse = purse || purses[0]?.name || ''
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [showSuggestions, setShowSuggestions] = useState(false)
 
-  // Use external purses if provided, otherwise fetch them
+  // Fetch purses only when none were passed in.
   useEffect(() => {
-    if (externalPurses && externalPurses.length > 0) {
-      setPurses(externalPurses)
-      if (!purse) setPurse(externalPurses[0].name)
-    } else {
-      fetch('/api/purses')
-        .then(r => r.json())
-        .then(data => {
-          if (data.purses?.length > 0) {
-            setPurses(data.purses)
-            setPurse(data.purses[0].name)
-          }
-        })
-        .catch(() => { })
-    }
+    if (externalPurses && externalPurses.length > 0) return
+    fetch('/api/purses')
+      .then(r => r.json())
+      .then(data => {
+        if (data.purses?.length > 0) setFetchedPurses(data.purses)
+      })
+      .catch(() => { })
   }, [externalPurses])
 
   const categorySuggestions: BudgetCategoryOption[] = type === 'expense'
     ? (SECTION_CATEGORIES[section] || [])
-    : type === 'income'
-      ? [
-        { label: 'Salary / Wages', icon: '💰' },
-        { label: 'Freelance / Side Hustle', icon: '💼' },
-        { label: 'Business Income', icon: '🏪' },
-        { label: 'Investment Returns', icon: '📈' },
-        { label: 'Gifts Received', icon: '🎁' },
-        { label: 'Refunds / Rebates', icon: '🔄' },
-        { label: 'Other Income', icon: '📥' },
-      ]
-      : []
-
-  const filteredSuggestions = categorySuggestions.filter(
-    s => s.label.toLowerCase().includes(category.toLowerCase())
-  )
+    : INCOME_CATEGORIES
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!category.trim()) {
+      setError('Pick a category — or use "Others…" to type your own.')
+      return
+    }
     setLoading(true)
     setError(null)
     setSuccess(false)
@@ -85,14 +73,14 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
           comments,
           entryDate,
           priority: type === 'expense' ? section : null,
-          purse
+          purse: effectivePurse
         })
       })
 
       let data
       try {
         data = await res.json()
-      } catch (parseError) {
+      } catch {
         const text = await res.text()
         console.error('Non-JSON response:', text.substring(0, 200))
         setError('Authentication error. Please refresh the page and try again.')
@@ -196,61 +184,16 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
         </div>
       </div>
 
-      {/* Category */}
-      <div className="relative">
+      {/* Category — the standard dropdown, with "Others…" for custom names */}
+      <div>
         <label className="block text-xs text-parchment/50 mb-1">Category</label>
-        <input
-          type="text"
+        <CategorySelect
+          scope={type === 'expense' ? section : 'Income'}
           value={category}
-          onChange={(e) => {
-            setCategory(e.target.value)
-            setShowSuggestions(true)
-          }}
-          onFocus={() => setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-          required
-          className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
-          placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe...' : 'e.g. Salary, Freelance...'}
+          onChange={setCategory}
+          options={categorySuggestions}
+          placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe…' : 'e.g. Salary, Freelance…'}
         />
-        {showSuggestions && category.length > 0 && filteredSuggestions.length > 0 && (
-          <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-[#16120f] border border-white/10 rounded-lg max-h-48 overflow-y-auto" data-lenis-prevent>
-            {filteredSuggestions.map(s => (
-              <button
-                key={s.label}
-                type="button"
-                onMouseDown={() => {
-                  setCategory(s.label)
-                  setShowSuggestions(false)
-                }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-white/5 flex items-center gap-2"
-              >
-                <span>{s.icon}</span>
-                <span>{s.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {/* Quick Category Pills */}
-        {categorySuggestions.length > 0 && (
-          <div className="mt-2">
-            <label className="block text-xs text-parchment/40 mb-1">Quick Select (tap to fill)</label>
-            <div className="flex flex-wrap gap-1.5">
-              {categorySuggestions.slice(0, 6).map(s => (
-                <button
-                  key={s.label}
-                  type="button"
-                  onClick={() => setCategory(s.label)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${category === s.label
-                    ? 'bg-gold/15 border-gold/40 text-gold'
-                    : 'bg-black/20 border-white/10 text-parchment/50 hover:border-white/25'
-                    }`}
-                >
-                  {s.icon} {s.label.split(' ')[0]}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Description */}
@@ -283,7 +226,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
           Purse {type === 'income' && <span className="text-parchment/40">(income always goes to Main)</span>}
         </label>
         <select
-          value={purse}
+          value={effectivePurse}
           onChange={(e) => setPurse(e.target.value)}
           disabled={type === 'income'}
           className={`w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 ${type === 'income' ? 'opacity-60 cursor-not-allowed' : ''}`}
@@ -343,7 +286,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
         disabled={loading}
         className="w-full bg-gold text-ink hover:bg-[#cbaa6f] font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
       >
-        {loading ? 'Adding...' : `Add to ${getPurseIcon(purse)} ${purse || 'Purse'}`}
+        {loading ? 'Adding...' : `Add to ${getPurseIcon(effectivePurse)} ${effectivePurse || 'Purse'}`}
       </button>
     </form>
   )

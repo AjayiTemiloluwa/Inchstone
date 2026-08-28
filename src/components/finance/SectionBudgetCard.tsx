@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { BudgetProgress } from './BudgetProgress'
 import { SECTION_CATEGORIES, BudgetCategoryOption, getSectionIcon } from './budgetCategories'
+import { CategorySelect } from './CategorySelect'
 
 interface Purse {
     id: string
@@ -340,15 +341,14 @@ export function SectionBudgetCard({
             {showAddCategory && (
                 <div className="mx-5 mb-4 animate-fadeIn space-y-3">
                     <form onSubmit={handleAddBudget} className="space-y-2">
-                        <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} required
-                            className="w-full bg-black/25 border border-white/10 rounded-lg py-2.5 px-3 text-sm placeholder:text-parchment/25 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/40 transition-all"
+                        <CategorySelect
+                            scope={section}
+                            value={newCategory}
+                            onChange={setNewCategory}
+                            options={SECTION_CATEGORIES[section] || []}
+                            exclude={budgets.map(b => b.category)}
                             placeholder="What is this for?"
-                            list={`${section}-categories`}/>
-                        <datalist id={`${section}-categories`}>
-                            {(SECTION_CATEGORIES[section] || []).map(cat => (
-                                <option key={cat.label} value={cat.label} />
-                            ))}
-                        </datalist>
+                        />
                         <div className="flex gap-2">
                             <input type="number" step="0.01" value={newBudgetAmount} onChange={(e) => setNewBudgetAmount(e.target.value)} required
                                 className="w-full bg-black/25 border border-white/10 rounded-lg py-2.5 px-3 font-mono text-sm font-semibold tabular-nums placeholder:text-parchment/25 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/40 transition-all"

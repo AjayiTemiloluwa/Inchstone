@@ -2,30 +2,43 @@
 
 import { Card } from '@/components/ui/Card'
 import { ReviewModal } from '@/components/ui/ReviewModal'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Magnetic, Scramble } from '@/components/ui/motion'
 import { Loader } from '@/components/ui/Loader'
 
+interface Review {
+  id: string
+  periodType: string
+  periodStart: string
+  mood: number
+  energy: number
+  reflection: string
+  wins?: string | null
+}
+
 export default function ReviewsPage() {
-  const [reviews, setReviews] = useState<any[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const fetchReviews = () => {
-    setLoading(true)
-    fetch('/api/reviews')
+  const loadReviews = useCallback(() => {
+    return fetch('/api/reviews')
       .then(r => r.json())
       .then(data => setReviews(data.reviews || []))
       .catch(() => {})
-      .finally(() => setLoading(false))
-  }
+  }, [])
 
   useEffect(() => {
-    fetchReviews()
-  }, [])
+    loadReviews().finally(() => setLoading(false))
+  }, [loadReviews])
 
   return (
     <div className="max-w-[720px] mx-auto space-y-6 pb-24">
+      {/* Full-page standard loading gate — same pattern as every other route. */}
+      {loading && <Loader label="Snagging your reviews…" routeKey="reviews" />}
+
+      {!loading && (
+        <>
       <div className="flex items-center justify-between">
         <h1 className="text-h1 text-parchment"><Scramble text="Periodic Reviews" mono={false} /></h1>
         <Magnetic>
@@ -39,9 +52,7 @@ export default function ReviewsPage() {
       </div>
 
       <div>
-        {loading ? (
-          <Loader compact label="Snagging your reviews…" routeKey="reviews" />
-        ) : reviews.length === 0 ? (
+        {reviews.length === 0 ? (
           <div className="rounded-[8px] border border-dashed border-gold-dim/30 py-12 text-center">
             <p className="text-sm text-parchment/60">
               Nothing reviewed yet — a short honest review is a good place to start.
@@ -100,8 +111,10 @@ export default function ReviewsPage() {
       {showModal && (
         <ReviewModal
           onClose={() => setShowModal(false)}
-          onSaved={fetchReviews}
+          onSaved={loadReviews}
         />
+      )}
+        </>
       )}
     </div>
   )

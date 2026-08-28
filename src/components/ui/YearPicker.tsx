@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Check, ChevronDown, Plus } from 'lucide-react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
 import { useYearStore } from '@/lib/yearStore'
-import { yearOf } from '@/lib/useActiveYear'
+import { yearOf, subtreeSize } from '@/lib/useActiveYear'
 
 /**
  * YearPicker — the global year workspace switcher.
@@ -20,11 +20,11 @@ import { yearOf } from '@/lib/useActiveYear'
  */
 
 /* Flatten the API's flat item list into the nested tree the store expects. */
-function toTree(dataItems: any[]): Item[] {
+function toTree(dataItems: Item[]): Item[] {
   const itemMap = new Map<string, Item>()
-  dataItems.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+  dataItems.forEach(item => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
   const tree: Item[] = []
-  dataItems.forEach((item: any) => {
+  dataItems.forEach(item => {
     const node = itemMap.get(item.id)
     if (!node) return
     if (item.parentId) {
@@ -61,13 +61,24 @@ export function useYearOptions() {
     return () => { cancelled = true }
   }, [items.length, setItems])
 
+  // One option per calendar year — if duplicate workspaces exist for a year
+  // (bare scaffold + real one), the richest subtree wins and the dupes vanish.
   const options = useMemo(
-    () =>
+    () => {
+      const byYear = new Map<number, { id: string; year: number; theme: string | null; size: number }>()
       items
         .filter(i => i.layer === 0)
-        .map(y => ({ id: y.id, year: yearOf(y), theme: y.theme || null }))
-        .filter(o => o.year > 1900 && o.year < 2200)
-        .sort((a, b) => b.year - a.year),
+        .forEach(y => {
+          const yr = yearOf(y)
+          if (yr <= 1900 || yr >= 2200) return
+          const size = subtreeSize(y)
+          const prev = byYear.get(yr)
+          if (!prev || size > prev.size) byYear.set(yr, { id: y.id, year: yr, theme: y.theme || null, size })
+        })
+      return [...byYear.values()]
+        .map(({ id, year, theme }) => ({ id, year, theme }))
+        .sort((a, b) => b.year - a.year)
+    },
     [items]
   )
 

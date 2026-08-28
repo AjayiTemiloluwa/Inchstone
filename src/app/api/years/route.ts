@@ -32,8 +32,16 @@ export async function POST(req: Request) {
     const end = new Date(y, 11, 31, 23, 59, 59, 999)
 
     // Already exists? Return it so the UI can just switch to it.
+    // Matches BOTH plain year workspaces (startDate year) and renamed ones
+    // like "2026 Identity" that carry the year in their title with no dates —
+    // missing the title case is exactly how duplicate 2026 workspaces were born.
     const existingYears = await prisma.item.findMany({ where: { userId, layer: 0 } })
-    const existing = existingYears.find(i => new Date(i.startDate || 0).getFullYear() === y)
+    const existing = existingYears.find(i => {
+      const sd = new Date(i.startDate || 0)
+      if (!Number.isNaN(sd.getTime()) && i.startDate && sd.getFullYear() === y) return true
+      const m = (i.title || '').match(/\b(1[89]\d{2}|20\d{2})\b/)
+      return m ? Number(m[1]) === y : false
+    })
     if (existing) {
       return NextResponse.json({ success: true, item: existing, created: false })
     }
