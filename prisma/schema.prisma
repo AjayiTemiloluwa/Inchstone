@@ -90,6 +90,8 @@ model Task {
   countdownNotifiedAt DateTime? // stamped when the 10-min countdown push fired
   reminderNotifiedAt  DateTime? // stamped when the important-task alarm fired
   startNotifiedAt     DateTime? // stamped when the "starting now" push fired
+  finishNotifiedAt    DateTime? // stamped when the "task finished" light alarm fired
+  notifyDeed          Boolean   @default(true) // opt-in: pin countdown + finish alarm on device for scheduled deeds
 
 
   createdAt DateTime @default(now())

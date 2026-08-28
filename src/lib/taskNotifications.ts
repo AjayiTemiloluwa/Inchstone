@@ -4,22 +4,27 @@ import { sendNotification } from '@/lib/pushNotifications'
 /**
  * Task notification engine — the server-side half of deed reminders.
  *
- * Three one-shot notifications per scheduled task:
+ * Four one-shot notifications per scheduled task:
  *  · countdown — every scheduled task, "⏳ in 10 minutes" heads-up
  *  · reminder  — very-important tasks, user-chosen alarm lead before start
  *  · start     — every scheduled task, "▶ starting now"
+ *  · finish    — opt-in (notifyDeed) deeds, a light "✓ finished" alarm the
+ *                moment the end time passes
  *
  * The `*NotifiedAt` stamps make each fire exactly once no matter how many
  * times the cron endpoint or the in-app ringer polls.
  */
 
-export type TaskNotificationKind = 'countdown' | 'reminder' | 'start'
+export type TaskNotificationKind = 'countdown' | 'reminder' | 'start' | 'finish'
 
 /** How long before startTime the every-task countdown push fires. */
 export const COUNTDOWN_LEAD_MINUTES = 10
 
 /** Grace window after startTime in which a late "start" push is still sent. */
 export const START_PUSH_GRACE_MINUTES = 5
+
+/** Grace window after the end time a "finished" alarm may still be sent. */
+export const FINISH_PUSH_GRACE_MINUTES = 10
 
 /** Cap the scan window so the cron never walks old history. */
 export const TASK_SCAN_WINDOW_HOURS = 24
@@ -31,11 +36,14 @@ export interface SchedulableTask {
   date: Date | string
   startTime: Date | string | null
   endTime: Date | string | null
+  estimatedDuration: number | null
   isImportant: boolean
   reminderMinutes: number | null
+  notifyDeed: boolean
   countdownNotifiedAt: Date | string | null
   reminderNotifiedAt: Date | string | null
   startNotifiedAt: Date | string | null
+  finishNotifiedAt: Date | string | null
 }
 
 const MIN = 60_000
@@ -50,6 +58,20 @@ export function reminderTime(t: Pick<SchedulableTask, 'startTime' | 'reminderMin
   const start = ts(t.startTime)
   if (start == null || t.reminderMinutes == null) return null
   return start - t.reminderMinutes * MIN
+}
+
+/**
+ * When a notified deed is expected to be "finished":
+ *  · endTime if set
+ *  · otherwise startTime + estimatedDuration (falls back to +30 min)
+ *  · null if there's no startTime at all
+ */
+export function taskEndTime(t: Pick<SchedulableTask, 'startTime' | 'endTime' | 'estimatedDuration'>): number | null {
+  const start = ts(t.startTime)
+  if (start == null) return null
+  if (t.endTime) return ts(t.endTime)
+  const duration = (t.estimatedDuration && t.estimatedDuration > 0 ? t.estimatedDuration : 30) * MIN
+  return start + duration
 }
 
 /** Which notifications does this task owe right now? */
@@ -80,6 +102,13 @@ export function dueTaskNotifications(
   // still delivers, but a task from hours ago never spams.
   if (!ts(t.startNotifiedAt) && n >= start && n < start + START_PUSH_GRACE_MINUTES * MIN) {
     due.push('start')
+  }
+
+  // Finished — opt-in (notifyDeed) deeds only; fires once, inside the grace
+  // window after the end time.
+  const end = taskEndTime(t)
+  if (t.notifyDeed && end != null && !ts(t.finishNotifiedAt) && n >= end && n < end + FINISH_PUSH_GRACE_MINUTES * MIN) {
+    due.push('finish')
   }
 
   return due
@@ -121,6 +150,16 @@ export function buildTaskPayload(t: SchedulableTask, kind: TaskNotificationKind)
       vibrate: [380, 160, 380],
     }
   }
+  if (kind === 'finish') {
+    return {
+      title: `✓ Finished: ${t.title}`,
+      body: `Done — you wrapped ${window}. Great work.`,
+      url,
+      tag: `task-${t.id}-finish`,
+      requireInteraction: false,
+      vibrate: [120, 60, 120],
+    }
+  }
   return {
     title: `▶ Starting now: ${t.title}`,
     body: `It's ${window}. Countdown's live on your day.`,
@@ -158,6 +197,8 @@ export async function stampTaskNotification(
       ? { countdownNotifiedAt: when }
       : kind === 'reminder'
         ? { reminderNotifiedAt: when }
-        : { startNotifiedAt: when }
+        : kind === 'finish'
+          ? { finishNotifiedAt: when }
+          : { startNotifiedAt: when }
   await prisma.task.update({ where: { id: taskId }, data }).catch(() => {})
 }

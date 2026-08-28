@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/prisma'
 import { recalculateItemProgress } from '@/lib/score'
 
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
         const goalId = searchParams.get('goalId')
         const habit = searchParams.get('habit')
 
-        const where: any = { userId }
+        const where: Record<string, unknown> = { userId }
         if (dateStr) {
             const date = new Date(dateStr)
             date.setHours(0, 0, 0, 0)
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
         if (goalId) where.goalId = goalId
         if (habit === 'true') where.isHabit = true
 
-        let tasks = await prisma.task.findMany({
+        const tasks = await prisma.task.findMany({
             where,
             orderBy: { startTime: 'asc' },
             include: { goal: true }
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
         // Deduplicate: if multiple tasks have same title, same date, and same startTime, keep only the first one
         const seen = new Set<string>()
         const deduped: typeof tasks = []
-        const deletePromises: Promise<any>[] = []
+        const deletePromises: Promise<unknown>[] = []
         for (const task of tasks) {
             const dateKey = task.date.toISOString().substring(0, 10)
             const startKey = task.startTime?.toISOString() || 'null'
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await req.json()
-        const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, color, reflection, isRecurring, recurrencePattern, recurrenceEnd, isFrog, isHabit, isImportant, reminderMinutes } = body
+        const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, color, reflection, isRecurring, recurrencePattern, recurrenceEnd, isFrog, isHabit, isImportant, reminderMinutes, notifyDeed } = body
 
         if (!goalId || !title || !date) {
             return NextResponse.json({ error: 'goalId, title, and date are required' }, { status: 400 })
@@ -109,14 +110,15 @@ export async function POST(req: Request) {
                 isHabit: isHabit || false,
                 isImportant: isImportant || false,
                 reminderMinutes: isImportant ? (reminderMinutes ?? null) : null,
+                notifyDeed: notifyDeed !== undefined ? notifyDeed : true,
             },
         })
 
         // If recurring, generate additional instances
         const effectiveEndDate = recurrenceEndDate || new Date(Date.UTC(new Date().getFullYear(), 11, 31, 23, 59, 59, 999))
         if (isRecurring && recurrencePattern) {
-            const instances: any[] = []
-            let currentDate = new Date(taskDate)
+            const instances: Prisma.PrismaPromise<unknown>[] = []
+            const currentDate = new Date(taskDate)
             currentDate.setUTCDate(currentDate.getUTCDate() + 1)
 
             while (currentDate <= effectiveEndDate) {
@@ -174,6 +176,7 @@ export async function POST(req: Request) {
                                 isHabit: isHabit || false,
                                 isImportant: isImportant || false,
                                 reminderMinutes: isImportant ? (reminderMinutes ?? null) : null,
+                                notifyDeed: notifyDeed !== undefined ? notifyDeed : true,
                             },
                         })
                     )

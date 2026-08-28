@@ -13,6 +13,7 @@ import { TouchHint } from "@/components/ui/TouchHint";
 import { FluidPress } from "@/components/ui/FluidPress";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { AlarmRinger } from "@/components/ui/AlarmRinger";
+import { DeedCountdown } from "@/components/ui/DeedCountdown";
 import { AtmosphereProvider } from "@/components/effects/atmosphere";
 import { AmbientBackground } from "@/components/effects/AmbientBackground";
 import { ScrollText } from "@/components/effects/ScrollText";
@@ -34,6 +35,7 @@ export default function AppLayout({
         <TouchHint />
         <FluidPress />
         <AlarmRinger />
+        <DeedCountdown />
         <ScrollText />
         <GLProvider>
         <div className="app-shell relative flex h-screen w-full overflow-hidden">

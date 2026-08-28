@@ -49,9 +49,11 @@ export type Task = {
   // Notification fields (optional so cached store data stays valid)
   isImportant?: boolean
   reminderMinutes?: number | null
+  notifyDeed?: boolean
   countdownNotifiedAt?: string | null
   reminderNotifiedAt?: string | null
   startNotifiedAt?: string | null
+  finishNotifiedAt?: string | null
   isRecurring: boolean
   recurrencePattern: string | null
   recurrenceEnd: string | null

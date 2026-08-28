@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BellRing, X, Clock3, Star, Activity } from 'lucide-react'
+import { BellRing, X, Clock3, Star, Activity, Check } from 'lucide-react'
 import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
 
 /**
@@ -27,7 +27,7 @@ interface Alarm {
 
 interface DueTask {
   taskId: string
-  kind: 'countdown' | 'reminder' | 'start'
+  kind: 'countdown' | 'reminder' | 'start' | 'finish'
   title: string
   startTime: string | null
   endTime: string | null
@@ -41,6 +41,8 @@ export function AlarmRinger() {
   const router = useRouter()
   const [ringing, setRinging] = useState<Alarm | null>(null)
   const [ringingTask, setRingingTask] = useState<DueTask | null>(null)
+  const [finishToast, setFinishToast] = useState<{ id: string; title: string } | null>(null)
+  const finishFired = useRef<Set<string>>(new Set())
   const ringingAnyRef = useRef(false)
   const dismissed = useRef<Set<string>>(new Set())
   const audioRef = useRef<{ ctx: AudioContext; timer: number } | null>(null)
@@ -84,6 +86,31 @@ export function AlarmRinger() {
     }
   }, [])
 
+  /** Short, soft single-note chime — the light "deed finished" alarm. */
+  const startFinishSound = useCallback(() => {
+    try {
+      const Ctx = window.AudioContext || (window as never as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      const ctx = new Ctx()
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.type = 'sine'
+      o.frequency.value = 1046.5 // C6 — bright but gentle
+      const t0 = ctx.currentTime
+      g.gain.setValueAtTime(0.0001, t0)
+      g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.02)
+      g.gain.setValueAtTime(0.16, t0 + 0.22)
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5)
+      o.connect(g).connect(ctx.destination)
+      o.start(t0)
+      o.stop(t0 + 0.6)
+      navigator.vibrate?.([120, 60, 120])
+      // One-shot context — release it when the note ends.
+      window.setTimeout(() => { ctx.close().catch(() => {}) }, 900)
+    } catch {
+      /* audio unavailable — toast + notification still appear */
+    }
+  }, [])
+
   const stampTask = useCallback((taskId: string, kind: string) => {
     // Tell the server this deed notification was delivered, so the cron
     // pusher won't fire it again once the in-app ring has been handled.
@@ -117,7 +144,24 @@ export function AlarmRinger() {
       const res = await fetch('/api/tasks/due', { cache: 'no-store' })
       if (res.ok) {
         const { due } = (await res.json()) as { due: DueTask[] }
-        const next = due.find(t => !dismissed.current.has(`${t.taskId}:${t.kind}`))
+
+        // Light finish alarm — handled as a quiet toast + short chime, NOT a
+        // full-screen takeover, so it never bulldozes real work.
+        const finish = due.find(
+          t => t.kind === 'finish' && !finishFired.current.has(t.taskId) && !dismissed.current.has(`${t.taskId}:${t.kind}`)
+        )
+        if (finish) {
+          finishFired.current.add(finish.taskId)
+          stampTask(finish.taskId, 'finish')
+          setFinishToast({ id: finish.taskId, title: finish.title })
+          startFinishSound()
+          window.setTimeout(() => {
+            setFinishToast(prev => (prev?.id === finish.taskId ? null : prev))
+          }, 5000)
+        }
+
+        // Regular alarm (start / important reminder) — full-screen.
+        const next = due.find(t => t.kind !== 'finish' && !dismissed.current.has(`${t.taskId}:${t.kind}`))
         if (next) {
           ringingAnyRef.current = true
           setRingingTask(next)
@@ -127,7 +171,7 @@ export function AlarmRinger() {
     } catch {
       /* offline — cron push still covers background delivery */
     }
-  }, [startSound])
+  }, [startSound, startFinishSound, stampTask])
 
   useEffect(() => {
     check()
@@ -204,6 +248,24 @@ export function AlarmRinger() {
     }).catch(() => {})
     clearRinging()
     setRinging(null)
+  }
+
+  // ── Light "deed finished" toast ─────────────────────────────────────────
+  // A quiet, auto-dismissing pill — never blocks the screen.
+  if (finishToast && !ringing && !ringingTask) {
+    return (
+      <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[90] flex justify-center px-4 lg:bottom-10">
+        <div className="flex items-center gap-2.5 rounded-full border border-moss/40 bg-surface-solid px-4 py-2.5 shadow-[0_10px_40px_rgba(0,0,0,0.35)] animate-fadeIn">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-moss/20">
+            <Check className="h-3.5 w-3.5 text-moss" strokeWidth={3} />
+          </span>
+          <p className="text-sm font-semibold text-parchment">
+            <span className="text-moss">Deed finished: </span>
+            {finishToast.title}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (!ringing && !ringingTask) return null

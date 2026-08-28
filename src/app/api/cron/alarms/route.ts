@@ -59,6 +59,7 @@ export async function GET(req: Request) {
   // and the in-app ringer never double-fire.
   const scheduled = await prisma.task.findMany({
     where: {
+      completed: false,
       startTime: {
         gte: new Date(now.getTime() - TASK_SCAN_WINDOW_HOURS * 60 * 60 * 1000),
         lte: new Date(now.getTime() + TASK_SCAN_WINDOW_HOURS * 60 * 60 * 1000),

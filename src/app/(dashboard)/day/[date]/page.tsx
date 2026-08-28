@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown, Star } from 'lucide-react'
+import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown, Star, Bell } from 'lucide-react'
 import { format, parseISO, subDays, subWeeks, subMonths, subYears, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfDay, endOfDay, eachDayOfInterval, addDays, differenceInDays } from 'date-fns'
 import { AnimatePresence, motion } from 'motion/react'
 import { Scramble } from '@/components/ui/motion'
@@ -50,6 +50,7 @@ export default function DayPage() {
   const [isFrog, setIsFrog] = useState(false)
   const [newDeedImportant, setNewDeedImportant] = useState(false)
   const [newDeedReminder, setNewDeedReminder] = useState('10')
+  const [newDeedNotify, setNewDeedNotify] = useState(true)
   const [isHabit, setIsHabit] = useState(false)
   const [deedColor, setDeedColor] = useState('')
   const [dayNotes, setDayNotes] = useState<any[]>([])
@@ -511,6 +512,7 @@ export default function DayPage() {
           isHabit: task.isHabit,
           isImportant: task.isImportant,
           reminderMinutes: task.isImportant ? (task.reminderMinutes ?? 10) : null,
+          notifyDeed: !!task.notifyDeed,
           color: task.color,
         }),
       })
@@ -688,6 +690,7 @@ export default function DayPage() {
           isHabit: finalIsHabit,
           isImportant: newDeedImportant,
           reminderMinutes: newDeedImportant ? (parseInt(newDeedReminder, 10) || 0) : null,
+          notifyDeed: newDeedNotify && !!newDeedStart,
         })
       })
       const resData = await res.json()
@@ -709,6 +712,7 @@ export default function DayPage() {
       setIsFrog(false)
       setNewDeedImportant(false)
       setNewDeedReminder('10')
+      setNewDeedNotify(true)
       setIsHabit(false)
       setDeedColor('')
       setAddingDeed(false)
@@ -1128,6 +1132,32 @@ export default function DayPage() {
                         <option value="60">1 hour before</option>
                       </select>
                     </div>
+                  )}
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newDeedNotify}
+                      disabled={!newDeedStart}
+                      onChange={e => {
+                        setNewDeedNotify(e.target.checked)
+                        // Ask for permission the moment they opt in.
+                        if (e.target.checked) {
+                          try {
+                            if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                              Notification.requestPermission().catch(() => {})
+                            }
+                          } catch {
+                            /* notifications unavailable — skip */
+                          }
+                        }
+                      }}
+                      className="w-4 h-4 rounded accent-gold focus:ring-gold" />
+                    <span className={`text-xs font-bold ${newDeedStart ? 'text-ink/70' : 'text-ink/35'} flex items-center space-x-1`}>
+                      <Bell className="w-3.5 h-3.5 text-gold" /><span>Notify me</span>
+                    </span>
+                  </label>
+                  {!newDeedStart && (
+                    <p className="w-full text-[10px] text-ink/40">Add a start time to pin a countdown + finish alert.</p>
                   )}
                   {isRecurring && (
                     <div className="flex flex-wrap items-center gap-2">
@@ -2130,6 +2160,42 @@ export default function DayPage() {
                       <option value="30">30 min before</option>
                       <option value="60">1 hour before</option>
                     </select>
+                  )}
+                </div>
+
+                {/* Notify-me toggle — pins a live countdown + finish alert */}
+                <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition ${selectedDeed.task.notifyDeed ? 'border-gold/40 bg-gold/10' : 'border-white/10 bg-black/10'}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !selectedDeed.task.notifyDeed
+                      setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, notifyDeed: next } })
+                      // Ask for permission the moment they opt in.
+                      if (next) {
+                        try {
+                          if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                            Notification.requestPermission().catch(() => {})
+                          }
+                        } catch {
+                          /* notifications unavailable — skip */
+                        }
+                      }
+                    }}
+                    className="flex items-center space-x-2 text-left"
+                  >
+                    <Bell className={`w-4 h-4 shrink-0 ${selectedDeed.task.notifyDeed ? 'text-gold' : 'text-ink/40'}`} />
+                    <span>
+                      <span className="block text-xs font-bold text-ink">Notify me</span>
+                      <span className="block text-[10px] text-ink/50">Pins a live countdown + light finish alert</span>
+                    </span>
+                  </button>
+                  {selectedDeed.task.startTime && (
+                    <span className="shrink-0 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-ink/50">
+                      {selectedDeed.task.notifyDeed ? 'On' : 'Off'}
+                    </span>
+                  )}
+                  {!selectedDeed.task.startTime && (
+                    <span className="shrink-0 text-[10px] text-ink/40">Add a start time to enable</span>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/prisma'
 import { recalculateItemProgress } from '@/lib/score'
 
@@ -10,7 +11,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         const { id: taskId } = await params
         const body = await req.json()
-        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, isImportant, reminderMinutes } = body
+        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, isImportant, reminderMinutes, notifyDeed } = body
 
         const task = await prisma.task.findFirst({
             where: { id: taskId, userId },
@@ -21,7 +22,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const originalTitle = task.title
         const originalGoalId = task.goalId
 
-        const updateData: any = {}
+        const updateData: Prisma.TaskUpdateInput = {}
         if (title !== undefined) updateData.title = title
         if (weight !== undefined) updateData.weight = weight
         if (progress !== undefined) updateData.progress = progress
@@ -32,24 +33,27 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (categoryId !== undefined) updateData.categoryId = categoryId
         if (estimatedDuration !== undefined) updateData.estimatedDuration = estimatedDuration
         if (priority !== undefined) updateData.priority = priority
-        if (goalId !== undefined) updateData.goalId = goalId
+        if (goalId !== undefined) updateData.goal = { connect: { id: goalId } }
         if (reflection !== undefined) updateData.reflection = reflection
         if (isFrog !== undefined) updateData.isFrog = isFrog
         if (isHabit !== undefined) updateData.isHabit = isHabit
         if (isImportant !== undefined) updateData.isImportant = isImportant
         if (reminderMinutes !== undefined) updateData.reminderMinutes = reminderMinutes
+        if (notifyDeed !== undefined) updateData.notifyDeed = notifyDeed
         // Re-arm notifications whenever the schedule or reminder changed —
-        // clearing the stamps lets the countdown / reminder / start pushes
-        // fire again against the new times.
+        // clearing the stamps lets the countdown / reminder / start / finish
+        // notifications fire again against the new times.
         if (
             startTime !== undefined ||
             endTime !== undefined ||
             reminderMinutes !== undefined ||
-            isImportant !== undefined
+            isImportant !== undefined ||
+            notifyDeed !== undefined
         ) {
             updateData.reminderNotifiedAt = null
             updateData.startNotifiedAt = null
             updateData.countdownNotifiedAt = null
+            updateData.finishNotifiedAt = null
         }
         if (color !== undefined) updateData.color = color
         if (isRecurring !== undefined) updateData.isRecurring = isRecurring
@@ -101,8 +105,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
             const effectiveEndDate = task.recurrenceEnd || new Date(Date.UTC(new Date().getFullYear(), 11, 31, 23, 59, 59, 999))
             const taskDate = task.date
-            const instances: any[] = []
-            let currentDate = new Date(taskDate)
+            const instances: Prisma.TaskCreateManyInput[] = []
+            const currentDate = new Date(taskDate)
             currentDate.setUTCDate(currentDate.getUTCDate() + 1)
 
             while (currentDate <= effectiveEndDate) {
@@ -119,33 +123,34 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                 }
 
                 if (shouldCreate) {
-                    const finalStartTime = updateData.startTime !== undefined ? updateData.startTime : task.startTime;
-                    const finalEndTime = updateData.endTime !== undefined ? updateData.endTime : task.endTime;
-                    const startOffset = finalStartTime ? new Date(finalStartTime).getTime() - taskDate.getTime() : null;
-                    const endOffset = finalEndTime ? new Date(finalEndTime).getTime() - taskDate.getTime() : null;
+                    const finalStartTime = startTime !== undefined ? startTime : task.startTime;
+                    const finalEndTime = endTime !== undefined ? endTime : task.endTime;
+                    const startOffset = finalStartTime ? new Date(finalStartTime as string).getTime() - taskDate.getTime() : null;
+                    const endOffset = finalEndTime ? new Date(finalEndTime as string).getTime() - taskDate.getTime() : null;
 
                     const instanceStartTime = startOffset !== null ? new Date(currentDate.getTime() + startOffset) : null;
                     const instanceEndTime = endOffset !== null ? new Date(currentDate.getTime() + endOffset) : null;
 
                     instances.push({
                         userId,
-                        goalId: updateData.goalId !== undefined ? updateData.goalId : task.goalId,
-                        categoryId: updateData.categoryId !== undefined ? updateData.categoryId : task.categoryId,
-                        title: updateData.title !== undefined ? updateData.title : task.title,
-                        weight: updateData.weight !== undefined ? updateData.weight : task.weight,
+                        goalId: goalId !== undefined ? goalId : task.goalId,
+                        categoryId: categoryId !== undefined ? categoryId : task.categoryId,
+                        title: title !== undefined ? title : task.title,
+                        weight: weight !== undefined ? weight : task.weight,
                         progress: 0,
                         completed: false,
                         date: new Date(currentDate),
                         startTime: instanceStartTime,
                         endTime: instanceEndTime,
-                        color: updateData.color !== undefined ? updateData.color : task.color,
+                        color: color !== undefined ? color : task.color,
                         isRecurring: true,
                         recurrencePattern: finalRecurrencePattern,
                         recurrenceEnd: effectiveEndDate,
-                        isFrog: updateData.isFrog !== undefined ? updateData.isFrog : task.isFrog,
-                        isHabit: updateData.isHabit !== undefined ? updateData.isHabit : task.isHabit,
-                        isImportant: updateData.isImportant !== undefined ? updateData.isImportant : task.isImportant,
-                        reminderMinutes: updateData.reminderMinutes !== undefined ? updateData.reminderMinutes : task.reminderMinutes,
+                        isFrog: isFrog !== undefined ? isFrog : task.isFrog,
+                        isHabit: isHabit !== undefined ? isHabit : task.isHabit,
+                        isImportant: isImportant !== undefined ? isImportant : task.isImportant,
+                        reminderMinutes: reminderMinutes !== undefined ? reminderMinutes : task.reminderMinutes,
+                        notifyDeed: notifyDeed !== undefined ? notifyDeed : task.notifyDeed,
                     })
                 }
                 currentDate.setUTCDate(currentDate.getUTCDate() + 1)

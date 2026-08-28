@@ -22,6 +22,7 @@ export async function GET() {
   const tasks = await prisma.task.findMany({
     where: {
       userId,
+      completed: false,
       startTime: {
         gte: new Date(now.getTime() - TASK_SCAN_WINDOW_HOURS * 60 * 60 * 1000),
         lte: new Date(now.getTime() + TASK_SCAN_WINDOW_HOURS * 60 * 60 * 1000),
@@ -36,8 +37,10 @@ export async function GET() {
       title: t.title,
       startTime: t.startTime,
       endTime: t.endTime,
+      estimatedDuration: t.estimatedDuration,
       reminderMinutes: t.reminderMinutes,
       isImportant: t.isImportant,
+      notifyDeed: t.notifyDeed,
     }))
   )
 
@@ -50,7 +53,7 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { taskId, kind } = (await req.json()) as { taskId?: string; kind?: TaskNotificationKind }
-  if (!taskId || !kind || !['countdown', 'reminder', 'start'].includes(kind)) {
+  if (!taskId || !kind || !['countdown', 'reminder', 'start', 'finish'].includes(kind)) {
     return NextResponse.json({ error: 'taskId and a valid kind are required' }, { status: 400 })
   }
 
