@@ -2142,6 +2142,43 @@ html.lenis body {
   overflow: hidden;
   contain: strict;
 }
+/* ── Mobile long-press hint — the "what does this do" pill (TouchHint) ── */
+.touch-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 76; /* above app chrome + the touchfx effects layer */
+  pointer-events: none;
+  overflow: hidden;
+}
+.touch-hint-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(var(--gold-rgb) / 0.97);
+  color: #0a0908;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.32);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.touch-hint-pill[style*="opacity: 1"] {
+  transform: translate(-50%, 0);
+}
+/* Clip the pill to the viewport so a hold near the edge never overflows. */
+html:not(.dark) .touch-hint-pill {
+  color: #fffdf6;
+  border-color: rgba(255, 255, 255, 0.38);
+  box-shadow: 0 6px 24px rgba(88, 67, 28, 0.32);
+}
+
 /* Tap: soft radial wash that lights the whole area under the finger */
 .touch-halo {
   position: absolute;

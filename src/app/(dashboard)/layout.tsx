@@ -9,6 +9,7 @@ import { RouteProgress } from "@/components/ui/RouteProgress";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ScrollFx } from "@/components/ui/ScrollFx";
 import { TouchFx } from "@/components/ui/TouchFx";
+import { TouchHint } from "@/components/ui/TouchHint";
 import { FluidPress } from "@/components/ui/FluidPress";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { AlarmRinger } from "@/components/ui/AlarmRinger";
@@ -30,6 +31,7 @@ export default function AppLayout({
         <CommandPalette />
         <ScrollFx />
         <TouchFx />
+        <TouchHint />
         <FluidPress />
         <AlarmRinger />
         <ScrollText />
