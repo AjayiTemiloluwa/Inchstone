@@ -14,8 +14,17 @@ interface Partner {
   role: string
   status: string
   shareProgress: boolean
+  inviteCode?: string | null
   connectionUserId?: string | null
-  partnerLinks: any[]
+  partnerLinks: unknown[]
+}
+
+/** Post-add feedback: was the invite emailed, and the link if it wasn't. */
+interface InviteNotice {
+  name: string
+  linked: boolean
+  emailSent: boolean
+  acceptUrl: string | null
 }
 
 interface SharedSummary {
@@ -40,7 +49,6 @@ export default function PartnersPage() {
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
-  const [newRole, setNewRole] = useState('Accountability Partner')
   const [saving, setSaving] = useState(false)
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -49,8 +57,22 @@ export default function PartnersPage() {
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [incomingNudges, setIncomingNudges] = useState<Message[]>([])
   const [shared, setShared] = useState<SharedSummary | null>(null)
+  const [inviteNotice, setInviteNotice] = useState<InviteNotice | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showNudges, setShowNudges] = useState(false)
+
+  const copyInviteLink = async (code: string, id: string) => {
+    const url = `${window.location.origin}/partners/accept?code=${code}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      // Clipboard API can be blocked — fall back to a manual-copy prompt.
+      window.prompt('Copy this invite link:', url)
+    }
+    setCopiedId(id)
+    window.setTimeout(() => setCopiedId(prev => (prev === id ? null : prev)), 2200)
+  }
 
   const fetchPartners = async () => {
     try {
@@ -105,23 +127,19 @@ export default function PartnersPage() {
   }
 
   useEffect(() => {
-    fetchPartners()
-    fetchIncomingNudges()
-    fetchShared()
+    // Initial load — every setState happens inside async callbacks, never
+    // synchronously in the effect body.
+    const partners = fetch('/api/partners').then(r => r.json()).then(d => {
+      if (d.partners) setPartners(d.partners)
+    }).catch(() => {})
+    const nudges = fetch('/api/nudges').then(r => r.json()).then(d => {
+      if (d.nudges) setIncomingNudges(d.nudges)
+    }).catch(() => {})
+    const shared = fetch('/api/partners/shared').then(r => r.json()).then(d => {
+      if (d.success) setShared({ sharedWithMe: d.sharedWithMe || [], iShareWith: d.iShareWith || [] })
+    }).catch(() => {})
+    Promise.all([partners, nudges, shared]).finally(() => setLoading(false))
   }, [])
-
-  // Auto-refresh messages
-  useEffect(() => {
-    if (!selectedPartner) return
-    const interval = setInterval(() => {
-      fetchMessages(selectedPartner.id)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [selectedPartner])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
 
   const fetchMessages = async (partnerId: string) => {
     setLoadingMessages(true)
@@ -138,6 +156,19 @@ export default function PartnersPage() {
     }
   }
 
+  // Auto-refresh messages
+  useEffect(() => {
+    if (!selectedPartner) return
+    const interval = setInterval(() => {
+      fetchMessages(selectedPartner.id)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [selectedPartner])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newName || !newEmail) return
@@ -147,12 +178,22 @@ export default function PartnersPage() {
       const res = await fetch('/api/partners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName, email: newEmail, role: newRole })
+        body: JSON.stringify({ name: newName, email: newEmail, role: 'Accountability Partner' })
       })
       if (res.ok) {
+        const data = await res.json()
         setNewName('')
         setNewEmail('')
         setAdding(false)
+        // Tell the user exactly how the invite travelled — and hand them the
+        // link when email couldn't deliver (no provider key, restricted
+        // sender domain, etc.) so the invite never dead-ends.
+        setInviteNotice({
+          name: newName,
+          linked: !!data.linked,
+          emailSent: !!data.emailSent,
+          acceptUrl: data.acceptUrl || null,
+        })
         await fetchPartners()
       } else {
         const data = await res.json()
@@ -356,6 +397,66 @@ export default function PartnersPage() {
         </div>
       </div>
 
+      {/* Invite delivery notice — honest about what actually happened */}
+      {inviteNotice && (
+        <Card className={`p-4 ${inviteNotice.linked ? 'border-moss/30 bg-moss/5' : inviteNotice.emailSent ? 'border-moss/30 bg-moss/5' : 'border-gold/40 bg-gold/5'}`}>
+          <div className="flex items-start gap-3">
+            <Mail className="mt-0.5 h-4 w-4 shrink-0 text-gold" strokeWidth={1.5} />
+            <div className="min-w-0 flex-1">
+              {inviteNotice.linked ? (
+                <>
+                  <p className="text-sm font-semibold text-parchment">
+                    You and {inviteNotice.name} are linked — they were already on Inchstone.
+                  </p>
+                  <p className="mt-1 text-xs text-parchment/50">
+                    {inviteNotice.emailSent
+                      ? 'A confirmation email is on its way to them.'
+                      : 'Email delivery is not configured, so no confirmation email was sent — they still see the link in-app.'}
+                  </p>
+                </>
+              ) : inviteNotice.emailSent ? (
+                <>
+                  <p className="text-sm font-semibold text-parchment">Invite email sent to {inviteNotice.name}.</p>
+                  <p className="mt-1 text-xs text-parchment/50">They&apos;ll accept from their inbox — the link stays valid here too.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-parchment">
+                    {inviteNotice.name} was added, but the invite email couldn&apos;t be sent.
+                  </p>
+                  <p className="mt-1 text-xs text-parchment/50">
+                    Share their invite link with them directly — it opens the same accept page the email would.
+                  </p>
+                  {inviteNotice.acceptUrl && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <input
+                        readOnly
+                        value={inviteNotice.acceptUrl}
+                        onFocus={e => e.currentTarget.select()}
+                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5 font-mono text-[11px] text-parchment/70 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => copyInviteLink(inviteNotice.acceptUrl!.split('code=')[1] || '', 'notice')}
+                        className="flex shrink-0 items-center gap-1.5 rounded-md bg-gold px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:bg-[#cbaa6f]"
+                      >
+                        {copiedId === 'notice' ? 'Copied!' : 'Copy link'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => setInviteNotice(null)}
+              aria-label="Dismiss"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-parchment/40 transition-colors hover:bg-mist hover:text-parchment"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* Incoming Nudges Panel */}
       {showNudges && incomingNudges.length > 0 && (
         <Card className="p-4 border-moss/30 bg-moss/5">
@@ -511,8 +612,17 @@ export default function PartnersPage() {
                 ) : (
                   <span className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-gold">
                     <Mail className="h-3 w-3" strokeWidth={1.5} />
-                    Invite sent
+                    Invite pending
                   </span>
+                )}
+                {partner.status !== 'accepted' && partner.inviteCode && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); copyInviteLink(partner.inviteCode!, partner.id) }}
+                    title="Copy their invite link to share"
+                    className="flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-parchment/55 transition-colors hover:border-gold/40 hover:text-gold"
+                  >
+                    {copiedId === partner.id ? '✓ Copied' : 'Copy invite'}
+                  </button>
                 )}
                 <button
                   onClick={(e) => { e.stopPropagation(); handleToggleShare(partner) }}

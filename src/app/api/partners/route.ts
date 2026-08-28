@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma'
 import { sendNotification } from '@/lib/pushNotifications'
 import { sendEmail, invitePartnerEmail, linkedPartnerEmail } from '@/lib/email'
 
-export async function GET(req: Request) {
+export async function GET() {
     try {
         const { userId } = await auth()
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -92,18 +92,21 @@ export async function POST(req: Request) {
             }
 
             const tpl = linkedPartnerEmail(myName, name.trim())
-            await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
+            const emailSent = await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
 
-            return NextResponse.json({ success: true, partner: linked, linked: true })
+            return NextResponse.json({ success: true, partner: linked, linked: true, emailSent })
         }
 
         // ── Not onboarded yet → respectful invite email with an accept link ──
         const origin = new URL(req.url).origin
         const acceptUrl = `${origin}/partners/accept?code=${inviteCode}`
         const tpl = invitePartnerEmail(myName, acceptUrl)
-        await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
+        const emailSent = await sendEmail({ to: cleanEmail, subject: tpl.subject, html: tpl.html })
 
-        return NextResponse.json({ success: true, partner, linked: false })
+        // `emailSent` lets the UI fall back to a copyable invite link when the
+        // mail provider isn't configured (no RESEND_API_KEY) or refuses the
+        // send — the invite still works, it just travels by another channel.
+        return NextResponse.json({ success: true, partner, linked: false, emailSent, acceptUrl })
     } catch (error) {
         console.error('Failed to create partner:', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
