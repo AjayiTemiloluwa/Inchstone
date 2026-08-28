@@ -432,6 +432,7 @@ export default function PartnersPage() {
           )}
           <button
             onClick={() => setAdding(!adding)}
+            data-cursor="Bring someone aboard"
             className="flex min-h-11 items-center gap-2 rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f]"
           >
             {adding ? <X className="h-4 w-4" strokeWidth={1.5} /> : <Plus className="h-4 w-4" strokeWidth={1.5} />}
@@ -690,6 +691,7 @@ export default function PartnersPage() {
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleSelectPartner(partner) }}
+                  data-cursor="Say hello"
                   className="flex items-center gap-1.5 rounded-md border hairline px-3 py-2 text-xs font-semibold text-parchment transition-colors hover:border-gold"
                 >
                   <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />

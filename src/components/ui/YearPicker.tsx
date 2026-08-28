@@ -174,6 +174,7 @@ function YearMenuContents({ onClose }: { onClose: () => void }) {
         role="menuitem"
         onClick={handleCreate}
         disabled={creating}
+        data-cursor="Open a fresh year"
         className="flex min-h-[46px] w-full items-center gap-2 border-t border-white/[0.07] px-4 py-2.5 text-left text-sm font-semibold text-gold transition-colors hover:bg-gold/[0.08] disabled:opacity-50"
       >
         <Plus className="h-4 w-4" />

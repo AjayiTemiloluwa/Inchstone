@@ -330,6 +330,7 @@ export function SectionBudgetCard({
                             placeholder="Set this month's plan…"
                         />
                         <button type="submit"
+                            data-cursor="Set this month's plan"
                             className={`shrink-0 px-5 py-2.5 rounded-lg text-sm font-bold text-ink bg-gradient-to-r ${config.accentGradient} hover:brightness-110 active:opacity-80 transition-all`}>
                             Set
                         </button>
@@ -354,6 +355,7 @@ export function SectionBudgetCard({
                                 className="w-full bg-black/25 border border-white/10 rounded-lg py-2.5 px-3 font-mono text-sm font-semibold tabular-nums placeholder:text-parchment/25 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/40 transition-all"
                                 placeholder="Monthly limit" />
                             <button type="submit"
+                                data-cursor="Add the category"
                                 className={`shrink-0 px-5 py-2.5 rounded-lg text-sm font-bold text-ink bg-gradient-to-r ${config.accentGradient} hover:brightness-110 active:opacity-80 transition-all`}>
                                 Add
                             </button>

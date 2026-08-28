@@ -182,6 +182,7 @@ export default function CalendarPage() {
           </button>
           {notCurrentMonth && (
             <button onClick={goToToday}
+              data-cursor="Back to now"
               className="ml-1 px-2 py-1 rounded-md bg-gold/15 border border-gold/30 text-[10px] font-bold uppercase tracking-wider text-gold hover:bg-gold/25 transition-colors">
               Today
             </button>

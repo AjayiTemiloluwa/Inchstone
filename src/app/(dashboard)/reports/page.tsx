@@ -261,6 +261,7 @@ export default function ReportsPage() {
                 </div>
                 {report && (
                     <button onClick={downloadPDF}
+                        data-cursor="Save it as a PDF"
                         className="flex items-center gap-2 rounded-md border hairline px-4 py-2.5 text-sm text-parchment transition-colors hover:border-gold">
                         <Download className="h-4 w-4" strokeWidth={1.5} />
                         <span>Download PDF</span>

@@ -119,13 +119,22 @@ export function CursorGlow() {
     const onLeaveWindow = () => hide()
 
     // Interactive-element awareness: grow the core over anything clickable,
-    // and surface an optional data-cursor="…" label beneath it.
+    // and surface a short fun instruction beneath it. Label priority:
+    //   1. data-cursor="…"            — hand-written playful copy
+    //   2. aria-label                 — the accessible name (free coverage)
+    //   3. title                      — native tooltips
+    //   4. placeholder (inputs only)  — field hints
     const INTERACTIVE = 'a, button, [role="button"], input, select, textarea, summary, [data-cursor]'
     const onOver = (e: PointerEvent) => {
       const target = e.target as HTMLElement | null
       const hit = target?.closest?.(INTERACTIVE) as HTMLElement | null
       hovering = !!hit
-      const label = hit?.getAttribute('data-cursor') || ''
+      const label =
+        hit?.getAttribute('data-cursor') ||
+        hit?.getAttribute('aria-label') ||
+        hit?.getAttribute('title') ||
+        (hit?.tagName === 'INPUT' ? hit.getAttribute('placeholder') : null) ||
+        ''
       if (labelRef.current) {
         labelRef.current.textContent = label
         labelRef.current.style.opacity = label ? '1' : '0'

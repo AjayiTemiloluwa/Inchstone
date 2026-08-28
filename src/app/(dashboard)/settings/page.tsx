@@ -149,6 +149,7 @@ export default function SettingsPage() {
                 </span>
                 <button
                   onClick={handleDisconnectCalendar}
+                  data-cursor="Unlink your calendar"
                   className="rounded-md border border-ember/40 px-3 py-1.5 text-sm text-[#cf8f78] hover:bg-ember/15 transition-colors"
                 >
                   Disconnect
@@ -162,6 +163,7 @@ export default function SettingsPage() {
                 </span>
                 <button
                   onClick={handleConnectCalendar}
+                  data-cursor="Sync your Google Calendar"
                   className="rounded-md border-hairline px-3 py-1.5 text-sm text-parchment hover:border-gold transition-colors flex items-center gap-1.5"
                 >
                   <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -209,6 +211,7 @@ export default function SettingsPage() {
           </div>
           <button
             onClick={promptInstall}
+            data-cursor="Put Inchstone in your pocket"
             className="rounded-md bg-gold px-6 py-3 text-body font-semibold text-ink hover:bg-[#cbaa6f] transition-colors"
           >
             Install

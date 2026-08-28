@@ -180,6 +180,7 @@ export default function DashboardPage() {
         </p>
         <button
           onClick={() => router.push('/year')}
+          data-cursor="Start with why"
           className="btn-shine mt-9 inline-flex w-fit items-center gap-2 rounded-md bg-gold px-7 py-3 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f]"
         >
           Build your Why
@@ -305,6 +306,7 @@ export default function DashboardPage() {
           action={
             <button
               onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
+              data-cursor="Open today"
               className="flex shrink-0 items-center gap-1 font-mono text-xs uppercase tracking-[0.18em] text-parchment/45 transition-colors hover:text-parchment"
             >
               Open day
@@ -362,6 +364,7 @@ export default function DashboardPage() {
             <p className="text-sm text-parchment/55">No deeds set for today.</p>
             <button
               onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
+              data-cursor="Sketch the day"
               className="text-sm font-medium text-gold transition-colors hover:text-gold/80"
             >
               Plan the day
@@ -402,6 +405,7 @@ export default function DashboardPage() {
       ) : (
         <button
           onClick={() => router.push('/reviews')}
+          data-cursor="Pause & reflect"
           className="flex w-full items-center gap-3 rounded-md border border-white/[0.06] p-4 text-left transition-colors hover:border-gold/40"
         >
           <Sun className="h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} />
@@ -415,6 +419,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.06] pt-7">
         <button
           onClick={() => router.push('/year')}
+          data-cursor="See the whole year"
           className="group inline-flex items-center gap-2 font-display text-2xl text-parchment transition-colors hover:text-gold"
         >
           Open the full year
@@ -422,6 +427,7 @@ export default function DashboardPage() {
         </button>
         <button
           onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
+          data-cursor="Sketch the day"
           className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/45 transition-colors hover:text-parchment"
         >
           Plan today

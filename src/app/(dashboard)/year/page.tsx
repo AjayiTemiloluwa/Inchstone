@@ -607,11 +607,11 @@ export default function YearPage() {
             </h2>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-3 overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
-            <button onClick={() => setAddingCategory(!addingCategory)} className="flex items-center space-x-1.5 text-xs sm:text-sm text-ink/50 hover:text-gold active:opacity-70 transition min-h-[36px] px-3 py-2 rounded-lg hover:bg-white/5">
+            <button onClick={() => setAddingCategory(!addingCategory)} data-cursor="Add a life category" className="flex items-center space-x-1.5 text-xs sm:text-sm text-ink/50 hover:text-gold active:opacity-70 transition min-h-[36px] px-3 py-2 rounded-lg hover:bg-white/5">
               {addingCategory ? <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               <span>{addingCategory ? 'Cancel' : 'Add Category'}</span>
             </button>
-            <button onClick={resetWeights} className="flex items-center space-x-1.5 text-xs sm:text-sm text-gold hover:text-gold/80 active:opacity-70 transition min-h-[36px] px-3 py-2 rounded-lg hover:bg-gold/5">
+            <button onClick={resetWeights} data-cursor="Spread the weights evenly" className="flex items-center space-x-1.5 text-xs sm:text-sm text-gold hover:text-gold/80 active:opacity-70 transition min-h-[36px] px-3 py-2 rounded-lg hover:bg-gold/5">
               <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Reset Equal</span>
             </button>
@@ -688,7 +688,7 @@ export default function YearPage() {
                       <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-[#cf8f78]'}`}>
                         Total: {Math.round(goalWeightSum)}%
                       </span>
-                      <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-2 hover:bg-mist rounded-lg active:opacity-70 transition text-ink/50 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center">
+                      <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} data-cursor="Set an annual goal" className="p-2 hover:bg-mist rounded-lg active:opacity-70 transition text-ink/50 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center">
                         {addingGoal === category.id ? <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                       </button>
                     </div>

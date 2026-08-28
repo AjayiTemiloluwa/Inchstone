@@ -1435,6 +1435,7 @@ export default function DayPage() {
           </div>
           <button
             onClick={() => { setEditingNote(null); setShowNoteModal(true) }}
+            data-cursor="Jot a note"
             className="px-3 py-1.5 text-xs font-medium bg-ink text-surface rounded hover:bg-ink/90 transition flex items-center space-x-1"
           >
             <Plus className="w-3.5 h-3.5" />

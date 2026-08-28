@@ -10,19 +10,19 @@ export function BottomNav() {
   const [showMoreMenu, setShowMoreMenu] = useState(false)
 
   const mainLinks = [
-    { name: 'Home', href: '/dashboard', icon: Home },
-    { name: 'Finance', href: '/finance', icon: DollarSign },
-    { name: 'Calendar', href: '/calendar', icon: CalendarDays },
-    { name: 'Year', href: '/year', icon: Calendar },
-    { name: 'More', href: '#more', icon: MoreHorizontal },
+    { name: 'Home', href: '/dashboard', icon: Home, hint: 'Your home base' },
+    { name: 'Finance', href: '/finance', icon: DollarSign, hint: 'Count your coins' },
+    { name: 'Calendar', href: '/calendar', icon: CalendarDays, hint: 'Mark the days' },
+    { name: 'Year', href: '/year', icon: Calendar, hint: 'The long view' },
+    { name: 'More', href: '#more', icon: MoreHorizontal, hint: 'Even more good stuff' },
   ]
 
   const moreLinks = [
-    { name: 'Long-Term Plans', href: '/plans', icon: Target, desc: 'Goals across months, years & decades' },
-    { name: 'Notes', href: '/notes', icon: FileText, desc: 'Notes & journal entries' },
-    { name: 'Partners', href: '/partners', icon: Users, desc: 'Accountability partners & messaging' },
-    { name: 'Reports', href: '/reports', icon: BarChart3, desc: 'Progress reports & analytics' },
-    { name: 'Settings', href: '/settings', icon: Settings, desc: 'App settings & preferences' },
+    { name: 'Long-Term Plans', href: '/plans', icon: Target, hint: 'Dream in decades', desc: 'Goals across months, years & decades' },
+    { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down', desc: 'Notes & journal entries' },
+    { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people', desc: 'Accountability partners & messaging' },
+    { name: 'Reports', href: '/reports', icon: BarChart3, hint: 'See the patterns', desc: 'Progress reports & analytics' },
+    { name: 'Settings', href: '/settings', icon: Settings, hint: 'Make it yours', desc: 'App settings & preferences' },
   ]
 
   const isMoreActive = moreLinks.some(l => pathname.startsWith(l.href))
@@ -58,6 +58,7 @@ export function BottomNav() {
               <button
                 key={link.name}
                 onClick={() => handleMainClick(link.name, link.href)}
+                data-cursor={link.hint}
                 className={`relative flex flex-col items-center justify-center min-w-[64px] py-1.5 rounded-md transition-opacity ${
                   active ? 'text-gold' : 'text-parchment/45 active:opacity-70'
                 }`}
@@ -110,6 +111,7 @@ export function BottomNav() {
                   <button
                     key={link.name}
                     onClick={() => handleMoreNavigate(link.href)}
+                    data-cursor={link.hint}
                     className={`relative w-full flex items-center gap-4 p-3.5 rounded-md transition-colors text-left ${
                       active ? 'text-parchment' : 'text-parchment/60 hover:bg-mist hover:text-parchment'
                     }`}

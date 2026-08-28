@@ -44,6 +44,7 @@ export default function ReviewsPage() {
         <Magnetic>
           <button
             onClick={() => setShowModal(true)}
+            data-cursor="Write it while it's fresh"
             className="btn-shine rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink hover:bg-[#cbaa6f] transition-colors"
           >
             New Review
@@ -59,6 +60,7 @@ export default function ReviewsPage() {
             </p>
             <button
               onClick={() => setShowModal(true)}
+              data-cursor="Start your first review"
               className="mt-4 text-sm font-medium text-gold hover:text-gold/80 transition-colors"
             >
               Write your first review

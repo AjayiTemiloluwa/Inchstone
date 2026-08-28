@@ -61,6 +61,7 @@ export default function NotesPage() {
         </div>
         <button
           onClick={() => { setEditingNote(null); setShowModal(true) }}
+          data-cursor="Start a fresh page"
           className="rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink hover:bg-[#cbaa6f] transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />

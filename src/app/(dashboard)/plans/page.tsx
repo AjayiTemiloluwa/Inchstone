@@ -76,6 +76,7 @@ export default function PlansPage() {
           </p>
           <button
             onClick={() => setFormOpen(true)}
+            data-cursor="Name a plan, pick its months"
             className="mt-6 flex items-center gap-2 min-h-12 px-6 rounded-md bg-gold text-ink font-semibold text-sm hover:bg-gold-glow transition-colors"
           >
             <Plus className="w-4 h-4" /> Create your first plan

@@ -380,6 +380,7 @@ export default function FinancePage() {
           </button>
           {!isCurrentMonth && (
             <button onClick={() => setViewMonth(nowKey)}
+              data-cursor="Back to now"
               className="ml-1 px-2 py-1 rounded-md bg-gold/15 border border-gold/30 text-[10px] font-bold uppercase tracking-wider text-gold hover:bg-gold/25 transition-colors">
               Today
             </button>
@@ -464,6 +465,7 @@ export default function FinancePage() {
           right={
             <button
               onClick={() => setShowAddPurse(!showAddPurse)}
+              data-cursor="Make a new purse"
               className="link-slide text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
             >
               {showAddPurse ? 'Cancel' : '+ Add Purse'}
@@ -613,6 +615,7 @@ export default function FinancePage() {
           <h2 className="text-lg font-semibold"><span className="mr-2">🔄</span><Scramble text="Transfer Between Purses" /></h2>
           <button
             onClick={() => setShowTransfer(!showTransfer)}
+            data-cursor="Move money between purses"
             className="text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
           >
             {showTransfer ? 'Cancel' : 'Transfer'}

@@ -10,15 +10,15 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
 
   const links = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Finance', href: '/finance', icon: DollarSign },
-    { name: 'Calendar', href: '/calendar', icon: CalendarDays },
-    { name: 'Year View', href: '/year', icon: Calendar },
-    { name: 'Long-Term', href: '/plans', icon: Target },
-    { name: 'Partners', href: '/partners', icon: Users },
-    { name: 'Notes', href: '/notes', icon: FileText },
-    { name: 'Reports', href: '/reports', icon: BarChart3 },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Dashboard', href: '/dashboard', icon: Home, hint: 'Your home base' },
+    { name: 'Finance', href: '/finance', icon: DollarSign, hint: 'Count your coins' },
+    { name: 'Calendar', href: '/calendar', icon: CalendarDays, hint: 'Mark the days' },
+    { name: 'Year View', href: '/year', icon: Calendar, hint: 'The long view' },
+    { name: 'Long-Term', href: '/plans', icon: Target, hint: 'Dream in decades' },
+    { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people' },
+    { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down' },
+    { name: 'Reports', href: '/reports', icon: BarChart3, hint: 'See the patterns' },
+    { name: 'Settings', href: '/settings', icon: Settings, hint: 'Make it yours' },
   ]
 
   const isActive = (href: string) => {
@@ -56,6 +56,7 @@ export function Sidebar() {
                 key={link.name}
                 href={link.href}
                 title={collapsed ? link.name : undefined}
+                data-cursor={link.hint}
                 className={`relative flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
                   active ? 'text-parchment' : 'text-parchment/55 hover:text-parchment/85 hover:bg-mist'
                 }`}
