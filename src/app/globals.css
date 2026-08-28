@@ -1437,10 +1437,10 @@ input[type="number"] {
   z-index: 70; /* above app chrome, below OS-level portals */
   pointer-events: none;
   overflow: hidden; /* halo/core may extend past the viewport — never let them widen the page */
-  /* Blend the whole group with the page beneath it. Must live on the container:
-     fixed + z-index makes this a stacking context, so child-level blend modes
-     would be isolated from the page and never light up the UI. */
-  mix-blend-mode: screen;
+  /* NOTE: no mix-blend-mode here. The halo/core get their own screen-blend
+     (the "light" read), while the label must stay a solid element — putting
+     screen on this container washed the label out to near-white over the
+     light paper background too. */
   opacity: 0;
   transition: opacity 0.5s ease;
 }
@@ -1449,7 +1449,9 @@ input[type="number"] {
   opacity: 1;
 }
 
-/* Wide ambient pool — the "light on the background" */
+/* Wide ambient pool — the "light on the background".
+   Screen-blended so it brightens dark surfaces and stays invisible over
+   light ones (where the multiply variants below take over). */
 .cursor-glow-halo {
   position: absolute;
   top: 0;
@@ -1458,6 +1460,7 @@ input[type="number"] {
   height: 560px;
   border-radius: 50%;
   will-change: transform;
+  mix-blend-mode: screen;
   background: radial-gradient(
     circle closest-side,
     rgba(184, 147, 90, 0.16),
@@ -1475,6 +1478,7 @@ input[type="number"] {
   height: 150px;
   border-radius: 50%;
   will-change: transform;
+  mix-blend-mode: screen;
   background: radial-gradient(
     circle closest-side,
     rgba(243, 239, 230, 0.13),
@@ -1483,15 +1487,19 @@ input[type="number"] {
   );
 }
 
-/* Contextual cursor label (set via data-cursor="…") */
+/* Contextual cursor label (set via data-cursor="…") — a solid, opaque pill
+   so it reads on ANY background (not screen-blended like the glow above).
+   Colours come from the theme gold token so dark and light each work. */
 .cursor-glow-label {
   position: absolute;
   top: 0;
   left: 0;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(184, 147, 90, 0.92);
+  background: rgba(var(--gold-rgb) / 0.96);
   color: #0a0908;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
   font-family: var(--font-jetbrains-mono), monospace;
   font-size: 10px;
   font-weight: 700;
@@ -1499,6 +1507,32 @@ input[type="number"] {
   white-space: nowrap;
   opacity: 0;
   transition: opacity 0.2s ease;
+}
+
+/* Light theme: the deeper gold needs cream text for punch, and the glow
+   reads as a gentle warm pool (multiply) instead of screen (invisible here). */
+html:not(.dark) .cursor-glow-label {
+  color: #fffdf6;
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 1px 8px rgba(88, 67, 28, 0.3);
+}
+html:not(.dark) .cursor-glow-halo {
+  mix-blend-mode: multiply;
+  background: radial-gradient(
+    circle closest-side,
+    rgba(150, 118, 47, 0.12),
+    rgba(150, 118, 47, 0.05) 42%,
+    transparent 72%
+  );
+}
+html:not(.dark) .cursor-glow-core {
+  mix-blend-mode: multiply;
+  background: radial-gradient(
+    circle closest-side,
+    rgba(122, 96, 38, 0.10),
+    rgba(150, 118, 47, 0.04) 55%,
+    transparent 78%
+  );
 }
 
 /* ── Scroll FX layer ── */
