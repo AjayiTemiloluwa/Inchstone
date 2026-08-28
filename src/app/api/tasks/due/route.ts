@@ -41,6 +41,7 @@ export async function GET() {
       reminderMinutes: t.reminderMinutes,
       isImportant: t.isImportant,
       notifyDeed: t.notifyDeed,
+      endWarnMinutes: t.endWarnMinutes,
     }))
   )
 

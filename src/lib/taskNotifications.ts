@@ -4,10 +4,12 @@ import { sendNotification } from '@/lib/pushNotifications'
 /**
  * Task notification engine — the server-side half of deed reminders.
  *
- * Four one-shot notifications per scheduled task:
- *  · countdown — every scheduled task, "⏳ in 10 minutes" heads-up
+ * Five one-shot notifications per scheduled task:
+ *  · countdown — schedule-aware deeds, "⏳ in 10 minutes" heads-up
  *  · reminder  — very-important tasks, user-chosen alarm lead before start
  *  · start     — every scheduled task, "▶ starting now"
+ *  · ending    — opt-in (notifyDeed) deeds, "⏳ ends in 5-10 min" ring
+ *                before the END time
  *  · finish    — opt-in (notifyDeed) deeds, a light "✓ finished" alarm the
  *                moment the end time passes
  *
@@ -15,10 +17,13 @@ import { sendNotification } from '@/lib/pushNotifications'
  * times the cron endpoint or the in-app ringer polls.
  */
 
-export type TaskNotificationKind = 'countdown' | 'reminder' | 'start' | 'finish'
+export type TaskNotificationKind = 'countdown' | 'reminder' | 'start' | 'ending' | 'finish'
 
 /** How long before startTime the every-task countdown push fires. */
 export const COUNTDOWN_LEAD_MINUTES = 10
+
+/** How long before the END a deed's "almost done" ring should default to. */
+export const END_WARNING_MINUTES = 10
 
 /** Grace window after startTime in which a late "start" push is still sent. */
 export const START_PUSH_GRACE_MINUTES = 5
@@ -40,9 +45,11 @@ export interface SchedulableTask {
   isImportant: boolean
   reminderMinutes: number | null
   notifyDeed: boolean
+  endWarnMinutes: number | null
   countdownNotifiedAt: Date | string | null
   reminderNotifiedAt: Date | string | null
   startNotifiedAt: Date | string | null
+  endingNotifiedAt: Date | string | null
   finishNotifiedAt: Date | string | null
 }
 
@@ -104,9 +111,22 @@ export function dueTaskNotifications(
     due.push('start')
   }
 
+  // Almost-done ring — opt-in (notifyDeed) deeds: fires `endWarnMinutes`
+  // (default 10) BEFORE the end time, once, so the user gets a heads-up as a
+  // task is about to run out.
+  const end = taskEndTime(t)
+  if (
+    t.notifyDeed &&
+    end != null &&
+    !ts(t.endingNotifiedAt) &&
+    n >= end - (t.endWarnMinutes ?? END_WARNING_MINUTES) * MIN &&
+    n < end
+  ) {
+    due.push('ending')
+  }
+
   // Finished — opt-in (notifyDeed) deeds only; fires once, inside the grace
   // window after the end time.
-  const end = taskEndTime(t)
   if (t.notifyDeed && end != null && !ts(t.finishNotifiedAt) && n >= end && n < end + FINISH_PUSH_GRACE_MINUTES * MIN) {
     due.push('finish')
   }
@@ -148,6 +168,17 @@ export function buildTaskPayload(t: SchedulableTask, kind: TaskNotificationKind)
       tag: `task-${t.id}-reminder`,
       requireInteraction: true,
       vibrate: [380, 160, 380],
+    }
+  }
+  if (kind === 'ending') {
+    const lead = t.endWarnMinutes ?? END_WARNING_MINUTES
+    return {
+      title: `⏳ Almost done: ${t.title}`,
+      body: `Time runs out${end ? ` at ${end}` : ''} — ${lead} ${lead === 1 ? 'minute' : 'minutes'} left.`,
+      url,
+      tag: `task-${t.id}-ending`,
+      requireInteraction: false,
+      vibrate: [220, 100, 220],
     }
   }
   if (kind === 'finish') {
@@ -197,8 +228,10 @@ export async function stampTaskNotification(
       ? { countdownNotifiedAt: when }
       : kind === 'reminder'
         ? { reminderNotifiedAt: when }
-        : kind === 'finish'
-          ? { finishNotifiedAt: when }
-          : { startNotifiedAt: when }
+        : kind === 'ending'
+          ? { endingNotifiedAt: when }
+          : kind === 'finish'
+            ? { finishNotifiedAt: when }
+            : { startNotifiedAt: when }
   await prisma.task.update({ where: { id: taskId }, data }).catch(() => {})
 }

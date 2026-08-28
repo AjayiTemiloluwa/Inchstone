@@ -51,6 +51,7 @@ export default function DayPage() {
   const [newDeedImportant, setNewDeedImportant] = useState(false)
   const [newDeedReminder, setNewDeedReminder] = useState('10')
   const [newDeedNotify, setNewDeedNotify] = useState(true)
+  const [newDeedEndWarn, setNewDeedEndWarn] = useState('10')
   const [isHabit, setIsHabit] = useState(false)
   const [deedColor, setDeedColor] = useState('')
   const [dayNotes, setDayNotes] = useState<any[]>([])
@@ -513,6 +514,7 @@ export default function DayPage() {
           isImportant: task.isImportant,
           reminderMinutes: task.isImportant ? (task.reminderMinutes ?? 10) : null,
           notifyDeed: !!task.notifyDeed,
+          endWarnMinutes: task.notifyDeed ? (task.endWarnMinutes ?? 10) : null,
           color: task.color,
         }),
       })
@@ -690,7 +692,8 @@ export default function DayPage() {
           isHabit: finalIsHabit,
           isImportant: newDeedImportant,
           reminderMinutes: newDeedImportant ? (parseInt(newDeedReminder, 10) || 0) : null,
-          notifyDeed: newDeedNotify && !!newDeedStart,
+                    notifyDeed: newDeedNotify && !!newDeedStart,
+          endWarnMinutes: newDeedNotify && !!newDeedStart ? (parseInt(newDeedEndWarn, 10) || 10) : null,
         })
       })
       const resData = await res.json()
@@ -713,6 +716,7 @@ export default function DayPage() {
       setNewDeedImportant(false)
       setNewDeedReminder('10')
       setNewDeedNotify(true)
+      setNewDeedEndWarn('10')
       setIsHabit(false)
       setDeedColor('')
       setAddingDeed(false)
@@ -1158,6 +1162,20 @@ export default function DayPage() {
                   </label>
                   {!newDeedStart && (
                     <p className="w-full text-[10px] text-ink/40">Add a start time to pin a countdown + finish alert.</p>
+                  )}
+                  {newDeedNotify && newDeedStart && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Ring before end</span>
+                      <select
+                        value={newDeedEndWarn}
+                        onChange={e => setNewDeedEndWarn(e.target.value)}
+                        className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                      >
+                        <option value="5">5 min before end</option>
+                        <option value="10">10 min before end</option>
+                        <option value="15">15 min before end</option>
+                      </select>
+                    </div>
                   )}
                   {isRecurring && (
                     <div className="flex flex-wrap items-center gap-2">
@@ -2189,10 +2207,16 @@ export default function DayPage() {
                       <span className="block text-[10px] text-ink/50">Pins a live countdown + light finish alert</span>
                     </span>
                   </button>
-                  {selectedDeed.task.startTime && (
-                    <span className="shrink-0 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-ink/50">
-                      {selectedDeed.task.notifyDeed ? 'On' : 'Off'}
-                    </span>
+                  {selectedDeed.task.notifyDeed && selectedDeed.task.startTime && (
+                    <select
+                      value={String(selectedDeed.task.endWarnMinutes ?? 10)}
+                      onChange={e => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, endWarnMinutes: parseInt(e.target.value, 10) } })}
+                      className="shrink-0 px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                    >
+                      <option value="5">5 min before end</option>
+                      <option value="10">10 min before end</option>
+                      <option value="15">15 min before end</option>
+                    </select>
                   )}
                   {!selectedDeed.task.startTime && (
                     <span className="shrink-0 text-[10px] text-ink/40">Add a start time to enable</span>

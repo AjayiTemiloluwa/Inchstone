@@ -11,7 +11,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         const { id: taskId } = await params
         const body = await req.json()
-        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, isImportant, reminderMinutes, notifyDeed } = body
+        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, isImportant, reminderMinutes, notifyDeed, endWarnMinutes } = body
 
         const task = await prisma.task.findFirst({
             where: { id: taskId, userId },
@@ -40,20 +40,23 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (isImportant !== undefined) updateData.isImportant = isImportant
         if (reminderMinutes !== undefined) updateData.reminderMinutes = reminderMinutes
         if (notifyDeed !== undefined) updateData.notifyDeed = notifyDeed
+        if (endWarnMinutes !== undefined) updateData.endWarnMinutes = endWarnMinutes
         // Re-arm notifications whenever the schedule or reminder changed —
-        // clearing the stamps lets the countdown / reminder / start / finish
-        // notifications fire again against the new times.
+        // clearing the stamps lets the countdown / reminder / start / ending /
+        // finish notifications fire again against the new times.
         if (
             startTime !== undefined ||
             endTime !== undefined ||
             reminderMinutes !== undefined ||
             isImportant !== undefined ||
-            notifyDeed !== undefined
+            notifyDeed !== undefined ||
+            endWarnMinutes !== undefined
         ) {
             updateData.reminderNotifiedAt = null
             updateData.startNotifiedAt = null
             updateData.countdownNotifiedAt = null
             updateData.finishNotifiedAt = null
+            updateData.endingNotifiedAt = null
         }
         if (color !== undefined) updateData.color = color
         if (isRecurring !== undefined) updateData.isRecurring = isRecurring
@@ -151,6 +154,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                         isImportant: isImportant !== undefined ? isImportant : task.isImportant,
                         reminderMinutes: reminderMinutes !== undefined ? reminderMinutes : task.reminderMinutes,
                         notifyDeed: notifyDeed !== undefined ? notifyDeed : task.notifyDeed,
+                        endWarnMinutes: endWarnMinutes !== undefined ? endWarnMinutes : task.endWarnMinutes,
                     })
                 }
                 currentDate.setUTCDate(currentDate.getUTCDate() + 1)

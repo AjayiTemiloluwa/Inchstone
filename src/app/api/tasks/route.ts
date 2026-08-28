@@ -65,7 +65,7 @@ export async function POST(req: Request) {
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await req.json()
-        const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, color, reflection, isRecurring, recurrencePattern, recurrenceEnd, isFrog, isHabit, isImportant, reminderMinutes, notifyDeed } = body
+        const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, color, reflection, isRecurring, recurrencePattern, recurrenceEnd, isFrog, isHabit, isImportant, reminderMinutes, notifyDeed, endWarnMinutes } = body
 
         if (!goalId || !title || !date) {
             return NextResponse.json({ error: 'goalId, title, and date are required' }, { status: 400 })
@@ -111,6 +111,7 @@ export async function POST(req: Request) {
                 isImportant: isImportant || false,
                 reminderMinutes: isImportant ? (reminderMinutes ?? null) : null,
                 notifyDeed: notifyDeed !== undefined ? notifyDeed : true,
+                endWarnMinutes: endWarnMinutes ?? 10,
             },
         })
 
@@ -177,6 +178,7 @@ export async function POST(req: Request) {
                                 isImportant: isImportant || false,
                                 reminderMinutes: isImportant ? (reminderMinutes ?? null) : null,
                                 notifyDeed: notifyDeed !== undefined ? notifyDeed : true,
+                                endWarnMinutes: endWarnMinutes ?? 10,
                             },
                         })
                     )

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BellRing, X, Clock3, Star, Activity, Check } from 'lucide-react'
+import { BellRing, X, Clock3, Clock, Star, Activity, Check } from 'lucide-react'
 import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
 
 /**
@@ -27,7 +27,7 @@ interface Alarm {
 
 interface DueTask {
   taskId: string
-  kind: 'countdown' | 'reminder' | 'start' | 'finish'
+  kind: 'countdown' | 'reminder' | 'start' | 'ending' | 'finish'
   title: string
   startTime: string | null
   endTime: string | null
@@ -41,7 +41,7 @@ export function AlarmRinger() {
   const router = useRouter()
   const [ringing, setRinging] = useState<Alarm | null>(null)
   const [ringingTask, setRingingTask] = useState<DueTask | null>(null)
-  const [finishToast, setFinishToast] = useState<{ id: string; title: string } | null>(null)
+  const [finishToast, setFinishToast] = useState<{ id: string; title: string; kind: 'ending' | 'finish' } | null>(null)
   const finishFired = useRef<Set<string>>(new Set())
   const ringingAnyRef = useRef(false)
   const dismissed = useRef<Set<string>>(new Set())
@@ -83,6 +83,33 @@ export function AlarmRinger() {
       audioRef.current = { ctx, timer }
     } catch {
       /* audio unavailable — vibration + UI still fire */
+    }
+  }, [])
+
+  /** Two-note chime — the light "almost done" warning before the end. */
+  const startEndingSound = useCallback(() => {
+    try {
+      const Ctx = window.AudioContext || (window as never as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      const ctx = new Ctx()
+      const notes = [1318.51, 1046.5] // E6 → C6 — a gentle "heads-up" pair
+      notes.forEach((f, i) => {
+        const t0 = ctx.currentTime + i * 0.16
+        const o = ctx.createOscillator()
+        const g = ctx.createGain()
+        o.type = 'sine'
+        o.frequency.value = f
+        g.gain.setValueAtTime(0.0001, t0)
+        g.gain.exponentialRampToValueAtTime(0.14, t0 + 0.02)
+        g.gain.setValueAtTime(0.14, t0 + 0.16)
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.42)
+        o.connect(g).connect(ctx.destination)
+        o.start(t0)
+        o.stop(t0 + 0.5)
+      })
+      navigator.vibrate?.([100, 50, 100])
+      window.setTimeout(() => { ctx.close().catch(() => {}) }, 1100)
+    } catch {
+      /* audio unavailable — toast + notification still appear */
     }
   }, [])
 
@@ -145,18 +172,24 @@ export function AlarmRinger() {
       if (res.ok) {
         const { due } = (await res.json()) as { due: DueTask[] }
 
-        // Light finish alarm — handled as a quiet toast + short chime, NOT a
-        // full-screen takeover, so it never bulldozes real work.
-        const finish = due.find(
-          t => t.kind === 'finish' && !finishFired.current.has(t.taskId) && !dismissed.current.has(`${t.taskId}:${t.kind}`)
+        // Light end-of-deed alarms — handled as quiet toasts + short chimes, NOT a
+        // full-screen takeover, so they never bulldoze real work.
+        //  · 'ending' — fires ~10 min (or the chosen lead) BEFORE the end.
+        //  · 'finish' — fires the instant the end time runs out.
+        const toastDue = due.find(
+          (t): t is DueTask & { kind: 'ending' | 'finish' } =>
+            (t.kind === 'ending' || t.kind === 'finish') &&
+            !finishFired.current.has(`${t.taskId}:${t.kind}`) &&
+            !dismissed.current.has(`${t.taskId}:${t.kind}`)
         )
-        if (finish) {
-          finishFired.current.add(finish.taskId)
-          stampTask(finish.taskId, 'finish')
-          setFinishToast({ id: finish.taskId, title: finish.title })
-          startFinishSound()
+        if (toastDue) {
+          finishFired.current.add(`${toastDue.taskId}:${toastDue.kind}`)
+          stampTask(toastDue.taskId, toastDue.kind)
+          setFinishToast({ id: toastDue.taskId, title: toastDue.title, kind: toastDue.kind })
+          if (toastDue.kind === 'ending') startEndingSound()
+          else startFinishSound()
           window.setTimeout(() => {
-            setFinishToast(prev => (prev?.id === finish.taskId ? null : prev))
+            setFinishToast(prev => (prev?.id === toastDue.taskId ? null : prev))
           }, 5000)
         }
 
@@ -250,17 +283,26 @@ export function AlarmRinger() {
     setRinging(null)
   }
 
-  // ── Light "deed finished" toast ─────────────────────────────────────────
-  // A quiet, auto-dismissing pill — never blocks the screen.
+  // ── Light end-of-deed toasts ("almost done" / "time's up") ─────────────
+  // Quiet, auto-dismissing pills — never block the screen.
   if (finishToast && !ringing && !ringingTask) {
+    const isEnding = finishToast.kind === 'ending'
     return (
       <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[90] flex justify-center px-4 lg:bottom-10">
-        <div className="flex items-center gap-2.5 rounded-full border border-moss/40 bg-surface-solid px-4 py-2.5 shadow-[0_10px_40px_rgba(0,0,0,0.35)] animate-fadeIn">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-moss/20">
-            <Check className="h-3.5 w-3.5 text-moss" strokeWidth={3} />
+        <div className={`flex items-center gap-2.5 rounded-full border bg-surface-solid px-4 py-2.5 shadow-[0_10px_40px_rgba(0,0,0,0.35)] animate-fadeIn ${isEnding ? 'border-gold/40' : 'border-moss/40'}`}>
+          <span className={`flex h-6 w-6 items-center justify-center rounded-full ${isEnding ? 'bg-gold/20' : 'bg-moss/20'}`}>
+            {isEnding ? (
+              <Clock className="h-3.5 w-3.5 text-gold" strokeWidth={2.5} />
+            ) : (
+              <Check className="h-3.5 w-3.5 text-moss" strokeWidth={3} />
+            )}
           </span>
           <p className="text-sm font-semibold text-parchment">
-            <span className="text-moss">Deed finished: </span>
+            {isEnding ? (
+              <span className="text-gold">Almost done: </span>
+            ) : (
+              <span className="text-moss">Deed finished: </span>
+            )}
             {finishToast.title}
           </p>
         </div>

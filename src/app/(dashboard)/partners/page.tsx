@@ -146,8 +146,8 @@ export default function PartnersPage() {
     Promise.all([partners, nudges, shared]).finally(() => setLoading(false))
   }, [])
 
-  const fetchMessages = async (partnerId: string) => {
-    setLoadingMessages(true)
+  const fetchMessages = async (partnerId: string, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoadingMessages(true)
     try {
       const res = await fetch(`/api/messages?partnerId=${partnerId}`)
       const data = await res.json()
@@ -157,7 +157,7 @@ export default function PartnersPage() {
     } catch (e) {
       console.error(e)
     } finally {
-      setLoadingMessages(false)
+      if (!opts?.silent) setLoadingMessages(false)
     }
   }
 
@@ -285,12 +285,14 @@ export default function PartnersPage() {
       if (res.ok) {
         const data = await res.json()
         setNewMessage('')
-        // Show my message immediately — the long-poll covers the other side.
+        // Show my message INSTANTLY — pop it in and let the auto-scroll drop
+        // the view to it. No loader flash; the long-poll reconciles the rest.
         if (data.nudge) {
           const mine: Message = { ...data.nudge, partner: { name: selectedPartner.name } }
           setMessages(prev => (prev.some(m => m.id === mine.id) ? prev : [...prev, mine]))
         }
-        await fetchMessages(selectedPartner.id)
+        // Silent reconcile (no loader) — in case the server enriched fields.
+        fetchMessages(selectedPartner.id, { silent: true })
       }
     } catch (e) {
       console.error(e)
@@ -348,11 +350,15 @@ export default function PartnersPage() {
           {loadingMessages ? (
             <Loader compact label="Fetching messages…" routeKey="partners" />
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-12">
-              <MessageSquare className="mb-4 h-12 w-12 text-gold-dim" strokeWidth={1.5} />
-              <h3 className="text-lg font-semibold text-parchment/80">No messages yet</h3>
-              <p className="text-sm text-parchment/50 mt-2 max-w-xs">
-                Send a message to {selectedPartner.name} to start the conversation.
+            /* Start-of-chat: anchored to the BOTTOM above the composer — the
+               way chat apps present a new conversation, not floating dead-center. */
+            <div className="flex h-full flex-col items-center justify-end text-center pb-10">
+              <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gold/10">
+                <MessageSquare className="h-7 w-7 text-gold" strokeWidth={1.5} />
+              </span>
+              <h3 className="text-lg font-semibold text-parchment/80">Say hello 👋</h3>
+              <p className="mt-2 max-w-xs text-sm text-parchment/50">
+                This is the start of your conversation with {selectedPartner.name}. Your first message appears right here.
               </p>
             </div>
           ) : (
@@ -378,9 +384,9 @@ export default function PartnersPage() {
           )}
         </div>
 
-        {/* Message Input */}
-        <div className="border-t border-gold-dim/15 bg-surface-solid p-4">
-          <div className="flex items-center gap-2">
+        {/* Message Input — a premium rounded composer with the send button inside */}
+        <div className="border-t border-gold-dim/15 bg-surface-solid px-3 py-3 sm:px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}>
+          <div className="relative flex items-center">
             <input
               type="text"
               value={newMessage}
@@ -391,19 +397,19 @@ export default function PartnersPage() {
                   handleSendMessage()
                 }
               }}
-              placeholder="Type a message..."
-              className="min-h-11 flex-1 rounded-[6px] border border-gold-dim/25 bg-ink px-4 py-3 text-sm text-parchment transition-colors placeholder:text-parchment/30 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
+              placeholder={`Message ${selectedPartner.name}…`}
+              className="min-h-12 w-full rounded-full border border-gold-dim/25 bg-ink pl-5 pr-14 text-sm text-parchment transition-colors placeholder:text-parchment/30 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
             />
             <button
               onClick={handleSendMessage}
               disabled={!newMessage.trim() || sendingMessage}
               aria-label="Send message"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-md bg-gold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50"
+              className="absolute right-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-gold text-ink transition-all hover:bg-[#cbaa6f] disabled:opacity-40 active:scale-90"
             >
               {sendingMessage ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Send className="h-5 w-5" strokeWidth={1.5} />
+                <Send className="h-4 w-4" strokeWidth={2} />
               )}
             </button>
           </div>

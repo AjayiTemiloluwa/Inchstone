@@ -50,9 +50,11 @@ export type Task = {
   isImportant?: boolean
   reminderMinutes?: number | null
   notifyDeed?: boolean
+  endWarnMinutes?: number | null
   countdownNotifiedAt?: string | null
   reminderNotifiedAt?: string | null
   startNotifiedAt?: string | null
+  endingNotifiedAt?: string | null
   finishNotifiedAt?: string | null
   isRecurring: boolean
   recurrencePattern: string | null
