@@ -15,9 +15,22 @@ interface Partner {
   role: string
   status: string
   shareProgress: boolean
+  shareWhat?: string | null
   inviteCode?: string | null
   connectionUserId?: string | null
   partnerLinks: unknown[]
+}
+
+/** What an owner can choose to share with a partner. */
+export const SHARE_SCOPE_OPTIONS: { key: string; label: string; hint: string; icon: string }[] = [
+  { key: 'deeds', label: 'Deeds', hint: "Today's to-dos done/total", icon: '✓' },
+  { key: 'habits', label: 'Habits', hint: "Today's habit completions", icon: '🌱' },
+  { key: 'frog', label: 'Frog', hint: 'Hardest task done?', icon: '🐸' },
+  { key: 'week', label: 'Week', hint: "This week's completion", icon: '📅' },
+]
+
+function shareScopesOf(partner: Partner): string[] {
+  return (partner.shareWhat || 'deeds').split(',').filter(Boolean)
 }
 
 /** Post-add feedback: was the invite emailed, and the link if it wasn't. */
@@ -31,8 +44,20 @@ interface InviteNotice {
 }
 
 interface SharedSummary {
-  sharedWithMe: Array<{ id: string; name: string; email: string; tasksTotal: number; tasksDone: number }>
-  iShareWith: Array<{ name: string; email: string }>
+  sharedWithMe: Array<{
+    id: string
+    name: string
+    email: string
+    scopes: string[]
+    tasksTotal?: number
+    tasksDone?: number
+    habitsDone?: number
+    habitsTotal?: number
+    frogDone?: boolean | null
+    weekTotal?: number
+    weekDone?: number
+  }>
+  iShareWith: Array<{ name: string; email: string; shareWhat?: string | null }>
 }
 
 interface Message {
@@ -65,6 +90,7 @@ export default function PartnersPage() {
   const [inviteNotice, setInviteNotice] = useState<InviteNotice | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showNudges, setShowNudges] = useState(false)
 
   const copyInviteLink = async (code: string, id: string) => {
@@ -105,7 +131,9 @@ export default function PartnersPage() {
 
   const handleToggleShare = async (partner: Partner) => {
     const next = !partner.shareProgress
-    setPartners(prev => prev.map(p => (p.id === partner.id ? { ...p, shareProgress: next } : p)))
+    const scopes = next ? shareScopesOf(partner) : []
+    if (next && scopes.length === 0) scopes.push('deeds')
+    setPartners(prev => prev.map(p => (p.id === partner.id ? { ...p, shareProgress: next, shareWhat: scopes.join(',') } : p)))
     try {
       const res = await fetch(`/api/partners/${partner.id}`, {
         method: 'PATCH',
@@ -115,7 +143,25 @@ export default function PartnersPage() {
       if (!res.ok) throw new Error()
       fetchShared()
     } catch {
-      setPartners(prev => prev.map(p => (p.id === partner.id ? { ...p, shareProgress: !next } : p)))
+      setPartners(prev => prev.map(p => (p.id === partner.id ? { ...p, shareProgress: !next, shareWhat: partner.shareWhat } : p)))
+    }
+  }
+
+  const handleToggleScope = async (partner: Partner, key: string) => {
+    const current = shareScopesOf(partner)
+    const scopes = current.includes(key) ? current.filter(k => k !== key) : [...current, key]
+    const on = scopes.length > 0
+    setPartners(prev => prev.map(p => (p.id === partner.id ? { ...p, shareProgress: on, shareWhat: scopes.join(',') } : p)))
+    try {
+      const res = await fetch(`/api/partners/${partner.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareWhat: scopes }),
+      })
+      if (!res.ok) throw new Error()
+      fetchShared()
+    } catch {
+      setPartners(prev => prev.map(p => (p.id === partner.id ? { ...p, shareProgress: partner.shareProgress, shareWhat: partner.shareWhat } : p)))
     }
   }
 
@@ -130,6 +176,15 @@ export default function PartnersPage() {
       console.error(e)
     }
   }
+
+  const autoOpenChat = useRef<string | null>(null)
+
+  // Deep-link support: /partners?chat=<id> (from a push notification tap)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const chat = new URLSearchParams(window.location.search).get('chat')
+    if (chat) autoOpenChat.current = chat
+  }, [])
 
   useEffect(() => {
     // Initial load — every setState happens inside async callbacks, never
@@ -204,8 +259,18 @@ export default function PartnersPage() {
     }
   }, [selectedPartner])
 
+    // Scroll to the bottom after every render that changes the message list.
+  // Using requestAnimationFrame + scrollTo (instead of immediate
+  // scrollIntoView) guarantees the new message is in the DOM on mobile
+  // before we scroll — no "stuck" or "jumps then snaps back" issues.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = scrollContainerRef.current
+    if (!el) return
+    // Defer to after React has committed the new messages.
+    const raf = requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(raf)
   }, [messages])
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -326,7 +391,7 @@ export default function PartnersPage() {
   // Chat view
   if (selectedPartner) {
     return (
-      <div className="flex flex-col h-full max-w-4xl mx-auto pb-24 lg:pb-0">
+      <div className="flex flex-col h-full max-w-4xl mx-auto lg:pb-0 pb-[calc(env(safe-area-inset-bottom,0px)+4.5rem)]">
         {/* Chat Header */}
         <div className="flex items-center space-x-3 p-4 border-b border-gold-dim/15 bg-surface-solid sticky top-0 z-10">
           <button
@@ -346,7 +411,7 @@ export default function PartnersPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3" data-lenis-prevent>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3" data-lenis-prevent ref={scrollContainerRef}>
           {loadingMessages ? (
             <Loader compact label="Fetching messages…" routeKey="partners" />
           ) : messages.length === 0 ? (
@@ -622,23 +687,61 @@ export default function PartnersPage() {
           {shared.sharedWithMe.length > 0 && (
             <div className="space-y-2">
               {shared.sharedWithMe.map(s => {
-                const pct = s.tasksTotal > 0 ? Math.round((s.tasksDone / s.tasksTotal) * 100) : 0
+                const hasDeeds = typeof s.tasksTotal === 'number'
+                const pct = hasDeeds && (s.tasksTotal || 0) > 0
+                  ? Math.round(((s.tasksDone || 0) / (s.tasksTotal || 0)) * 100)
+                  : null
                 return (
-                  <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/15 px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-parchment">{s.name}</p>
-                      <p className="text-[11px] text-parchment/45">{s.tasksDone}/{s.tasksTotal} deeds done today</p>
+                  <div key={s.id} className="rounded-lg border border-white/10 bg-black/15 px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-parchment">{s.name}</p>
+                        {/* Scope badges */}
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {s.scopes.map(scope => {
+                            const opt = SHARE_SCOPE_OPTIONS.find(o => o.key === scope)
+                            const label = opt?.label || scope
+                            return (
+                              <span key={scope} className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-parchment/55">
+                                {opt?.icon} {label}
+                              </span>
+                            )
+                          })}
+                        </div>
+                        {/* Stats per scope */}
+                        <p className="mt-1 text-[11px] text-parchment/45">
+                          {[
+                            hasDeeds ? `${s.tasksDone}/${s.tasksTotal} deeds done today` : null,
+                            typeof s.habitsTotal === 'number' ? `${s.habitsDone}/${s.habitsTotal} habits` : null,
+                            s.frogDone != null ? `frog ${s.frogDone ? 'done' : 'pending'}` : null,
+                            typeof s.weekTotal === 'number' ? `${s.weekDone}/${s.weekTotal} this week` : null,
+                          ].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                      {pct != null && (
+                        <span className="shrink-0 rounded-full bg-gold/15 px-2.5 py-1 font-mono text-xs font-bold text-gold tabular-nums">{pct}%</span>
+                      )}
                     </div>
-                    <span className="shrink-0 rounded-full bg-gold/15 px-2.5 py-1 font-mono text-xs font-bold text-gold tabular-nums">{pct}%</span>
                   </div>
                 )
               })}
             </div>
           )}
           {shared.iShareWith.length > 0 && (
-            <p className="mt-3 text-[11px] text-parchment/40">
-              You share your daily progress with {shared.iShareWith.map(s => s.name).join(', ')}.
-            </p>
+            <div className="mt-4 border-t border-white/[0.06] pt-3">
+              <p className="text-[11px] text-parchment/45">You share with:</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {shared.iShareWith.map(s => {
+                  const scopes = (s.shareWhat || 'deeds').split(',').filter(Boolean)
+                  return (
+                    <span key={s.email} className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-parchment/55">
+                      {s.name}
+                      <span className="text-parchment/35"> · {scopes.map(sc => SHARE_SCOPE_OPTIONS.find(o => o.key === sc)?.label || sc).join(', ')}</span>
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
           )}
         </Card>
       )}
@@ -706,16 +809,50 @@ export default function PartnersPage() {
                 )}
                 <button
                   onClick={(e) => { e.stopPropagation(); handleToggleShare(partner) }}
-                  title="Let this partner see your daily progress"
+                  title="Turn sharing on or off for this partner"
                   className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
                     partner.shareProgress
                       ? 'border-moss/40 bg-moss/10 text-moss'
                       : 'border-white/15 text-parchment/45 hover:border-gold/40 hover:text-gold'
                   }`}
                 >
-                  {partner.shareProgress ? '✓ Sharing progress' : 'Share progress'}
+                  {partner.shareProgress ? '✓ Sharing' : 'Share progress'}
                 </button>
               </div>
+
+              {/* What to share — granular, per partner, opt-in scopes */}
+              {partner.status === 'accepted' && partner.shareProgress && (
+                <div className="mb-3 rounded-xl border border-white/[0.06] bg-black/10 p-3">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-parchment/40">
+                    What {partner.name.split(' ')[0]} can see
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SHARE_SCOPE_OPTIONS.map(opt => {
+                      const active = shareScopesOf(partner).includes(opt.key)
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleToggleScope(partner, opt.key) }}
+                          title={opt.hint}
+                          className={`flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                            active
+                              ? 'border-gold/50 bg-gold/15 text-gold'
+                              : 'border-white/10 text-parchment/45 hover:border-white/25 hover:text-parchment/70'
+                          }`}
+                        >
+                          <span>{opt.icon}</span>
+                          {opt.label}
+                          <span className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-gold' : 'bg-white/20'}`} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="mt-2 text-[10px] text-parchment/35">
+                    Pick exactly what&apos;s shared — nothing else leaves your account.
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center justify-between border-t border-gold-dim/15 pt-4">
                 <div className="flex items-center gap-2 text-sm">

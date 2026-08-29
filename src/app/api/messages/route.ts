@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { sendNotification } from '@/lib/pushNotifications'
-import { conversationAnchorId, conversationFilter } from '@/lib/partnerChat'
+import { conversationAnchorId, conversationFilter, findMirrorRow } from '@/lib/partnerChat'
 
 export async function GET(req: Request) {
     try {
@@ -85,11 +85,17 @@ export async function POST(req: Request) {
             }
         })
 
-        // Real-time-ish delivery: web push to the partner's devices only.
+                // Real-time-ish delivery: web push to the partner's devices only.
         try {
+            // Resolve the RECIPIENT's own partner row so the tap deep-links
+            // into THEIR chat (their mirror row on their side), not ours.
+            const theirRow = await findMirrorRow(partner.connectionUserId, userId)
+
             const subscriptions = await prisma.pushSubscription.findMany({
                 where: { userId: partner.connectionUserId }
             })
+
+            const deepLink = `/partners?chat=${theirRow ? theirRow.id : anchorId}`
 
             for (const sub of subscriptions) {
                 const ok = await sendNotification(
@@ -97,7 +103,8 @@ export async function POST(req: Request) {
                     {
                         title: `Message from ${partner.name}`,
                         body: message.slice(0, 140),
-                        url: '/partners'
+                        url: deepLink,
+                        tag: `msg-${anchorId}`,
                     }
                 )
                 if (!ok) await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {})

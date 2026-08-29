@@ -152,6 +152,7 @@ model Partner {
 
   // Consent-gated sharing — the owner chooses what this partner can see.
   shareProgress Boolean @default(false)
+  shareWhat     String  @default("deeds") // CSV scopes the partner may see: deeds,habits,frog,week
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
