@@ -1650,19 +1650,19 @@ summary.text-lit {
 .scroll-ripple {
   position: absolute;
   border-radius: 999px;
-  border: 1px solid rgba(184, 147, 90, 0.3);
-  box-shadow: inset 0 0 12px rgba(184, 147, 90, 0.08);
+  border: 1px solid rgba(184, 147, 90, 0.15);
+  box-shadow: inset 0 0 8px rgba(184, 147, 90, 0.04);
   transform: translate(-50%, -50%) scale(0);
-  opacity: 0.5;
-  animation: scroll-ripple 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0.25;
+  animation: scroll-ripple 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 @keyframes scroll-ripple {
   35% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.18;
   }
   100% {
-    transform: translate(-50%, -50%) scale(1.6);
+    transform: translate(-50%, -50%) scale(1.15);
     opacity: 0;
   }
 }

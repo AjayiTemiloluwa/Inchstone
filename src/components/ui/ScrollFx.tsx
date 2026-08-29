@@ -115,11 +115,11 @@ export function ScrollFx() {
       for (let i = 0; i < count; i++) {
         const r = document.createElement('div')
         r.className = 'scroll-ripple'
-        const jx = (Math.random() - 0.5) * 160
-        const jy = (Math.random() - 0.5) * 120
-        r.style.left = `${Math.min(vw - 12, Math.max(12, cx + jx))}px`
-        r.style.top = `${Math.min(vh - 12, Math.max(12, cy + jy))}px`
-        const size = 34 + Math.random() * 40
+        const jx = (Math.random() - 0.5) * 96
+        const jy = (Math.random() - 0.5) * 72
+        r.style.left = `${Math.min(vw - 10, Math.max(10, cx + jx))}px`
+        r.style.top = `${Math.min(vh - 10, Math.max(10, cy + jy))}px`
+        const size = 26 + Math.random() * 24
         r.style.width = `${size}px`
         r.style.height = `${size}px`
         fxLayer.appendChild(r)
