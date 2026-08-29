@@ -29,7 +29,7 @@ const BEND_EASE = 0.14 // how quickly the tilt follows its target (lerp)
 const BEND_SETTLE = 0.02 // deg — below this the page counts as flat
 const TOUCH_BEND_MAX_DEG = 4
 
-function applyBend(content: HTMLElement | null, bend: number) {
+function applyBend(content: HTMLElement | null, bend: number, pivotY: number) {
   if (!content) return
   if (Math.abs(bend) < BEND_SETTLE) {
     // Flat again: drop the transform entirely so the browser can drop the
@@ -40,12 +40,20 @@ function applyBend(content: HTMLElement | null, bend: number) {
     }
     return
   }
+  // Hinge the curl at the TOP OF THE VIEWPORT (not the document top, not the
+  // document middle — the dionpieters reference pivots at the current scroll
+  // position). The visible region always starts at the hinge, so the dip is
+  // identical no matter how deep you've scrolled, and every visible pixel
+  // only ever recedes AWAY from the viewer: nothing ever scales up.
+  const origin = `50% ${Math.round(pivotY)}px`
+  if (content.style.transformOrigin !== origin) {
+    content.style.transformOrigin = origin
+  }
   content.style.willChange = 'transform'
   // Always concave (page dips INTO the screen): the sign of scroll velocity
   // only modulates the MAGNITUDE of the dip, never flips it to a convex
-  // bulge. rotateX must stay positive so the top edge tilts away from you
-  // on both up- and down-scroll.
-  // No scale() is applied — the page NEVER grows or shrinks, only tilts.
+  // bulge. rotateX must stay positive so content tilts away from you on
+  // both up- and down-scroll. No scale() — the page NEVER grows or shrinks.
   content.style.transform = `perspective(1600px) rotateX(${Math.abs(bend).toFixed(3)}deg)`
 }
 
@@ -106,7 +114,7 @@ export function SmoothScroll() {
             const v = typeof lenis?.velocity === 'number' ? lenis.velocity : 0
             const target = Math.max(-BEND_MAX_DEG, Math.min(BEND_MAX_DEG, v * BEND_GAIN))
             bend += (target - bend) * BEND_EASE
-            applyBend(bendContent, bend)
+            applyBend(bendContent, bend, wrapper.scrollTop)
           }
 
           raf = requestAnimationFrame(loop)
@@ -153,20 +161,17 @@ export function SmoothScroll() {
         running = false
         return
       }
-      if (content.style.transformOrigin !== '50% 0%') {
-        content.style.transformOrigin = '50% 0%'
-      }
       velocity *= 0.9 // momentum decay between scroll events
       const target = Math.max(-TOUCH_BEND_MAX_DEG, Math.min(TOUCH_BEND_MAX_DEG, velocity * BEND_GAIN))
       bend += (target - bend) * BEND_EASE
 
       if (Math.abs(bend) < BEND_SETTLE && Math.abs(velocity) < 0.05) {
-        applyBend(content, 0)
+        applyBend(content, 0, wrapper.scrollTop)
         bend = 0
         running = false
         return
       }
-      applyBend(content, bend)
+      applyBend(content, bend, wrapper.scrollTop)
       raf = requestAnimationFrame(tick)
     }
 
