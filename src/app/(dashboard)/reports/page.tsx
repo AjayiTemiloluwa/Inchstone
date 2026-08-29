@@ -272,11 +272,11 @@ export default function ReportsPage() {
             {/* Controls: period + time navigation */}
             <Card className="p-5">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                    <div className="inline-flex items-center rounded-md border hairline p-0.5">
+                    <div className="inline-flex max-w-full flex-wrap items-center rounded-md border hairline p-0.5">
                         {PERIOD_OPTIONS.map(opt => (
                             <button key={opt.value} type="button"
                                 onClick={() => handleTypeChange(opt.value)}
-                                className={`rounded px-3 py-1.5 text-xs transition-colors ${
+                                className={`whitespace-nowrap rounded px-3 py-1.5 text-xs transition-colors ${
                                     reportType === opt.value ? 'bg-gold/15 text-gold' : 'text-parchment/55 hover:text-parchment'
                                 }`}>
                                 {opt.label}
