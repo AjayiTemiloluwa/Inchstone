@@ -41,10 +41,14 @@ function applyBend(content: HTMLElement | null, bend: number, maxDeg: number) {
     }
     return
   }
-  const depth = Math.min(Math.abs(bend) / maxDeg, 1)
+    const depth = Math.min(Math.abs(bend) / maxDeg, 1)
   const scale = 1 - depth * BEND_SCALE
   content.style.willChange = 'transform'
-  content.style.transform = `perspective(1600px) rotateX(${bend.toFixed(3)}deg) scale(${scale.toFixed(4)})`
+  // Always concave (page dips INTO the screen): the sign of scroll velocity
+  // only modulates the MAGNITUDE of the dip, never flips it to a convex
+  // bulge. rotateX must stay positive so the top edge tilts away from you
+  // on both up- and down-scroll.
+  content.style.transform = `perspective(1600px) rotateX(${Math.abs(bend).toFixed(3)}deg) scale(${scale.toFixed(4)})`
 }
 
 export function SmoothScroll() {
