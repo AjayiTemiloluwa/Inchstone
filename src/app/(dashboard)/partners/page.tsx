@@ -388,12 +388,14 @@ export default function PartnersPage() {
   // Full-page gamified loading gate — same pattern as every other route.
   if (loading) return <Loader routeKey="partners" />
 
-  // Chat view
+    // Chat view — WhatsApp/Telegram style: messages scroll underneath a
+  // fixed composer at the bottom. The input is always at the bottom,
+  // never centered — exactly like a native chat app.
   if (selectedPartner) {
     return (
-      <div className="flex flex-col h-full max-w-4xl mx-auto lg:pb-0 pb-[calc(env(safe-area-inset-bottom,0px)+4.5rem)]">
-        {/* Chat Header */}
-        <div className="flex items-center space-x-3 p-4 border-b border-gold-dim/15 bg-surface-solid sticky top-0 z-10">
+      <div className="chat-sheet relative mx-auto h-full max-w-4xl">
+        {/* Chat Header — pinned to the top */}
+        <div className="absolute top-0 left-0 right-0 z-20 flex items-center space-x-3 border-b border-gold-dim/15 bg-surface-solid/85 backdrop-blur-sm">
           <button
             onClick={handleBack}
             className="flex min-h-11 min-w-11 items-center justify-center rounded-md p-2 text-parchment/60 transition-colors hover:bg-mist hover:text-parchment"
@@ -410,14 +412,17 @@ export default function PartnersPage() {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3" data-lenis-prevent ref={scrollContainerRef}>
+        {/* Messages — scroll UNDER the fixed header and composer */}
+        <div
+          className="absolute left-0 right-0 overflow-y-auto scroll-pb-4 scroll-pt-[56px]"
+          style={{ top: '56px', bottom: '72px' }}
+                    data-lenis-prevent
+          ref={scrollContainerRef}
+        >
           {loadingMessages ? (
             <Loader compact label="Fetching messages…" routeKey="partners" />
           ) : messages.length === 0 ? (
-            /* Start-of-chat: anchored to the BOTTOM above the composer — the
-               way chat apps present a new conversation, not floating dead-center. */
-            <div className="flex h-full flex-col items-center justify-end text-center pb-10">
+            <div className="flex min-h-full flex-col items-center justify-end text-center px-4 pb-6">
               <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gold/10">
                 <MessageSquare className="h-7 w-7 text-gold" strokeWidth={1.5} />
               </span>
@@ -427,7 +432,7 @@ export default function PartnersPage() {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col space-y-3">
+            <div className="flex flex-col space-y-3 px-4 pt-2 pb-2">
               {messages.map((msg) => {
                 const isSent = myId ? msg.senderId === myId : msg.senderId === msg.receiverId
                 return (
@@ -449,34 +454,39 @@ export default function PartnersPage() {
           )}
         </div>
 
-        {/* Message Input — a premium rounded composer with the send button inside */}
-        <div className="border-t border-gold-dim/15 bg-surface-solid px-3 py-3 sm:px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}>
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSendMessage()
-                }
-              }}
-              placeholder={`Message ${selectedPartner.name}…`}
-              className="min-h-12 w-full rounded-full border border-gold-dim/25 bg-ink pl-5 pr-14 text-sm text-parchment transition-colors placeholder:text-parchment/30 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!newMessage.trim() || sendingMessage}
-              aria-label="Send message"
-              className="absolute right-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-gold text-ink transition-all hover:bg-[#cbaa6f] disabled:opacity-40 active:scale-90"
-            >
-              {sendingMessage ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" strokeWidth={2} />
-              )}
-            </button>
+        {/* Composer — pinned to the bottom, always visible */}
+        <div
+          className="absolute bottom-0 left-0 right-0 z-20 border-t border-gold-dim/15 bg-surface-solid/90 backdrop-blur-sm"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
+        >
+          <div className="px-3 pt-3 sm:px-4">
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSendMessage()
+                  }
+                }}
+                placeholder={`Message ${selectedPartner.name}…`}
+                className="min-h-12 w-full rounded-full border border-gold-dim/25 bg-ink pl-5 pr-14 text-sm text-parchment transition-colors placeholder:text-parchment/30 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || sendingMessage}
+                aria-label="Send message"
+                className="absolute right-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-gold text-ink transition-all hover:bg-[#cbaa6f] disabled:opacity-40 active:scale-90"
+              >
+                {sendingMessage ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" strokeWidth={2} />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
