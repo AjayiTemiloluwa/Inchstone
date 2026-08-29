@@ -27,10 +27,9 @@ const BEND_MAX_DEG = 7 // hardest the page ever tips
 const BEND_GAIN = 0.32 // deg per unit of Lenis velocity
 const BEND_EASE = 0.14 // how quickly the tilt follows its target (lerp)
 const BEND_SETTLE = 0.02 // deg — below this the page counts as flat
-const BEND_SCALE = 0.015 // extra depth: shrinks up to 1.5% at full tilt
 const TOUCH_BEND_MAX_DEG = 4
 
-function applyBend(content: HTMLElement | null, bend: number, maxDeg: number) {
+function applyBend(content: HTMLElement | null, bend: number) {
   if (!content) return
   if (Math.abs(bend) < BEND_SETTLE) {
     // Flat again: drop the transform entirely so the browser can drop the
@@ -41,14 +40,13 @@ function applyBend(content: HTMLElement | null, bend: number, maxDeg: number) {
     }
     return
   }
-    const depth = Math.min(Math.abs(bend) / maxDeg, 1)
-  const scale = 1 - depth * BEND_SCALE
   content.style.willChange = 'transform'
   // Always concave (page dips INTO the screen): the sign of scroll velocity
   // only modulates the MAGNITUDE of the dip, never flips it to a convex
   // bulge. rotateX must stay positive so the top edge tilts away from you
   // on both up- and down-scroll.
-  content.style.transform = `perspective(1600px) rotateX(${Math.abs(bend).toFixed(3)}deg) scale(${scale.toFixed(4)})`
+  // No scale() is applied — the page NEVER grows or shrinks, only tilts.
+  content.style.transform = `perspective(1600px) rotateX(${Math.abs(bend).toFixed(3)}deg)`
 }
 
 export function SmoothScroll() {
@@ -108,7 +106,7 @@ export function SmoothScroll() {
             const v = typeof lenis?.velocity === 'number' ? lenis.velocity : 0
             const target = Math.max(-BEND_MAX_DEG, Math.min(BEND_MAX_DEG, v * BEND_GAIN))
             bend += (target - bend) * BEND_EASE
-            applyBend(bendContent, bend, BEND_MAX_DEG)
+            applyBend(bendContent, bend)
           }
 
           raf = requestAnimationFrame(loop)
@@ -163,12 +161,12 @@ export function SmoothScroll() {
       bend += (target - bend) * BEND_EASE
 
       if (Math.abs(bend) < BEND_SETTLE && Math.abs(velocity) < 0.05) {
-        applyBend(content, 0, TOUCH_BEND_MAX_DEG)
+        applyBend(content, 0)
         bend = 0
         running = false
         return
       }
-      applyBend(content, bend, TOUCH_BEND_MAX_DEG)
+      applyBend(content, bend)
       raf = requestAnimationFrame(tick)
     }
 
