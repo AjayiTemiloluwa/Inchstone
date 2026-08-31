@@ -34,6 +34,14 @@ function tzOffsetMs(utcMs: number, tz?: string | null): number {
 }
 
 /**
+ * A due alarm rings in the foreground / pushes via cron only if it became due
+ * within this window. Anything older (the app was closed past the moment, the
+ * scheduler was down) is silently advanced to its next occurrence — a stale
+ * alarm never rings or buzzes hours late.
+ */
+export const ALARM_RING_GRACE_MINUTES = 5
+
+/**
  * Next occurrence of an "HH:mm" alarm on one of `days`, after `from`.
  * The time is interpreted in the alarm's OWN timezone (`tz`, captured from
  * the browser at creation) — never the server's — so a 06:00 alarm rings at

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
-import { computeNextFire } from '@/lib/alarmScheduler'
+import { ALARM_RING_GRACE_MINUTES, computeNextFire } from '@/lib/alarmScheduler'
 
 /** GET /api/alarms — list the user's alarms with a live `due` flag. */
 export async function GET() {
@@ -12,13 +12,28 @@ export async function GET() {
     where: { userId },
     orderBy: [{ enabled: 'desc' }, { time: 'asc' }],
   })
-  const now = Date.now()
-  return NextResponse.json({
-    alarms: alarms.map(a => ({
-      ...a,
-      due: a.enabled && !!a.nextFire && a.nextFire.getTime() <= now,
-    })),
-  })
+  const nowMs = Date.now()
+  const graceMs = ALARM_RING_GRACE_MINUTES * 60_000
+  const out = []
+  for (const a of alarms) {
+    const fire = a.enabled && a.nextFire ? a.nextFire.getTime() : null
+    if (fire != null && fire <= nowMs) {
+      if (nowMs - fire > graceMs) {
+        // Stale — its moment passed long ago (the app was closed). Never ring
+        // it late: silently advance to the next occurrence instead.
+        const nextFire = computeNextFire(a.time, a.days, new Date(), a.tz)
+        const updated = await prisma.alarm
+          .update({ where: { id: a.id }, data: { nextFire } })
+          .catch(() => null)
+        out.push({ ...a, nextFire: updated ? updated.nextFire : nextFire, due: false })
+        continue
+      }
+      out.push({ ...a, due: true })
+      continue
+    }
+    out.push({ ...a, due: false })
+  }
+  return NextResponse.json({ alarms: out })
 }
 
 /** POST /api/alarms — create { title, time "HH:mm", days "0,1,2", tz }. */

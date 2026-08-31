@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { taskId, kind } = (await req.json()) as { taskId?: string; kind?: TaskNotificationKind }
-  if (!taskId || !kind || !['countdown', 'reminder', 'start', 'finish'].includes(kind)) {
+  if (!taskId || !kind || !['countdown', 'reminder', 'start', 'ending', 'finish'].includes(kind)) {
     return NextResponse.json({ error: 'taskId and a valid kind are required' }, { status: 400 })
   }
 

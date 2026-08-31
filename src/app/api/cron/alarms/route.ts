@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { computeNextFire, pushAlarmToUser } from '@/lib/alarmScheduler'
+import { ALARM_RING_GRACE_MINUTES, computeNextFire, pushAlarmToUser } from '@/lib/alarmScheduler'
 import {
   buildTaskPayload,
   dueTaskNotifications,
@@ -36,13 +36,23 @@ export async function GET(req: Request) {
     where: { enabled: true, nextFire: { lte: now } },
   })
 
+  const graceMs = ALARM_RING_GRACE_MINUTES * 60_000
   let sent = 0
+  let skippedStale = 0
   for (const alarm of due) {
-    try {
-      await pushAlarmToUser(alarm.userId, alarm)
-      sent++
-    } catch (e) {
-      console.error('Alarm dispatch failed', alarm.id, e)
+    // Same grace rule as the foreground ringer: an alarm whose moment passed
+    // long ago (scheduler down, device off) is advanced silently — a push
+    // hours late would be just as wrong as a ring hours late.
+    const fireAt = alarm.nextFire ? alarm.nextFire.getTime() : null
+    if (fireAt != null && now.getTime() - fireAt > graceMs) {
+      skippedStale++
+    } else {
+      try {
+        await pushAlarmToUser(alarm.userId, alarm)
+        sent++
+      } catch (e) {
+        console.error('Alarm dispatch failed', alarm.id, e)
+      }
     }
     await prisma.alarm.update({
       where: { id: alarm.id },
@@ -80,5 +90,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, fired: sent, checked: due.length, taskPushes })
+  return NextResponse.json({ ok: true, fired: sent, checked: due.length, skippedStale, taskPushes })
 }

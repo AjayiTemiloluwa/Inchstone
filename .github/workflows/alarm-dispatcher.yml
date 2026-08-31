@@ -1,0 +1,32 @@
+name: Alarm dispatcher
+
+# Every-minute ping that drives alarms + deed notifications (web push) even
+# when the app is closed — no manual setup needed. GitHub's scheduler can add
+# a few minutes of jitter at busy times; the endpoint's stamps + grace window
+# make that safe (never skips, never double-fires, never fires stale).
+# NOTE: GitHub auto-disables repo schedules after 60 days without any commits.
+on:
+  schedule:
+    - cron: '*/1 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: alarm-dispatcher
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/cron/alarms
+        shell: bash
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          URL="${SITE_URL:-https://myinchstone.vercel.app}"
+          if [ -n "$CRON_SECRET" ]; then
+            curl -fsS --max-time 30 -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/alarms"
+          else
+            curl -fsS --max-time 30 "$URL/api/cron/alarms"
+          fi

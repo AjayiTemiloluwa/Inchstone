@@ -7,12 +7,13 @@ import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useC
 
 /**
  * AlarmRinger — the foreground half of the alarm + deed-reminder system.
- * Polls /api/alarms (recurring alarms) and /api/tasks/due (deed reminders:
- * the very-important alarm and the starting-now cue) and, when one is due,
- * rings: a looping three-note chime (Web Audio, no asset needed), device
- * vibration, and a full-screen takeover with Dismiss / Snooze / Open.
- * The background half is the external cron → web push pipeline, which fires
- * even when the PWA is closed.
+ * Polls /api/alarms (recurring alarms) and /api/tasks/due (deed cues). The
+ * very-important reminder gets the full treatment: a looping three-note chime
+ * (Web Audio, no asset needed), device vibration, and a full-screen takeover
+ * with Dismiss / Open. Every other cue — the 10-min heads-up, starting-now,
+ * almost-done, finished — is a quiet toast + short chime that never blocks
+ * the screen. The background half is the cron → web push pipeline, which
+ * fires even when the PWA is closed.
  */
 
 interface Alarm {
@@ -41,7 +42,7 @@ export function AlarmRinger() {
   const router = useRouter()
   const [ringing, setRinging] = useState<Alarm | null>(null)
   const [ringingTask, setRingingTask] = useState<DueTask | null>(null)
-  const [finishToast, setFinishToast] = useState<{ id: string; title: string; kind: 'ending' | 'finish' } | null>(null)
+  const [finishToast, setFinishToast] = useState<{ id: string; title: string; kind: 'countdown' | 'start' | 'ending' | 'finish' } | null>(null)
   const finishFired = useRef<Set<string>>(new Set())
   const ringingAnyRef = useRef(false)
   const dismissed = useRef<Set<string>>(new Set())
@@ -172,13 +173,15 @@ export function AlarmRinger() {
       if (res.ok) {
         const { due } = (await res.json()) as { due: DueTask[] }
 
-        // Light end-of-deed alarms — handled as quiet toasts + short chimes, NOT a
-        // full-screen takeover, so they never bulldoze real work.
-        //  · 'ending' — fires ~10 min (or the chosen lead) BEFORE the end.
-        //  · 'finish' — fires the instant the end time runs out.
+        // Quiet cues — toasts + short chimes, never a full-screen takeover:
+        //  · 'countdown' — the 10-min "in 10 minutes" heads-up
+        //  · 'start'     — the starting-now cue
+        //  · 'ending'    — fires ~10 min (or the chosen lead) BEFORE the end
+        //  · 'finish'    — fires the instant the end time runs out
+        // (Only the very-important reminder triggers the full-screen ring.)
         const toastDue = due.find(
-          (t): t is DueTask & { kind: 'ending' | 'finish' } =>
-            (t.kind === 'ending' || t.kind === 'finish') &&
+          (t): t is DueTask & { kind: 'countdown' | 'start' | 'ending' | 'finish' } =>
+            (t.kind === 'countdown' || t.kind === 'start' || t.kind === 'ending' || t.kind === 'finish') &&
             !finishFired.current.has(`${t.taskId}:${t.kind}`) &&
             !dismissed.current.has(`${t.taskId}:${t.kind}`)
         )
@@ -193,8 +196,10 @@ export function AlarmRinger() {
           }, 5000)
         }
 
-        // Regular alarm (start / important reminder) — full-screen.
-        const next = due.find(t => t.kind !== 'finish' && !dismissed.current.has(`${t.taskId}:${t.kind}`))
+        // Full-screen takeover — ONLY the very-important reminder alarm.
+        const next = due.find(
+          t => t.kind === 'reminder' && !dismissed.current.has(`${t.taskId}:${t.kind}`)
+        )
         if (next) {
           ringingAnyRef.current = true
           setRingingTask(next)
@@ -204,7 +209,7 @@ export function AlarmRinger() {
     } catch {
       /* offline — cron push still covers background delivery */
     }
-  }, [startSound, startFinishSound, stampTask])
+  }, [startSound, startEndingSound, startFinishSound, stampTask])
 
   useEffect(() => {
     check()
@@ -286,23 +291,27 @@ export function AlarmRinger() {
   // ── Light end-of-deed toasts ("almost done" / "time's up") ─────────────
   // Quiet, auto-dismissing pills — never block the screen.
   if (finishToast && !ringing && !ringingTask) {
-    const isEnding = finishToast.kind === 'ending'
+    const tone = finishToast.kind === 'finish' ? 'moss' : 'gold'
+    const label =
+      finishToast.kind === 'ending'
+        ? 'Almost done: '
+        : finishToast.kind === 'finish'
+          ? 'Deed finished: '
+          : finishToast.kind === 'start'
+            ? 'Starting now: '
+            : 'Up next: '
     return (
       <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[90] flex justify-center px-4 lg:bottom-10">
-        <div className={`flex items-center gap-2.5 rounded-full border bg-surface-solid px-4 py-2.5 shadow-[0_10px_40px_rgba(0,0,0,0.35)] animate-fadeIn ${isEnding ? 'border-gold/40' : 'border-moss/40'}`}>
-          <span className={`flex h-6 w-6 items-center justify-center rounded-full ${isEnding ? 'bg-gold/20' : 'bg-moss/20'}`}>
-            {isEnding ? (
+        <div className={`flex items-center gap-2.5 rounded-full border bg-surface-solid px-4 py-2.5 shadow-[0_10px_40px_rgba(0,0,0,0.35)] animate-fadeIn ${tone === 'gold' ? 'border-gold/40' : 'border-moss/40'}`}>
+          <span className={`flex h-6 w-6 items-center justify-center rounded-full ${tone === 'gold' ? 'bg-gold/20' : 'bg-moss/20'}`}>
+            {tone === 'gold' ? (
               <Clock className="h-3.5 w-3.5 text-gold" strokeWidth={2.5} />
             ) : (
               <Check className="h-3.5 w-3.5 text-moss" strokeWidth={3} />
             )}
           </span>
           <p className="text-sm font-semibold text-parchment">
-            {isEnding ? (
-              <span className="text-gold">Almost done: </span>
-            ) : (
-              <span className="text-moss">Deed finished: </span>
-            )}
+            <span className={tone === 'gold' ? 'text-gold' : 'text-moss'}>{label}</span>
             {finishToast.title}
           </p>
         </div>
@@ -317,8 +326,7 @@ export function AlarmRinger() {
     const start = ringingTask.startTime ? new Date(ringingTask.startTime) : null
     const end = ringingTask.endTime ? new Date(ringingTask.endTime) : null
     const parts = start ? formatCountdown(countdownNow, start, end) : null
-    const headline =
-      ringingTask.kind === 'start' ? 'Starting now' : ringingTask.kind === 'reminder' ? 'Very important' : 'Countdown'
+    const headline = 'Very important'
     return (
       <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
         <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-[#161311]/95 p-8 text-center shadow-[0_0_80px_rgba(212,175,55,0.25)]">
