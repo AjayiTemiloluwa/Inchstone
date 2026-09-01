@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, Compass, ChevronLeft, ChevronRight, Target } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, Compass, ChevronLeft, ChevronRight, Target, FlaskConical } from 'lucide-react'
 import { useState } from 'react'
 
 export function Sidebar() {
@@ -14,6 +14,7 @@ export function Sidebar() {
     { name: 'Finance', href: '/finance', icon: DollarSign, hint: 'Count your coins' },
     { name: 'Calendar', href: '/calendar', icon: CalendarDays, hint: 'Mark the days' },
     { name: 'Year View', href: '/year', icon: Calendar, hint: 'The long view' },
+    { name: 'Challenge', href: '/challenge', icon: FlaskConical, hint: 'Fill the bottles' },
     { name: 'Long-Term', href: '/plans', icon: Target, hint: 'Dream in decades' },
     { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people' },
     { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down' },

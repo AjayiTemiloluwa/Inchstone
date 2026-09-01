@@ -446,3 +446,40 @@ model Alarm {
   @@index([userId, enabled])
   @@index([enabled, nextFire])
 }
+
+// ── Challenge Bottles ──
+// A bottle is a named accumulator the user pours amounts into via @-mentions
+// in any reflection (e.g. "I did @Workout 400 press-ups" adds 400 to Workout).
+model ChallengeBottle {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String // canonical name, referenced as @Name (case-insensitive match)
+  emoji     String?
+  unit      String? // e.g. "press-ups", "km", "pages"
+  target    Float? // optional goal amount to fill the bottle
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries BottleEntry[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model BottleEntry {
+  id       String          @id @default(uuid())
+  userId   String
+  bottleId String
+  bottle   ChallengeBottle @relation(fields: [bottleId], references: [id], onDelete: Cascade)
+
+  amount     Float
+  note       String? // the sentence the amount was logged from
+  sourceType String? // "reflection" | "manual" — where it was poured from
+  sourceRef  String? // e.g. the date (YYYY-MM-DD) or item id it came from
+  dedupeKey  String? // reflection|bottle|amount — prevents double-pours when a reflection re-saves
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, bottleId])
+  @@index([bottleId, createdAt])
+}

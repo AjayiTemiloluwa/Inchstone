@@ -22,6 +22,7 @@ export type LoaderRouteKey =
   | 'reviews'
   | 'settings'
   | 'dashboard'
+  | 'challenge'
   | 'year-quarter'
   | 'year-quarter-month'
   | 'year-quarter-month-week'
@@ -42,6 +43,7 @@ const ROUTE_TO_VOICE: Record<LoaderRouteKey, VoiceKey> = {
   reviews: 'loading.reviews',
   settings: 'loading.settings',
   dashboard: 'loading.dashboard',
+  challenge: 'loading.challenge',
   'year-quarter': 'loading.year-quarter',
   'year-quarter-month': 'loading.year-quarter-month',
   'year-quarter-month-week': 'loading.year-quarter-month-week',

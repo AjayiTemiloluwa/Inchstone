@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Target } from 'lucide-react'
+import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Target, FlaskConical } from 'lucide-react'
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -28,6 +28,7 @@ export function BottomNav() {
   ]
 
   const moreLinks = [
+    { name: 'Challenge', href: '/challenge', icon: FlaskConical, hint: 'Fill the bottles', desc: 'Challenge bottles filled from reflections' },
     { name: 'Long-Term Plans', href: '/plans', icon: Target, hint: 'Dream in decades', desc: 'Goals across months, years & decades' },
     { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down', desc: 'Notes & journal entries' },
     { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people', desc: 'Accountability partners & messaging' },

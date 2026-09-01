@@ -33,6 +33,7 @@ export type VoiceKey =
   | 'loading.reviews'
   | 'loading.settings'
   | 'loading.dashboard'
+  | 'loading.challenge'
   | 'loading.year-quarter'
   | 'loading.year-quarter-month'
   | 'loading.year-quarter-month-week'

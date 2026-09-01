@@ -68,6 +68,9 @@ export const VOICE_BANK: CopyBank = {
   'loading.dashboard': {
     any: ['Compass righting north…', 'Gathering your quiet progress…'],
   },
+  'loading.challenge': {
+    any: ['Filling the bottles…', 'Counting every drop…', 'Tipping the challenge bottles upright…'],
+  },
   'loading.reviews': {
     any: ['Reopening the review…', 'Gathering last week’s reflections…'],
   },
