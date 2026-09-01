@@ -11,6 +11,7 @@ import { format } from 'date-fns'
 import { getWeeksInMonth } from '@/lib/calendarUtils'
 import { Loader } from '@/components/ui/Loader'
 import { Scramble } from '@/components/ui/motion'
+import { InlineEdit } from '@/components/ui/InlineEdit'
 
 export default function MonthPage() {
   const router = useRouter()
@@ -222,7 +223,10 @@ export default function MonthPage() {
         </button>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-display font-bold text-ink">{monthLabel}</h1>
+            <h1 className="text-3xl font-display font-bold text-ink">
+              <InlineEdit value={monthItem.title || monthLabel} onSave={(t) => updateItem(monthItem.id, { title: t })} title="Rename month"
+                inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-3xl font-display font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+            </h1>
           </div>
           <ProgressRing progress={mScore} size={72} />
         </div>
@@ -247,7 +251,10 @@ export default function MonthPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-lg font-bold text-ink">{monthLabel}</h3>
+                  <h3 className="text-lg font-bold text-ink">
+                    <InlineEdit value={monthItem.title || monthLabel} onSave={(t) => updateItem(monthItem.id, { title: t })} title="Rename month"
+                      inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-lg font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+                  </h3>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-1">
@@ -291,7 +298,10 @@ export default function MonthPage() {
                           <button onClick={(e) => { e.stopPropagation(); toggleLock(week.id); }} className="p-1 hover:bg-mist rounded transition" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
                             {isLocked ? <Lock className="w-3.5 h-3.5 text-gold" /> : <Unlock className="w-3.5 h-3.5 text-ink/30" />}
                           </button>
-                          <h4 className="font-bold text-ink text-sm truncate pr-6">{week.title}</h4>
+                          <h4 className="font-bold text-ink text-sm truncate pr-6">
+                            <InlineEdit value={week.title || ''} onSave={(t) => updateItem(week.id, { title: t })} title="Rename week"
+                              inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+                          </h4>
                         </div>
                         <div className="flex items-center space-x-2">
                           <ProgressRing progress={wScore} size={32} />

@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown, Star, Bell } from 'lucide-react'
+import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown, Star, Bell, Pencil } from 'lucide-react'
 import { format, parseISO, subDays, subWeeks, subMonths, subYears, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfDay, endOfDay, eachDayOfInterval, addDays, differenceInDays } from 'date-fns'
 import { AnimatePresence, motion } from 'motion/react'
 import { Scramble } from '@/components/ui/motion'
@@ -62,6 +62,7 @@ export default function DayPage() {
   const [showHabitAdd, setShowHabitAdd] = useState(false)
   const [showHabitGraph, setShowHabitGraph] = useState(false)
   const [habitHistory, setHabitHistory] = useState<any[]>([])
+  const [expandedHabit, setExpandedHabit] = useState<string | null>(null)
   const [habitGraphRange, setHabitGraphRange] = useState<GraphRange>('month')
   const [habitGraphCustomStart, setHabitGraphCustomStart] = useState('')
   const [habitGraphCustomEnd, setHabitGraphCustomEnd] = useState('')
@@ -69,6 +70,9 @@ export default function DayPage() {
   const [showDeleteHabitMenu, setShowDeleteHabitMenu] = useState<string | null>(null)
   const [savingDeed, setSavingDeed] = useState(false)
   const [habitHover, setHabitHover] = useState<number | null>(null)
+  const [renamingHabitRow, setRenamingHabitRow] = useState<string | null>(null)
+  const [renameHabitRowValue, setRenameHabitRowValue] = useState('')
+  const renameHabitSubmittedRef = useRef(false)
 
   // Live "now" ticker for scheduled-deed countdowns (1s cadence).
   const countdownNow = useCountdown()
@@ -194,6 +198,35 @@ export default function DayPage() {
       if (h.completed) map[h.title][idx] = true
     }
     return map
+  }, [habitHistory, currentDate])
+
+  // Per-habit detail (last-30-days list, streak, rate) — feeds the expandable habit row.
+  const habitDetail = useMemo(() => {
+    const out: Record<string, { days: { date: Date; done: boolean }[]; streak: number; rate: number; total: number; done: number }> = {}
+    const titles = [...new Set((habitHistory as any[]).map(h => h.title))]
+    const days = 30
+    const seriesStart = new Date(currentDate)
+    seriesStart.setDate(seriesStart.getDate() - (days - 1))
+    seriesStart.setHours(0, 0, 0, 0)
+    for (const title of titles) {
+      const inst = (habitHistory as any[]).filter(h => h.title === title)
+      const doneSet = new Set(
+        inst.filter(h => h.completed).map(h => format(parseISO(h.date), 'yyyy-MM-dd')),
+      )
+      const dayList = eachDayOfInterval({ start: seriesStart, end: startOfDay(currentDate) }).map(d => ({
+        date: d,
+        done: doneSet.has(format(d, 'yyyy-MM-dd')),
+      }))
+      let streak = 0
+      for (let i = dayList.length - 1; i >= 0; i--) {
+        if (dayList[i].done) streak++
+        else break
+      }
+      const total = inst.length
+      const done = inst.filter(h => h.completed).length
+      out[title] = { days: dayList, streak, rate: total > 0 ? Math.round((done / total) * 100) : 0, total, done }
+    }
+    return out
   }, [habitHistory, currentDate])
 
   // Fetch habit history for graph
@@ -570,6 +603,38 @@ export default function DayPage() {
       showToast('Network error', 'error')
     }
     setShowDeleteHabitMenu(null)
+  }
+
+  const handleRenameHabit = async (oldTitle: string) => {
+    if (renameHabitSubmittedRef.current) return
+    const value = renameHabitRowValue.trim()
+    if (!value || value === oldTitle) {
+      setRenamingHabitRow(null)
+      return
+    }
+    renameHabitSubmittedRef.current = true
+    try {
+      const res = await fetch('/api/habits', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldTitle, newTitle: value }),
+      })
+      if (res.ok) {
+        showToast('Habit renamed — all instances updated', 'success')
+        setRenamingHabitRow(null)
+        setShowDeleteHabitMenu(null)
+        setExpandedHabit(null)
+        await Promise.all([fetchItems(), fetchTodayHabits(), fetchHabitHistory()])
+      } else {
+        const data = await res.json()
+        showToast(data.error || 'Failed to rename habit', 'error')
+      }
+    } catch (e) {
+      console.error(e)
+      showToast('Network error', 'error')
+    } finally {
+      renameHabitSubmittedRef.current = false
+    }
   }
 
   const handleUpdateTaskWeight = async (taskId: string, goalId: string, weight: number) => {
@@ -1667,11 +1732,23 @@ export default function DayPage() {
 
           {/* Today's Habits — compact rows */}
           <div className="space-y-1.5">
-            {displayedHabits.map((task: any, idx: number) => (
-              <div key={task.id} className={`group flex items-center gap-3 rounded-lg border px-2.5 py-2 transition-all ${task.completed ? 'border-sage/25 bg-sage/[0.05]' : 'border-white/10 bg-black/15 hover:border-gold/40'}`}>
+            {displayedHabits.map((task: any, idx: number) => {
+              const detail = habitDetail[task.title]
+              const expanded = expandedHabit === task.title
+              return (
+                <div key={task.id} className="space-y-1.5">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setExpandedHabit(expanded ? null : task.title)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedHabit(expanded ? null : task.title) } }}
+                data-cursor={expanded ? 'Hide days & trend' : 'Show days & trend'}
+                className={`group flex cursor-pointer items-center gap-3 rounded-lg border px-2.5 py-2 transition-all ${expanded ? 'border-gold/40 bg-gold/[0.04]' : task.completed ? 'border-sage/25 bg-sage/[0.05]' : 'border-white/10 bg-black/15 hover:border-gold/40'}`}
+              >
                 <span className="w-4 shrink-0 text-center font-mono text-[10px] text-ink/30 tabular-nums">{idx + 1}</span>
                 <button
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.stopPropagation()
                     await fetch(`/api/tasks/${task.id}`, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
@@ -1687,7 +1764,33 @@ export default function DayPage() {
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </button>
-                <span className={`min-w-0 flex-1 truncate text-sm ${task.completed ? 'line-through text-ink/45' : 'text-ink font-medium'}`}>{task.title}</span>
+                {renamingHabitRow === task.id ? (
+                  <input
+                    autoFocus
+                    value={renameHabitRowValue}
+                    onChange={e => setRenameHabitRowValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { e.stopPropagation(); handleRenameHabit(task.title) }
+                      if (e.key === 'Escape') { e.stopPropagation(); setRenamingHabitRow(null) }
+                    }}
+                    onBlur={() => handleRenameHabit(task.title)}
+                    onClick={e => e.stopPropagation()}
+                    className="min-w-0 flex-1 truncate rounded-md border border-gold/40 bg-white/[0.07] px-1.5 py-0.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  />
+                ) : (
+                  <span className={`min-w-0 flex-1 truncate text-sm ${task.completed ? 'line-through text-ink/45' : 'text-ink font-medium'}`}>{task.title}</span>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setRenamingHabitRow(task.id)
+                    setRenameHabitRowValue(task.title)
+                  }}
+                  className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gold/15 transition text-ink/30 hover:text-gold"
+                  title="Rename habit"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
                 <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={96} height={20} className="hidden sm:block" />
                 <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={44} height={20} className="sm:hidden" />
                 {task.completed ? (
@@ -1716,8 +1819,32 @@ export default function DayPage() {
                     </div>
                   )}
                 </div>
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-ink/30 transition-transform ${expanded ? 'rotate-180 text-gold' : ''}`} />
               </div>
-            ))}
+
+              {expanded && detail && (
+                <div className="rounded-lg border border-gold/20 bg-gold/[0.04] px-3 pb-3 pt-3 animate-fadeIn">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gold">Last {detail.days.length} days</p>
+                    <div className="flex items-center gap-2.5 font-mono text-[10px]">
+                      <span className="text-sage">streak {detail.streak}d</span>
+                      <span className="text-ink/50">{detail.rate}% · {detail.done}/{detail.total}</span>
+                    </div>
+                  </div>
+                  <div className="mb-3 grid grid-cols-10 gap-1">
+                    {detail.days.map((d, i) => (
+                      <div key={i} className="flex flex-col items-center gap-1" title={format(d.date, 'EEE d MMM')}>
+                        <span className={`h-4 w-4 rounded-[5px] border ${d.done ? 'border-sage bg-sage/80' : 'border-white/15 bg-black/15'}`} />
+                        <span className="font-mono text-[8px] text-ink/35">{format(d.date, 'd')}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <HabitSparkline values={detail.days.map(d => d.done)} width={320} height={44} className="w-full" />
+                  <p className="mt-1.5 font-mono text-[9px] text-ink/35">Gold = done · grey = missed · tap the row to collapse</p>
+                </div>
+              )}
+              </div>
+            )})}
             {displayedHabits.length === 0 && (
               <button
                 onClick={() => setShowHabitAdd(true)}

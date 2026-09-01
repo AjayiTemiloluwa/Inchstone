@@ -10,6 +10,7 @@ import { ChevronRight, Plus, X, Trash2, BookOpen } from 'lucide-react'
 import { format } from 'date-fns'
 import { Loader } from '@/components/ui/Loader'
 import { Scramble } from '@/components/ui/motion'
+import { InlineEdit } from '@/components/ui/InlineEdit'
 
 export default function GoalPage() {
     const router = useRouter()
@@ -107,8 +108,14 @@ export default function GoalPage() {
                 </button>
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-display font-bold text-ink">{goalItem.title}</h1>
-                        {goalItem.theme && <p className="text-gold font-serif italic mt-1">"{goalItem.theme}"</p>}
+                        <h1 className="text-3xl font-display font-bold text-ink">
+                            <InlineEdit value={goalItem.title} onSave={(t) => updateItem(goalItem.id, { title: t })} title="Rename goal"
+                                inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-3xl font-display font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+                        </h1>
+                        <p className="text-gold font-serif italic mt-1">
+                            <InlineEdit value={goalItem.theme || ''} onSave={(t) => updateItem(goalItem.id, { theme: t })} placeholder="Add a theme quote..." title="Edit theme quote"
+                                inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-base font-serif italic text-gold outline-none focus:ring-2 focus:ring-gold/30" />
+                        </p>
                         <p className="text-sm text-ink/50 mt-2 font-mono">
                             {goalItem.startDate && format(new Date(goalItem.startDate), 'MMM d')} – {goalItem.endDate && format(new Date(goalItem.endDate), 'MMM d, yyyy')}
                         </p>
@@ -126,7 +133,6 @@ export default function GoalPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {quarters.map((quarter, idx) => {
                         const qScore = completionMap[quarter.id] || 0
-                        const qLabel = quarter.title || `Q${idx + 1}`
                         return (
                             <Card key={quarter.id} className="p-5 hover:border-gold transition-colors cursor-pointer group relative" onClick={() => router.push(`/quarter/${quarter.id}`)}>
                                 <button onClick={(e) => handleDelete(e, quarter.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] z-10" title="Delete Quarter">
@@ -134,7 +140,10 @@ export default function GoalPage() {
                                 </button>
                                 <div className="flex items-center justify-between mb-3 pr-6">
                                     <div>
-                                        <p className="text-sm font-bold text-ink">{qLabel}</p>
+                                        <p className="text-sm font-bold text-ink">
+                                            <InlineEdit value={quarter.title || ''} onSave={(t) => updateItem(quarter.id, { title: t })} placeholder={`Q${idx + 1}`} title="Rename quarter"
+                                                inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+                                        </p>
                                         <p className="text-[10px] text-ink/40 font-mono mt-0.5">
                                             {quarter.startDate && format(new Date(quarter.startDate), 'MMM d')} – {quarter.endDate && format(new Date(quarter.endDate), 'MMM d')}
                                         </p>

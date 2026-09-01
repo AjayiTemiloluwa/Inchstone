@@ -36,6 +36,13 @@ export default function YearPage() {
   const [addingHabit, setAddingHabit] = useState(false)
   const [newHabitTitle, setNewHabitTitle] = useState('')
   const [deleteHabitMenu, setDeleteHabitMenu] = useState<string | null>(null)
+  const habitRenameSubmittedRef = useRef(false)
+  const [renamingHabit, setRenamingHabit] = useState<string | null>(null)
+  const [renameHabitValue, setRenameHabitValue] = useState('')
+  const [editingAnchor, setEditingAnchor] = useState(false)
+  const [anchorDraft, setAnchorDraft] = useState('')
+  const [editingFocus, setEditingFocus] = useState(false)
+  const [focusDraft, setFocusDraft] = useState('')
   const [editingTitle, setEditingTitle] = useState<string | null>(null)
   const [editTitleValue, setEditTitleValue] = useState('')
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
@@ -119,6 +126,37 @@ export default function YearPage() {
       console.error(e)
     }
     setDeleteHabitMenu(null)
+  }
+
+  const handleRenameHabit = async (oldTitle: string) => {
+    if (habitRenameSubmittedRef.current) return
+    const value = renameHabitValue.trim()
+    if (!value || value === oldTitle) {
+      setRenamingHabit(null)
+      return
+    }
+    habitRenameSubmittedRef.current = true
+    try {
+      const res = await fetch('/api/habits', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldTitle, newTitle: value }),
+      })
+      if (res.ok) {
+        showToast('Habit renamed — all instances updated', 'success')
+        setRenamingHabit(null)
+        setDeleteHabitMenu(null)
+        fetchHabits()
+      } else {
+        const data = await res.json()
+        showToast(data.error || 'Failed to rename habit', 'error')
+      }
+    } catch (e) {
+      console.error(e)
+      showToast('Network error', 'error')
+    } finally {
+      habitRenameSubmittedRef.current = false
+    }
   }
 
   // Fetch items
@@ -492,6 +530,29 @@ export default function YearPage() {
     setEditYearName(false)
   }
 
+  const startAnchorEdit = () => {
+    if (!yearItem) return
+    setAnchorDraft(yearItem.anchorScripture && !isBibleRef(yearItem.anchorScripture) ? yearItem.anchorScripture : '')
+    setEditingAnchor(true)
+  }
+  const saveAnchorQuote = () => {
+    if (!yearItem) return
+    const next = anchorDraft.trim()
+    updateItem(yearItem.id, { anchorScripture: next || null })
+    setEditingAnchor(false)
+  }
+  const startFocusEdit = () => {
+    if (!yearItem) return
+    setFocusDraft(yearItem.focusQuestion || '')
+    setEditingFocus(true)
+  }
+  const saveFocusQuestion = () => {
+    if (!yearItem) return
+    const next = focusDraft.trim()
+    updateItem(yearItem.id, { focusQuestion: next || null })
+    setEditingFocus(false)
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8 max-w-full pb-24 lg:pb-12 stagger-children" id="report-content">
       {/* Year Vision Banner */}
@@ -569,17 +630,82 @@ export default function YearPage() {
           )}
         </div>
 
-        <p className="mx-auto mt-6 max-w-2xl font-serif text-lg italic leading-relaxed text-parchment/80 sm:text-xl">
-          &ldquo;{anchorLine}&rdquo;
-        </p>
+        <div className="group/quote relative mx-auto mt-6 max-w-2xl">
+          {editingAnchor ? (
+            <div className="flex items-center justify-center gap-2">
+              <input
+                autoFocus
+                value={anchorDraft}
+                onChange={e => setAnchorDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveAnchorQuote()
+                  if (e.key === 'Escape') setEditingAnchor(false)
+                }}
+                onBlur={saveAnchorQuote}
+                placeholder="Your anchor for this year…"
+                className="w-full max-w-xl rounded-xl border border-gold/30 bg-black/25 px-4 py-2 text-center font-serif text-lg italic text-parchment focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-parchment/30"
+              />
+              <button onClick={saveAnchorQuote} aria-label="Save anchor" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gold/15 text-gold transition-colors hover:bg-gold/25">
+                <Check className="h-4 w-4" />
+              </button>
+              <button onClick={() => setEditingAnchor(false)} aria-label="Cancel anchor" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-parchment/50 transition-colors hover:bg-white/5 hover:text-parchment">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <p className="font-serif text-lg italic leading-relaxed text-parchment/80 sm:text-xl">
+              &ldquo;{anchorLine}&rdquo;
+            </p>
+          )}
+          {!editingAnchor && (
+            <button
+              onClick={startAnchorEdit}
+              title="Edit anchor quote"
+              className="absolute -right-2 -top-3 grid h-8 w-8 place-items-center rounded-lg text-parchment/25 opacity-0 transition hover:bg-white/5 hover:text-gold group-hover/quote:opacity-100"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
 
-        {/* Focus question pill */}
-        {yearItem.focusQuestion && (
-          <p className="mx-auto mt-5 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs text-parchment/60">
-            <span className="h-1.5 w-1.5 rounded-full bg-gold" />
-            {yearItem.focusQuestion}
-          </p>
-        )}
+        {/* Focus question pill — click to edit */}
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          {editingFocus ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-white/[0.03] px-3 py-1.5">
+              <input
+                autoFocus
+                value={focusDraft}
+                onChange={e => setFocusDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') saveFocusQuestion()
+                  if (e.key === 'Escape') setEditingFocus(false)
+                }}
+                onBlur={saveFocusQuestion}
+                placeholder="What is your focus question?"
+                className="w-56 sm:w-72 bg-transparent text-xs text-parchment/80 outline-none placeholder:text-parchment/30"
+              />
+              {focusDraft.trim() && (
+                <button onClick={saveFocusQuestion} aria-label="Save focus question" className="text-gold hover:text-gold/80">
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={startFocusEdit}
+              title={yearItem.focusQuestion ? 'Edit focus question' : 'Add a focus question'}
+              className={`group/focus inline-flex flex-wrap items-center justify-center gap-2 rounded-full border px-4 py-1.5 text-xs transition ${
+                yearItem.focusQuestion
+                  ? 'border-white/10 bg-white/[0.03] text-parchment/60 hover:border-gold/40 hover:text-gold'
+                  : 'border-dashed border-white/10 text-parchment/30 hover:border-gold/40 hover:text-parchment/60'
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+              {yearItem.focusQuestion || 'Add a focus question'}
+              <Pencil className="h-2.5 w-2.5 text-parchment/30 transition group-hover/focus:text-gold" />
+            </button>
+          )}
+        </div>
 
         <div className="max-w-md mx-auto mt-6 sm:mt-8 bg-black/20 p-4 sm:p-6 rounded-[8px] backdrop-blur-sm border border-white/5">
           <div className="flex items-center justify-between mb-4">
@@ -859,31 +985,58 @@ export default function YearPage() {
             const pct = ht.total > 0 ? Math.round((ht.completed / ht.total) * 100) : 0
             return (
               <Card key={ht.title} className="p-4 space-y-3 hover:border-gold/50 active:opacity-70 transition-colors group">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-ink text-sm">{ht.title}</h3>
-                  <div className="relative">
+                <div className="flex items-center justify-between gap-2">
+                  {renamingHabit === ht.title ? (
+                    <input
+                      autoFocus
+                      value={renameHabitValue}
+                      onChange={e => setRenameHabitValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleRenameHabit(ht.title)
+                        if (e.key === 'Escape') setRenamingHabit(null)
+                      }}
+                      onBlur={() => handleRenameHabit(ht.title)}
+                      className="min-w-0 flex-1 rounded-lg border border-gold/40 bg-white/[0.07] px-2 py-1 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30"
+                    />
+                  ) : (
+                    <h3 className="min-w-0 flex-1 truncate font-bold text-ink text-sm">{ht.title}</h3>
+                  )}
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
-                      onClick={() => setDeleteHabitMenu(deleteHabitMenu === ht.title ? null : ht.title)}
-                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] min-w-[36px] min-h-[36px] flex items-center justify-center"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setRenamingHabit(ht.title)
+                        setRenameHabitValue(ht.title)
+                      }}
+                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-gold/15 rounded transition text-ink/30 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center"
+                      title="Rename habit"
                     >
-                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </button>
-                    {deleteHabitMenu === ht.title && (
-                      <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl  p-2 min-w-[200px] animate-fadeIn">
-                        <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
-                        <button onClick={() => handleDeleteHabitFuture(ht.title)} className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
-                          <X className="w-3.5 h-3.5" />
-                          <span>Delete future instances only</span>
-                        </button>
-                        <button onClick={() => handleDeleteHabitAll(ht.title)} className="w-full text-left px-3 py-2 text-xs text-[#cf8f78] hover:bg-ember/15 rounded-lg transition flex items-center space-x-2">
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete completely (including past)</span>
-                        </button>
-                        <button onClick={() => setDeleteHabitMenu(null)} className="w-full text-left px-3 py-2 text-xs text-ink/50 hover:bg-mist rounded-lg transition">
-                          Cancel
-                        </button>
-                      </div>
-                    )}
+                    <div className="relative">
+                      <button
+                        onClick={() => setDeleteHabitMenu(deleteHabitMenu === ht.title ? null : ht.title)}
+                        className="p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] min-w-[36px] min-h-[36px] flex items-center justify-center"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </button>
+                      {deleteHabitMenu === ht.title && (
+                        <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl p-2 min-w-[200px] animate-fadeIn">
+                          <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
+                          <button onClick={() => handleDeleteHabitFuture(ht.title)} className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
+                            <X className="w-3.5 h-3.5" />
+                            <span>Delete future instances only</span>
+                          </button>
+                          <button onClick={() => handleDeleteHabitAll(ht.title)} className="w-full text-left px-3 py-2 text-xs text-[#cf8f78] hover:bg-ember/15 rounded-lg transition flex items-center space-x-2">
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete completely (including past)</span>
+                          </button>
+                          <button onClick={() => setDeleteHabitMenu(null)} className="w-full text-left px-3 py-2 text-xs text-ink/50 hover:bg-mist rounded-lg transition">
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-ink/50">

@@ -9,6 +9,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { Loader } from '@/components/ui/Loader'
+import { InlineEdit } from '@/components/ui/InlineEdit'
 
 export default function WeekPage() {
   const router = useRouter()
@@ -236,7 +237,10 @@ export default function WeekPage() {
         </button>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-display font-bold text-ink">{weekItem.title}</h1>
+            <h1 className="text-3xl font-display font-bold text-ink">
+              <InlineEdit value={weekItem.title} onSave={(t) => updateItem(weekItem.id, { title: t })} title="Rename week"
+                inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-3xl font-display font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+            </h1>
             <p className="text-sm text-ink/50 mt-2 font-mono">
               {format(weekStart, 'EEE, MMM d')} – {format(weekEnd, 'EEE, MMM d, yyyy')}
             </p>
@@ -276,7 +280,10 @@ export default function WeekPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-lg font-bold text-ink">{weekItem.title}</h3>
+                  <h3 className="text-lg font-bold text-ink">
+                    <InlineEdit value={weekItem.title} onSave={(t) => updateItem(weekItem.id, { title: t })} title="Rename week"
+                      inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-lg font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+                  </h3>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-1">

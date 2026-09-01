@@ -110,6 +110,33 @@ export async function DELETE(req: Request) {
     }
 }
 
+export async function PATCH(req: Request) {
+    try {
+        const { userId } = await auth()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        const body = await req.json()
+        const { oldTitle, newTitle } = body
+        if (!oldTitle || !newTitle) {
+            return NextResponse.json({ error: 'oldTitle and newTitle are required' }, { status: 400 })
+        }
+        if (oldTitle === newTitle) {
+            return NextResponse.json({ success: true, renamed: 0 })
+        }
+
+        // Rename every instance (past + future) of this habit so history and stats follow.
+        const result = await prisma.task.updateMany({
+            where: { userId, isHabit: true, title: oldTitle },
+            data: { title: newTitle }
+        })
+
+        return NextResponse.json({ success: true, renamed: result.count })
+    } catch (error) {
+        console.error('Failed to rename habit', error)
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    }
+}
+
 export async function POST(req: Request) {
     try {
         const { userId } = await auth()

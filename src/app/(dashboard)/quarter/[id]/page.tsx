@@ -9,6 +9,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
 import { format } from 'date-fns'
 import { Loader } from '@/components/ui/Loader'
+import { InlineEdit } from '@/components/ui/InlineEdit'
 
 export default function QuarterPage() {
   const router = useRouter()
@@ -231,8 +232,14 @@ export default function QuarterPage() {
         </button>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-display font-bold text-ink">{quarterItem.title}</h1>
-            {quarterItem.theme && <p className="text-gold font-serif italic mt-1">"{quarterItem.theme}"</p>}
+            <h1 className="text-3xl font-display font-bold text-ink">
+              <InlineEdit value={quarterItem.title} onSave={(t) => updateItem(quarterItem.id, { title: t })} title="Rename quarter"
+                inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-3xl font-display font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+            </h1>
+            <p className="text-gold font-serif italic mt-1">
+              <InlineEdit value={quarterItem.theme || ''} onSave={(t) => updateItem(quarterItem.id, { theme: t })} placeholder="Add a theme quote..." title="Edit theme quote"
+                inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-base font-serif italic text-gold outline-none focus:ring-2 focus:ring-gold/30" />
+            </p>
             <p className="text-sm text-ink/50 mt-2 font-mono">
               {quarterItem.startDate && format(new Date(quarterItem.startDate), 'MMM d')} – {quarterItem.endDate && format(new Date(quarterItem.endDate), 'MMM d, yyyy')}
             </p>
@@ -273,7 +280,10 @@ export default function QuarterPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-lg font-bold text-ink">{quarterItem.title}</h3>
+                  <h3 className="text-lg font-bold text-ink">
+                    <InlineEdit value={quarterItem.title} onSave={(t) => updateItem(quarterItem.id, { title: t })} title="Rename quarter"
+                      inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-lg font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+                  </h3>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-1">
@@ -317,7 +327,10 @@ export default function QuarterPage() {
                           <button onClick={(e) => { e.stopPropagation(); toggleLock(month.id); }} className="p-1 hover:bg-mist rounded transition" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
                             {isLocked ? <Lock className="w-3.5 h-3.5 text-gold" /> : <Unlock className="w-3.5 h-3.5 text-ink/30" />}
                           </button>
-                          <h4 className="font-bold text-ink text-sm truncate pr-6">{month.title}</h4>
+                          <h4 className="font-bold text-ink text-sm truncate pr-6">
+                            <InlineEdit value={month.title || ''} onSave={(t) => updateItem(month.id, { title: t })} title="Rename month"
+                              inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
+                          </h4>
                         </div>
                         <div className="flex items-center space-x-2">
                           <ProgressRing progress={mScore} size={32} />
