@@ -16,6 +16,7 @@ import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useC
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 import { useToast } from '@/components/ui/ToastProvider'
 import { HabitSparkline } from '@/components/ui/HabitSparkline'
+import { BottleMentionTextarea } from '@/components/ui/BottleMentionTextarea'
 import { Loader } from '@/components/ui/Loader'
 
 type GraphRange = 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
@@ -1531,10 +1532,11 @@ export default function DayPage() {
               <BookOpen className="w-4 h-4 text-gold" />
               <h3 className="font-display font-bold text-ink"><Scramble text="Day Reflection" mono={false} /></h3>
             </div>
-            <textarea
+            <BottleMentionTextarea
               value={reflectionText}
-              onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
-              placeholder="Reflect on today..."
+              onChange={(text) => { setReflectionText(text); saveReflection(text) }}
+              placeholder="Reflect on today…  e.g. I did @Workout 400 press-ups"
+              sourceRef={`day-${dateStr}`}
               className="w-full h-40 bg-black/20 border border-white/10 rounded-xl p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
             />
             <p className="text-[10px] text-ink/40">Auto-saves as you type</p>
@@ -2470,10 +2472,11 @@ export default function DayPage() {
                   <BookOpen className="w-3.5 h-3.5" />
                   <span>Reflection</span>
                 </p>
-                <textarea
+                <BottleMentionTextarea
                   value={deedReflection}
-                  onChange={(e) => setDeedReflection(e.target.value)}
-                  placeholder="What did you learn? How did it go?"
+                  onChange={setDeedReflection}
+                  placeholder="What did you learn? How did it go?  e.g. @Workout 400 press-ups"
+                  sourceRef={`deed-${selectedDeed.task.id}`}
                   className="w-full h-28 bg-black/20 border border-white/10 rounded-xl p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
                 />
               </div>
