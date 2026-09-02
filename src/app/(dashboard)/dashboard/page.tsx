@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
 import { useRouter } from 'next/navigation'
 import { format, startOfYear, differenceInDays } from 'date-fns'
@@ -84,18 +84,24 @@ export default function DashboardPage() {
     () => '', // server snapshot — filled in right after hydration
   )
 
-  useEffect(() => {
-    const todayIso = new Date().toISOString()
-    fetch(`/api/daily-score?date=${todayIso}`)
+  const refreshDailyScore = useCallback(() => {
+    // Local calendar day (yyyy-MM-dd) — the same anchor every other screen uses.
+    // A full UTC ISO string here resolves to the wrong day for UTC− timezones
+    // in the evening (e.g. 8pm in Lagos is already "tomorrow" in UTC).
+    fetch(`/api/daily-score?date=${format(new Date(), 'yyyy-MM-dd')}`)
       .then(r => r.json())
       .then(data => { if (data.dailyScore) setDailyScore(data.dailyScore) })
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    refreshDailyScore()
 
     fetch('/api/nudges')
       .then(r => r.json())
       .then(data => { if (data.nudges) setNudges(data.nudges) })
       .catch(() => {})
-  }, [])
+  }, [refreshDailyScore])
 
   useEffect(() => {
     fetch('/api/items')
@@ -158,8 +164,36 @@ export default function DashboardPage() {
   const latestNudge = nudges[0]
   const firstName = user?.firstName?.trim() || ''
 
-  const toggleDeed = (id: string, completed: boolean) => {
-    updateItem(id, { completed })
+  // Keep the dashboard in sync with the day page: a deed's completion lives on
+  // its Task(s). The tasks API recalculates the deed's progress (and every
+  // ancestor's) and daily-score is computed from task progress — toggling the
+  // Item alone (the old behavior) left the checkbox, scores and rollups stale.
+  const toggleDeed = (deed: Item, completed: boolean) => {
+    const tasks = deed.tasks || []
+    if (tasks.length > 0) {
+      // Optimistic: flip the tasks in the local tree (same pattern as the day page)
+      const updatedTasks = tasks.map(t => ({ ...t, completed }))
+      const updateNode = (nodes: Item[]): Item[] => nodes.map(n => {
+        if (n.id === deed.id) return { ...n, tasks: updatedTasks }
+        if (n.children) return { ...n, children: updateNode(n.children) }
+        return n
+      })
+      setItems(updateNode(items))
+
+      // Persist each task; the API cascades progress up the hierarchy.
+      Promise.all(tasks.map(t =>
+        fetch(`/api/tasks/${t.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed }),
+        })
+      )).then(() => refreshDailyScore()).catch(console.error)
+    } else {
+      // Taskless deed: completion lives on the item itself — set progress too so
+      // rollups and the daily score's deed-progress fallback actually move.
+      updateItem(deed.id, { completed, progress: completed ? 100 : 0 })
+      refreshDailyScore()
+    }
   }
 
   if (loading) {
@@ -336,7 +370,7 @@ export default function DashboardPage() {
                       aria-label={`Mark ${deed.title} ${done ? 'incomplete' : 'complete'}`}
                       onClick={(e) => {
                         e.stopPropagation()
-                        toggleDeed(deed.id, !done)
+                        toggleDeed(deed, !done)
                       }}
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-200 ${
                         done ? 'border-moss bg-moss text-ink' : 'border-gold-dim/40 hover:border-gold'

@@ -14,8 +14,13 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'date is required' }, { status: 400 })
         }
 
-        const date = new Date(dateStr)
-        date.setHours(0, 0, 0, 0)
+        // Date-only strings (yyyy-MM-dd) are calendar days — parse them as exact
+        // UTC midnights, matching how day-anchored records are stored. Running
+        // setHours(0,0,0,0) on them shifts the window by the server's timezone
+        // and can miss the day's tasks entirely on non-UTC servers.
+        const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+        const date = new Date(isDateOnly ? `${dateStr}T00:00:00.000Z` : dateStr)
+        if (!isDateOnly) date.setHours(0, 0, 0, 0)
         const nextDay = new Date(date)
         nextDay.setDate(nextDay.getDate() + 1)
 
@@ -63,8 +68,9 @@ export async function GET(req: Request) {
         const totalTasks = tasks.length
         const completedTasks = tasks.filter(t => t.completed).length
 
-        // Upsert daily score to avoid race conditions
-        let dailyScore = await prisma.dailyScore.upsert({
+        // Upsert daily score to avoid race conditions (return value unused —
+        // the response below is built from the freshly computed totals)
+        await prisma.dailyScore.upsert({
             where: { userId_date: { userId, date } },
             create: {
                 userId,
