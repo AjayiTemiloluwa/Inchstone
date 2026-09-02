@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
-import { AtSign, ChevronDown, Plus, X, Trash2, Check } from 'lucide-react'
+import { AtSign, ChevronDown, Plus, X, Trash2, Check, Eye } from 'lucide-react'
+import { BottleContentsModal } from '@/components/ui/BottleContentsModal'
 import { Scramble } from '@/components/ui/motion'
 
 /**
@@ -46,6 +47,7 @@ export default function ChallengePage() {
   const [newUnit, setNewUnit] = useState('')
   const [newTarget, setNewTarget] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [viewingId, setViewingId] = useState<string | null>(null)
   const [quickAmount, setQuickAmount] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
 
@@ -63,8 +65,12 @@ export default function ChallengePage() {
     }
   }, [])
 
+  // Initial load — deferred to a timer callback so state updates happen in an
+  // async continuation, not synchronously within the effect body
+  // (react-hooks/set-state-in-effect).
   useEffect(() => {
-    fetchBottles()
+    const t = setTimeout(fetchBottles, 0)
+    return () => clearTimeout(t)
   }, [fetchBottles])
 
   const handleCreate = async () => {
@@ -336,13 +342,23 @@ export default function ChallengePage() {
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                     {bottle.entryCount} pour{bottle.entryCount === 1 ? '' : 's'}
                   </button>
-                  <button
-                    onClick={() => handleDeleteBottle(bottle)}
-                    className="shrink-0 rounded-md p-1.5 text-parchment/35 transition hover:bg-ember/15 hover:text-[#e0a093]"
-                    title="Delete bottle"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={() => setViewingId(bottle.id)}
+                      className="rounded-md p-1.5 text-parchment/35 transition hover:bg-white/10 hover:text-gold"
+                      title="See everything in this bottle"
+                      data-cursor="Open the bottle"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteBottle(bottle)}
+                      className="rounded-md p-1.5 text-parchment/35 transition hover:bg-ember/15 hover:text-[#e0a093]"
+                      title="Delete bottle"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Entry log */}
@@ -376,6 +392,9 @@ export default function ChallengePage() {
           })}
         </div>
       )}
+
+      {/* "What's in the bottle" — full contents view */}
+      <BottleContentsModal bottleId={viewingId} onClose={() => setViewingId(null)} onChanged={fetchBottles} />
     </div>
   )
 }
