@@ -57,6 +57,10 @@ export async function GET(req: Request) {
     // Category breakdown
     const categoryBreakdown: Record<string, { total: number, count: number, type: string }> = {}
     entries.forEach(e => {
+      // Internal purse movements (manual transfers and the auto Main-purse
+      // deduction) are not real spending on a category — skip them so
+      // breakdowns stay accurate.
+      if (e.type === 'transfer_in' || e.type === 'transfer_out') return
       if (!categoryBreakdown[e.category]) {
         categoryBreakdown[e.category] = { total: 0, count: 0, type: e.type }
       }
@@ -122,23 +126,44 @@ export async function POST(req: Request) {
       }
     }
 
-    const entry = await prisma.financialEntry.create({
-      data: {
-        userId,
-        itemId: itemId || null,
-        entryDate: entryDate ? new Date(entryDate) : new Date(),
-        type,
-        amount: parsedAmount,
-        currency: currency || 'NGN',
-        category: category.trim(),
-        description: description || null,
-        comments: comments || null,
-        priority: priority || null,
-        purse: purseName,
-      },
-    })
+    const entryData = {
+      userId,
+      itemId: itemId || null,
+      entryDate: entryDate ? new Date(entryDate) : new Date(),
+      type,
+      amount: parsedAmount,
+      currency: currency || 'NGN',
+      category: category.trim(),
+      description: description || null,
+      comments: comments || null,
+      priority: priority || null,
+      purse: purseName,
+    }
 
-    return NextResponse.json({ success: true, entry })
+    // MIRROR RULE: Main is the master purse — money only leaves the system
+    // through it. An expense from any other purse (Savings, Offerings, …)
+    // therefore also deducts the same amount from "Main", recorded as an
+    // internal transfer_out so the ledger shows a clear audit trail.
+    const mainDeduction =
+      purseName !== 'Main'
+        ? {
+            userId,
+            entryDate: entryData.entryDate,
+            type: 'transfer_out' as const,
+            amount: parsedAmount,
+            currency: currency || 'NGN',
+            category: 'Transfer',
+            description: `Auto: ${description || category.trim()} spent from ${purseName}`,
+            purse: 'Main',
+          }
+        : null
+
+    const [entry, deduction] = await prisma.$transaction([
+      prisma.financialEntry.create({ data: entryData }),
+      ...(mainDeduction ? [prisma.financialEntry.create({ data: mainDeduction })] : []),
+    ])
+
+    return NextResponse.json({ success: true, entry, mainDeduction: deduction || null })
   } catch (error) {
     console.error('Failed to create financial entry', error)
     const message = error instanceof Error ? error.message : 'Internal Server Error'
