@@ -197,11 +197,12 @@ export function BottleContentsModal({
       <div
         role="dialog"
         aria-modal="true"
+        data-lenis-prevent
         className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid text-parchment shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start gap-3 border-b border-white/10 px-6 pt-6 pb-4">
+        <div className="flex shrink-0 items-start gap-3 border-b border-white/10 px-6 pt-6 pb-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gold-dim/30 bg-gold/10 text-2xl">
             {bottle?.emoji || '🫙'}
           </span>
@@ -222,8 +223,9 @@ export function BottleContentsModal({
           </button>
         </div>
 
-        {/* Search + Stats */}
-        <div className="border-b border-white/10 px-6 py-4">
+        {/* Scrollable middle — search, stats, and pour history scroll as one */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
+        <div className="border-b border-white/10 py-4">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-parchment/35" />
             <input
@@ -257,7 +259,7 @@ export function BottleContentsModal({
         </div>
 
         {/* Pour history */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <div className="py-4">
           {loading && <p className="py-8 text-center text-sm text-parchment/40">Opening the bottle…</p>}
           {!loading && error && <p className="py-8 text-center text-sm text-[#cf8f78]">{error}</p>}
           {!loading && !error && groups.length === 0 && (
@@ -297,8 +299,10 @@ export function BottleContentsModal({
           ))}
         </div>
 
+        </div>
+
         {/* Footer */}
-        <div className="border-t border-white/10 px-6 py-3">
+        <div className="shrink-0 border-t border-white/10 px-6 py-3">
           <p className="text-center font-mono text-[11px] text-parchment/35">
             {query
               ? `${filtered.length} of ${entries.length} pours shown`
