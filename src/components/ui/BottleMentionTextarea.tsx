@@ -88,7 +88,10 @@ export function BottleMentionTextarea({
   }, [])
 
   useEffect(() => {
-    refreshBottles()
+    // Deferred so the state update lands in an async continuation, not the
+    // effect body (avoids cascading-render lint error).
+    const t = setTimeout(refreshBottles, 0)
+    return () => clearTimeout(t)
   }, [refreshBottles])
 
   /* ── Mention detection ─────────────────────────────────────────────── */
@@ -145,8 +148,19 @@ export function BottleMentionTextarea({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       })
-        .then(r => (r.ok ? refreshBottles() : undefined))
-        .catch(() => undefined)
+        .then(async r => {
+          const data = await r.json().catch(() => null)
+          if (r.ok) {
+            showToast(`New bottle "${name}" created — now type the amount`, 'success')
+            await refreshBottles()
+          } else if (r.status === 409) {
+            // It already exists (created moments ago elsewhere) — just resync.
+            await refreshBottles()
+          } else {
+            showToast((data && data.error) || 'Could not create the bottle', 'error')
+          }
+        })
+        .catch(() => showToast('Could not create the bottle', 'error'))
     }
 
     requestAnimationFrame(() => {
@@ -155,7 +169,7 @@ export function BottleMentionTextarea({
       el.setSelectionRange(pos, pos)
       setMention(detectMention(el.value, pos))
     })
-  }, [mention, onChange, refreshBottles, detectMention])
+  }, [mention, onChange, refreshBottles, detectMention, showToast])
 
   /* ── Pouring parsed amounts ────────────────────────────────────────── */
 
@@ -286,7 +300,7 @@ export function BottleMentionTextarea({
         className={className}
       />
 
-      {mention && optionCount > 0 && (
+      {mention && (optionCount > 0 || filtered.length === 0) && (
         <div
           className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-56 overflow-y-auto rounded-xl border border-mist bg-paper p-1.5 shadow-lg animate-fadeIn"
           role="listbox"
