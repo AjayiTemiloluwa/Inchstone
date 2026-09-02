@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
-import { AtSign, ChevronDown, Plus, X, Trash2, Check, Eye } from 'lucide-react'
+import { AtSign, ChevronDown, Plus, X, Trash2, Check, Eye, Flag, Pencil } from 'lucide-react'
 import { BottleContentsModal } from '@/components/ui/BottleContentsModal'
 import { Scramble } from '@/components/ui/motion'
 
@@ -32,9 +32,31 @@ interface Bottle {
   emoji?: string | null
   unit?: string | null
   target?: number | null
+  challenge?: string | null
+  challengeDue?: string | null
   total: number
   entryCount: number
   entries: BottleEntry[]
+}
+
+/** Captured once per module load — the chip is day-granularity, so it doesn't need per-render freshness. */
+const NOW_MS = Date.now()
+
+/** Deadline chip for a bottle's challenge — days left, due today, or overdue. */
+function ChallengeDue({ challengeDue }: { challengeDue: string }) {
+  const due = new Date(challengeDue)
+  if (isNaN(due.getTime())) return null
+  const daysLeft = Math.ceil((due.getTime() - NOW_MS) / 86400000)
+  const label =
+    daysLeft > 1 ? `${daysLeft}d left`
+    : daysLeft === 1 ? 'due tomorrow'
+    : daysLeft === 0 ? 'due today'
+    : `${Math.abs(daysLeft)}d overdue`
+  return (
+    <p className={`mt-1 font-mono text-[10px] ${daysLeft >= 0 ? 'text-gold/80' : 'text-[#e0a093]'}`}>
+      due {due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {label}
+    </p>
+  )
 }
 
 export default function ChallengePage() {
@@ -50,6 +72,9 @@ export default function ChallengePage() {
   const [viewingId, setViewingId] = useState<string | null>(null)
   const [quickAmount, setQuickAmount] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [challengeEditId, setChallengeEditId] = useState<string | null>(null)
+  const [challengeText, setChallengeText] = useState('')
+  const [challengeDue, setChallengeDue] = useState('')
 
   const fetchBottles = useCallback(async () => {
     try {
@@ -171,6 +196,36 @@ export default function ChallengePage() {
     }
   }
 
+  // ── Challenge attached to a bottle ──
+  const openChallengeEditor = (bottle: Bottle) => {
+    setChallengeEditId(bottle.id)
+    setChallengeText(bottle.challenge || '')
+    setChallengeDue(bottle.challengeDue ? bottle.challengeDue.slice(0, 10) : '')
+  }
+
+  const handleSaveChallenge = async (bottle: Bottle) => {
+    const challenge = challengeText.trim() || null
+    const due = challengeDue || null
+    try {
+      const res = await fetch(`/api/bottles/${bottle.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challenge, challengeDue: due }),
+      })
+      if (res.ok) {
+        // Optimistic local update — the card reflects it instantly, no refetch
+        setBottles(prev => prev.map(b => (b.id === bottle.id ? { ...b, challenge, challengeDue: due } : b)))
+        showToast(challenge ? 'Challenge set — now go fill it' : 'Challenge cleared', 'success')
+        setChallengeEditId(null)
+      } else {
+        const data = await res.json()
+        showToast(data.error || 'Failed to save challenge', 'error')
+      }
+    } catch {
+      showToast('Network error', 'error')
+    }
+  }
+
   if (loading) return <Loader routeKey="challenge" />
 
   const grandTotal = bottles.reduce((s, b) => s + b.total, 0)
@@ -285,8 +340,19 @@ export default function ChallengePage() {
               <Card key={bottle.id} className="flex flex-col gap-3">
                 {/* Header row */}
                 <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gold-dim/30 bg-gold/10 text-2xl">{bottle.emoji || '🫙'}</span>
-                  <div className="min-w-0 flex-1">
+                  <button
+                    onClick={() => setViewingId(bottle.id)}
+                    title="See everything in this bottle"
+                    data-cursor="Open the bottle"
+                    className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-gold-dim/30 bg-gold/10 text-2xl transition hover:border-gold/60"
+                  >
+                    {bottle.emoji || '🫙'}
+                  </button>
+                  <div
+                    className="min-w-0 flex-1 cursor-pointer"
+                    onClick={() => setViewingId(bottle.id)}
+                    title="See everything in this bottle"
+                  >
                     <p className="truncate text-sm font-bold text-parchment">@{bottle.name}</p>
                     <p className="font-mono text-[11px] text-parchment/45">
                       {bottle.total.toLocaleString()}{bottle.unit ? ` ${bottle.unit}` : ''}
@@ -310,6 +376,68 @@ export default function ChallengePage() {
                       <div className={`h-full rounded-full ${pct >= 100 ? 'bg-sage' : 'bg-gold'}`} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
+                )}
+
+                {/* Challenge attached to this bottle */}
+                {challengeEditId === bottle.id ? (
+                  <div className="space-y-2 rounded-lg border border-gold/40 bg-gold/5 p-2.5">
+                    <textarea
+                      value={challengeText}
+                      onChange={e => setChallengeText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSaveChallenge(bottle) }}
+                      rows={2}
+                      autoFocus
+                      placeholder="e.g. Fill this to 10,000 before the month ends"
+                      className="w-full resize-none rounded-md border border-ink/40 bg-ink/50 p-2 text-xs text-parchment placeholder:text-parchment/25 focus:border-gold focus:outline-none"
+                      aria-label={`Challenge for ${bottle.name}`}
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={challengeDue}
+                        onChange={e => setChallengeDue(e.target.value)}
+                        className="flex-1 rounded-md border border-ink/40 bg-ink/50 px-2 py-1.5 font-mono text-[11px] text-parchment/80 focus:border-gold focus:outline-none"
+                        aria-label="Challenge due date"
+                      />
+                      <button
+                        onClick={() => handleSaveChallenge(bottle)}
+                        className="rounded-md bg-gold p-1.5 text-ink transition hover:bg-[#cbaa6f]"
+                        title="Save challenge (Ctrl+Enter)"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setChallengeEditId(null)}
+                        className="rounded-md p-1.5 text-parchment/45 transition hover:bg-white/10 hover:text-parchment"
+                        title="Cancel"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : bottle.challenge ? (
+                  <div className="group/chal flex items-start gap-2 rounded-lg border border-gold/25 bg-gold/5 p-2.5">
+                    <Flag className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs leading-relaxed text-parchment/85">{bottle.challenge}</p>
+                      {bottle.challengeDue && <ChallengeDue challengeDue={bottle.challengeDue} />}
+                    </div>
+                    <button
+                      onClick={() => openChallengeEditor(bottle)}
+                      className="shrink-0 rounded p-1 text-parchment/30 opacity-0 transition group-hover/chal:opacity-100 hover:bg-white/10 hover:text-gold"
+                      title="Edit challenge"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => openChallengeEditor(bottle)}
+                    className="flex items-center gap-2 rounded-lg border border-dashed border-white/15 p-2.5 text-left transition hover:border-gold/50 hover:bg-gold/5"
+                  >
+                    <Flag className="h-3.5 w-3.5 shrink-0 text-parchment/35" />
+                    <span className="text-xs text-parchment/45">Add a challenge for this bottle…</span>
+                  </button>
                 )}
 
                 {/* Quick pour */}

@@ -457,6 +457,8 @@ model ChallengeBottle {
   emoji     String?
   unit      String? // e.g. "press-ups", "km", "pages"
   target    Float? // optional goal amount to fill the bottle
+  challenge String? // the challenge attached to this bottle (what you're trying to do)
+  challengeDue DateTime? // optional deadline for the challenge
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

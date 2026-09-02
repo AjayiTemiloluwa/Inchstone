@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma'
 // GET    /api/bottles/[id] — everything inside one bottle: the bottle, every
 //                       pour (newest first), and summary stats for the
 //                       "what's in the bottle" view.
-// PATCH  /api/bottles/[id] — rename / re-unit / re-target a bottle
+// PATCH  /api/bottles/[id] — rename / re-unit / re-target / set the challenge on a bottle
 // DELETE /api/bottles/[id] — delete a bottle (cascades to its entries)
 
 export async function GET(
@@ -85,6 +85,8 @@ export async function PATCH(
                 ...(body.emoji !== undefined && { emoji: body.emoji ? String(body.emoji).slice(0, 8) : null }),
                 ...(body.unit !== undefined && { unit: body.unit ? String(body.unit).trim() : null }),
                 ...(body.target !== undefined && { target: body.target === null || body.target === '' ? null : Number(body.target) }),
+                ...(body.challenge !== undefined && { challenge: body.challenge === null || String(body.challenge).trim() === '' ? null : String(body.challenge).trim() }),
+                ...(body.challengeDue !== undefined && { challengeDue: body.challengeDue === null || body.challengeDue === '' ? null : new Date(String(body.challengeDue)) }),
             },
         })
 

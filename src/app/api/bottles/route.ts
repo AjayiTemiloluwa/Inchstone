@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma'
 
 // ── Challenge Bottles ──
 // GET  /api/bottles        — list the user's bottles with totals + recent entries
-// POST /api/bottles        — create a bottle { name, emoji?, unit?, target? }
+// POST /api/bottles        — create a bottle { name, emoji?, unit?, target?, challenge?, challengeDue? }
 
 export async function GET(req: Request) {
     try {
@@ -73,6 +73,8 @@ export async function POST(req: Request) {
                 emoji: body.emoji ? String(body.emoji).slice(0, 8) : null,
                 unit: body.unit ? String(body.unit).trim() : null,
                 target: body.target !== undefined && body.target !== null && body.target !== '' ? Number(body.target) : null,
+                challenge: body.challenge ? String(body.challenge).trim() : null,
+                challengeDue: body.challengeDue ? new Date(String(body.challengeDue)) : null,
             },
         })
 
