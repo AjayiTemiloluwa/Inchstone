@@ -275,7 +275,7 @@ export function BottleContentsModal({
                     className="group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2"
                   >
                     <span className="w-14 shrink-0 text-right font-mono text-sm font-bold text-gold">
-                      {e.amount.toLocaleString()}
+                      {e.amount > 0 ? '+' : ''}{e.amount.toLocaleString()}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-sm text-parchment/80">{sourceLabel(e)}</span>
                     <span className="shrink-0 font-mono text-[10px] text-parchment/35">

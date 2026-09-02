@@ -75,6 +75,8 @@ export default function ChallengePage() {
   const [challengeEditId, setChallengeEditId] = useState<string | null>(null)
   const [challengeText, setChallengeText] = useState('')
   const [challengeDue, setChallengeDue] = useState('')
+  const [targetEditId, setTargetEditId] = useState<string | null>(null)
+  const [targetDraft, setTargetDraft] = useState('')
 
   const fetchBottles = useCallback(async () => {
     try {
@@ -151,7 +153,8 @@ export default function ChallengePage() {
         }),
       })
       if (res.ok) {
-        showToast(`+${amount} → ${bottle.emoji ? bottle.emoji + ' ' : ''}${bottle.name} bottle`, 'success')
+        const sign = amount > 0 ? '+' : ''
+        showToast(`${sign}${amount} → ${bottle.emoji ? bottle.emoji + ' ' : ''}${bottle.name} bottle`, 'success')
         setQuickAmount(prev => ({ ...prev, [bottle.id]: '' }))
         fetchBottles()
       } else {
@@ -226,6 +229,42 @@ export default function ChallengePage() {
     }
   }
 
+  const openTargetEditor = (bottle: Bottle) => {
+    setTargetEditId(bottle.id)
+    setTargetDraft(bottle.target != null ? String(bottle.target) : '')
+  }
+
+  const handleSaveTarget = async (bottle: Bottle) => {
+    const raw = targetDraft.trim()
+    let target: number | null = null
+    if (raw !== '') {
+      const parsed = Number(raw)
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        showToast('Target must be a positive number (or empty to clear)', 'error')
+        return
+      }
+      target = parsed
+    }
+    try {
+      const res = await fetch(`/api/bottles/${bottle.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target }),
+      })
+      if (res.ok) {
+        // Optimistic local update — instant, no reload
+        setBottles(prev => prev.map(b => (b.id === bottle.id ? { ...b, target } : b)))
+        showToast(target != null ? `Target set to ${target.toLocaleString()}` : 'Target cleared', 'success')
+        setTargetEditId(null)
+      } else {
+        const data = await res.json()
+        showToast(data.error || 'Failed to save target', 'error')
+      }
+    } catch {
+      showToast('Network error', 'error')
+    }
+  }
+
   if (loading) return <Loader routeKey="challenge" />
 
   const grandTotal = bottles.reduce((s, b) => s + b.total, 0)
@@ -260,7 +299,9 @@ export default function ChallengePage() {
               In a day reflection or a deed&rsquo;s reflection, type <span className="font-mono text-gold">@</span> to summon the
               bottle list, pick one, then type the amount —{' '}
               <span className="rounded bg-ink/60 px-1.5 py-0.5 font-mono text-[12px] text-gold">I did @Workout 400 press-ups</span>{' '}
-              pours 400 into the Workout bottle.
+              pours 400 into the Workout bottle.{' '}
+              <span className="rounded bg-ink/60 px-1.5 py-0.5 font-mono text-[12px] text-gold">@Workout -100</span>{' '}
+              deducts 100. The text is the law: delete the mention (or change the number) and the bottle updates instantly.
             </p>
           </div>
         </div>
@@ -378,6 +419,55 @@ export default function ChallengePage() {
                   </div>
                 )}
 
+                {/* Target box — editable number on each bottle card */}
+                <div className="flex items-center gap-2">
+                  {targetEditId === bottle.id ? (
+                    <>
+                      <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-parchment/45">Target</span>
+                      <input
+                        value={targetDraft}
+                        onChange={e => setTargetDraft(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveTarget(bottle) }}
+                        autoFocus
+                        inputMode="decimal"
+                        placeholder="e.g. 10000"
+                        className="w-24 rounded-md border border-ink/40 bg-ink/50 px-2 py-1 font-mono text-xs text-parchment placeholder:text-parchment/25 focus:border-gold focus:outline-none"
+                        aria-label={`Target for ${bottle.name}`}
+                      />
+                      <button
+                        onClick={() => handleSaveTarget(bottle)}
+                        className="rounded-md bg-gold p-1 text-ink transition hover:bg-[#cbaa6f]"
+                        title="Save target"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setTargetEditId(null)}
+                        className="rounded-md p-1 text-parchment/45 transition hover:bg-white/10 hover:text-parchment"
+                        title="Cancel"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => openTargetEditor(bottle)}
+                      className="group/target flex items-center gap-1.5 rounded-md border border-dashed border-white/15 px-2 py-1 font-mono text-[10px] text-parchment/45 transition hover:border-gold/50 hover:text-parchment/70"
+                      title={bottle.target != null ? 'Edit target' : 'Set a target'}
+                    >
+                      <span className="text-parchment/50">🎯</span>
+                      <span>
+                        {bottle.target != null
+                          ? `Target: ${bottle.target.toLocaleString()}${bottle.unit ? ` ${bottle.unit}` : ''}`
+                          : 'Set target'}
+                      </span>
+                      {bottle.target != null && (
+                        <Pencil className="h-2.5 w-2.5 opacity-0 transition group-hover/target:opacity-100" />
+                      )}
+                    </button>
+                  )}
+                </div>
+
                 {/* Challenge attached to this bottle */}
                 {challengeEditId === bottle.id ? (
                   <div className="space-y-2 rounded-lg border border-gold/40 bg-gold/5 p-2.5">
@@ -494,7 +584,7 @@ export default function ChallengePage() {
                   <div className="space-y-1.5 rounded-lg border border-white/10 bg-ink/40 p-2">
                     {bottle.entries.map(entry => (
                       <div key={entry.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-white/5">
-                        <span className="shrink-0 font-mono font-bold text-gold tabular-nums">+{entry.amount.toLocaleString()}</span>
+                        <span className="shrink-0 font-mono font-bold text-gold tabular-nums">{entry.amount > 0 ? '+' : ''}{entry.amount.toLocaleString()}</span>
                         <span className="min-w-0 flex-1 truncate text-parchment/60">{entry.note || (entry.sourceType === 'manual' ? 'Manual pour' : `From ${entry.sourceType}`)}</span>
                         <span className="shrink-0 font-mono text-[9px] text-parchment/30">
                           {new Date(entry.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}

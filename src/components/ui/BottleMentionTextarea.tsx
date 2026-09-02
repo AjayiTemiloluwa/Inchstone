@@ -11,9 +11,10 @@ import { useToast } from '@/components/ui/ToastProvider'
  *   • Typing "@" opens a dropdown of every bottle; keep typing to filter,
  *     ↑/↓ + Enter (or click) to pick, and a new bottle can be minted inline.
  *   • A sentence like "I did @Workout 400 press-ups" pours 400 into the
- *     Workout bottle. Parsing runs when typing settles and on blur; every
- *     pour carries a dedupeKey (reflection|bottle|amount) so auto-save can
- *     never double-count the same mention.
+ *     Workout bottle; "@Workout -100" deducts 100. The reflection text is the
+ *     source of truth — deleting a mention (or changing its amount) removes
+ *     or updates the pour automatically via a server-side reconcile, so the
+ *     bottle always matches what the text currently says.
  */
 
 export interface BottleSummary {
@@ -45,7 +46,6 @@ interface BottleMentionTextareaProps {
   onLogged?: (info: { bottleName: string; amount: number }) => void
 }
 
-const MENTION_RE = /(?:^|[\s(])@([\p{L}\p{N}_\- ]+?)[ \t]+(\d+(?:\.\d+)?)/gu
 const IDLE_MS = 1600
 
 export function BottleMentionTextarea({
@@ -62,9 +62,11 @@ export function BottleMentionTextarea({
   const { showToast } = useToast()
   const areaRef = useRef<HTMLTextAreaElement | null>(null)
   const bottlesRef = useRef<BottleSummary[]>([])
-  const loggedRef = useRef<Set<string>>(new Set())
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pouringRef = useRef(false)
+  const lastValueRef = useRef(value)
+  const reconcileRef = useRef<(v: string) => void>(() => undefined)
+  const touchedRef = useRef(false)
 
   const [bottles, setBottles] = useState<BottleSummary[]>([])
   const [mention, setMention] = useState<MentionState | null>(null)
@@ -171,69 +173,45 @@ export function BottleMentionTextarea({
     })
   }, [mention, onChange, refreshBottles, detectMention, showToast])
 
-  /* ── Pouring parsed amounts ────────────────────────────────────────── */
+  /* ── Syncing pours to the text ────────────────────────────────────── */
+  // Every pour is a deduction-keyed entry. Reconcile makes the bottle match
+  // the CURRENT text exactly: new mentions get poured, mentions that were
+  // deleted (or their amount changed) are removed server-side. Editing or
+  // deleting the text is therefore enough — no manual removal needed.
 
-  const pourFromText = useCallback(async (text: string) => {
-    if (!text || !text.includes('@') || pouringRef.current) return
+  const reconcileFromText = useCallback(async (text: string) => {
+    if (pouringRef.current) return
     pouringRef.current = true
     try {
-      const re = new RegExp(MENTION_RE)
-      let m: RegExpExecArray | null
-      const pours: Array<{ name: string; amount: number; key: string }> = []
-      while ((m = re.exec(text)) !== null) {
-        const rawName = m[1].trim().replace(/\s+/g, ' ')
-        const amount = parseFloat(m[2])
-        if (!rawName || rawName.length > 24 || !Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 1e9) continue
-        // Single-token mentions may mint a new bottle; multi-word names only
-        // pour when they match an existing bottle (avoids sentence false-positives).
-        const known = bottlesRef.current.find(b => b.name.toLowerCase() === rawName.toLowerCase())
-        if (rawName.includes(' ') && !known) continue
-        const key = `${sourceRef}|${rawName.toLowerCase()}|${amount}`
-        if (loggedRef.current.has(key)) continue
-        pours.push({ name: rawName, amount, key })
+      const res = await fetch('/api/bottles/entries/reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceRef, text }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        showToast((data && data.error) || 'Could not sync bottle pours — try again', 'error')
+        return
       }
+      const data = await res.json()
+      const added: Array<{ name: string; amount: number }> = data.added || []
+      const removed: Array<{ name: string; amount: number }> = data.removed || []
 
-      for (const pour of pours) {
-        try {
-          const res = await fetch('/api/bottles/entries', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              bottleName: pour.name,
-              amount: pour.amount,
-              note: text.trim().slice(0, 500),
-              sourceType: 'reflection',
-              sourceRef,
-              dedupeKey: pour.key,
-            }),
-          })
-          if (res.ok) {
-            // Mark as logged only after the server accepted it — otherwise a
-            // failure would be silently swallowed and never retried.
-            loggedRef.current.add(pour.key)
-            const data = await res.json()
-            if (!data.deduped) {
-              const known = bottlesRef.current.find(b => b.name.toLowerCase() === pour.name.toLowerCase())
-              showToast(
-                known
-                  ? `+${pour.amount} → ${known.emoji ? known.emoji + ' ' : ''}${known.name} bottle`
-                  : `New bottle "${pour.name}" +${pour.amount}`,
-                'success',
-              )
-              onLogged?.({ bottleName: pour.name, amount: pour.amount })
-            }
-          } else {
-            // Server rejected (e.g. a migration hasn't run on the database).
-            // Surface it and leave the key un-logged so the pour can retry.
-            const data = await res.json().catch(() => null)
-            showToast((data && data.error) || `Could not pour into "${pour.name}" — please try again`, 'error')
-          }
-        } catch {
-          // network hiccup — key was never marked logged, so a later retry can
-          // pour; server-side dedupeKey still protects against double-counting.
-        }
+      for (const pour of added) {
+        const known = bottlesRef.current.find(b => b.name.toLowerCase() === pour.name.toLowerCase())
+        const sign = pour.amount > 0 ? '+' : ''
+        showToast(
+          known
+            ? `${sign}${pour.amount} → ${known.emoji ? known.emoji + ' ' : ''}${known.name} bottle`
+            : `New bottle "${pour.name}" ${sign}${pour.amount}`,
+          'success',
+        )
+        onLogged?.({ bottleName: pour.name, amount: pour.amount })
       }
-      if (pours.length > 0) refreshBottles()
+      for (const pour of removed) {
+        showToast(`Removed ${Math.abs(pour.amount)} from ${pour.name} bottle`, 'success')
+      }
+      if (added.length > 0 || removed.length > 0) refreshBottles()
     } finally {
       pouringRef.current = false
     }
@@ -242,18 +220,41 @@ export function BottleMentionTextarea({
   const schedulePour = useCallback((text: string) => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     idleTimerRef.current = setTimeout(() => {
-      void pourFromText(text)
+      void reconcileFromText(text)
     }, IDLE_MS)
-  }, [pourFromText])
+  }, [reconcileFromText])
+
+  // Keep the latest value + reconcile fn handy for the unmount sync.
+  useEffect(() => {
+    lastValueRef.current = value
+    reconcileRef.current = reconcileFromText
+  }, [value, reconcileFromText])
+
+  // When the reflection's text loads (from the DB) or is otherwise set
+  // programmatically while the field is NOT being typed in, sync pours to it:
+  // retries pours that failed earlier and removes entries whose mention text
+  // no longer exists. Skipped while the user is actively typing (that flow is
+  // handled by the idle timer / blur) and for empty text.
+  useEffect(() => {
+    if (document.activeElement === areaRef.current) return
+    if (!value.includes('@')) return
+    const t = setTimeout(() => void reconcileFromText(value), 0)
+    return () => clearTimeout(t)
+  }, [value, sourceRef, reconcileFromText])
 
   useEffect(() => () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    // Final sync before leaving: if the user edited this field (including
+    // erasing a mention entirely), make sure pours match the last text — e.g.
+    // they deleted "@Bottle 400" and navigated away without blurring.
+    if (touchedRef.current) reconcileRef.current(lastValueRef.current)
   }, [])
 
   /* ── Event wiring ──────────────────────────────────────────────────── */
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value
+    touchedRef.current = true
     onChange(next)
     const found = detectMention(next, e.target.selectionStart ?? next.length)
     setMention(found)
@@ -285,8 +286,8 @@ export function BottleMentionTextarea({
   const handleBlur = useCallback(() => {
     // Let option clicks land before closing (options use onMouseDown).
     setTimeout(() => setMention(null), 120)
-    void pourFromText(areaRef.current?.value ?? value)
-  }, [pourFromText, value])
+    void reconcileFromText(areaRef.current?.value ?? value)
+  }, [reconcileFromText, value])
 
   /* ── Render ────────────────────────────────────────────────────────── */
 
