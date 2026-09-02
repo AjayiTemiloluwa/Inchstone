@@ -207,8 +207,10 @@ export function BottleMentionTextarea({
               dedupeKey: pour.key,
             }),
           })
-          loggedRef.current.add(pour.key)
           if (res.ok) {
+            // Mark as logged only after the server accepted it — otherwise a
+            // failure would be silently swallowed and never retried.
+            loggedRef.current.add(pour.key)
             const data = await res.json()
             if (!data.deduped) {
               const known = bottlesRef.current.find(b => b.name.toLowerCase() === pour.name.toLowerCase())
@@ -220,10 +222,15 @@ export function BottleMentionTextarea({
               )
               onLogged?.({ bottleName: pour.name, amount: pour.amount })
             }
+          } else {
+            // Server rejected (e.g. a migration hasn't run on the database).
+            // Surface it and leave the key un-logged so the pour can retry.
+            const data = await res.json().catch(() => null)
+            showToast((data && data.error) || `Could not pour into "${pour.name}" — please try again`, 'error')
           }
         } catch {
-          // network hiccup — remove the key so a later retry can pour; server dedupe still protects
-          loggedRef.current.delete(pour.key)
+          // network hiccup — key was never marked logged, so a later retry can
+          // pour; server-side dedupeKey still protects against double-counting.
         }
       }
       if (pours.length > 0) refreshBottles()
