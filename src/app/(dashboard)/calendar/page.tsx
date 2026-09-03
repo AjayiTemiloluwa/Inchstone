@@ -85,6 +85,33 @@ export default function CalendarPage() {
     return result
   }, [items])
 
+  // Google events for the visible month — thin gold chips (pull-only)
+  const [googleEvents, setGoogleEvents] = useState<{ id: string; title: string; startTime: string }[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const from = startOfMonth(currentMonth)
+        const to = endOfMonth(currentMonth)
+        const res = await fetch(`/api/calendar/events?timeMin=${from.toISOString()}&timeMax=${to.toISOString()}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && Array.isArray(data.events)) setGoogleEvents(data.events)
+      } catch {
+        /* calendar is optional — never block the month view */
+      }
+    })()
+    return () => { cancelled = true }
+  }, [currentMonth])
+
+  const getGoogleForDay = useCallback((date: Date): string[] => {
+    const key = format(date, 'yyyy-MM-dd')
+    return googleEvents
+      .filter(e => format(new Date(e.startTime), 'yyyy-MM-dd') === key)
+      .map(e => e.title)
+  }, [googleEvents])
+
   const getMonthlyMilestones = useCallback((): Item[] => {
     const flatItems = getFlatItems()
     return flatItems.filter(n => n.layer === 3)
@@ -339,6 +366,21 @@ export default function CalendarPage() {
                       <div className="pl-1 text-[10px] text-parchment/20">—</div>
                     )}
                   </div>
+
+                  {/* Google events — thin gold-dim chips (non-checkable) */}
+                  {getGoogleForDay(date).length > 0 && (
+                    <div className="mt-1 hidden space-y-1 sm:block">
+                      {getGoogleForDay(date).slice(0, 2).map((title, idx) => (
+                        <div key={idx} title={title}
+                          className="truncate rounded-[4px] border-l-2 border-gold/40 bg-gold/[0.06] px-1.5 py-0.5 text-[11px] leading-tight text-gold/80">
+                          {title}
+                        </div>
+                      ))}
+                      {getGoogleForDay(date).length > 2 && (
+                        <div className="pl-1 text-[10px] text-parchment/35">+{getGoogleForDay(date).length - 2} more</div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Progress hairline */}
                   {dayDeeds.length > 0 && (

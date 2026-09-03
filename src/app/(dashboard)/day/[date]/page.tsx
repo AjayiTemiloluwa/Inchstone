@@ -26,6 +26,14 @@ type DeedModalData = {
   parentGoal: Item | null
 }
 
+type GoogleEventView = {
+  id: string
+  title: string
+  startTime: string
+  endTime: string
+  type?: string
+}
+
 export default function DayPage() {
   const router = useRouter()
   const params = useParams()
@@ -74,6 +82,27 @@ export default function DayPage() {
   const [renamingHabitRow, setRenamingHabitRow] = useState<string | null>(null)
   const [renameHabitRowValue, setRenameHabitRowValue] = useState('')
   const renameHabitSubmittedRef = useRef(false)
+
+  // Google Calendar events for this day — pull-only, rendered as
+  // non-checkable gold-dim blocks alongside deeds.
+  const [googleEvents, setGoogleEvents] = useState<GoogleEventView[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const dayStart = new Date(`${dateStr}T00:00:00`)
+        const dayEnd = new Date(dayStart.getTime() + 86_400_000)
+        const res = await fetch(`/api/calendar/events?timeMin=${dayStart.toISOString()}&timeMax=${dayEnd.toISOString()}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && Array.isArray(data.events)) setGoogleEvents(data.events)
+      } catch {
+        /* calendar is optional — never block the day view */
+      }
+    })()
+    return () => { cancelled = true }
+  }, [dateStr])
 
   // Live "now" ticker for scheduled-deed countdowns (1s cadence).
   const countdownNow = useCountdown()
@@ -1309,7 +1338,28 @@ export default function DayPage() {
                     <div className="flex-1 h-0.5 bg-ember" />
                   </div>
                 )}
-                {getPositionedTasks(allTasks).map(({ task, top, height, left, width }) => {
+                {getPositionedTasks(allTasks.concat(googleEvents as any)).map(({ task, top, height, left, width }) => {
+                  // Google events — gold-dim, non-checkable (no checkbox,
+                  // weight, progress or delete; just an informational block).
+                  if ((task as any).type === 'google') {
+                    return (
+                      <div
+                        key={task.id}
+                        className="absolute rounded-xl border p-2.5 text-left text-xs select-none overflow-hidden"
+                        style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 9, borderLeft: '3px solid rgba(212,175,55,0.55)', borderColor: 'rgba(212,175,55,0.25)', background: 'rgba(212,175,55,0.08)' }}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-semibold truncate text-gold/90">{task.title}</span>
+                          <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-gold/50">Google</span>
+                        </div>
+                        {task.startTime && task.endTime && (
+                          <span className="mt-1 block text-[10px] font-mono text-gold/50">
+                            {format(new Date(task.startTime), 'h:mm a')} - {format(new Date(task.endTime), 'h:mm a')}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  }
                   const goalItem = findItem(task.goalId)
                   const taskBorderColor = task.color || (task.completed ? '#8fbc8f' : '#d4af37')
                   return (
@@ -1444,6 +1494,24 @@ export default function DayPage() {
                       </tr>
                     )
                   })}
+                  {googleEvents.map(g => (
+                    <tr key={g.id} className="border-b border-white/5 last:border-0">
+                      <td className="p-3 font-mono text-xs text-gold/50">
+                        {format(new Date(g.startTime), 'h:mm a')}{g.endTime ? `–${format(new Date(g.endTime), 'h:mm a')}` : ''}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gold/80">{g.title}</span>
+                        </div>
+                      </td>
+                      <td className="p-3 text-xs text-ink/30">—</td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gold/10 text-gold/80">Google</span>
+                      </td>
+                      <td className="p-3 text-xs text-ink/30">—</td>
+                      <td className="p-3"></td>
+                    </tr>
+                  ))}
                   {allTasks.length === 0 && (
                     <tr><td colSpan={6} className="p-6 text-center text-ink/40">No deeds scheduled for today.</td></tr>
                   )}

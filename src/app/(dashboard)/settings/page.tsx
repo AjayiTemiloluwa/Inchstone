@@ -7,15 +7,14 @@ import { AlarmsCard } from '@/components/ui/AlarmsCard'
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
 import { ThemeSwitch } from '@/components/ui/ThemeToggle'
 import { useState, useEffect } from 'react'
-import { Calendar, Mail, CheckCircle, XCircle, ExternalLink, Smartphone, Trash2, Database, ChevronDown, Sun } from 'lucide-react'
+import { Mail, CheckCircle, XCircle, Smartphone, Trash2, Database, ChevronDown, Sun } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
+import { GoogleCalendarCard } from '@/components/ui/GoogleCalendarCard'
 import { Scramble } from '@/components/ui/motion'
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser()
   const { promptInstall } = useInstallPrompt()
-  const [calConnected, setCalConnected] = useState<boolean | null>(null)
-  const [checkingCal, setCheckingCal] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [dangerOpen, setDangerOpen] = useState(false)
   const [emailStatus, setEmailStatus] = useState<{
@@ -32,19 +31,6 @@ export default function SettingsPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('/api/calendar/events?timeMin=2026-01-01T00:00:00.000Z&timeMax=2026-01-02T00:00:00.000Z')
-        const data = await res.json()
-        if (cancelled) return
-        if (data.needsAuth || data.error === 'Calendar not connected') setCalConnected(false)
-        else setCalConnected(true)
-      } catch {
-        if (!cancelled) setCalConnected(false)
-      } finally {
-        if (!cancelled) setCheckingCal(false)
-      }
-    })()
-    ;(async () => {
-      try {
         const res = await fetch('/api/email-status', { cache: 'no-store' })
         if (!cancelled && res.ok) setEmailStatus(await res.json())
       } catch {
@@ -53,25 +39,6 @@ export default function SettingsPage() {
     })()
     return () => { cancelled = true }
   }, [])
-
-  const handleConnectCalendar = async () => {
-    try {
-      const res = await fetch('/api/calendar/auth')
-      const data = await res.json()
-      if (data.url) window.open(data.url, '_blank')
-    } catch (err) {
-      console.error('Failed to get auth URL', err)
-    }
-  }
-
-  const handleDisconnectCalendar = async () => {
-    try {
-      const res = await fetch('/api/calendar/disconnect', { method: 'POST' })
-      if (res.ok) setCalConnected(false)
-    } catch {
-      /* keep state unchanged */
-    }
-  }
 
   const handleSeedFramework = async () => {
     if (!confirm('This will create the default yearly structure. Proceed?')) return
@@ -208,52 +175,8 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Google Calendar */}
-      <Card className="p-5 border hairline">
-        <h2 className="text-heading text-parchment flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-gold-dim" strokeWidth={1.5} />
-          <span>Google Calendar</span>
-        </h2>
-        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-sm text-parchment/55">
-            Connect Google Calendar to view events alongside your daily deeds.
-          </p>
-          <div className="flex items-center gap-3">
-            {checkingCal ? (
-              <span className="font-mono text-sm text-parchment/45">Checking…</span>
-            ) : calConnected ? (
-              <>
-                <span className="flex items-center gap-1.5 font-mono text-sm text-moss/80">
-                  <CheckCircle className="w-4 h-4" strokeWidth={1.5} />
-                  Connected
-                </span>
-                <button
-                  onClick={handleDisconnectCalendar}
-                  data-cursor="Unlink your calendar"
-                  className="rounded-md border border-ember/40 px-3 py-1.5 text-sm text-[#cf8f78] hover:bg-ember/15 transition-colors"
-                >
-                  Disconnect
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="flex items-center gap-1.5 font-mono text-sm text-parchment/45">
-                  <XCircle className="w-4 h-4" strokeWidth={1.5} />
-                  Not connected
-                </span>
-                <button
-                  onClick={handleConnectCalendar}
-                  data-cursor="Sync your Google Calendar"
-                  className="rounded-md border-hairline px-3 py-1.5 text-sm text-parchment hover:border-gold transition-colors flex items-center gap-1.5"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  Connect
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </Card>
+      {/* Google Calendar — pull / two-way sync */}
+      <GoogleCalendarCard />
 
       {/* Notifications */}
       <Card className="space-y-5 p-5 border hairline">

@@ -95,6 +95,14 @@ model Task {
   endingNotifiedAt    DateTime? // stamped when the before-end warning fired
   notifyDeed          Boolean   @default(true) // opt-in: pin countdown + end alarms on device for scheduled deeds
 
+  // ── Google Calendar two-way push ──
+  // Id of the Google event a scheduled deed was pushed to (single event for
+  // one-shots; master RRULE event for recurring deeds). Cleared on unpush.
+
+  googleEventId         String? // pushed single Google event id
+  googleRecurringEventId String? // pushed master RRULE event id (recurring deeds)
+
+
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -209,8 +217,18 @@ model Event {
   completed Boolean  @default(false)
   score     Int?
   comment   String?
+
+  // ── Google Calendar sync ──
+  // googleEventId lets resyncs UPSERT instead of duplicating; recurringEventId
+  // links an expanded occurrence back to its master series event.
+
+  googleEventId     String? // Google Calendar event id
+  recurringEventId  String? // Master id of the recurring series this expanded occurrence came from
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, googleEventId])
+  @@index([userId, startTime])
 }
 
 model DailyScore {
@@ -263,8 +281,15 @@ model UserToken {
   accessToken  String
   refreshToken String?
   expiryDate   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+
+  // ── Google Calendar sync mode ──
+  // "pull" = google events appear in Inchstone; "two" = also push deeds out.
+  syncMode      String    @default("pull") // "pull" | "two"
+  scopes        String?   // space-delimited OAuth scopes actually granted
+  lastSyncedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, provider])
 }

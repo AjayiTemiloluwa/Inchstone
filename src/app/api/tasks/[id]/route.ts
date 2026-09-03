@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { Prisma } from '@prisma/client'
 import prisma from '@/lib/prisma'
 import { recalculateItemProgress } from '@/lib/score'
+import { pushTaskToGoogle, deleteTaskFromGoogle } from '@/lib/googleCalendar'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -165,6 +166,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             }
         }
 
+        // Two-way Google Calendar sync — re-push the updated deed (also
+        // removes the Google event if the schedule was cleared). No-op
+        // unless connected in two-way mode; never throws.
+        const freshTask = await prisma.task.findUnique({ where: { id: taskId } })
+        if (freshTask) await pushTaskToGoogle(userId, freshTask)
+
         // Recalculate goal score
         const finalGoalId = goalId !== undefined ? goalId : task.goalId
         await recalculateItemProgress(finalGoalId)
@@ -208,6 +215,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
             // Delete just this one instance
             await prisma.task.delete({ where: { id: taskId } })
         }
+
+        // Two-way Google Calendar sync — remove the pushed Google event
+        // (whole master series on deleteAll, just this occurrence otherwise).
+        // No-op if the deed was never pushed; never throws.
+        await deleteTaskFromGoogle(userId, task, { deleteAll })
 
         // Recalculate goal score
         await recalculateItemProgress(goalId)

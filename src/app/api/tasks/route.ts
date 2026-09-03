@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { Prisma } from '@prisma/client'
 import prisma from '@/lib/prisma'
 import { recalculateItemProgress } from '@/lib/score'
+import { pushTaskToGoogle } from '@/lib/googleCalendar'
 
 export async function GET(req: Request) {
     try {
@@ -191,6 +192,11 @@ export async function POST(req: Request) {
                 await prisma.$transaction(instances)
             }
         }
+
+        // Two-way Google Calendar sync — push the origin deed (recurring
+        // series publish as one master RRULE event, one-shots as a single
+        // event). No-op unless connected in two-way mode; never throws.
+        await pushTaskToGoogle(userId, task)
 
         await recalculateItemProgress(goalId)
 
