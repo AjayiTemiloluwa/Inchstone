@@ -1220,16 +1220,7 @@ input[type="number"] {
   animation: none !important;
 }
 
-/* RowActions — pointer: reveal on row hover; touch: always visible (v2 C) */
-.row-actions { opacity: 0; transition: opacity 0.12s ease; }
-.row-actions:focus-within { opacity: 1; }
-@media (hover: hover) {
-  .row-group:hover .row-actions,
-  .row-group:focus-within .row-actions { opacity: 1; }
-}
-@media (hover: none) {
-  .row-actions { opacity: 1; }
-}
+
 
 
   left: 5%;

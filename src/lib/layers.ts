@@ -6,7 +6,6 @@
  *   0 Year · 1 Category · 2 Yearly · 3 Quarter · 4 Month · 5 Week · 6 Day.
  * Rather than a destructive renumber, we keep the stored integers and PROJECT
  * them onto the 5 layers here, so the whole UI speaks the 5-layer language.
- * See `scripts/renumber-layers.sql` for the optional hard migration.
  *
  * NOTE on the legacy 5/6 ambiguity: the seed creates 5=Week and 6=Day, and the
  * brief's "Daily Deed" is the day (6). Some legacy readers (calendar / daily-score)

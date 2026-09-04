@@ -10,7 +10,13 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-6 text-center py-[8vh]">
+    <div className="relative min-h-screen bg-paper flex flex-col items-center justify-center px-6 text-center py-[8vh]">
+      <a
+        href="/privacy"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-sm text-parchment/40 transition-colors hover:text-gold"
+      >
+        Privacy
+      </a>
       <div className="flex flex-col items-center max-w-[720px]">
         {/* Compass finds north first (needs settle on mount) */}
         <Compass alignment={100} ringProgress={0} size={160} className="mb-10" />

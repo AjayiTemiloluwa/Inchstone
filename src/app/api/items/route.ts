@@ -1,11 +1,23 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
+import { ensureCurrentYearFramework } from '@/lib/framework'
 
 export async function GET() {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Auto-provisioning for new users: if they have no framework yet, the
+    // full structure for the year "as the day is" is created right here, so
+    // nobody ever needs to seed data by hand. Existing users skip this with
+    // one cheap query. Best-effort — never block data loading on it; the
+    // next request retries (ensure is a no-op once the framework exists).
+    try {
+      await ensureCurrentYearFramework(userId)
+    } catch (e) {
+      console.error('Framework auto-provisioning failed', e)
+    }
 
     const items = await prisma.item.findMany({
       where: { userId },

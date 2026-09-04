@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
-import { addDays, addMonths } from 'date-fns'
-import { getWeeksInMonth } from '@/lib/calendarUtils'
+import { seedYearFramework } from '@/lib/framework'
 
-export async function POST(req: Request) {
+/**
+ * POST /api/seed — power-tool fallback (Settings → Danger zone): creates the
+ * full framework for the CURRENT year, whatever the day is. Regular users
+ * never need this — the framework is provisioned automatically on first data
+ * load (GET /api/items) — but the explicit endpoint stays for reset flows
+ * and manual recovery.
+ */
+export async function POST() {
   try {
     const { userId } = await auth()
 
@@ -18,152 +24,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Framework already seeded' }, { status: 400 })
     }
 
-    const yearStart = new Date(2026, 0, 1) // Jan 1, 2026
-
-    // Layer 0: Year (Master Dashboard)
-    const year = await prisma.item.create({
-      data: {
-        userId,
-        layer: 0,
-        title: 'A Year in Focus',
-        description: 'A year of turning modest, daily choices into a life of quiet excellence.',
-        theme: 'Discipline & Deliberate Growth',
-        anchorScripture: 'Discipline is the quiet art of keeping your promises to yourself.',
-        focusQuestion: 'Did I grow a little closer to who I want to be today?',
-      }
-    })
-
-    // Layer 1: Categories
-    const categoriesData = [
-      { name: 'Faith', weight: 5 },
-      { name: 'Family', weight: 10 },
-      { name: 'Fitness', weight: 20 },
-      { name: 'Finance', weight: 15 },
-      { name: 'Career', weight: 35 },
-      { name: 'Learning', weight: 15 },
-    ]
-
-    // Create all categories
-    const categories = await Promise.all(
-      categoriesData.map(cat =>
-        prisma.item.create({
-          data: { userId, layer: 1, parentId: year.id, title: cat.name, weight: cat.weight }
-        })
-      )
-    )
-
-    const quarterMonthNames = [
-      ['January', 'February', 'March'],
-      ['April', 'May', 'June'],
-      ['July', 'August', 'September'],
-      ['October', 'November', 'December'],
-    ]
-
-    // Layer 2: Yearly Goals
-    const yearlyGoals = await Promise.all(
-      categories.map((cat, i) =>
-        prisma.item.create({
-          data: {
-            userId,
-            layer: 2,
-            parentId: cat.id,
-            title: `${categoriesData[i].name} Annual Goal`,
-            weight: 100,
-            startDate: yearStart,
-            endDate: addDays(addMonths(yearStart, 12), -1),
-          }
-        })
-      )
-    )
-
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-    for (let ci = 0; ci < yearlyGoals.length; ci++) {
-      // Layer 3: Quarterly Goals
-      const quarterRecords = await Promise.all(
-        [0, 1, 2, 3].map(q => {
-          const qStart = addMonths(yearStart, q * 3)
-          return prisma.item.create({
-            data: {
-              userId,
-              layer: 3,
-              parentId: yearlyGoals[ci].id,
-              title: `Q${q + 1} Objective`,
-              weight: 25,
-              startDate: qStart,
-              endDate: addDays(addMonths(qStart, 3), -1),
-            }
-          })
-        })
-      )
-
-      for (let q = 0; q < 4; q++) {
-        for (let m = 0; m < 3; m++) {
-          const mStart = addMonths(addMonths(yearStart, q * 3), m)
-          const monthName = quarterMonthNames[q][m]
-
-          // Layer 4: Monthly Goal
-          const mGoal = await prisma.item.create({
-            data: {
-              userId,
-              layer: 4,
-              parentId: quarterRecords[q].id,
-              title: monthName,
-              weight: 33.3,
-              startDate: mStart,
-              endDate: addDays(addMonths(mStart, 1), -1),
-            }
-          })
-
-          const weeksInMonth = getWeeksInMonth(mStart.getFullYear(), mStart.getMonth() + 1)
-          const perWeekWeight = Math.round((100 / weeksInMonth.length) * 10) / 10
-
-          // Layer 5: Weekly Goals
-          const weekRecords = await Promise.all(
-            weeksInMonth.map((weekDays, w) => {
-              const wStart = weekDays[0].date
-              const wEnd = weekDays[weekDays.length - 1].date
-              return prisma.item.create({
-                data: {
-                  userId,
-                  layer: 5,
-                  parentId: mGoal.id,
-                  title: `Week ${w + 1}`,
-                  weight: perWeekWeight,
-                  startDate: wStart,
-                  endDate: wEnd,
-                }
-              })
-            })
-          )
-
-          // Layer 6: Daily Goals - bulk insert in batches
-          const dayBatch: any[] = []
-          for (let w = 0; w < weeksInMonth.length; w++) {
-            const weekDays = weeksInMonth[w]
-            const perDayWeight = Math.round((100 / weekDays.length) * 10) / 10
-
-            for (let d = 0; d < weekDays.length; d++) {
-              const dDate = weekDays[d].date
-              const dayName = dayNames[dDate.getDay()]
-              dayBatch.push({
-                userId,
-                layer: 6,
-                parentId: weekRecords[w].id,
-                title: dayName,
-                weight: perDayWeight,
-                startDate: dDate,
-                endDate: dDate,
-              })
-            }
-          }
-
-          for (let i = 0; i < dayBatch.length; i += 100) {
-            await prisma.item.createMany({ data: dayBatch.slice(i, i + 100) })
-          }
-        }
-      }
-    }
+    // The framework always matches the year the day is in — never a
+    // hardcoded year (the old route pinned everything to 2026).
+    await seedYearFramework(userId, new Date().getFullYear())
 
     return NextResponse.json({ success: true })
   } catch (error) {

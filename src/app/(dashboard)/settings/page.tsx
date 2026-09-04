@@ -41,7 +41,7 @@ export default function SettingsPage() {
   }, [])
 
   const handleSeedFramework = async () => {
-    if (!confirm('This will create the default yearly structure. Proceed?')) return
+    if (!confirm('This will create the default structure for the current year (it is normally created automatically). Proceed?')) return
     setSeeding(true)
     try {
       const res = await fetch('/api/seed', { method: 'POST' })

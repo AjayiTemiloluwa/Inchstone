@@ -1,6 +1,0 @@
-export { GLProvider, useGL } from './GLProvider'
-export type { GLClient, GLFrame } from './GLProvider'
-export { GLShape } from './GLShape'
-export type { GLShapeHandle, GLShapeProps } from './GLShape'
-export { GLText } from './GLText'
-export type { GLTextHandle, GLTextProps } from './GLText'

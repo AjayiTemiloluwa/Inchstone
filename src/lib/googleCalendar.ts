@@ -191,75 +191,107 @@ export async function syncGoogleEvents(
   if (!authed) return { count: 0 }
   const { calendar, calendarId } = authed
 
-  const res = await calendar.events.list({
-    calendarId,
-    timeMin: timeMin.toISOString(),
-    timeMax: timeMax.toISOString(),
-    singleEvents: true,
-    maxResults: 2500,
-    orderBy: 'startTime',
-  })
-
-  const items = (res.data.items || []).filter(
-    (e): e is NonNullable<typeof e> => !!e.id && !!(e.start?.dateTime || e.start?.date),
-  )
+  // showDeleted is essential for deletion propagation: a deleted event arrives
+  // here explicitly with status 'cancelled' (carrying its id), so the local
+  // row can be removed no matter which window it was originally pulled into.
+  // With the default (false) Google silently omits deletions and the app
+  // calendar goes stale.
   const fetchedIds = new Set<string>()
+  let liveCount = 0
+  let pageToken: string | undefined
 
-  for (const ev of items) {
-    fetchedIds.add(ev.id!)
+  do {
+    const res = await calendar.events.list({
+      calendarId,
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      singleEvents: true,
+      showDeleted: true,
+      maxResults: 2500,
+      orderBy: 'startTime',
+      pageToken,
+    })
 
-    const allDay = !!ev.start?.date
-    const rawStart = allDay ? new Date(`${ev.start!.date!}T00:00:00`) : new Date(ev.start!.dateTime!)
-    let rawEnd: Date
-    if (allDay) {
-      const e = ev.end?.date ? new Date(`${ev.end.date}T00:00:00`) : rawStart
-      rawEnd = new Date(Math.max(e.getTime(), rawStart.getTime() + 30 * 60_000))
-    } else {
-      rawEnd = ev.end?.dateTime ? new Date(ev.end.dateTime) : new Date(rawStart.getTime() + 60 * 60_000)
+    for (const ev of res.data.items || []) {
+      if (!ev.id) continue
+
+      fetchedIds.add(ev.id)
+
+      // Explicit deletion → drop the local row wherever it lives (not just
+      // inside this window). A cancelled recurring master also takes every
+      // expanded occurrence the app pulled from it.
+      if (ev.status === 'cancelled') {
+        await prisma.event.deleteMany({
+          where: { userId, type: 'google', googleEventId: ev.id },
+        })
+        if (!ev.recurringEventId && ev.recurrence?.length) {
+          await prisma.event.deleteMany({
+            where: { userId, type: 'google', recurringEventId: ev.id },
+          })
+        }
+        continue
+      }
+
+      if (!ev.start?.dateTime && !ev.start?.date) continue
+
+      const allDay = !!ev.start.date
+      const rawStart = allDay ? new Date(`${ev.start.date}T00:00:00`) : new Date(ev.start.dateTime!)
+      let rawEnd: Date
+      if (allDay) {
+        const e = ev.end?.date ? new Date(`${ev.end.date}T00:00:00`) : rawStart
+        rawEnd = new Date(Math.max(e.getTime(), rawStart.getTime() + 30 * 60_000))
+      } else {
+        rawEnd = ev.end?.dateTime ? new Date(ev.end.dateTime) : new Date(rawStart.getTime() + 60 * 60_000)
+      }
+
+      await prisma.event.upsert({
+        where: { userId_googleEventId: { userId, googleEventId: ev.id } },
+        create: {
+          userId,
+          title: ev.summary || '(Untitled)',
+          startTime: rawStart,
+          endTime: rawEnd,
+          type: 'google',
+          googleEventId: ev.id,
+          recurringEventId: ev.recurringEventId || null,
+        },
+        update: {
+          title: ev.summary || '(Untitled)',
+          startTime: rawStart,
+          endTime: rawEnd,
+          type: 'google',
+          recurringEventId: ev.recurringEventId || null,
+        },
+      })
+      liveCount++
     }
 
-    await prisma.event.upsert({
-      where: { userId_googleEventId: { userId, googleEventId: ev.id! } },
-      create: {
-        userId,
-        title: ev.summary || '(Untitled)',
-        startTime: rawStart,
-        endTime: rawEnd,
-        type: 'google',
-        googleEventId: ev.id!,
-        recurringEventId: ev.recurringEventId || null,
-      },
-      update: {
-        title: ev.summary || '(Untitled)',
-        startTime: rawStart,
-        endTime: rawEnd,
-        type: 'google',
-        recurringEventId: ev.recurringEventId || null,
-      },
-    })
-  }
+    pageToken = res.data.nextPageToken ?? undefined
+  } while (pageToken)
 
-  // Deletions propagate: drop local google rows in the window Google no longer returns.
-
-  if (fetchedIds.size > 0) {
-
-    await prisma.event.deleteMany({
-      where: {
-        userId,
-        type: 'google',
-        startTime: { gte: timeMin },
-        endTime: { lte: timeMax },
-        googleEventId: { notIn: [...fetchedIds] },
-      },
-    })
-  }
+  // Deletions reconcile even when the window is now EMPTY on Google — no guard
+  // on fetchedIds.size. (The old `if (fetchedIds.size > 0)` guard was the bug:
+  // deleting the last event in a window made Google return an empty list, the
+  // reconcile was skipped, and the app calendar kept the ghost forever.)
+  // Rows without a googleEventId (manually imported) are never touched.
+  await prisma.event.deleteMany({
+    where: {
+      userId,
+      type: 'google',
+      startTime: { gte: timeMin },
+      endTime: { lte: timeMax },
+      ...(fetchedIds.size > 0
+        ? { googleEventId: { notIn: [...fetchedIds] } }
+        : { googleEventId: { not: null } }),
+    },
+  })
 
   await prisma.userToken.updateMany({
     where: { userId, provider: 'google' },
     data: { lastSyncedAt: new Date() },
   })
 
-  return { count: items.length }
+  return { count: liveCount }
 }
 
 /* ── Push (Inchstone → Google, two-way only) ───────────────────────── */
