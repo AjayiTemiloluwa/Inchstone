@@ -1,6 +1,18 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)', '/', '/privacy', '/manifest.json', '/sw.js'])
+// Routes reachable WITHOUT a Clerk session. The alarm dispatcher endpoint is
+// public at the Clerk layer on purpose: it authenticates itself with its own
+// CRON_SECRET (x-cron-secret / Authorization: Bearer), so Clerk must not
+// 404 every unauthenticated ping from external schedulers like GitHub Actions.
+const isPublicRoute = createRouteMatcher([
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/',
+  '/privacy',
+  '/manifest.json',
+  '/sw.js',
+  '/api/cron/alarms(.*)',
+])
 
 export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
