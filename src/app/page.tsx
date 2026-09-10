@@ -51,9 +51,9 @@ export default async function Home() {
     <div className="min-h-screen bg-paper text-ink antialiased">
       {/* ── Sticky nav ── */}
       <header className="sticky top-0 z-40 border-b hairline-bottom bg-paper/90 backdrop-blur-md">
-        <div className={`${shell} flex h-16 items-center justify-between gap-4`}>
+        <div className={`${shell} flex h-14 items-center justify-between gap-4`}>
           <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Inchstone home">
-            <Compass alignment={100} ringProgress={100} size={30} />
+            <Compass alignment={100} ringProgress={100} size={26} />
             <span className="font-display text-lg font-bold tracking-tight text-parchment">Inchstone</span>
           </Link>
           <nav className="hidden items-center gap-8 md:flex" aria-label="Primary">
@@ -62,8 +62,8 @@ export default async function Home() {
             ))}
           </nav>
           <div className="flex shrink-0 items-center gap-2">
-            <Link href="/sign-in" className="inline-flex min-h-11 items-center justify-center rounded-lg px-3.5 text-sm font-semibold text-ink/70 transition hover:text-gold sm:min-h-10">Sign in</Link>
-            <Link href="/sign-up" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-gold px-4 text-sm font-semibold text-ink transition hover:bg-gold-dim sm:min-h-10 sm:px-5">Get started<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+            <Link href="/sign-in" className="inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-semibold text-ink/70 transition hover:text-gold">Sign in</Link>
+            <Link href="/sign-up" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gold px-4 text-sm font-semibold text-ink transition hover:bg-gold-dim sm:px-5">Get started<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
           </div>
         </div>
       </header>

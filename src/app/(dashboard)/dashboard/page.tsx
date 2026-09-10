@@ -35,7 +35,7 @@ function Stat({ label, value, suffix = '' }: { label: string; value: number; suf
    gives every block on the home page a visible boundary so the layout reads
    as organized sections (especially on mobile, where spacing alone doesn't
    read as structure). */
-const CARD = 'rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 sm:rounded-lg sm:p-6'
+const CARD = 'rounded-xl border hairline bg-surface-solid p-4 sm:p-6'
 
 /* Greeting from the local clock — an external value that changes outside
    React, so it's read with useSyncExternalStore: server snapshot renders
@@ -238,8 +238,9 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[880px] space-y-8 px-1 pb-28 pt-2 sm:space-y-10 sm:pt-4">
-      {/* ── Meta strip ── */}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-b border-white/5 pb-3">
+      {/* ── Meta strip + greeting hero (single card) ── */}
+      <div className={CARD}>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-b hairline-bottom pb-3">
         <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">
           {format(today, 'EEEE')} · {format(today, 'd MMM yyyy')}
         </p>
@@ -278,6 +279,7 @@ export default function DashboardPage() {
         </div>
       </header>
       </Float>
+      </div>
 
       {/* ── Next up — the next scheduled deed with a live countdown ── */}
       {nextScheduled && (
@@ -285,7 +287,7 @@ export default function DashboardPage() {
           <SectionHeader id="nextup-heading" label="Next up" />
           <button
             onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
-            className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors animate-fadeIn ${
+            className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors animate-fadeIn ${
               nextScheduled.parts.state === 'live'
                 ? 'border-moss/25 bg-moss/[0.06] hover:border-moss/45'
                 : nextScheduled.parts.soon
@@ -422,7 +424,7 @@ export default function DashboardPage() {
       <section aria-labelledby="touchpoint-heading">
         <SectionHeader id="touchpoint-heading" label={latestNudge && !nudgeDismissed ? 'From your partner' : 'Reflect'} />
         {!nudgeDismissed && latestNudge ? (
-        <div className="flex items-start gap-3 rounded-md border border-white/[0.06] p-4">
+        <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-surface-solid p-4">
           <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} />
           <div className="min-w-0 flex-1">
             <p className="text-caption text-parchment/45">Nudge from {latestNudge.partner.name}</p>
@@ -440,7 +442,7 @@ export default function DashboardPage() {
         <button
           onClick={() => router.push('/reviews')}
           data-cursor="Pause & reflect"
-          className="flex w-full items-center gap-3 rounded-md border border-white/[0.06] p-4 text-left transition-colors hover:border-gold/40"
+          className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-surface-solid p-4 text-left transition-colors hover:border-gold/40"
         >
           <Sun className="h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} />
           <span className="flex-1 text-sm text-parchment/75">Take a quiet moment — reflect on today.</span>
@@ -450,7 +452,7 @@ export default function DashboardPage() {
       </section>
 
       {/* ── Closing CTA ── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.06] pt-7">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t hairline-top pt-7">
         <button
           onClick={() => router.push('/year')}
           data-cursor="See the whole year"
