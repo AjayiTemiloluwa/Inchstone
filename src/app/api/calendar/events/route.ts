@@ -40,7 +40,38 @@ export async function GET(req: Request) {
       orderBy: { startTime: 'asc' },
     })
 
-    return NextResponse.json({ events, mode: state.mode, lastSyncedAt: state.lastSyncedAt })
+    // Hide Google mirrors of deeds Inchstone pushed out (two-way sync): the
+    // deed is already on the schedule as a Task, so its pushed Google event
+    // must not reappear when the user toggles Google events on. Only events
+    // that genuinely came from Google (created there) are shown.
+    //  · one-shot deed  → Task.googleEventId == Event.googleEventId
+    //  · recurring deed → Event.recurringEventId == Task.googleRecurringEventId
+    //    (the expanded occurrence's series id; the pushed master's own id is
+    //     also excluded in case Google returns it as an instance)
+    const pushed = await prisma.task.findMany({
+      where: {
+        userId,
+        OR: [{ googleEventId: { not: null } }, { googleRecurringEventId: { not: null } }],
+      },
+      select: { googleEventId: true, googleRecurringEventId: true },
+    })
+    const pushedOneShot = new Set<string>()
+    const pushedRecurring = new Set<string>()
+    for (const t of pushed) {
+      if (t.googleEventId) pushedOneShot.add(t.googleEventId)
+      if (t.googleRecurringEventId) pushedRecurring.add(t.googleRecurringEventId)
+    }
+
+    const visibleEvents =
+      pushedOneShot.size === 0 && pushedRecurring.size === 0
+        ? events
+        : events.filter(
+            e =>
+              !(e.googleEventId && (pushedOneShot.has(e.googleEventId) || pushedRecurring.has(e.googleEventId))) &&
+              !(e.recurringEventId && pushedRecurring.has(e.recurringEventId)),
+          )
+
+    return NextResponse.json({ events: visibleEvents, mode: state.mode, lastSyncedAt: state.lastSyncedAt })
   } catch (error) {
     console.error('Failed to sync calendar events', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
