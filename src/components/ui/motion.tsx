@@ -202,8 +202,16 @@ export function WordRotator({
 }) {
   const [i, setI] = useState(0)
 
+  // Callers pass inline `words={[...]}` literals — a new array identity on
+  // every parent render. Keying the timer effect on the array itself would
+  // tear it down and restart it forever (the dashboard re-renders every
+  // second for its live clock, so the rotation never fired at all). Key on
+  // the joined contents instead: same words ⇒ the timer keeps its rhythm.
+  const wordsKey = words.join('\u0000')
+
   useEffect(() => {
-    if (prefersReducedMotion() || words.length < 2) return
+    const list = wordsKey.split('\u0000')
+    if (prefersReducedMotion() || list.length < 2) return
 
     // Random, never-fixed rhythm: the next word is picked at random (never an
     // immediate repeat) and the delay jitters between 0.7× and 1.7×, so the
@@ -213,8 +221,8 @@ export function WordRotator({
     const schedule = () => {
       const jitter = 0.7 + Math.random()
       timer = window.setTimeout(() => {
-        let next = Math.floor(Math.random() * words.length)
-        if (next === idx) next = (next + 1 + Math.floor(Math.random() * (words.length - 1))) % words.length
+        let next = Math.floor(Math.random() * list.length)
+        if (next === idx) next = (next + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length
         idx = next
         setI(next)
         schedule()
@@ -222,7 +230,7 @@ export function WordRotator({
     }
     schedule()
     return () => window.clearTimeout(timer)
-  }, [words, interval])
+  }, [wordsKey, interval])
 
   const longest = words.reduce((a, b) => (b.length > a.length ? b : a), '')
 
