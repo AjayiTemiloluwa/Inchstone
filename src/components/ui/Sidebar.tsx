@@ -30,8 +30,8 @@ export function Sidebar() {
   return (
     <div className={`hidden lg:flex h-full flex-col shrink-0 bg-ink border-r hairline-right transition-[width] duration-300 ${collapsed ? 'w-[72px]' : 'w-60'}`}>
       <div className="flex flex-col h-full">
-        {/* Top: wordmark + collapse (kept in lockstep with the Topbar height) */}
-        <div className="flex items-center justify-between px-4 topbar-h">
+        {/* Top: wordmark + collapse */}
+        <div className="flex items-center justify-between px-4 h-14">
           {!collapsed && (
             <span className="font-display text-lg text-parchment whitespace-nowrap">Inchstone</span>
           )}
