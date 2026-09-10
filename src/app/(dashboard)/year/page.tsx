@@ -999,7 +999,7 @@ export default function YearPage() {
                       className="min-w-0 flex-1 rounded-lg border border-gold/40 bg-white/[0.07] px-2 py-1 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30"
                     />
                   ) : (
-                    <h3 className="min-w-0 flex-1 truncate font-bold text-ink text-sm">{ht.title}</h3>
+                    <h3 className="min-w-0 flex-1 break-words font-bold text-ink text-sm leading-snug">{ht.title}</h3>
                   )}
                   <div className="flex items-center gap-1 shrink-0">
                     <button

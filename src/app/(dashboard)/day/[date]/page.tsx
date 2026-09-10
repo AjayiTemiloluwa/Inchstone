@@ -84,8 +84,11 @@ export default function DayPage() {
   const renameHabitSubmittedRef = useRef(false)
 
   // Google Calendar events for this day — pull-only, rendered as
-  // non-checkable gold-dim blocks alongside deeds.
+  // non-checkable gold-dim blockers alongside deeds. The "Google" toggle in
+  // the Deeds toolbar flips them on/off (choice remembered across visits).
   const [googleEvents, setGoogleEvents] = useState<GoogleEventView[]>([])
+  const [googleConnected, setGoogleConnected] = useState(false)
+  const [showGoogle, setShowGoogle] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -96,13 +99,24 @@ export default function DayPage() {
         const res = await fetch(`/api/calendar/events?timeMin=${dayStart.toISOString()}&timeMax=${dayEnd.toISOString()}`)
         if (!res.ok) return
         const data = await res.json()
-        if (!cancelled && Array.isArray(data.events)) setGoogleEvents(data.events)
+        if (cancelled) return
+        if (Array.isArray(data.events)) setGoogleEvents(data.events)
+        setGoogleConnected(!data.needsAuth)
       } catch {
         /* calendar is optional — never block the day view */
       }
     })()
     return () => { cancelled = true }
   }, [dateStr])
+
+  // Remember the Google-events visibility preference per device.
+  useEffect(() => {
+    const stored = window.localStorage.getItem('inchstone:day:showGoogle')
+    if (stored !== null) setShowGoogle(stored !== '0')
+  }, [])
+  useEffect(() => {
+    window.localStorage.setItem('inchstone:day:showGoogle', showGoogle ? '1' : '0')
+  }, [showGoogle])
 
   // Live "now" ticker for scheduled-deed countdowns (1s cadence).
   const countdownNow = useCountdown()
@@ -1104,6 +1118,32 @@ export default function DayPage() {
                     <Target className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Table
                   </button>
                 </div>
+                {googleConnected ? (
+                  <button
+                    onClick={() => setShowGoogle(v => !v)}
+                    aria-pressed={showGoogle}
+                    title={showGoogle ? 'Hide Google Calendar events' : 'Show Google Calendar events'}
+                    className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition ${showGoogle ? 'border-gold/25 bg-gold/10 text-gold hover:bg-gold/20' : 'border-white/10 bg-white/5 text-ink/40 hover:border-gold/25 hover:text-gold/70'}`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Google</span>
+                    <span className="sm:hidden">Gcal</span>
+                    {showGoogle && googleEvents.length > 0 && (
+                      <span className="rounded-full bg-gold/20 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums leading-none">{googleEvents.length}</span>
+                    )}
+                  </button>
+                ) : (
+                  <a
+                    href="/settings"
+                    title="Connect Google Calendar to see your events here"
+                    className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-ink/50 transition hover:border-gold/25 hover:text-gold"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Google</span>
+                    <span className="sm:hidden">Gcal</span>
+                    <Plus className="w-3 h-3" />
+                  </a>
+                )}
                 <button onClick={() => setAddingDeed(!addingDeed)} className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 ${addingDeed ? 'bg-ember/20 text-[#cf8f78] border border-ember/30' : 'bg-gold text-ink hover:bg-[#cbaa6f]'}`}>
                   {addingDeed ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                   <span>{addingDeed ? 'Close' : 'Add Deed'}</span>
@@ -1338,7 +1378,7 @@ export default function DayPage() {
                     <div className="flex-1 h-0.5 bg-ember" />
                   </div>
                 )}
-                {getPositionedTasks(allTasks.concat(googleEvents as any)).map(({ task, top, height, left, width }) => {
+                {getPositionedTasks(allTasks.concat(showGoogle ? googleEvents as any : [])).map(({ task, top, height, left, width }) => {
                   // Google events — gold-dim, non-checkable (no checkbox,
                   // weight, progress or delete; just an informational block).
                   if ((task as any).type === 'google') {
@@ -1494,7 +1534,7 @@ export default function DayPage() {
                       </tr>
                     )
                   })}
-                  {googleEvents.map(g => (
+                  {showGoogle && googleEvents.map(g => (
                     <tr key={g.id} className="border-b border-white/5 last:border-0">
                       <td className="p-3 font-mono text-xs text-gold/50">
                         {format(new Date(g.startTime), 'h:mm a')}{g.endTime ? `–${format(new Date(g.endTime), 'h:mm a')}` : ''}
@@ -1578,12 +1618,12 @@ export default function DayPage() {
             ) : (
               <div className="space-y-2">
                 {frogTasks.map((task, idx) => (
-                  <div key={task.id} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
+                  <div key={task.id} className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 p-2.5 rounded-xl border transition-all sm:flex-nowrap sm:gap-3 ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
                     <button onClick={() => handleToggleTask(task)} className="shrink-0">
                       {task.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
                     </button>
                     <span className="text-[9px] font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full shrink-0 uppercase">Frog #{idx + 1}</span>
-                    <span className={`flex-1 min-w-0 text-sm font-medium truncate ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
+                    <span className={`min-w-[120px] flex-[1_1_160px] break-words text-sm font-medium leading-snug sm:min-w-0 sm:flex-1 ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
                     {task.startTime && <span className="text-[10px] font-mono text-ink/40 shrink-0">{format(new Date(task.startTime), 'h:mm a')}</span>}
                     <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] shrink-0" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1813,9 +1853,9 @@ export default function DayPage() {
                 onClick={() => setExpandedHabit(expanded ? null : task.title)}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedHabit(expanded ? null : task.title) } }}
                 data-cursor={expanded ? 'Hide days & trend' : 'Show days & trend'}
-                className={`group flex cursor-pointer items-center gap-3 rounded-lg border px-2.5 py-2 transition-all ${expanded ? 'border-gold/40 bg-gold/[0.04]' : task.completed ? 'border-sage/25 bg-sage/[0.05]' : 'border-white/10 bg-black/15 hover:border-gold/40'}`}
+                className={`group flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border px-3 py-2.5 transition-all sm:flex-nowrap sm:gap-3 sm:px-2.5 sm:py-2 ${expanded ? 'border-gold/40 bg-gold/[0.04]' : task.completed ? 'border-sage/25 bg-sage/[0.05]' : 'border-white/10 bg-black/15 hover:border-gold/40'}`}
               >
-                <span className="w-4 shrink-0 text-center font-mono text-[10px] text-ink/30 tabular-nums">{idx + 1}</span>
+                <span className="hidden w-4 shrink-0 text-center font-mono text-[10px] text-ink/30 tabular-nums min-[400px]:block">{idx + 1}</span>
                 <button
                   onClick={async (e) => {
                     e.stopPropagation()
@@ -1827,7 +1867,7 @@ export default function DayPage() {
                     setTodayHabits(prev => prev.map((h: any) => h.id === task.id ? { ...h, completed: !h.completed } : h))
                     fetchHabitHistory()
                   }}
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border transition-colors ${
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] border transition-colors sm:h-5 sm:w-5 ${
                     task.completed ? 'border-sage bg-sage text-ink' : 'border-white/20 text-transparent hover:border-gold'
                   }`}
                   aria-label={`Mark ${task.title} ${task.completed ? 'incomplete' : 'complete'}`}
@@ -1845,10 +1885,10 @@ export default function DayPage() {
                     }}
                     onBlur={() => handleRenameHabit(task.title)}
                     onClick={e => e.stopPropagation()}
-                    className="min-w-0 flex-1 truncate rounded-md border border-gold/40 bg-white/[0.07] px-1.5 py-0.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold/30"
+                    className="min-w-[120px] flex-[1_1_160px] break-words rounded-md border border-gold/40 bg-white/[0.07] px-1.5 py-0.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 sm:min-w-0 sm:flex-1"
                   />
                 ) : (
-                  <span className={`min-w-0 flex-1 truncate text-sm ${task.completed ? 'line-through text-ink/45' : 'text-ink font-medium'}`}>{task.title}</span>
+                  <span className={`min-w-[120px] flex-[1_1_160px] break-words text-sm leading-snug sm:min-w-0 sm:flex-1 ${task.completed ? 'line-through text-ink/45' : 'text-ink font-medium'}`}>{task.title}</span>
                 )}
                 <button
                   onClick={(e) => {
@@ -1856,20 +1896,20 @@ export default function DayPage() {
                     setRenamingHabitRow(task.id)
                     setRenameHabitRowValue(task.title)
                   }}
-                  className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gold/15 transition text-ink/30 hover:text-gold"
+                  className="hidden shrink-0 p-1 rounded sm:block opacity-0 group-hover:opacity-100 hover:bg-gold/15 transition text-ink/30 hover:text-gold"
                   title="Rename habit"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
-                <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={96} height={20} className="hidden sm:block" />
-                <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={44} height={20} className="sm:hidden" />
+                <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={96} height={20} className="hidden md:block" />
+                <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={44} height={20} className="hidden sm:block md:hidden" />
                 {task.completed ? (
                   <span className="shrink-0 rounded-full bg-sage/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sage">Done</span>
                 ) : (
                   <span className="hidden shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink/40 sm:inline-block">Today</span>
                 )}
                 <div className="relative">
-                  <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1 rounded hover:bg-ember/15 transition opacity-0 group-hover:opacity-100 text-ink/30 hover:text-[#cf8f78]" title="Delete">
+                  <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 -m-0.5 rounded hover:bg-ember/15 transition sm:opacity-0 sm:p-1 sm:m-0 sm:group-hover:opacity-100 text-ink/30 hover:text-[#cf8f78]" title="Delete">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                   {showDeleteHabitMenu === task.id && (

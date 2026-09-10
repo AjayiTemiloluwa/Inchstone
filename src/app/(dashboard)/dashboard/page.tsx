@@ -298,7 +298,7 @@ export default function DashboardPage() {
                 ? <Activity className="h-3.5 w-3.5 text-sage" />
                 : <Clock className="h-3.5 w-3.5 text-gold-dim" />}
             </span>
-            <span className="min-w-0 flex-1 truncate text-sm">
+            <span className="min-w-0 flex-1 break-words text-sm leading-snug">
               {nextScheduled.isImportant && (
                 <Star aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5 fill-gold text-gold" />
               )}
@@ -378,10 +378,10 @@ export default function DashboardPage() {
                     >
                       {done && <Check className="h-4 w-4" strokeWidth={2.5} />}
                     </button>
-                    <span className={`min-w-0 flex-1 truncate text-sm ${done ? 'text-parchment/40 line-through' : 'text-parchment'}`}>
+                    <span className={`min-w-0 flex-1 break-words text-sm leading-snug ${done ? 'text-parchment/40 line-through' : 'text-parchment'}`}>
                       {deed.title}
                     </span>
-                    <span className="shrink-0 font-mono text-xs tabular-nums text-parchment/45">
+                    <span className="hidden shrink-0 font-mono text-xs tabular-nums text-parchment/45 min-[400px]:block">
                       {Math.round(pct)}%
                     </span>
                     <ArrowUpRight
