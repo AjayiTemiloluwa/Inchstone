@@ -1180,7 +1180,7 @@ input[type="number"] {
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 .px-safe { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 /* App chrome heights that grow past the notch/home indicator in standalone. */
-.topbar-h { height: calc(env(safe-area-inset-top, 0px) + 3.5rem); }
+.topbar-h { height: calc(env(safe-area-inset-top, 0px) + 4.5rem); }
 .hairline-bottom { border-bottom: 1px solid rgba(184, 147, 90, 0.2); }
 .hairline-left { border-left: 1px solid rgba(184, 147, 90, 0.2); }
 .hairline-right { border-right: 1px solid rgba(184, 147, 90, 0.2); }

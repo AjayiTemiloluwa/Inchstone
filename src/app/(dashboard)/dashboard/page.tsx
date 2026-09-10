@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode 
 import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
 import { useRouter } from 'next/navigation'
 import { format, startOfYear, differenceInDays } from 'date-fns'
-import { ArrowRight, ArrowUpRight, Check, MessageSquare, Sun, X, Activity, Clock, Star } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Check, MessageSquare, Sun, X, Activity, Clock, Star, Sunrise, Sunset, Moon, CloudRain, CloudSnow, CloudFog, Cloud, Zap } from 'lucide-react'
 import { WordRotator, Marquee, CountUp, RevealLines } from '@/components/ui/motion'
 import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
 import { useUser } from '@clerk/nextjs'
 import { Loader } from '@/components/ui/Loader'
-import { useAmbient } from '@/components/effects/atmosphere'
+import { Compass } from '@/components/ui/Compass'
+import { useAmbient, type TimeOfDay, type Weather } from '@/components/effects/atmosphere'
 import { Float } from '@/components/effects/fluid'
 
 interface Nudge {
@@ -19,14 +20,57 @@ interface Nudge {
   createdAt: string
 }
 
-/* One editorial figure in the stat strip (replaces the compass widget). */
-function Stat({ label, value, suffix = '' }: { label: string; value: number; suffix?: string }) {
+/* Time-of-day / weather ornament for the hero's live clock chip. */
+function TodGlyph({ timeOfDay, weather, className }: { timeOfDay: TimeOfDay; weather: Weather; className?: string }) {
+  if (weather === 'storm') return <Zap className={className} strokeWidth={1.5} />
+  if (weather === 'snow') return <CloudSnow className={className} strokeWidth={1.5} />
+  if (weather === 'rain') return <CloudRain className={className} strokeWidth={1.5} />
+  if (weather === 'haze') return <CloudFog className={className} strokeWidth={1.5} />
+  if (weather === 'clouds') return <Cloud className={className} strokeWidth={1.5} />
+  if (timeOfDay === 'dawn') return <Sunrise className={className} strokeWidth={1.5} />
+  if (timeOfDay === 'dusk') return <Sunset className={className} strokeWidth={1.5} />
+  if (timeOfDay === 'night') return <Moon className={className} strokeWidth={1.5} />
+  return <Sun className={className} strokeWidth={1.5} />
+}
+
+/* A 3px hairline meter under a ledger figure — the quiet instrument read. */
+function MiniBar({ pct, tone = 'gold', className = '' }: { pct: number; tone?: 'gold' | 'moss'; className?: string }) {
+  const clamped = Math.min(100, Math.max(0, pct))
   return (
-    <div className="min-w-0 px-4 first:pl-0 last:pr-0 sm:px-7">
+    <div className={`mt-3 h-[3px] w-full overflow-hidden rounded-full bg-white/[0.06] ${className}`}>
+      <div
+        className={`h-full rounded-full transition-[width] duration-700 ease-out ${tone === 'moss' ? 'bg-moss/80' : 'bg-gold/80'}`}
+        style={{ width: `${clamped}%` }}
+      />
+    </div>
+  )
+}
+
+/* One instrument reading in the ledger strip — a mono display figure with an
+   optional hairline meter and a quiet caption. Figures count up on entry. */
+function LedgerCell({
+  label,
+  value,
+  suffix = '',
+  bar,
+  caption,
+}: {
+  label: string
+  value?: number
+  suffix?: string
+  bar?: ReactNode
+  caption?: string
+}) {
+  return (
+    <div className="flex min-w-0 flex-col px-4 first:pl-0 last:pr-0 sm:px-7">
       <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-parchment/35">{label}</p>
-      <p className="mt-2.5 font-display text-[2rem] leading-none text-parchment tabular-nums sm:text-[2.6rem]">
-        <CountUp value={value} duration={1100} format={n => `${Math.round(n)}${suffix}`} />
-      </p>
+      <div className="mt-3 flex min-h-[3.25rem] items-center">
+        <p className="font-display text-[2rem] leading-none text-parchment tabular-nums sm:text-[2.6rem]">
+          <CountUp value={value ?? 0} duration={1100} format={n => `${Math.round(n)}${suffix}`} />
+        </p>
+      </div>
+      {bar}
+      {caption && <p className="mt-2.5 text-caption text-parchment/40">{caption}</p>}
     </div>
   )
 }
@@ -77,6 +121,13 @@ export default function DashboardPage() {
   const [dailyScore, setDailyScore] = useState<{ totalTasks: number; completedTasks: number; score: number } | null>(null)
   const [nudges, setNudges] = useState<Nudge[]>([])
   const [nudgeDismissed, setNudgeDismissed] = useState(false)
+  // Hydration-safe "mounted" flag for the live clock: false during SSR and
+  // the first paint, true after — no setState-in-effect render cascade.
+  const clockReady = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false, // server snapshot — placeholder clock renders pre-hydration
+  )
   const countdownNow = useCountdown()
   const greeting = useSyncExternalStore(
     noopSubscribe,
@@ -161,6 +212,8 @@ export default function DashboardPage() {
 
   const dayOfYear = differenceInDays(today, startOfYear(today)) + 1
   const alignment = dailyScore?.score ?? Math.round(totalCompletion)
+  const deedsPct = todayDeeds.length > 0 ? Math.round((doneToday / todayDeeds.length) * 100) : 0
+  const yearPct = Math.round((dayOfYear / 365) * 100)
   const latestNudge = nudges[0]
   const firstName = user?.firstName?.trim() || ''
 
@@ -238,47 +291,85 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[880px] space-y-8 px-1 pb-28 pt-2 sm:space-y-10 sm:pt-4">
-      {/* ── Meta strip + greeting hero (single card) ── */}
+      {/* ── Meta strip + greeting hero (single card, instrument at rest) ── */}
       <div className={CARD}>
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-b hairline-bottom pb-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">
-          {format(today, 'EEEE')} · {format(today, 'd MMM yyyy')}
-        </p>
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">
-          Day {String(dayOfYear).padStart(3, '0')} · {todPhrase}
-        </p>
-      </div>
-
-      {/* ── Hero: masked line reveal, dion-style ── */}
-      <Float delay={0.3} duration={9} amp={5}>
-      <header data-noreveal>
-        <h1 className="font-display text-[clamp(2.7rem,7vw,4.9rem)] leading-[1.04] text-parchment">
-          <RevealLines
-            delay={80}
-            fluid
-            lines={[
-              `${greeting},`,
-              firstName ? `${firstName}.` : 'friend.',
-            ]}
-          />
-        </h1>
-        <div className="mt-6 flex items-center gap-4">
-          <span aria-hidden="true" className="h-px w-12 shrink-0 bg-gold/60" />
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/50">
-            Build{' '}
-            <WordRotator
-              className="font-semibold normal-case tracking-normal text-gold"
-              words={[
-                'discipline', 'momentum', 'clarity', 'faith', 'streaks',
-                'consistency', 'purpose', 'courage', 'focus', 'gratitude',
-                'patience', 'strength',
-              ]}
-            />{' '}
-            one day at a time
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b hairline-bottom pb-3.5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">
+            {format(today, 'EEEE')} · {format(today, 'd MMM yyyy')}
+          </p>
+          <p
+            title={todPhrase}
+            className="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40"
+          >
+            <TodGlyph timeOfDay={amb.timeOfDay} weather={amb.weather} className="h-3.5 w-3.5 text-gold-dim" />
+            <span
+              suppressHydrationWarning
+              className="rounded-full border border-gold/25 bg-gold/10 px-2.5 py-0.5 font-bold tabular-nums normal-case tracking-[0.08em] text-gold"
+            >
+              {clockReady ? format(countdownNow, 'HH:mm:ss') : '--:--:--'}
+            </span>
           </p>
         </div>
-      </header>
-      </Float>
+
+        <div className="mt-6 flex flex-col items-center gap-8 sm:mt-7 lg:mt-2 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+          {/* Hero: masked line reveal, dion-style */}
+          <Float delay={0.3} duration={9} amp={5} className="min-w-0 flex-1">
+            <header data-noreveal>
+              <h1 className="font-display text-[clamp(2.7rem,7vw,4.9rem)] leading-[1.04] text-parchment">
+                <RevealLines
+                  delay={80}
+                  fluid
+                  lines={[
+                    `${greeting},`,
+                    firstName ? `${firstName}.` : 'friend.',
+                  ]}
+                />
+              </h1>
+              <div className="mt-6 flex items-center gap-4">
+                <span aria-hidden="true" className="h-px w-12 shrink-0 bg-gold/60" />
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/50">
+                  Build{' '}
+                  <WordRotator
+                    className="font-semibold normal-case tracking-normal text-gold"
+                    words={[
+                      'discipline', 'momentum', 'clarity', 'faith', 'streaks',
+                      'consistency', 'purpose', 'courage', 'focus', 'gratitude',
+                      'patience', 'strength',
+                    ]}
+                  />{' '}
+                  one day at a time
+                </p>
+              </div>
+            </header>
+          </Float>
+
+          {/* The signature instrument — alignment needle, today's ring,
+              day number as a watch complication. A tap opens the full year. */}
+          <div data-cursor="Open the full year" className="shrink-0 self-center lg:pr-2">
+            <div className="hidden lg:block">
+              <Compass
+                size={200}
+                alignment={Math.round(alignment)}
+                ringProgress={deedsPct}
+                dayLabel={String(dayOfYear).padStart(3, '0')}
+                primary={String(Math.round(alignment))}
+                ringLabel="TODAY"
+                onClick={() => router.push('/year')}
+              />
+            </div>
+            <div className="lg:hidden">
+              <Compass
+                size={148}
+                alignment={Math.round(alignment)}
+                ringProgress={deedsPct}
+                dayLabel={String(dayOfYear).padStart(3, '0')}
+                primary={String(Math.round(alignment))}
+                ringLabel="TODAY"
+                onClick={() => router.push('/year')}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Next up — the next scheduled deed with a live countdown ── */}
@@ -319,15 +410,33 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* ── Figures strip (the compass, translated into type) ── */}
+      {/* ── Readings: the day's numbers as small instruments ── */}
       <Float delay={0.7} duration={10} amp={6}>
       <section aria-labelledby="progress-heading">
-        <SectionHeader id="progress-heading" label="Progress" />
+        <SectionHeader id="progress-heading" label="Readings" />
         <div className={CARD}>
-          <div className="grid grid-cols-3 divide-x divide-white/[0.06]">
-            <Stat label="Alignment" value={Math.round(alignment)} suffix="%" />
-            <Stat label="Done today" value={doneToday} suffix={`/${todayDeeds.length}`} />
-            <Stat label="Day of year" value={dayOfYear} suffix="/365" />
+          <div className="grid grid-cols-3 divide-x divide-white/[0.06] py-1">
+            <LedgerCell
+              label="Alignment"
+              value={Math.round(alignment)}
+              suffix="%"
+              bar={<MiniBar pct={alignment} tone="gold" />}
+              caption="with your Why today"
+            />
+            <LedgerCell
+              label="Deeds"
+              value={doneToday}
+              suffix={`/${todayDeeds.length}`}
+              bar={<MiniBar pct={deedsPct} tone="moss" />}
+              caption={`${todayDeeds.length} set for today`}
+            />
+            <LedgerCell
+              label="The year"
+              value={dayOfYear}
+              suffix="/365"
+              bar={<MiniBar pct={yearPct} tone="gold" />}
+              caption={`${yearPct}% of the year gone`}
+            />
           </div>
         </div>
       </section>
@@ -352,7 +461,19 @@ export default function DashboardPage() {
         />
         <div className={CARD}>
           {todayDeeds.length > 0 ? (
-          <ul className="-mx-2">
+          <>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="shrink-0 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-gold tabular-nums">
+                {doneToday}/{todayDeeds.length} done
+              </span>
+              <div className="h-[3px] min-w-4 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+                <div
+                  className="h-full rounded-full bg-moss/80 transition-[width] duration-700 ease-out"
+                  style={{ width: `${deedsPct}%` }}
+                />
+              </div>
+            </div>
+            <ul className="-mx-2">
             {todayDeeds.slice(0, 6).map((deed, i) => {
               const pct = completionMap[deed.id] || 0
               const done = pct >= 100
@@ -395,8 +516,12 @@ export default function DashboardPage() {
               )
             })}
           </ul>
+          </>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+          <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+            <div aria-hidden="true" className="opacity-40">
+              <Compass size={56} alignment={0} ringProgress={0} />
+            </div>
             <p className="text-sm text-parchment/55">No deeds set for today.</p>
             <button
               onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
@@ -424,7 +549,7 @@ export default function DashboardPage() {
       <section aria-labelledby="touchpoint-heading">
         <SectionHeader id="touchpoint-heading" label={latestNudge && !nudgeDismissed ? 'From your partner' : 'Reflect'} />
         {!nudgeDismissed && latestNudge ? (
-        <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-surface-solid p-4">
+        <div className="glass-gold flex items-start gap-3 rounded-xl p-4">
           <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} />
           <div className="min-w-0 flex-1">
             <p className="text-caption text-parchment/45">Nudge from {latestNudge.partner.name}</p>
@@ -464,7 +589,7 @@ export default function DashboardPage() {
         <button
           onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
           data-cursor="Sketch the day"
-          className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/45 transition-colors hover:text-parchment"
+          className="rounded-full border hairline px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-parchment/55 transition-colors hover:border-gold/40 hover:text-gold"
         >
           Plan today
         </button>
