@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
-import { Compass } from '@/components/ui/Compass'
+import { WorkClock } from '@/components/ui/WorkClock'
 import { ArrowRight, BellRing, CalendarCheck, Check, Layers, Repeat, Star, Target } from 'lucide-react'
 
 export const metadata = {
@@ -53,7 +53,7 @@ export default async function Home() {
       <header className="sticky top-0 z-40 border-b hairline-bottom bg-paper/90 backdrop-blur-md">
         <div className={`${shell} flex h-14 items-center justify-between gap-4`}>
           <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Inchstone home">
-            <Compass alignment={100} ringProgress={100} size={26} />
+            <WorkClock progress={100} size={26} />
             <span className="font-display text-lg font-bold tracking-tight text-parchment">Inchstone</span>
           </Link>
           <nav className="hidden items-center gap-8 md:flex" aria-label="Primary">
@@ -90,7 +90,7 @@ export default async function Home() {
                 <p className="rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 font-mono text-[10px] font-bold tabular-nums text-gold">2 of 3 done</p>
               </div>
               <div className="flex items-center justify-center px-5 py-6">
-                <Compass alignment={72} ringProgress={72} primary="72" ringLabel="ALIGNED" dayLabel="DAY 252" size={168} />
+                <WorkClock progress={72} primary="72" ringLabel="ALIGNED" dayLabel="DAY 252" size={168} />
               </div>
               <div className="space-y-2 border-t hairline-top bg-black/[0.04] px-5 py-4">
                 <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-paper px-3 py-2.5">
@@ -194,7 +194,7 @@ export default async function Home() {
       </main>
       <footer className="border-t hairline-top">
         <div className={`${shell} flex flex-col items-center justify-between gap-4 py-8 sm:flex-row`}>
-          <div className="flex items-center gap-2.5"><Compass alignment={100} ringProgress={100} size={24} /><span className="font-display font-bold text-parchment">Inchstone</span></div>
+          <div className="flex items-center gap-2.5"><WorkClock progress={100} size={24} /><span className="font-display font-bold text-parchment">Inchstone</span></div>
           <div className="flex items-center gap-6 text-sm text-ink/55">
             <a href="#how" className="transition hover:text-gold">How it works</a>
             <a href="/privacy" className="transition hover:text-gold">Privacy</a>

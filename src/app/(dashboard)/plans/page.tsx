@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarRange, Compass, Plus } from 'lucide-react'
+import { CalendarRange, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { usePlansStore } from '@/stores/plansStore'
 import { Card } from '@/components/ui/Card'
 import { Loader } from '@/components/ui/Loader'
+import { WorkClock } from '@/components/ui/WorkClock'
 import { PlanFormModal } from '@/components/plans/PlanFormModal'
 import { ProgressSegments } from '@/components/plans/ProgressSegments'
 import { formatMonthRange, formatSpan } from '@/lib/plans/duration'
@@ -69,7 +70,7 @@ export default function PlansPage() {
 
       {!loadingPlans && !plansError && plans.length === 0 && (
         <div className="mt-16 flex flex-col items-center text-center">
-          <Compass className="w-10 h-10 text-gold-dim" strokeWidth={1.25} />
+          <WorkClock size={40} progress={0} className="opacity-70" />
           <h2 className="mt-4 font-display text-xl text-parchment">No long-term plans yet</h2>
           <p className="mt-1 max-w-sm text-sm text-parchment/55">
             Sketch the decade ahead — or just next quarter. Start by naming a plan and picking its months.

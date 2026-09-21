@@ -9,7 +9,7 @@ import { WordRotator, Marquee, CountUp, RevealLines } from '@/components/ui/moti
 import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
 import { useUser } from '@clerk/nextjs'
 import { Loader } from '@/components/ui/Loader'
-import { Compass } from '@/components/ui/Compass'
+import { WorkClock } from '@/components/ui/WorkClock'
 import { useAmbient, type TimeOfDay, type Weather } from '@/components/effects/atmosphere'
 import { Float } from '@/components/effects/fluid'
 
@@ -343,14 +343,14 @@ export default function DashboardPage() {
             </header>
           </Float>
 
-          {/* The signature instrument — alignment needle, today's ring,
-              day number as a watch complication. A tap opens the full year. */}
+          {/* The signature instrument — a live work clock: today's ring around
+              the dial, the real local time on the hands, and the day number +
+              alignment as watch complications. A tap opens the full year. */}
           <div data-cursor="Open the full year" className="shrink-0 self-center lg:pr-2">
             <div className="hidden lg:block">
-              <Compass
+              <WorkClock
                 size={200}
-                alignment={Math.round(alignment)}
-                ringProgress={deedsPct}
+                progress={deedsPct}
                 dayLabel={String(dayOfYear).padStart(3, '0')}
                 primary={String(Math.round(alignment))}
                 ringLabel="TODAY"
@@ -358,10 +358,9 @@ export default function DashboardPage() {
               />
             </div>
             <div className="lg:hidden">
-              <Compass
+              <WorkClock
                 size={148}
-                alignment={Math.round(alignment)}
-                ringProgress={deedsPct}
+                progress={deedsPct}
                 dayLabel={String(dayOfYear).padStart(3, '0')}
                 primary={String(Math.round(alignment))}
                 ringLabel="TODAY"
@@ -520,7 +519,7 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
             <div aria-hidden="true" className="opacity-40">
-              <Compass size={56} alignment={0} ringProgress={0} />
+              <WorkClock size={56} progress={0} />
             </div>
             <p className="text-sm text-parchment/55">No deeds set for today.</p>
             <button

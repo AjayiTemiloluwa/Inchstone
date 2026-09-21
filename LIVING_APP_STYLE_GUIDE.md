@@ -1,8 +1,9 @@
 # Inchstone — Living-App Systems Style Guide
 
-> Companion to `DESIGN_PLAN.md` / `DESIGN_PLAN_v2.md`. Documents the shared
-> "living app" systems (time band, season, voice bank) so future contributors
-> extend the same systems instead of hardcoding a new one-off string or band.
+> Companion to `DESIGN_PLAN_v2.md` (the live spec — the obsolete v1 plan was
+> removed). Documents the shared "living app" systems (time band, season, voice
+> bank, work clock) so future contributors extend the same systems instead of
+> hardcoding a new one-off string, band or instrument.
 
 ## 1. Time of day  (`src/components/effects/atmosphere.tsx`)
 
@@ -96,3 +97,35 @@ within a session (module-level last-shown map + `sessionStorage`).
 - The ambient + voice layers degrade gracefully: if geolocation or weather
   fails / is denied, the app silently falls back to time + season only — no
   error toast, no blocked render.
+
+## 6. The work clock — `src/components/ui/WorkClock.tsx`
+
+The signature instrument (it replaced the v2 compass). Same object on the
+screen, live read in the middle:
+
+| Part | Meaning |
+|------|---------|
+| Ring around the dial | work done in the current period (`progress`, 0–100) |
+| Hour hand (gold) | local hour |
+| Minute hand (parchment) | local minute (tracks the seconds) |
+| Second hand (gold-dim, short tail) | local second — the tick that makes it *live* |
+| Chapter ring | 12 hour indices, cardinals a little longer |
+| `dayLabel` · `primary` · `ringLabel` | the mono complications the compass carried (day-of-year, the one gold number, the period name) |
+
+- **One component, every size:** 22px chrome mark (topbar / collapsed sidebar),
+  40px empty-state glyph, 56px quiet inset, 148/200px dashboard hero. Geometry
+  is proportional to `size`; below 44px the dial drops the complications and the
+  12-index chapter ring. `showTime` prints the live `HH:mm` beside the face.
+- **"Now" comes from `useCountdown`** — never a private `setInterval`. The ticker
+  is asked to keep ticking under `prefers-reduced-motion`
+  (`{ respectReducedMotion: false }`) because a frozen clock would show a wrong
+  time; the global reduced-motion rule flattens the hand-settle transitions
+  instead.
+- **Hydration:** the hands rest at 12:00 in the server snapshot and settle to the
+  real time one paint later (the `useSyncExternalStore` mounted pattern), so SSR
+  and the first client paint agree — no mismatch, no render cascade.
+- **Every surface uses it:** marketing nav + demo card + footer, dashboard hero,
+  topbar, collapsed sidebar, empty states. The favicon (`src/app/icon.svg`)
+  mirrors the dial, so it is the only static (non-live) clock in the app.
+- Empty states use the work clock at ~40px, `progress={0}`, dimmed — do not
+  introduce a second icon/motif language for them.

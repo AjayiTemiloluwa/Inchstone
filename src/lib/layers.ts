@@ -22,7 +22,7 @@ export const LAYERS = {
 
 export type Layer = (typeof LAYERS)[keyof typeof LAYERS]
 
-/** Ring order matches the compass: outer = Why ... innermost = Deed. */
+/** Ring order matches the work clock: outer = Why ... innermost = Deed. */
 export const LAYER_ORDER: Layer[] = [LAYERS.WHY, LAYERS.QUEST, LAYERS.MILESTONE, LAYERS.WIN, LAYERS.DEED]
 
 export const LAYER_META: Record<

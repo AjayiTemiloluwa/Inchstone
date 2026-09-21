@@ -66,7 +66,7 @@ export const VOICE_BANK: CopyBank = {
     any: ['Spreading the plan…', 'Assembling the sections…'],
   },
   'loading.dashboard': {
-    any: ['Compass righting north…', 'Gathering your quiet progress…'],
+    any: ['Winding the work clock…', 'Gathering your quiet progress…'],
   },
   'loading.challenge': {
     any: ['Filling the bottles…', 'Counting every drop…', 'Tipping the challenge bottles upright…'],

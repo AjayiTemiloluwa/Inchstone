@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, Compass, ChevronLeft, ChevronRight, Target, FlaskConical } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, ChevronLeft, ChevronRight, Target, FlaskConical } from 'lucide-react'
 import { useState } from 'react'
+import { WorkClock } from '@/components/ui/WorkClock'
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -36,7 +37,7 @@ export function Sidebar() {
             <span className="font-display text-lg text-parchment whitespace-nowrap">Inchstone</span>
           )}
           {collapsed && (
-            <Compass className="h-5 w-5 text-gold mx-auto" strokeWidth={1.5} />
+            <WorkClock size={22} progress={100} className="mx-auto" />
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}

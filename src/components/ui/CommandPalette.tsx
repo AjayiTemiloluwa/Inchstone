@@ -14,7 +14,7 @@ interface Command {
 }
 
 const NAV: Array<Omit<Command, 'action'>> = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🧭', keywords: 'home today compass' },
+  { id: 'dashboard', label: 'Dashboard', icon: '🕰️', keywords: 'home today clock work' },
   { id: 'year', label: 'Year view', icon: '🗓️', keywords: 'annual quarters months' },
   { id: 'calendar', label: 'Calendar', icon: '📅', keywords: 'month weeks schedule' },
   { id: 'day-today', label: 'Open today', hint: format(new Date(), 'EEE, MMM d'), icon: '☀️', keywords: 'day deeds habits now' },

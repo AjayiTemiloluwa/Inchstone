@@ -90,7 +90,7 @@ const MESSAGES = [
   'Leveling up…',
   'Scouting ahead…',
   'Polishing the gold…',
-  'Tuning the compass…',
+  'Winding the work clock…',
   'Warming the hearth…',
   'Inching forward…',
 ]

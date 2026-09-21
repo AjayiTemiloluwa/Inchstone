@@ -2,24 +2,39 @@
 
 import { useEffect, useState } from 'react'
 
+export interface CountdownOptions {
+  /**
+   * Opt out of the prefers-reduced-motion freeze (default `true`).
+   *
+   * Animating numerals churn for users who asked for calm, so countdowns stop
+   * ticking for them and render one static reading. A *clock*, though, must
+   * stay truthful — freezing it would show a wrong time — so `WorkClock` passes
+   * `false` and lets the global reduced-motion rule in `globals.css` flatten the
+   * hand-settle transitions instead.
+   */
+  respectReducedMotion?: boolean
+}
+
 /**
- * useCountdown — a lightweight second-ticker for live countdowns.
+ * useCountdown — the shared "what time is it now" ticker.
  *
  * Returns a fresh `now` Date every `intervalMs` (default 1000ms). Because the
  * component re-renders once per tick, keep derived countdown strings cheap.
  * Disabled for prefers-reduced-motion (returns a static date) so animating
- * numerals don't churn for users who asked for calm.
+ * numerals don't churn for users who asked for calm — pass
+ * `{ respectReducedMotion: false }` for instruments that must keep ticking
+ * (the work clock).
  */
-export function useCountdown(intervalMs = 1000): Date {
+export function useCountdown(intervalMs = 1000, options: CountdownOptions = {}): Date {
+  const { respectReducedMotion = true } = options
   const [now, setNow] = useState<Date>(() => new Date())
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduced) return
+    if (respectReducedMotion && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const id = window.setInterval(() => setNow(new Date()), intervalMs)
     return () => window.clearInterval(id)
-  }, [intervalMs])
+  }, [intervalMs, respectReducedMotion])
 
   return now
 }

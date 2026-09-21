@@ -1,6 +1,12 @@
 # Inchstone — v2: Sharper Minimalism + Full Responsive Spec
 
-> **Companion to `DESIGN_PLAN.md`.** This is an upgrade pass on the *Page & Button Redesign Plan* — **not a replacement.** Keep that document open alongside this one. Three things change here:
+> **Status: the live spec.** The v1 `DESIGN_PLAN.md` this used to sit beside has
+> been removed (superseded). One identity change has landed since: the signature
+> instrument is no longer the compass — it is the **live work clock**. Read every
+> "compass" below as the work clock, and see `LIVING_APP_STYLE_GUIDE.md` §6 for
+> its component contract (`src/components/ui/WorkClock.tsx`).
+>
+> This is an upgrade pass on the *Page & Button Redesign Plan* — **not a replacement.** Three things change here:
 > 1. **Cuts** — a shorter list of surviving patterns, because v1 still has a few "nice to have" elements that dilute the restraint.
 > 2. **A real responsive system** — one set of tokens that scale, plus an explicit **touch vs. pointer interaction model**, so "hover to reveal delete" (which doesn't exist on mobile) gets replaced everywhere by one consistent pattern instead of being special-cased per page.
 > 3. **Polish details** — the small, easy-to-skip things that separate "clean" from "this feels expensive."
