@@ -34,6 +34,16 @@ type GoogleEventView = {
   type?: string
 }
 
+// Human labels for the recurrence patterns a habit can carry.
+const HABIT_PATTERN_LABEL: Record<string, string> = {
+  daily: 'Daily',
+  weekdays: 'Weekdays',
+  weekly: 'Weekly',
+  biweekly: 'Biweekly',
+  monthly: 'Monthly',
+  yearly: 'Yearly',
+}
+
 export default function DayPage() {
   const router = useRouter()
   const params = useParams()
@@ -226,6 +236,26 @@ export default function DayPage() {
   useEffect(() => {
     fetchTodayHabits()
   }, [fetchTodayHabits, dateStr])
+
+  // Habit definitions for the selected day — lets the tracker list habits that are
+  // not due today (weekly / weekdays / monthly patterns) instead of hiding them.
+  const [habitOverview, setHabitOverview] = useState<any[]>([])
+
+  const fetchHabitOverview = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/habits/overview?date=${dateStr}`)
+      if (res.ok) {
+        const data = await res.json()
+        setHabitOverview(data.habits || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch habit overview', e)
+    }
+  }, [dateStr])
+
+  useEffect(() => {
+    fetchHabitOverview()
+  }, [fetchHabitOverview, dateStr])
 
   // Last-30-day completion series per habit title — feeds the inline sparklines.
   const habitSeriesByTitle = useMemo(() => {
@@ -450,6 +480,11 @@ export default function DayPage() {
   const displayedHabits = todayHabits.length > 0 ? todayHabits : habitTasks
   const habitsDone = displayedHabits.filter((h: any) => h.completed).length
   const habitsTotal = displayedHabits.length
+  // Habits the user owns that fall outside today's schedule. They stay visible as
+  // read-only rows (with their next due date) so no habit ever vanishes from the
+  // tracker — the counters above still measure only what is actually due today.
+  const scheduledHabitTitles = new Set(displayedHabits.map((h: any) => h.title))
+  const offDayHabits = (habitOverview as any[]).filter(h => !h.scheduled && !scheduledHabitTitles.has(h.title))
   // Day score counts only non-habit tasks (regular deeds)
   const deedTasks = allTasks.filter(t => !t.isHabit)
   const completedTasks = deedTasks.filter(t => t.completed)
@@ -668,7 +703,7 @@ export default function DayPage() {
         setRenamingHabitRow(null)
         setShowDeleteHabitMenu(null)
         setExpandedHabit(null)
-        await Promise.all([fetchItems(), fetchTodayHabits(), fetchHabitHistory()])
+        await Promise.all([fetchItems(), fetchTodayHabits(), fetchHabitHistory(), fetchHabitOverview()])
       } else {
         const data = await res.json()
         showToast(data.error || 'Failed to rename habit', 'error')
@@ -1011,6 +1046,7 @@ export default function DayPage() {
         fetchTodayHabits()
         fetchHabitHistory()
         fetchItems()
+        fetchHabitOverview()
       } else {
         const data = await res.json()
         showToast(data.error || 'Failed to add habit', 'error')
@@ -1776,10 +1812,17 @@ export default function DayPage() {
                       habitsDone === habitsTotal ? 'border-sage/30 bg-sage/10 text-sage' : 'border-gold/25 bg-gold/10 text-gold'
                     }`}>
                       {habitsDone}/{habitsTotal} today
+                      {offDayHabits.length > 0 && (
+                        <span className="text-ink/35"> · {offDayHabits.length} off-day</span>
+                      )}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-ink/45 truncate">Repeats automatically — check in each day</p>
+                <p className="text-[11px] text-ink/45 truncate">
+                  {offDayHabits.length > 0
+                    ? `Repeats automatically — ${offDayHabits.length} habit${offDayHabits.length === 1 ? '' : 's'} not due today, listed below`
+                    : 'Repeats automatically — check in each day'}
+                </p>
               </div>
             </div>
 
@@ -1955,7 +1998,7 @@ export default function DayPage() {
               )}
               </div>
             )})}
-            {displayedHabits.length === 0 && (
+            {(displayedHabits.length === 0 && habitOverview.length === 0) && (
               <button
                 onClick={() => setShowHabitAdd(true)}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 py-3 text-xs text-ink/40 transition hover:border-gold/40 hover:text-gold"
@@ -1963,6 +2006,44 @@ export default function DayPage() {
                 <Plus className="w-3.5 h-3.5" />
                 Add your first habit
               </button>
+            )}
+
+            {/* Off-day habits — owned but not due today. Read-only, so the schedule
+                stays intact while nothing silently disappears from the tracker. */}
+            {offDayHabits.length > 0 && (
+              <div className="pt-2">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="h-px flex-1 bg-white/10" />
+                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/35">
+                    Not scheduled today · {offDayHabits.length}
+                  </span>
+                  <span className="h-px flex-1 bg-white/10" />
+                </div>
+                <div className="space-y-1.5">
+                  {offDayHabits.map((h: any) => (
+                    <div
+                      key={h.title}
+                      className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border border-dashed border-white/10 bg-black/10 px-3 py-2.5 sm:flex-nowrap sm:gap-3 sm:px-2.5 sm:py-2"
+                      title={h.nextDue ? `Next due ${format(parseISO(h.nextDue), 'EEEE d MMMM yyyy')}` : 'No further instances scheduled'}
+                    >
+                      <span className="hidden w-4 shrink-0 justify-center text-ink/25 min-[400px]:flex">
+                        <Clock className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-[1_1_160px] truncate text-sm leading-snug text-ink/40 sm:flex-1">
+                        {h.title}
+                      </span>
+                      <HabitSparkline values={habitSeriesByTitle[h.title] || []} width={96} height={20} className="hidden opacity-45 md:block" />
+                      <HabitSparkline values={habitSeriesByTitle[h.title] || []} width={44} height={20} className="hidden opacity-45 sm:block md:hidden" />
+                      <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink/35">
+                        {HABIT_PATTERN_LABEL[h.pattern] || h.pattern}
+                      </span>
+                      <span className="shrink-0 font-mono text-[9px] tabular-nums text-ink/45">
+                        {h.nextDue ? `Next ${format(parseISO(h.nextDue), 'EEE d MMM')}` : 'No further dates'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 

@@ -74,6 +74,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ events: visibleEvents, mode: state.mode, lastSyncedAt: state.lastSyncedAt })
   } catch (error) {
     console.error('Failed to sync calendar events', error)
+
+    // Google auth failures (expired/revoked refresh token → invalid_grant,
+    // 401/403 from the API) are expected states, not server bugs. Report them
+    // as needsAuth so the UI can prompt a reconnect instead of a raw 500.
+    const anyErr = error as { code?: number | string; response?: { status?: number }; message?: string }
+    const status =
+      anyErr?.response?.status ??
+      (typeof anyErr?.code === 'number' ? anyErr.code : Number(anyErr?.code) || undefined)
+    const msg = String(anyErr?.message || '')
+    if (status === 401 || status === 403 || /invalid_grant|invalid credentials|unauthorized|expired/i.test(msg)) {
+      return NextResponse.json({ needsAuth: true, events: [] })
+    }
+
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
