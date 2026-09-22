@@ -1,6 +1,6 @@
 /* Inchstone service worker — offline shell + data cache + write-queue bridge. */
 
-const VERSION = 'v6'
+const VERSION = 'v7'
 const SHELL_CACHE = `inchstone-shell-${VERSION}`
 const RUNTIME_CACHE = `inchstone-runtime-${VERSION}`
 const API_CACHE = `inchstone-api-${VERSION}`
@@ -87,12 +87,13 @@ self.addEventListener('activate', (event) => {
     self.clients.claim()
 })
 
-// ── Fetch strategies ──────────────────────────────────────────────────────────
-//  • navigations  → network-first; every visited page is saved to the shell
-//                   cache, so offline serves exactly the page you last saw
-//  • /api GET     → network-first, fall back to the last good cached response
-//                   (offline shows the data you last saw, not a dead page)
-//  • static       → stale-while-revalidate, matching across both asset caches
+// ── Fetch strategies — CACHE-FIRST, so online and offline behave alike ────────
+//  The cache always answers if it can; the network only refreshes it in the
+//  background. Nothing waits on the network, so being offline changes nothing
+//  about how the app loads or behaves.
+//  • navigations  → cached page instantly; HTML refetched silently if online
+//  • /api GET     → cached data instantly; refetched silently if online
+//  • static       → cached chunk instantly; refetched silently if online
 //  • /api writes  → passed through untouched; the client-side offlineQueue
 //                   owns retrying them.
 self.addEventListener('fetch', (event) => {
@@ -102,19 +103,31 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(req.url)
     if (url.origin !== self.location.origin) return // Clerk/Google/fonts CDNs
 
-    // 1. API reads
+    const refresh = (cache, key, response) => {
+        // Silent background revalidation — never blocks, never rejects.
+        fetch(key)
+            .then((res) => { if (res && res.ok) cache.put(key, res) })
+            .catch(() => {})
+        return response
+    }
+
+    // 1. API reads — cached data first, silent refresh when online
     if (url.pathname.startsWith('/api/')) {
         if (!API_GET_CACHEABLE.test(url.pathname)) return
         event.respondWith(
             (async () => {
                 const cache = await caches.open(API_CACHE)
+                const cached = await cache.match(req, { ignoreSearch: false })
+                if (cached) return refresh(cache, req, cached)
                 try {
                     const fresh = await fetch(req)
-                    if (fresh.ok) cache.put(req, fresh.clone())
+                    if (fresh.ok) {
+                        const clone = fresh.clone()
+                        cache.put(req, clone).catch(() => {})
+                        return fresh
+                    }
                     return fresh
                 } catch {
-                    const cached = await cache.match(req, { ignoreSearch: false })
-                    if (cached) return cached
                     return new Response(
                         JSON.stringify({ offline: true, error: 'unavailable offline' }),
                         { status: 503, headers: { 'Content-Type': 'application/json' } }
@@ -125,33 +138,32 @@ self.addEventListener('fetch', (event) => {
         return
     }
 
-    // 2. Navigations — network-first, but save every page you visit
+    // 2. Navigations — cached page first, silent refresh when online
     if (req.mode === 'navigate') {
         event.respondWith(
             (async () => {
+                const shell = await caches.open(SHELL_CACHE)
+                const cached =
+                    (await shell.match(req, { ignoreSearch: true })) ||
+                    (await shell.match('/dashboard')) ||
+                    (await shell.match('/'))
+                if (cached) return refresh(shell, req, cached)
                 try {
                     const fresh = await fetch(req)
                     if (fresh.ok && fresh.type === 'basic') {
-                        caches
-                            .open(SHELL_CACHE)
-                            .then((shell) => shell.put(req, fresh.clone()))
-                            .catch(() => {})
+                        const clone = fresh.clone()
+                        shell.put(req, clone).catch(() => {})
                     }
                     return fresh
                 } catch {
-                    const shell = await caches.open(SHELL_CACHE)
-                    const exact = await shell.match(req, { ignoreSearch: true })
-                    if (exact) return exact
-                    const dashboard = await shell.match('/dashboard')
-                    if (dashboard) return dashboard
-                    return (await shell.match('/')) || (await shell.match(OFFLINE_URL)) || Response.error()
+                    return (await shell.match(OFFLINE_URL)) || Response.error()
                 }
             })()
         )
         return
     }
 
-    // 3. Static assets — stale-while-revalidate
+    // 3. Static assets — cached chunk first, silent refresh when online
     if (isStaticAsset(url)) {
         event.respondWith(
             (async () => {
@@ -159,13 +171,18 @@ self.addEventListener('fetch', (event) => {
                 const shell = await caches.open(SHELL_CACHE)
                 const cached =
                     (await runtime.match(req)) || (await shell.match(req))
-                const network = fetch(req)
-                    .then((res) => {
-                        if (res.ok) runtime.put(req, res.clone())
-                        return res
-                    })
-                    .catch(() => cached)
-                return cached || network
+                if (cached) return refresh(runtime, req, cached)
+                try {
+                    const fresh = await fetch(req)
+                    if (fresh.ok) {
+                        const clone = fresh.clone()
+                        runtime.put(req, clone).catch(() => {})
+                        return fresh
+                    }
+                    return fresh
+                } catch {
+                    return Response.error()
+                }
             })()
         )
     }
