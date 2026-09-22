@@ -1184,6 +1184,20 @@ input[type="number"] {
    title, year chip, work clock, theme toggle and Clerk avatar all sit on a
    40px control row without feeling cramped. */
 .topbar-h { height: calc(env(safe-area-inset-top, 0px) + 4rem); }
+/* Clerk avatar — hard cap (v2 §6 app-bar rules): Clerk's remote UI defaults
+   its avatar box to 36px and resists external sizing, which let the circle
+   paint taller than the 64px bar. The 40px slot in Topbar.tsx caps the
+   layout box; this rule guarantees the painted circle never exceeds it. */
+.topbar-h .cl-avatarBox {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  max-width: 2.25rem !important;
+  max-height: 2.25rem !important;
+}
+.topbar-h .cl-userButtonBox,
+.topbar-h .cl-userButtonOuterIdentifier {
+  max-width: 2.25rem !important;
+}
 .hairline-bottom { border-bottom: 1px solid rgba(184, 147, 90, 0.2); }
 .hairline-left { border-left: 1px solid rgba(184, 147, 90, 0.2); }
 .hairline-right { border-right: 1px solid rgba(184, 147, 90, 0.2); }

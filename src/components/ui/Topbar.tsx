@@ -54,13 +54,20 @@ export function Topbar() {
         <span aria-hidden className="hidden h-6 w-px bg-gold-dim/25 sm:block" />
         <ThemeToggle />
         <span aria-hidden className="h-6 w-px bg-gold-dim/25" />
-        <UserButton
-          appearance={{
-            elements: {
-              avatarBox: 'h-10 w-10 ring-2 ring-gold-dim/35 ring-offset-2 ring-offset-ink',
-            }
-          }}
-        />
+        {/* Clerk profile: the button is capped by a fixed 40px slot so the
+            avatar can never paint taller than the bar (Clerk's remote UI
+            defaults to a 36px box; the appearance class shrinks the ring so
+            the whole control stays inside the 40px target). */}
+        <span className="flex h-10 w-10 items-center justify-center">
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: 'size-9 rounded-full ring-1 ring-gold-dim/40',
+                userButtonTrigger: 'rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-dim/60',
+              },
+            }}
+          />
+        </span>
       </div>
     </header>
   )
