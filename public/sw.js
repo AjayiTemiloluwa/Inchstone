@@ -1,9 +1,10 @@
 /* Inchstone service worker — offline shell + data cache + write-queue bridge. */
 
-const VERSION = 'v7'
+const VERSION = 'v8'
 const SHELL_CACHE = `inchstone-shell-${VERSION}`
 const RUNTIME_CACHE = `inchstone-runtime-${VERSION}`
 const API_CACHE = `inchstone-api-${VERSION}`
+const RSC_CACHE = `inchstone-rsc-${VERSION}`
 const OFFLINE_URL = '/offline.html'
 
 // API GETs kept for offline reads. Writes (POST/PUT/PATCH/DELETE) are never
@@ -87,15 +88,26 @@ self.addEventListener('activate', (event) => {
     self.clients.claim()
 })
 
-// ── Fetch strategies — CACHE-FIRST, so online and offline behave alike ────────
-//  The cache always answers if it can; the network only refreshes it in the
-//  background. Nothing waits on the network, so being offline changes nothing
-//  about how the app loads or behaves.
-//  • navigations  → cached page instantly; HTML refetched silently if online
-//  • /api GET     → cached data instantly; refetched silently if online
-//  • static       → cached chunk instantly; refetched silently if online
-//  • /api writes  → passed through untouched; the client-side offlineQueue
-//                   owns retrying them.
+// ── Fetch strategies — NETWORK-FIRST for pages & data, CACHE-FIRST for statics
+//  Online: everything comes fresh from the network, so every link lands on the
+//  right page. Offline: the exact page/data you last loaded is served from
+//  cache. Being offline changes where the bytes come from, not how the app
+//  behaves.
+//  • RSC payloads  → cached per-URL so <Link> clicks work offline for pages
+//                    you've already visited (this is how Next navigates)
+//  • navigations   → network-first; every visited page is saved for offline
+//  • /api GET      → network-first, last good data as the offline fallback
+//  • static assets → cache-first (immutable hashed chunks) + silent refresh
+//  • /api writes   → untouched; the client-side offlineQueue owns retries.
+//
+//  NOTE: Cache.put() throws for Request objects with mode 'navigate', which is
+//  why earlier versions never actually saved visited pages. safePut() keys the
+//  cache by URL string instead, sidestepping that entirely.
+
+async function safePut(cache, req, res) {
+    try { await cache.put(req.url, res.clone()) } catch { /* quota / private mode */ }
+}
+
 self.addEventListener('fetch', (event) => {
     const req = event.request
     if (req.method !== 'GET') return // writes bypass the SW entirely
@@ -103,31 +115,28 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(req.url)
     if (url.origin !== self.location.origin) return // Clerk/Google/fonts CDNs
 
-    const refresh = (cache, key, response) => {
+    const refresh = (cache, urlKey, response) => {
         // Silent background revalidation — never blocks, never rejects.
-        fetch(key)
-            .then((res) => { if (res && res.ok) cache.put(key, res) })
+        fetch(urlKey)
+            .then((res) => { if (res && res.ok) return safePut(cache, { url: urlKey }, res) })
             .catch(() => {})
         return response
     }
 
-    // 1. API reads — cached data first, silent refresh when online
-    if (url.pathname.startsWith('/api/')) {
-        if (!API_GET_CACHEABLE.test(url.pathname)) return
+    // 0. Next.js RSC payloads (client-side <Link> navigation) — network-first,
+    //    cached so in-app navigation keeps working offline on visited pages.
+    if (req.headers.get('RSC') === '1') {
+        if (req.headers.get('Next-Router-Prefetch')) return // never cache partial prefetches
         event.respondWith(
             (async () => {
-                const cache = await caches.open(API_CACHE)
-                const cached = await cache.match(req, { ignoreSearch: false })
-                if (cached) return refresh(cache, req, cached)
+                const cache = await caches.open(RSC_CACHE)
                 try {
                     const fresh = await fetch(req)
-                    if (fresh.ok) {
-                        const clone = fresh.clone()
-                        cache.put(req, clone).catch(() => {})
-                        return fresh
-                    }
+                    if (fresh.ok && fresh.type === 'basic') await safePut(cache, req, fresh)
                     return fresh
                 } catch {
+                    const cached = await cache.match(req, { ignoreVary: true })
+                    if (cached) return cached
                     return new Response(
                         JSON.stringify({ offline: true, error: 'unavailable offline' }),
                         { status: 503, headers: { 'Content-Type': 'application/json' } }
@@ -138,24 +147,43 @@ self.addEventListener('fetch', (event) => {
         return
     }
 
-    // 2. Navigations — cached page first, silent refresh when online
+    // 1. API reads — network-first, cached data as the offline fallback
+    if (url.pathname.startsWith('/api/')) {
+        if (!API_GET_CACHEABLE.test(url.pathname)) return
+        event.respondWith(
+            (async () => {
+                const cache = await caches.open(API_CACHE)
+                try {
+                    const fresh = await fetch(req)
+                    if (fresh.ok) await safePut(cache, req, fresh)
+                    return fresh
+                } catch {
+                    const cached = await cache.match(req, { ignoreVary: true })
+                    if (cached) return cached
+                    return new Response(
+                        JSON.stringify({ offline: true, error: 'unavailable offline' }),
+                        { status: 503, headers: { 'Content-Type': 'application/json' } }
+                    )
+                }
+            })()
+        )
+        return
+    }
+
+    // 2. Navigations — network-first, so links always land where they should.
+    //    Every visited page is saved; offline serves the exact page you last
+    //    loaded — never a different page in its place.
     if (req.mode === 'navigate') {
         event.respondWith(
             (async () => {
                 const shell = await caches.open(SHELL_CACHE)
-                const cached =
-                    (await shell.match(req, { ignoreSearch: true })) ||
-                    (await shell.match('/dashboard')) ||
-                    (await shell.match('/'))
-                if (cached) return refresh(shell, req, cached)
                 try {
                     const fresh = await fetch(req)
-                    if (fresh.ok && fresh.type === 'basic') {
-                        const clone = fresh.clone()
-                        shell.put(req, clone).catch(() => {})
-                    }
+                    if (fresh.ok && fresh.type === 'basic') await safePut(shell, req, fresh)
                     return fresh
                 } catch {
+                    const exact = await shell.match(req, { ignoreVary: true, ignoreSearch: true })
+                    if (exact) return exact
                     return (await shell.match(OFFLINE_URL)) || Response.error()
                 }
             })()
@@ -171,7 +199,7 @@ self.addEventListener('fetch', (event) => {
                 const shell = await caches.open(SHELL_CACHE)
                 const cached =
                     (await runtime.match(req)) || (await shell.match(req))
-                if (cached) return refresh(runtime, req, cached)
+                if (cached) return refresh(runtime, req.url, cached)
                 try {
                     const fresh = await fetch(req)
                     if (fresh.ok) {
