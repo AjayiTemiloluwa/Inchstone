@@ -1,37 +1,79 @@
-const VERSION = 'v5'
+/* Inchstone service worker — offline shell + data cache + write-queue bridge. */
+
+const VERSION = 'v6'
 const SHELL_CACHE = `inchstone-shell-${VERSION}`
 const RUNTIME_CACHE = `inchstone-runtime-${VERSION}`
 const API_CACHE = `inchstone-api-${VERSION}`
 const OFFLINE_URL = '/offline.html'
 
-// Routes whose GET responses we keep for offline reads. Writes (POST/PUT/
-// PATCH/DELETE) are never served from cache — the client queue (offlineQueue)
-// owns those while offline.
+// API GETs kept for offline reads. Writes (POST/PUT/PATCH/DELETE) are never
+// served from cache — the client-side offlineQueue owns those.
 const API_GET_CACHEABLE = /\/api\/(items|tasks|daily-score|nudges|bottles|habits|plans|plan-goals|plan-milestones|plan-sections|notes|budgets|purses|financial|reports|reviews|years|trackers|status-log|allocations|events)/
 
-// ── Install: precache the minimal offline fallback + app shell ───────────────
+function isStaticAsset(url) {
+  return (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname === '/manifest.json' ||
+    url.pathname.startsWith('/api/icon') ||
+    /\.(css|js|woff2?|png|jpg|jpeg|svg|webp|ico|map)$/.test(url.pathname)
+  )
+}
+
+/**
+ * Cache an HTML page PLUS every same-origin asset it references. A Next.js
+ * page is useless offline without its hashed /_next/static chunks — precaching
+ * only the HTML (v5) would render a blank document on the first offline load.
+ */
+async function cachePageAndAssets(pageUrl) {
+  const shell = await caches.open(SHELL_CACHE)
+  const runtime = await caches.open(RUNTIME_CACHE)
+  const res = await fetch(new Request(pageUrl, { cache: 'reload' }))
+  if (!res.ok) return
+  await shell.put(pageUrl, res.clone()).catch(() => {})
+  const html = await res.text()
+  const urls = new Set()
+  const re = /(?:src|href)="(\/[^"]+)"/g
+  let m
+  while ((m = re.exec(html)) !== null) {
+    const path = m[1]
+    if (
+      path.startsWith('/_next/static/') ||
+      /\.(css|js|woff2?|png|svg|jpg|jpeg|webp|ico)$/.test(path.split('?')[0])
+    ) {
+      urls.add(path)
+    }
+  }
+  await Promise.allSettled(
+    [...urls].slice(0, 80).map((u) =>
+      fetch(new Request(u, { cache: 'reload' }))
+        .then((r) => { if (r.ok) return runtime.put(u, r); return undefined })
+        .catch(() => {})
+    )
+  )
+}
+
+// ── Install: precache the shell pages, their chunks, and app icons ───────────
 self.addEventListener('install', (event) => {
     event.waitUntil(
         (async () => {
-            const cache = await caches.open(SHELL_CACHE)
-            // Shell pages (best-effort — a dev-only failure must not break install)
+            const shell = await caches.open(SHELL_CACHE)
             await Promise.allSettled([
-                cache.add(new Request('/', { cache: 'reload' })),
-                cache.add(new Request('/dashboard', { cache: 'reload' })),
-                cache.add(new Request(OFFLINE_URL, { cache: 'reload' })),
+                cachePageAndAssets('/'),
+                cachePageAndAssets('/dashboard'),
+                shell.add(new Request(OFFLINE_URL, { cache: 'reload' })).catch(() => {}),
             ])
-            // Static bits the shell needs
             const runtime = await caches.open(RUNTIME_CACHE)
             await Promise.allSettled([
-                runtime.add(new Request('/manifest.json', { cache: 'reload' })),
-                runtime.add(new Request('/icon-192.png', { cache: 'reload' })),
+                runtime.add(new Request('/manifest.json', { cache: 'reload' })).catch(() => {}),
+                runtime.add(new Request('/icon-192.png', { cache: 'reload' })).catch(() => {}),
+                runtime.add(new Request('/icon-512.png', { cache: 'reload' })).catch(() => {}),
             ])
         })()
     )
     self.skipWaiting()
 })
 
-// ── Activate: purge every cache from an older version ────────────────────────
+// ── Activate: purge every cache from an older version, take control ──────────
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) =>
@@ -46,11 +88,11 @@ self.addEventListener('activate', (event) => {
 })
 
 // ── Fetch strategies ──────────────────────────────────────────────────────────
-//  • navigations  → network-first, fall back to the cached shell, then offline
+//  • navigations  → network-first; every visited page is saved to the shell
+//                   cache, so offline serves exactly the page you last saw
 //  • /api GET     → network-first, fall back to the last good cached response
-//                   (every fresh response is written back — offline shows the
-//                   data you last saw, not a dead page)
-//  • static       → stale-while-revalidate
+//                   (offline shows the data you last saw, not a dead page)
+//  • static       → stale-while-revalidate, matching across both asset caches
 //  • /api writes  → passed through untouched; the client-side offlineQueue
 //                   owns retrying them.
 self.addEventListener('fetch', (event) => {
@@ -83,19 +125,26 @@ self.addEventListener('fetch', (event) => {
         return
     }
 
-    // 2. Navigations
+    // 2. Navigations — network-first, but save every page you visit
     if (req.mode === 'navigate') {
         event.respondWith(
             (async () => {
                 try {
-                    return await fetch(req)
+                    const fresh = await fetch(req)
+                    if (fresh.ok && fresh.type === 'basic') {
+                        caches
+                            .open(SHELL_CACHE)
+                            .then((shell) => shell.put(req, fresh.clone()))
+                            .catch(() => {})
+                    }
+                    return fresh
                 } catch {
                     const shell = await caches.open(SHELL_CACHE)
-                    const exact = await shell.match(req)
+                    const exact = await shell.match(req, { ignoreSearch: true })
                     if (exact) return exact
                     const dashboard = await shell.match('/dashboard')
                     if (dashboard) return dashboard
-                    return shell.match(OFFLINE_URL)
+                    return (await shell.match('/')) || (await shell.match(OFFLINE_URL)) || Response.error()
                 }
             })()
         )
@@ -103,19 +152,16 @@ self.addEventListener('fetch', (event) => {
     }
 
     // 3. Static assets — stale-while-revalidate
-    const isStatic =
-        url.pathname.startsWith('/_next/static/') ||
-        url.pathname === '/manifest.json' ||
-        url.pathname.startsWith('/api/icon') ||
-        /\.(css|js|woff2?|png|jpg|jpeg|svg|webp|ico|map)$/.test(url.pathname)
-    if (isStatic) {
+    if (isStaticAsset(url)) {
         event.respondWith(
             (async () => {
-                const cache = await caches.open(RUNTIME_CACHE)
-                const cached = await cache.match(req)
+                const runtime = await caches.open(RUNTIME_CACHE)
+                const shell = await caches.open(SHELL_CACHE)
+                const cached =
+                    (await runtime.match(req)) || (await shell.match(req))
                 const network = fetch(req)
                     .then((res) => {
-                        if (res.ok) cache.put(req, res.clone())
+                        if (res.ok) runtime.put(req, res.clone())
                         return res
                     })
                     .catch(() => cached)
