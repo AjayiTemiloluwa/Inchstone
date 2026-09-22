@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import Script from 'next/script'
 import { InstallPrompt } from '@/components/ui/InstallPrompt'
+import { OfflineSync } from '@/components/ui/OfflineSync'
 import { CursorGlow } from '@/components/ui/CursorGlow'
 import "./globals.css";
 
@@ -55,7 +56,7 @@ export default function RootLayout({
           <link rel="manifest" href="/manifest.json" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-          <link rel="apple-touch-icon" href="/api/icon?sizes=192x192" />
+          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         </head>
         <body className="min-h-full flex flex-col bg-paper text-ink font-sans">
           <script
@@ -101,6 +102,7 @@ export default function RootLayout({
             }}
           />
           <InstallPrompt />
+          <OfflineSync />
           <CursorGlow />
           {children}
         </body>

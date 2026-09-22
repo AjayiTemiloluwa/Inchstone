@@ -61,17 +61,20 @@
   </style>
 </head>
 <body>
-  <div class="icon">🌿</div>
+  <div class="icon">🕰️</div>
   <h1>You're offline</h1>
-  <p>Inchstone can't reach the server right now. Check your connection and try again.</p>
-  <button onclick="tryReconnect()">Try again</button>
+  <p>Inchstone is running from this device. Anything you did offline is saved and will sync when you're back.</p>
+  <div style="display:flex; gap:0.75rem; flex-wrap:wrap; justify-content:center;">
+    <button onclick="location.href='/dashboard'">Open the app</button>
+    <button onclick="tryReconnect()" style="background:transparent;color:#f5f5f5;border:1px solid #444;">Try again</button>
+  </div>
   <div class="status" id="status"></div>
 
   <script>
     function tryReconnect() {
       document.getElementById('status').textContent = 'Checking connection…';
       fetch('/', { method: 'HEAD', cache: 'no-store' })
-        .then(() => { window.location.href = '/'; })
+        .then(() => { window.location.href = '/dashboard'; })
         .catch(() => {
           document.getElementById('status').textContent = 'Still offline. Please wait…';
           setTimeout(() => { document.getElementById('status').textContent = ''; }, 3000);
@@ -81,7 +84,7 @@
     // Auto-retry every 5 seconds
     setInterval(() => {
       fetch('/', { method: 'HEAD', cache: 'no-store' })
-        .then(() => { window.location.href = '/'; })
+        .then(() => { window.location.href = '/dashboard'; })
         .catch(() => {});
     }, 5000);
   </script>
