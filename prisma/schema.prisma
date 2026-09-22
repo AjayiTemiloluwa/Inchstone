@@ -510,3 +510,23 @@ model BottleEntry {
   @@index([userId, bottleId])
   @@index([bottleId, createdAt])
 }
+
+// ── Home-screen widget (native companion app) ────────────────────────────────
+// One row per user. `secret` is the long-lived token the native widget app
+// authenticates with (Clerk sessions can't live in a widget process).
+// `pages` holds the user's widget design: an ordered array of pages, each with
+// a kind ("plan" | "alarms" | "messages" | "clock" | "note"), which text
+// element it shows, and per-element style overrides (color, size, weight).
+model WidgetConfig {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  secret    String   @unique
+  pages     Json     @default("[]")
+  // Rotation + behaviour
+  rotateSeconds Int  @default(15) // how long each page stays on screen
+  showAlarms    Boolean @default(true)
+  showMessages  Boolean @default(true)
+  showPlan      Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
