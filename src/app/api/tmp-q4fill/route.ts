@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { auth, currentUser, clerkClient } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { randomUUID } from 'crypto'
@@ -24,9 +24,13 @@ async function resolveUserId(): Promise<string | null> {
     return null
   }
 }
-export async function GET() {
+export async function GET(req: Request) {
   const secret = process.env.Q4FILL_SECRET
   if (!secret) return NextResponse.json({ error: 'Q4FILL_SECRET not set on server' }, { status: 500 })
+  const url = new URL(req.url)
+  if (url.searchParams.get('key') !== secret && req.headers.get('x-q4fill-secret') !== secret) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const uid = await resolveUserId()
   if (!uid) return NextResponse.json({ error: 'Target user not found' }, { status: 404 })
   const years = await prisma.item.findMany({ where: { userId: uid, layer: 0 }, select: { id: true, title: true, startDate: true } })
@@ -80,7 +84,7 @@ export async function POST(req: Request) {
       if (l2.length) await prisma.item.deleteMany({ where: { userId: uid, id: { in: l2 } } })
       await prisma.item.deleteMany({ where: { userId: uid, id: cid } })
     }
-    await prisma.item.update({ where: { id: yearId }, data: { theme: 'Q4 2026 — Pack', anchorScripture: 'Commit to the Lord whatever you do, and he will establish your plans. — Proverbs 16:3', focusQuestion: 'Did my actions today align with the disciplined identity I am building this quarter?' } })
+    await prisma.item.update({ where: { id: yearId }, data: { theme: 'Q4 2026 ÔÇö Pack', anchorScripture: 'Commit to the Lord whatever you do, and he will establish your plans. ÔÇö Proverbs 16:3', focusQuestion: 'Did my actions today align with the disciplined identity I am building this quarter?' } })
     const names = CATS.map(c => c.name)
     const prior = await prisma.item.findMany({ where: { userId: uid, layer: 1, parentId: yearId }, select: { id: true, title: true } })
     for (const c of prior) {

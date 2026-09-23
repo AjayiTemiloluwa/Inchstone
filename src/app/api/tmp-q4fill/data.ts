@@ -1,4 +1,4 @@
-export const Q = { start: new Date(2026, 8, 22), end: new Date(2026, 11, 31, 23, 59, 59, 999) }
+﻿export const Q = { start: new Date(2026, 8, 22), end: new Date(2026, 11, 31, 23, 59, 59, 999) }
 export const MO = [
   { t: 'September \u2014 Finish Strong (Sep 22\u201330)', w: 10, s: new Date(2026, 8, 22), e: new Date(2026, 8, 30, 23, 59, 59, 999) },
   { t: 'October', w: 30, s: new Date(2026, 9, 1), e: new Date(2026, 9, 31, 23, 59, 59, 999) },
