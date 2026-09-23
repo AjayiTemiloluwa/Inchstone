@@ -43,8 +43,10 @@ export async function GET(req: Request) {
     const l2 = catIds.length ? await prisma.item.count({ where: { userId: uid, layer: 2, parentId: { in: catIds } } }) : 0
     const l2ids = catIds.length ? (await prisma.item.findMany({ where: { userId: uid, layer: 2, parentId: { in: catIds } }, select: { id: true } })).map(x => x.id) : []
     const l3 = l2ids.length ? await prisma.item.count({ where: { userId: uid, layer: 3, parentId: { in: l2ids } } }) : 0
+    const l3ids = l2ids.length ? (await prisma.item.findMany({ where: { userId: uid, layer: 3, parentId: { in: l2ids } }, select: { id: true } })).map(x => x.id) : []
+    const l4 = l3ids.length ? await prisma.item.count({ where: { userId: uid, layer: 4, parentId: { in: l3ids } } }) : 0
     void ids
-    withCounts.push({ id: y.id, title: y.title, cats: catIds.length, l2, l3, l4: 0 })
+    withCounts.push({ id: y.id, title: y.title, cats: catIds.length, l2, l3, l4 })
   }
   return NextResponse.json({ ok: true, years, match: withCounts })
 }
