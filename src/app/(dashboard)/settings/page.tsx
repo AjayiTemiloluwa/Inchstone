@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
 import { Mail, CheckCircle, XCircle, Smartphone, Trash2, Database, ChevronDown, Sun } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
 import { GoogleCalendarCard } from '@/components/ui/GoogleCalendarCard'
+import { WidgetCard } from '@/components/ui/WidgetCard'
 import { Scramble } from '@/components/ui/motion'
 
 export default function SettingsPage() {
@@ -199,6 +200,17 @@ export default function SettingsPage() {
           </p>
         </div>
         <AlarmsCard />
+      </Card>
+
+      {/* Home-screen Widget */}
+      <Card className="space-y-5 p-5 border hairline">
+        <div>
+          <h2 className="text-heading text-parchment">Home-Screen Widget</h2>
+          <p className="text-sm text-parchment/60 mt-1">
+            Pair the Android Inchstone Widget app and design what it shows on your phone&apos;s home screen.
+          </p>
+        </div>
+        <WidgetCard />
       </Card>
 
       {/* Install App */}

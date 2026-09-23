@@ -4,6 +4,11 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 // public at the Clerk layer on purpose: it authenticates itself with its own
 // CRON_SECRET (x-cron-secret / Authorization: Bearer), so Clerk must not
 // 404 every unauthenticated ping from external schedulers like GitHub Actions.
+//
+// /api/widget is public for the same reason: the native Android widget app
+// cannot hold a Clerk session, so it authenticates with the per-user pairing
+// secret (validated inside the route — an invalid/missing secret is a 401).
+// Its writes (PUT/POST/DELETE) still require a real Clerk session.
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
@@ -12,6 +17,8 @@ const isPublicRoute = createRouteMatcher([
   '/manifest.json',
   '/sw.js',
   '/api/cron/alarms(.*)',
+  '/api/widget',
+  '/api/widget(.*)',
 ])
 
 export default clerkMiddleware(async (auth, request) => {
