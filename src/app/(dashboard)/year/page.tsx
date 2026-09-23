@@ -8,7 +8,6 @@ import { CategoryEditModal } from '@/components/ui/CategoryEditModal'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter } from 'next/navigation'
 import { Lock, Unlock, RotateCcw, Plus, X, Trash2, BookOpen, Download, Database, Edit3, Check, ChevronDown, Pencil } from 'lucide-react'
-import { Q4ResetPanel } from '@/components/ui/Q4ResetPanel'
 import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 import { YearFilm } from '@/components/ui/YearFilm'
@@ -730,7 +729,6 @@ export default function YearPage() {
 
       {/* Categories with Goals */}
       <div>
-        <div className="mb-4 sm:mb-6"><Q4ResetPanel /></div>
         {/* Mobile-optimized header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
           <div>
