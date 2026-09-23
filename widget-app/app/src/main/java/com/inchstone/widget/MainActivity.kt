@@ -5,7 +5,6 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -69,6 +68,16 @@ class MainActivity : Activity() {
         setContentView(root)
 
         WidgetData.secret(this)?.let { input.setText(it) }
+        WidgetData.host(this).takeIf { it != WidgetData.DEFAULT_HOST }?.let { hostInput.setText(it) }
+
+        // When launched as the widget's configure step (user just added the
+        // widget), we must always return the widget id with a result code —
+        // otherwise the launcher cancels the add.
+        val widgetId = intent?.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+        }
 
         save.setOnClickListener {
             val secret = input.text.toString().trim()
@@ -77,10 +86,12 @@ class MainActivity : Activity() {
                 return@setOnClickListener
             }
             status.text = "Pairing…"
+            save.isEnabled = false
             WidgetData.saveHost(this, hostInput.text.toString())
             WidgetData.saveSecret(this, secret)
             WidgetData.refreshAsync(this) {
                 runOnUiThread {
+                    save.isEnabled = true
                     val paired = WidgetData.cachedJson(this) != null
                     status.text = if (paired) "Paired ✓ — add the widget to your home screen."
                     else "Couldn't reach Inchstone — check the secret / connection."
@@ -88,12 +99,14 @@ class MainActivity : Activity() {
                     val manager = AppWidgetManager.getInstance(this)
                     val ids = manager.getAppWidgetIds(ComponentName(this, InchstoneWidgetProvider::class.java))
                     for (id in ids) render(this, manager, id)
+                    // If we're the widget's configure step, hand the widget
+                    // back to the launcher now that we're paired.
+                    if (paired && widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+                        finish()
+                    }
                 }
             }
         }
-
-        // If launched as the widget's configure step, finish cleanly.
-        val id = intent?.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
-        if (id >= 0) setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
     }
 }

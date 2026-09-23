@@ -59,6 +59,38 @@ internal fun drawClock(views: RemoteViews, accent: Int) {
     views.setProgressBar(R.id.progress, 100, 0, true)
 }
 
+/** Todays's *timed* deeds — the next one big, the rest of the schedule beneath. */
+internal fun drawTimers(views: RemoteViews, json: JSONObject, accent: Int) {
+    val deeds = json.optJSONObject("plan")?.optJSONArray("deeds")
+    val timed = mutableListOf<JSONObject>()
+    if (deeds != null) {
+        for (i in 0 until deeds.length()) {
+            val deed = deeds.optJSONObject(i) ?: continue
+            val time = deed.optString("time")
+            if (time.isEmpty() || time == "null") continue
+            timed.add(deed)
+        }
+    }
+
+    if (timed.isEmpty()) {
+        views.setTextViewText(R.id.title, "No timed deeds today")
+        views.setTextViewText(R.id.secondary, "")
+        views.setProgressBar(R.id.progress, 100, 0, true)
+        return
+    }
+
+    val next = timed.first()
+    val time = WidgetData.fmtTime(next.optString("time"))
+    views.setTextViewText(R.id.title, next.optString("title"))
+    val done = timed.count { it.optBoolean("completed") }
+    views.setTextViewText(
+        R.id.secondary,
+        "$time  ·  ${done}/${timed.size} done"
+    )
+    views.setTextColor(R.id.secondary, accent)
+    views.setProgressBar(R.id.progress, 100, json.optJSONObject("plan")?.optInt("dayProgress", 0) ?: 0, false)
+}
+
 internal fun drawNote(views: RemoteViews, page: JSONObject) {
     views.setTextViewText(R.id.title, page.optString("note", ""))
     views.setTextViewText(R.id.secondary, "")

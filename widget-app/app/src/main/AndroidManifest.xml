@@ -5,16 +5,21 @@
 
     <application
         android:label="Inchstone Widget"
-        android:icon="@android:drawable/ic_menu_myplaces"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
-        <!-- Pairing + configuration screen -->
+        <!-- Pairing + configuration screen. Also the widget's configure step:
+             launched when the user adds the widget to the home screen. -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
 

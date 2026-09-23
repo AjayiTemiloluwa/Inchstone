@@ -10,9 +10,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
@@ -24,6 +21,9 @@ import java.util.concurrent.Executors
  * so the widget renders instantly even with no network.
  */
 object WidgetData {
+    /** Production server — the pairing screen lets the user override it. */
+    const val DEFAULT_HOST = "inchstone.vercel.app"
+
     private const val PREFS = "inchstone_widget"
     private const val KEY_SECRET = "secret"
     private const val KEY_HOST = "host"
@@ -43,7 +43,7 @@ object WidgetData {
     // ── Server host (e.g. "inchstone.vercel.app") ──
     fun host(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_HOST, "inchstone.vercel.app") ?: "inchstone.vercel.app"
+            .getString(KEY_HOST, DEFAULT_HOST) ?: DEFAULT_HOST
 
     fun saveHost(context: Context, host: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -58,20 +58,32 @@ object WidgetData {
 
     fun refreshAsync(context: Context, onDone: (() -> Unit)? = null) {
         executor.execute {
-            val secret = secret(context) ?: return@execute
             try {
-                val conn = URL("https://${host(context)}/api/widget?secret=$secret").openConnection() as HttpURLConnection
+                val activeSecret = secret(context)
+                if (activeSecret.isNullOrEmpty()) return@execute
+                val conn = URL("https://${host(context)}/api/widget?secret=$activeSecret").openConnection() as HttpURLConnection
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 10_000
                 if (conn.responseCode == 200) {
                     val body = conn.inputStream.bufferedReader().readText()
                     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                         .edit().putString(KEY_CACHE, body).apply()
+                    rescheduleRotation(context)
                     redrawAll(context)
                 }
-            } catch (e: Exception) { /* offline — cache stays */ }
-            onDone?.invoke()
+            } catch (e: Exception) {
+                // Offline — keep the last good cache so the widget still draws.
+            } finally {
+                // Always release the caller (the pairing screen waits on this).
+                onDone?.invoke()
+            }
         }
+    }
+
+    /** Seconds the user chose for per-page dwell (5–120, from the web design). */
+    fun rotateSeconds(context: Context): Long {
+        val raw = cachedJson(context)?.optJSONObject("widget")?.optInt("rotateSeconds", 15) ?: 15
+        return raw.coerceIn(5, 120).toLong()
     }
 
     private fun redrawAll(context: Context) {
@@ -91,12 +103,30 @@ object WidgetData {
 
     fun pages(json: JSONObject): JSONArray = json.optJSONObject("widget")?.optJSONArray("pages") ?: JSONArray()
 
-    // ── Rotation scheduler: tick every configured interval while enabled ──
+    // ── Rotation scheduler: advance a page every `rotateSeconds` while enabled ──
+    //  Android clamps inexact repeating alarms to a 60s floor, so a short
+    //  dwell still advances on each tick (and the tap handler advances
+    //  instantly for a manual flip).
     fun scheduleRotation(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val pi = rotationPending(context)
-        val interval = 60_000L * 2 // ≥ every 2 min; per-page dwell is tracked client-side
-        am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME, System.currentTimeMillis() + interval, interval, pi)
+        val interval = maxOf(60_000L, rotateSeconds(context) * 1000L)
+        am.setInexactRepeating(
+            AlarmManager.ELAPSED_REALTIME,
+            System.currentTimeMillis() + interval,
+            interval,
+            pi
+        )
+    }
+
+    /** Re-arm after the user changes the dwell time in the web design. */
+    fun rescheduleRotation(context: Context) {
+        val hasWidgets = AppWidgetManager.getInstance(context)
+            .getAppWidgetIds(ComponentName(context, InchstoneWidgetProvider::class.java))
+            .isNotEmpty()
+        if (!hasWidgets) return
+        stopRotation(context)
+        scheduleRotation(context)
     }
 
     fun stopRotation(context: Context) {
@@ -104,18 +134,23 @@ object WidgetData {
         am.cancel(rotationPending(context))
     }
 
+    /** Fires InchstoneWidgetProvider.ACTION_ROTATE (advance every widget). */
     private fun rotationPending(context: Context): PendingIntent {
         val intent = Intent(context, InchstoneWidgetProvider::class.java).apply {
-            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            action = InchstoneWidgetProvider.ACTION_ROTATE
         }
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
     // ── Formatting helpers ──
+    // Prisma emits ISO-8601 with millis + Z ("2026-09-21T10:00:00.000Z").
+    // OffsetDateTime parses that natively; convert to the device's zone.
     fun fmtTime(iso: String): String = try {
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(parser.parse(iso)!!)
-    } catch (e: Exception) { "" }
+        val local = java.time.OffsetDateTime.parse(iso).atZoneSameInstant(java.time.ZoneId.systemDefault())
+        "%02d:%02d".format(local.hour, local.minute)
+    } catch (e: Exception) {
+        try { iso.substringAfter('T').take(5) } catch (e2: Exception) { "" }
+    }
 
     fun fmtAlarm(hhmm: String): String = hhmm
 }
