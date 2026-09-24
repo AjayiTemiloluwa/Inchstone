@@ -17,7 +17,6 @@ const isPublicRoute = createRouteMatcher([
   '/manifest.json',
   '/sw.js',
   '/api/cron/alarms(.*)',
-  '/api/tmp-q4fill',
   '/api/widget',
   '/api/widget(.*)',
 ])
