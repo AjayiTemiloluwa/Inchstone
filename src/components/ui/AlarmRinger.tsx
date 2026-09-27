@@ -329,7 +329,7 @@ export function AlarmRinger() {
     const headline = 'Very important'
     return (
       <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
-        <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-[#161311]/95 p-8 text-center shadow-[0_0_80px_rgba(212,175,55,0.25)]">
+        <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-[#161311]/95 p-8 text-center shadow-[0_0_80px_rgb(var(--gold-rgb)_/_0.25)]">
           {ringingTask.isImportant ? (
             <Star className="mx-auto h-10 w-10 fill-gold text-gold animate-bounce" />
           ) : (
@@ -357,7 +357,7 @@ export function AlarmRinger() {
             </button>
             <button
               onClick={dismissTask}
-              className="flex-1 rounded-xl bg-gold py-3.5 text-sm font-bold text-ink hover:bg-[#cbaa6f] active:opacity-70 transition"
+              className="flex-1 rounded-xl bg-gold py-3.5 text-sm font-bold text-ink hover:bg-gold-glow active:opacity-70 transition"
             >
               <span className="inline-flex items-center gap-1.5"><X className="h-4 w-4" /> Dismiss</span>
             </button>
@@ -371,7 +371,7 @@ export function AlarmRinger() {
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
-      <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-[#161311]/95 p-8 text-center shadow-[0_0_80px_rgba(212,175,55,0.25)]">
+      <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-[#161311]/95 p-8 text-center shadow-[0_0_80px_rgb(var(--gold-rgb)_/_0.25)]">
         <BellRing className="mx-auto h-10 w-10 text-gold animate-bounce" />
         <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.3em] text-parchment/40">Alarm</p>
         <p className="mt-1 font-display text-6xl tabular-nums text-parchment">{ringing.time}</p>
@@ -385,7 +385,7 @@ export function AlarmRinger() {
           </button>
           <button
             onClick={dismiss}
-            className="flex-1 rounded-xl bg-gold py-3.5 text-sm font-bold text-ink hover:bg-[#cbaa6f] active:opacity-70 transition"
+            className="flex-1 rounded-xl bg-gold py-3.5 text-sm font-bold text-ink hover:bg-gold-glow active:opacity-70 transition"
           >
             <span className="inline-flex items-center gap-1.5"><X className="h-4 w-4" /> Dismiss</span>
           </button>

@@ -268,7 +268,7 @@ export default function DashboardPage() {
         <button
           onClick={() => router.push('/year')}
           data-cursor="Start with why"
-          className="btn-shine mt-9 inline-flex w-fit items-center gap-2 rounded-md bg-gold px-7 py-3 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f]"
+          className="btn-shine mt-9 inline-flex w-fit items-center gap-2 rounded-md bg-gold px-7 py-3 text-sm font-semibold text-ink transition-colors hover:bg-gold-glow"
         >
           Build your Why
           <ArrowRight className="h-4 w-4" />

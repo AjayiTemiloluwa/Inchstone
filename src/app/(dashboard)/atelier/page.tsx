@@ -102,7 +102,7 @@ export default function AtelierPage() {
           ))}
         </div>
         {/* Static DOM rule drawn as a GL plane — the tint comes from CSS */}
-        <GLShape className="mt-10 block h-px w-full" style={{ backgroundColor: 'rgba(212, 175, 55, 0.45)' }} />
+        <GLShape className="mt-10 block h-px w-full" style={{ backgroundColor: 'rgb(var(--gold-rgb) / 0.45)' }} />
       </section>
 
       {/* ── Layers — parallax planes ───────────────────────────── */}
@@ -117,7 +117,7 @@ export default function AtelierPage() {
         <div className="mt-10 space-y-40">
           <GLShape
             className="block h-36 w-full sm:h-44"
-            style={{ backgroundColor: 'rgba(212, 175, 55, 0.30)' }}
+            style={{ backgroundColor: 'rgb(var(--gold-rgb) / 0.30)' }}
             parallax={0.33}
           />
           <GLShape
@@ -143,7 +143,7 @@ export default function AtelierPage() {
             src="/images/smile.svg"
             alt="Inchstone smile"
             className="block h-24 w-24 shrink-0"
-            style={{ backgroundColor: 'rgba(212, 175, 55, 0.12)' }}
+            style={{ backgroundColor: 'rgb(var(--gold-rgb) / 0.12)' }}
           />
           <GLText
             text="An image mapped onto a shader quad. The PNG/SVG loads as a texture; alpha flows straight from the file into the fragment shader."
@@ -165,19 +165,19 @@ export default function AtelierPage() {
           <GLShape
             enable3d
             className="block h-40"
-            style={{ backgroundColor: 'rgba(212, 175, 55, 0.35)' }}
+            style={{ backgroundColor: 'rgb(var(--gold-rgb) / 0.35)' }}
             parallax={0.25}
           />
           <GLShape
             enable3d
             className="block h-40"
-            style={{ backgroundColor: 'rgba(212, 175, 55, 0.22)' }}
+            style={{ backgroundColor: 'rgb(var(--gold-rgb) / 0.22)' }}
             parallax={0.45}
           />
           <GLShape
             enable3d
             className="block h-40"
-            style={{ backgroundColor: 'rgba(212, 175, 55, 0.12)' }}
+            style={{ backgroundColor: 'rgb(var(--gold-rgb) / 0.12)' }}
             parallax={0.65}
           />
         </div>

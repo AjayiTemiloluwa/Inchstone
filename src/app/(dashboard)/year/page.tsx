@@ -26,6 +26,9 @@ export default function YearPage() {
   const [loading, setLoading] = useState(true)
   const [lockedWeights, setLockedWeights] = useState<Record<string, boolean>>({})
   const [categoryWeights, setCategoryWeights] = useState<Record<string, number>>({})
+  // Accordion state — dropdowns are closed by default; only one open at a time
+  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null)
+  const [openItemId, setOpenItemId] = useState<string | null>(null)
   const [addingGoal, setAddingGoal] = useState<string | null>(null)
   const [newGoalTitle, setNewGoalTitle] = useState('')
   const [addingCategory, setAddingCategory] = useState(false)
@@ -495,7 +498,7 @@ export default function YearPage() {
       </div>
       <button
         onClick={() => router.push('/dashboard')}
-        className="px-6 py-3 bg-gold text-surface font-semibold rounded-xl hover:bg-[#cbaa6f] active:opacity-70 transition-all   min-h-[44px]"
+        className="px-6 py-3 bg-gold text-surface font-semibold rounded-xl hover:bg-gold-glow active:opacity-70 transition-all   min-h-[44px]"
       >
         Go to Dashboard
       </button>
@@ -756,7 +759,7 @@ export default function YearPage() {
               placeholder="New category..."
               className="flex-1 px-4 py-3 text-sm bg-white/[0.04] border border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/40 transition-all placeholder:text-ink/30 min-h-[44px]"
               autoFocus />
-            <button onClick={handleAddCategory} className="px-5 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all   active:opacity-70 min-h-[44px] px-6">
+            <button onClick={handleAddCategory} className="px-5 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all   active:opacity-70 min-h-[44px] px-6">
               Add
             </button>
           </div>
@@ -772,17 +775,36 @@ export default function YearPage() {
 
             return (
               <Card key={category.id} className="p-4 sm:p-5 space-y-3 sm:space-y-4 active:opacity-70 transition-transform">
-                {/* Category Header */}
+                {/* Category header — dropdown toggle (closed by default, one open at a time) */}
                 <div className="space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center space-x-2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => { setOpenCategoryId(openCategoryId === category.id ? null : category.id); setOpenItemId(null) }}
+                      aria-expanded={openCategoryId === category.id}
+                      className="flex items-center gap-2.5 min-w-0 flex-1 text-left min-h-[44px] rounded-lg px-1 hover:bg-mist/50 transition"
+                    >
+                      <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-200 ${openCategoryId === category.id ? 'rotate-180 text-gold' : 'text-ink/40'}`} />
+                      <span className="min-w-0">
+                        <span className="block text-lg font-bold text-ink truncate">{category.title}</span>
+                        {category.description && <span className="block text-xs text-ink/60 truncate">{category.description}</span>}
+                      </span>
+                    </button>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(w)}%</span>
+                      <span className="text-sm font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-ink/80">{Math.round(catScore)}%</span>
+                    </div>
+                  </div>
+                  <ProgressBar progress={catScore} colorClass="bg-sage" />
+                </div>
+
+                {openCategoryId === category.id && (
+                <div className="space-y-3 sm:space-y-4 animate-fadeIn">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center space-x-1">
                       <button onClick={() => toggleLock(category.id)} className="p-1 hover:bg-mist rounded transition min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
                         {isLocked ? <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" /> : <Unlock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-ink/30" />}
                       </button>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-bold text-ink truncate">{category.title}</h3>
-                        {category.description && <p className="text-xs text-ink/60 mt-0.5 truncate">{category.description}</p>}
-                      </div>
                       <button
                         onClick={() => setEditingCategoryId(category.id)}
                         className="p-1.5 hover:bg-mist rounded-lg transition text-ink/30 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0"
@@ -799,7 +821,6 @@ export default function YearPage() {
                           className="w-12 px-1 py-0.5 text-[10px] font-mono bg-white/[0.06] rounded border border-transparent hover:border-white/20 focus:bg-white/[0.1] focus:border-gold outline-none transition-colors" />
                         <span className="text-[9px] text-ink/50">%</span>
                       </div>
-                      <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(w)}%</span>
                       <button onClick={(e) => handleDelete(e, category.id)} className="p-1.5 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0" title="Delete Category">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -808,8 +829,6 @@ export default function YearPage() {
                   <input type="range" min={0} max={100} step={1} value={w}
                     onChange={(e) => handleWeightChange(category.id, parseFloat(e.target.value))}
                     className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold touch-manipulation" />
-                  <ProgressBar progress={catScore} colorClass="bg-sage" />
-                </div>
 
                 {/* Goals */}
                 <div className="space-y-3 pt-2 border-t border-mist">
@@ -832,7 +851,7 @@ export default function YearPage() {
                         placeholder="New annual goal..."
                         className="flex-1 px-4 py-3 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all min-h-[44px]"
                         autoFocus />
-                      <button onClick={() => handleAddGoal(category.id)} className="px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70   min-h-[44px] px-6">
+                      <button onClick={() => handleAddGoal(category.id)} className="px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70   min-h-[44px] px-6">
                         Add
                       </button>
                     </div>
@@ -845,6 +864,15 @@ export default function YearPage() {
                         <Card key={goal.id} className="p-3 sm:p-4 hover:border-gold active:opacity-70 transition-all group relative">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center space-x-1 min-w-0 flex-1">
+                              <button
+                                type="button"
+                                onClick={() => setOpenItemId(openItemId === goal.id ? null : goal.id)}
+                                aria-expanded={openItemId === goal.id}
+                                title={openItemId === goal.id ? 'Hide sliders' : 'Edit weight & score'}
+                                className="p-1.5 rounded-lg hover:bg-mist transition shrink-0 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                              >
+                                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${openItemId === goal.id ? 'rotate-180 text-gold' : 'text-ink/40'}`} />
+                              </button>
                               {editingTitle === goal.id ? (
                                 <input
                                   type="text"
@@ -886,7 +914,8 @@ export default function YearPage() {
                               <span className="text-base font-mono font-bold">{Math.round(gScore)}%</span>
                             </div>
                           </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mt-3">
+                          {openItemId === goal.id && (
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mt-3 animate-fadeIn">
                             <div className="flex-1">
                               <div className="flex items-center justify-between mb-1">
                                 <span className="text-[9px] text-ink/50 uppercase tracking-wider">Weight</span>
@@ -906,6 +935,7 @@ export default function YearPage() {
                                 className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-sage touch-manipulation" />
                             </div>
                           </div>
+                          )}
                           <button onClick={(e) => handleDelete(e, goal.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-ember/20 rounded-lg transition text-ink/50 hover:text-[#d39a82] z-10 min-w-[36px] min-h-[36px] flex items-center justify-center" title="Delete Goal">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -916,7 +946,9 @@ export default function YearPage() {
                   {categoryGoals.length === 0 && !addingGoal && (
                     <p className="text-xs text-ink/40 italic">{emptyGoals}</p>
                   )}
+                  </div>
                 </div>
+                )}
               </Card>
             )
           })}
@@ -968,7 +1000,7 @@ export default function YearPage() {
                 autoFocus
               />
               <div className="flex space-x-2">
-                <button onClick={handleAddHabit} className="flex-1 sm:flex-none px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70   min-h-[44px]">
+                <button onClick={handleAddHabit} className="flex-1 sm:flex-none px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70   min-h-[44px]">
                   Create Habit
                 </button>
                 <button onClick={() => setAddingHabit(false)} className="px-4 py-3 text-ink/50 hover:text-ink hover:bg-white/5 rounded-xl transition min-h-[44px]">

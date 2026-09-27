@@ -285,7 +285,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
         type="submit"
         disabled={loading}
         data-cursor="Log it in the purse"
-        className="w-full bg-gold text-ink hover:bg-[#cbaa6f] font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+        className="w-full bg-gold text-ink hover:bg-gold-glow font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
       >
         {loading ? 'Adding...' : `Add to ${getPurseIcon(effectivePurse)} ${effectivePurse || 'Purse'}`}
       </button>

@@ -228,7 +228,7 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
                         <button onClick={onClose} className="rounded-md px-5 py-2.5 text-sm text-parchment/70 transition-colors hover:text-parchment">
                             Cancel
                         </button>
-                        <button onClick={handleSave} disabled={saving || !title.trim()} className="rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50 flex items-center gap-2">
+                        <button onClick={handleSave} disabled={saving || !title.trim()} className="rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-gold-glow disabled:opacity-50 flex items-center gap-2">
                             <Save className="w-4 h-4" strokeWidth={1.5} />
                             <span>{saving ? 'Saving...' : 'Save Note'}</span>
                         </button>

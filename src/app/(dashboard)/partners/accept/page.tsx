@@ -56,7 +56,7 @@ function AcceptInner() {
         {state === 'done' && (
           <Link
             href="/partners"
-            className="mt-6 inline-flex min-h-[44px] items-center rounded-xl bg-gold px-6 py-3 text-sm font-bold text-ink transition-colors hover:bg-[#cbaa6f]"
+            className="mt-6 inline-flex min-h-[44px] items-center rounded-xl bg-gold px-6 py-3 text-sm font-bold text-ink transition-colors hover:bg-gold-glow"
           >
             Open Partners
           </Link>

@@ -426,7 +426,7 @@ export default function FinancePage() {
         <div className={`spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4 ${savingsProgress >= 100 ? 'border-beam' : ''}`}>
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold truncate">🎯 Savings Goal</p>
-            <button onClick={() => { setEditSavings(!editSavings); setSavingsInput(savingsTarget.toString()) }} className="text-[10px] font-bold text-gold hover:text-[#cbaa6f] transition-colors shrink-0">
+            <button onClick={() => { setEditSavings(!editSavings); setSavingsInput(savingsTarget.toString()) }} className="text-[10px] font-bold text-gold hover:text-gold-glow transition-colors shrink-0">
               {editSavings ? 'Cancel' : savingsTarget > 0 ? 'Edit' : 'Set'}
             </button>
           </div>
@@ -437,7 +437,7 @@ export default function FinancePage() {
                 <input type="number" step="0.01" value={savingsInput} onChange={(e) => setSavingsInput(e.target.value)}
                   className="w-full bg-black/20 border border-white/10 rounded-lg py-1.5 pl-6 pr-2 text-xs focus:outline-none focus:ring-2 focus:ring-gold/30" placeholder="500" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleSaveSavingsTarget()} />
               </div>
-              <button onClick={handleSaveSavingsTarget} className="px-2.5 py-1.5 rounded-lg bg-gold text-ink text-xs font-bold hover:bg-[#cbaa6f] transition-colors shrink-0">Save</button>
+              <button onClick={handleSaveSavingsTarget} className="px-2.5 py-1.5 rounded-lg bg-gold text-ink text-xs font-bold hover:bg-gold-glow transition-colors shrink-0">Save</button>
             </div>
           ) : savingsTarget > 0 ? (
             <>
@@ -466,7 +466,7 @@ export default function FinancePage() {
             <button
               onClick={() => setShowAddPurse(!showAddPurse)}
               data-cursor="Make a new purse"
-              className="link-slide text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
+              className="link-slide text-xs font-bold text-gold hover:text-gold-glow transition-colors"
             >
               {showAddPurse ? 'Cancel' : '+ Add Purse'}
             </button>
@@ -519,7 +519,7 @@ export default function FinancePage() {
             <button
               type="submit"
               disabled={addPurseLoading}
-              className="w-full bg-gold text-ink hover:bg-[#cbaa6f] font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="w-full bg-gold text-ink hover:bg-gold-glow font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
             >
               {addPurseLoading ? 'Creating...' : 'Create Purse'}
             </button>
@@ -616,7 +616,7 @@ export default function FinancePage() {
           <button
             onClick={() => setShowTransfer(!showTransfer)}
             data-cursor="Move money between purses"
-            className="text-xs font-bold text-gold hover:text-[#cbaa6f] transition-colors"
+            className="text-xs font-bold text-gold hover:text-gold-glow transition-colors"
           >
             {showTransfer ? 'Cancel' : 'Transfer'}
           </button>
@@ -687,7 +687,7 @@ export default function FinancePage() {
             <button
               type="submit"
               disabled={transferLoading || transferFrom === transferTo}
-              className="w-full bg-gold text-ink hover:bg-[#cbaa6f] font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="w-full bg-gold text-ink hover:bg-gold-glow font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
             >
               {transferLoading ? 'Transferring...' : `Transfer ${transferFrom ? getPurseIcon(transferFrom) : ''} → ${transferTo ? getPurseIcon(transferTo) : ''}`}
             </button>

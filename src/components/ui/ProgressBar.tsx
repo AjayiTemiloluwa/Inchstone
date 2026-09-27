@@ -13,7 +13,7 @@ export function ProgressBar({ progress, colorClass = 'bg-gold', className = '', 
     ? 'rgba(123,160,91,0.4)'
     : colorClass.includes('coral')
       ? 'rgba(232,104,106,0.4)'
-      : 'rgba(212,175,55,0.4)'
+      : 'rgb(var(--gold-rgb) / 0.4)'
 
   return (
     <div className={`w-full ${className}`}>

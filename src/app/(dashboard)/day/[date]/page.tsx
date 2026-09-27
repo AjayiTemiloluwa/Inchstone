@@ -21,6 +21,10 @@ import { Loader } from '@/components/ui/Loader'
 
 type GraphRange = 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
 
+// How much of a repeating deed/habit a delete should take out. Mirrors the
+// `scope` query param accepted by DELETE /api/tasks/[id].
+type DeleteScope = 'single' | 'future' | 'all'
+
 type DeedModalData = {
   task: Task
   parentGoal: Item | null
@@ -86,7 +90,7 @@ export default function DayPage() {
   const [habitGraphCustomStart, setHabitGraphCustomStart] = useState('')
   const [habitGraphCustomEnd, setHabitGraphCustomEnd] = useState('')
   const [showGraphDatePicker, setShowGraphDatePicker] = useState(false)
-  const [showDeleteHabitMenu, setShowDeleteHabitMenu] = useState<string | null>(null)
+  const [deleteScopeTarget, setDeleteScopeTarget] = useState<{ taskId: string; title: string; isHabit: boolean } | null>(null)
   const [savingDeed, setSavingDeed] = useState(false)
   const [habitHover, setHabitHover] = useState<number | null>(null)
   const [renamingHabitRow, setRenamingHabitRow] = useState<string | null>(null)
@@ -649,39 +653,43 @@ export default function DayPage() {
   const handleDeleteTask = async (e: React.MouseEvent, taskId: string) => {
     e.stopPropagation()
     const task = allTasks.find(t => t.id === taskId)
-    const isHabitTask = task?.isHabit
 
-    if (isHabitTask) {
-      const deleteChoice = await confirm(
-        'Delete this habit?\n• "All" – removes all future instances\n• "Today" – removes only today\n• "Cancel" – keeps it'
-      )
-      if (!deleteChoice) return
-
-      // Show inline menu for delete options
-      setShowDeleteHabitMenu(taskId)
+    // Not part of the day currently on screen — fall back to a plain confirm
+    // rather than guessing at a series.
+    if (!task) {
+      if (!(await confirm('Delete this deed?'))) return
+      await performDeleteTask(taskId, 'single')
       return
     }
 
-    if (!(await confirm('Delete this deed?'))) return
-    await performDeleteTask(taskId)
+    // A one-shot deed is a single row — a plain confirm is enough. Anything
+    // that repeats (recurring deed or habit) needs a scope: this occurrence,
+    // this and all future ones, or the whole series.
+    if (!task.isRecurring && !task.isHabit) {
+      if (!(await confirm('Delete this deed?'))) return
+      await performDeleteTask(taskId, 'single')
+      return
+    }
+
+    setDeleteScopeTarget({ taskId, title: task.title, isHabit: !!task.isHabit })
   }
 
-  const performDeleteTask = async (taskId: string, deleteAll?: boolean) => {
+  const performDeleteTask = async (taskId: string, scope: DeleteScope = 'single') => {
+    setDeleteScopeTarget(null)
     try {
-      const url = deleteAll ? `/api/tasks/${taskId}?deleteAll=true` : `/api/tasks/${taskId}`
-      const res = await fetch(url, { method: 'DELETE' })
+      const res = await fetch(`/api/tasks/${taskId}?scope=${scope}`, { method: 'DELETE' })
       if (!res.ok) {
         showToast('Failed to delete', 'error')
       } else {
         fetchItems()
+        fetchTodayHabits()
         fetchHabitHistory()
-        showToast('Deleted', 'success')
+        showToast(scope === 'single' ? 'Deleted' : 'Deleted from the series', 'success')
       }
     } catch (e) {
       console.error(e)
       showToast('Network error', 'error')
     }
-    setShowDeleteHabitMenu(null)
   }
 
   const handleRenameHabit = async (oldTitle: string) => {
@@ -701,7 +709,6 @@ export default function DayPage() {
       if (res.ok) {
         showToast('Habit renamed — all instances updated', 'success')
         setRenamingHabitRow(null)
-        setShowDeleteHabitMenu(null)
         setExpandedHabit(null)
         await Promise.all([fetchItems(), fetchTodayHabits(), fetchHabitHistory(), fetchHabitOverview()])
       } else {
@@ -1180,7 +1187,7 @@ export default function DayPage() {
                     <Plus className="w-3 h-3" />
                   </a>
                 )}
-                <button onClick={() => setAddingDeed(!addingDeed)} className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 ${addingDeed ? 'bg-ember/20 text-[#cf8f78] border border-ember/30' : 'bg-gold text-ink hover:bg-[#cbaa6f]'}`}>
+                <button onClick={() => setAddingDeed(!addingDeed)} className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 ${addingDeed ? 'bg-ember/20 text-[#cf8f78] border border-ember/30' : 'bg-gold text-ink hover:bg-gold-glow'}`}>
                   {addingDeed ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                   <span>{addingDeed ? 'Close' : 'Add Deed'}</span>
                 </button>
@@ -1385,7 +1392,7 @@ export default function DayPage() {
                   <button
                     onClick={() => handleAddDeed()}
                     disabled={savingDeed || !newDeedTitle.trim()}
-                    className="px-5 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-5 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {savingDeed ? 'Adding…' : '+ Add Deed'}
                   </button>
@@ -1422,7 +1429,7 @@ export default function DayPage() {
                       <div
                         key={task.id}
                         className="absolute rounded-xl border p-2.5 text-left text-xs select-none overflow-hidden"
-                        style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 9, borderLeft: '3px solid rgba(212,175,55,0.55)', borderColor: 'rgba(212,175,55,0.25)', background: 'rgba(212,175,55,0.08)' }}
+                        style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 9, borderLeft: '3px solid rgb(var(--gold-rgb) / 0.55)', borderColor: 'rgb(var(--gold-rgb) / 0.25)', background: 'rgb(var(--gold-rgb) / 0.08)' }}
                       >
                         <div className="flex items-center justify-between gap-1">
                           <span className="font-semibold truncate text-gold/90">{task.title}</span>
@@ -1437,13 +1444,17 @@ export default function DayPage() {
                     )
                   }
                   const goalItem = findItem(task.goalId)
-                  const taskBorderColor = task.color || (task.completed ? '#8fbc8f' : '#d4af37')
+                  // Untagged deeds fall back to the theme accent. That has to be the
+                  // var (not a hex) so it follows the chosen accent — and since a hex
+                  // alpha suffix can't be appended to a variable, the translucent
+                  // variants go through color-mix, which renders user colours identically.
+                  const taskBorderColor = task.color || (task.completed ? '#8fbc8f' : 'var(--gold)')
                   return (
                     <div
                       key={task.id}
                       onClick={(e) => { e.stopPropagation(); handleOpenDeed(task) }}
                       className={`absolute rounded-xl border p-2.5 text-left text-xs flex flex-col justify-between transition-all cursor-pointer group/task select-none overflow-hidden task-block ${task.completed ? 'glass text-ink/50 opacity-80' : 'text-ink hover:-translate-y-0.5'}`}
-                      style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10, borderLeft: `4px solid ${taskBorderColor}`, borderColor: task.completed ? `${taskBorderColor}40` : taskBorderColor, background: task.completed ? `${taskBorderColor}20` : `${taskBorderColor}35` }}
+                      style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10, borderLeft: `4px solid ${taskBorderColor}`, borderColor: task.completed ? `color-mix(in srgb, ${taskBorderColor} 25%, transparent)` : taskBorderColor, background: task.completed ? `color-mix(in srgb, ${taskBorderColor} 13%, transparent)` : `color-mix(in srgb, ${taskBorderColor} 21%, transparent)` }}
                     >
                       <div className="flex items-start justify-between gap-1">
                         <div className="flex items-center space-x-1.5 min-w-0">
@@ -1875,7 +1886,7 @@ export default function DayPage() {
                     await handleQuickAddHabit(title, newHabitPattern)
                   }
                 }}
-                className="px-3.5 py-2 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-[#cbaa6f] transition flex items-center space-x-1"
+                className="px-3.5 py-2 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-gold-glow transition flex items-center space-x-1"
               >
                 <Plus className="w-3 h-3" />
                 <span>Add</span>
@@ -1951,27 +1962,9 @@ export default function DayPage() {
                 ) : (
                   <span className="hidden shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink/40 sm:inline-block">Today</span>
                 )}
-                <div className="relative">
-                  <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1.5 -m-0.5 rounded hover:bg-ember/15 transition sm:opacity-0 sm:p-1 sm:m-0 sm:group-hover:opacity-100 text-ink/30 hover:text-[#cf8f78]" title="Delete">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                  {showDeleteHabitMenu === task.id && (
-                    <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl p-2 min-w-[180px] animate-fadeIn">
-                      <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
-                      <button onClick={() => performDeleteTask(task.id, true)} className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
-                        <Repeat className="w-3.5 h-3.5" />
-                        <span>Delete all future instances</span>
-                      </button>
-                      <button onClick={() => performDeleteTask(task.id, false)} className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
-                        <X className="w-3.5 h-3.5" />
-                        <span>Delete only today</span>
-                      </button>
-                      <button onClick={() => setShowDeleteHabitMenu(null)} className="w-full text-left px-3 py-2 text-xs text-ink/50 hover:bg-mist rounded-lg transition">
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <button onClick={(e) => handleDeleteTask(e, task.id)} className="shrink-0 p-1.5 -m-0.5 rounded hover:bg-ember/15 transition sm:opacity-0 sm:p-1 sm:m-0 sm:group-hover:opacity-100 text-ink/30 hover:text-[#cf8f78]" title="Delete">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
                 <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-ink/30 transition-transform ${expanded ? 'rotate-180 text-gold' : ''}`} />
               </div>
 
@@ -2129,7 +2122,7 @@ export default function DayPage() {
                             </div>
                             <button
                               onClick={() => { if (habitGraphCustomStart && habitGraphCustomEnd) { setHabitGraphRange('custom'); setShowGraphDatePicker(false); fetchHabitHistory() } }}
-                              className="w-full px-3 py-1.5 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-[#cbaa6f] transition"
+                              className="w-full px-3 py-1.5 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-gold-glow transition"
                             >
                               Apply
                             </button>
@@ -2700,7 +2693,7 @@ export default function DayPage() {
               </button>
               <div className="flex items-center space-x-3">
                 <button onClick={() => setSelectedDeed(null)} className="px-5 py-2.5 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition">Cancel</button>
-                <button onClick={handleSaveDeedChanges} className="px-6 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70   flex items-center space-x-2">
+                <button onClick={handleSaveDeedChanges} className="px-6 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70   flex items-center space-x-2">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Save</span>
                 </button>
@@ -2710,6 +2703,97 @@ export default function DayPage() {
         </motion.div>
       )}
       </AnimatePresence>
+      {/* Delete scope prompt — repeating deeds and habits can be removed as one
+          occurrence, as this occurrence plus every later one, or as the whole
+          series. One-shot deeds never reach here (they get a plain confirm). */}
+      <AnimatePresence>
+        {deleteScopeTarget && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={() => setDeleteScopeTarget(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 6 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              className="w-full max-w-md overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="border-b border-white/10 px-6 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gold">
+                  {deleteScopeTarget.isHabit ? 'Delete habit' : 'Delete repeating deed'}
+                </p>
+                <h3 className="mt-1 truncate font-display text-lg font-bold text-ink">{deleteScopeTarget.title}</h3>
+                <p className="mt-1 text-xs text-ink/50">This one repeats. How much should go?</p>
+              </div>
+
+              <div className="space-y-1.5 px-4 py-4">
+                <button
+                  onClick={() => performDeleteTask(deleteScopeTarget.taskId, 'single')}
+                  className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
+                >
+                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-ink">
+                      {deleteScopeTarget.isHabit ? 'Just today' : 'Just this one'}
+                    </span>
+                    <span className="block text-[11px] text-ink/45">
+                      {deleteScopeTarget.isHabit
+                        ? 'Skips today only — the habit is back tomorrow.'
+                        : 'Skips this occurrence only — the series carries on.'}
+                    </span>
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => performDeleteTask(deleteScopeTarget.taskId, 'future')}
+                  className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
+                >
+                  <Repeat className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-ink">This and all future</span>
+                    <span className="block text-[11px] text-ink/45">
+                      Stops everything from this day forward; earlier days are kept.
+                    </span>
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => performDeleteTask(deleteScopeTarget.taskId, 'all')}
+                  className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-ember/10"
+                >
+                  <Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-[#cf8f78]" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-[#cf8f78]">The entire series</span>
+                    <span className="block text-[11px] text-ink/45">
+                      {deleteScopeTarget.isHabit
+                        ? 'Every instance, past and future — this erases the history too.'
+                        : 'Every occurrence, past and future.'}
+                    </span>
+                  </span>
+                </button>
+              </div>
+
+              <div className="flex justify-end border-t border-white/10 bg-black/20 px-6 py-3">
+                <button
+                  onClick={() => setDeleteScopeTarget(null)}
+                  className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-ink/60 transition hover:bg-white/5 hover:text-ink"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>Cancel</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
 
     </div>
 

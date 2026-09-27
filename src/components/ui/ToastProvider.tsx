@@ -73,7 +73,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                         <p className="text-sm text-ink/70 mb-6">{confirmState.message}</p>
                         <div className="flex justify-end space-x-3">
                             <button onClick={() => handleConfirmClose(false)} className="px-4 py-2 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition-all">Cancel</button>
-                            <button onClick={() => handleConfirmClose(true)} className="px-4 py-2 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all  ">Confirm</button>
+                            <button onClick={() => handleConfirmClose(true)} className="px-4 py-2 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all  ">Confirm</button>
                         </div>
                     </div>
                 </div>

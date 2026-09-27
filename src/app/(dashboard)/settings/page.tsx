@@ -6,6 +6,7 @@ import { PushNotificationManager } from '@/components/ui/PushNotificationManager
 import { AlarmsCard } from '@/components/ui/AlarmsCard'
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
 import { ThemeSwitch } from '@/components/ui/ThemeToggle'
+import { AccentPicker } from '@/components/ui/AccentPicker'
 import { useState, useEffect } from 'react'
 import { Mail, CheckCircle, XCircle, Smartphone, Trash2, Database, ChevronDown, Sun } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
@@ -125,6 +126,9 @@ export default function SettingsPage() {
           </p>
           <ThemeSwitch />
         </div>
+        <div className="mt-5 border-t border-gold-dim/20 pt-5">
+          <AccentPicker />
+        </div>
       </Card>
 
       {/* Email delivery — partner invites */}
@@ -227,7 +231,7 @@ export default function SettingsPage() {
           <button
             onClick={promptInstall}
             data-cursor="Put Inchstone in your pocket"
-            className="rounded-md bg-gold px-6 py-3 text-body font-semibold text-ink hover:bg-[#cbaa6f] transition-colors"
+            className="rounded-md bg-gold px-6 py-3 text-body font-semibold text-ink hover:bg-gold-glow transition-colors"
           >
             Install
           </button>

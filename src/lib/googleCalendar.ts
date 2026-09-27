@@ -422,6 +422,49 @@ async function deleteRecurringOccurrence(
   }
 }
 
+/**
+ * Cut a pushed recurring series short at `fromDate` — that occurrence and
+ * everything after it stops existing in Google, matching a "this and all
+ * future" delete in Inchstone. Implemented as an UNTIL clamp on the master
+ * event's RRULE (any pre-existing UNTIL is replaced).
+ */
+async function truncateRecurringSeries(
+  userId: string,
+  masterEventId: string,
+  fromDate: Date,
+): Promise<void> {
+  if (!masterEventId) return
+  const authed = await getAuthedCalendar(userId)
+  if (!authed) return
+  const { calendar, calendarId } = authed
+  try {
+    const { data } = await calendar.events.get({ calendarId, eventId: masterEventId })
+    const rules = (data.recurrence || []).filter(rule => rule.toUpperCase().startsWith('RRULE'))
+    if (rules.length === 0) return
+
+    // UNTIL is inclusive, so stop one second before the first dropped occurrence.
+    const until = new Date(fromDate.getTime() - 1000)
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}/, '')
+    const truncated = rules.map(rule => {
+      const base = rule
+        .split(';')
+        .filter(part => !part.toUpperCase().startsWith('UNTIL'))
+        .join(';')
+      return `${base};UNTIL=${until}`
+    })
+
+    await calendar.events.patch({
+      calendarId,
+      eventId: masterEventId,
+      requestBody: { recurrence: truncated },
+    })
+  } catch {
+    /* series already gone — nothing to truncate */
+  }
+}
+
 /*
  * Keep a single task's Google representation in sync with Inchstone.
  *  · eligible (non-habit, scheduled) → create/update the pushed event
@@ -518,13 +561,15 @@ export async function pushTaskToGoogle(
  * Remove a task's Google presence (used by DELETE /api/tasks/[id]).
  *  · one-shot deed → delete its single pushed event
  *  · origin of a recurring series + deleteAll → delete the master event
+ *  · truncateFrom set → keep only the part of the series before that date
+ *    (the master's RRULE is clamped with an UNTIL)
  *  · single-instance delete (origin or materialized instance) → cancel just
  *    that occurrence on the master event
  */
 export async function deleteTaskFromGoogle(
   userId: string,
   task: GoogleSyncableTask,
-  opts: { deleteAll?: boolean } = {},
+  opts: { deleteAll?: boolean; truncateFrom?: Date | null } = {},
 ): Promise<void> {
   try {
     // One-shot deed → remove its single pushed event.
@@ -533,17 +578,20 @@ export async function deleteTaskFromGoogle(
     }
 
     // Origin of a pushed recurring series → deleteAll removes the whole
-    // master event; a single-instance delete only cancels that occurrence.
+    // master event; truncateFrom keeps the earlier occurrences only; a
+    // single-instance delete cancels just the clicked occurrence.
     if (task.googleRecurringEventId) {
       if (opts.deleteAll) {
         await deleteGoogleEvent(userId, task.googleRecurringEventId)
+      } else if (opts.truncateFrom) {
+        await truncateRecurringSeries(userId, task.googleRecurringEventId, opts.truncateFrom)
       } else if (task.startTime) {
         await deleteRecurringOccurrence(userId, task.googleRecurringEventId, new Date(task.startTime))
       }
     }
 
     // A materialized instance has no Google ids of its own — find the origin
-    // task that owns the master event and cancel just that occurrence.
+    // task that owns the master event and act on that occurrence/series.
     if (
       !task.googleEventId &&
       !task.googleRecurringEventId &&
@@ -562,7 +610,11 @@ export async function deleteTaskFromGoogle(
         orderBy: { date: 'asc' },
       })
       if (origin?.googleRecurringEventId) {
-        await deleteRecurringOccurrence(userId, origin.googleRecurringEventId, new Date(task.startTime))
+        if (opts.truncateFrom) {
+          await truncateRecurringSeries(userId, origin.googleRecurringEventId, opts.truncateFrom)
+        } else {
+          await deleteRecurringOccurrence(userId, origin.googleRecurringEventId, new Date(task.startTime))
+        }
       }
     }
 

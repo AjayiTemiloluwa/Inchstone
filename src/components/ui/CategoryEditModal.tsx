@@ -60,54 +60,87 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
     if (!category) return null
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 pb-20 space-y-5 animate-fadeIn glass rounded-[8px]" data-lenis-prevent onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-display font-bold text-ink">Edit Category</h2>
-                    <button onClick={onClose} className="p-1.5 hover:bg-mist rounded-lg transition text-ink/50 hover:text-ink">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/75 backdrop-blur-md" onClick={onClose}>
+            <div
+                className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 animate-fadeIn rounded-xl border border-gold-dim/25 bg-surface-solid text-parchment shadow-2xl shadow-black/60"
+                data-lenis-prevent
+                onClick={e => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+            >
+                <div className="flex items-center justify-between border-b border-gold-dim/20 pb-4">
+                    <div>
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-parchment/40">Category</p>
+                        <h2 className="text-xl font-display font-bold text-parchment">Edit Category</h2>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        aria-label="Close"
+                        className="p-1.5 rounded-md text-parchment/50 hover:text-parchment hover:bg-mist transition-colors"
+                    >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Title */}
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink/50">Title</label>
-                    <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-parchment/50">Title</label>
+                    <input
+                        type="text"
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm bg-black/25 border border-white/10 rounded-lg text-parchment placeholder:text-parchment/25 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-colors"
+                    />
                 </div>
 
                 {/* Description */}
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink/50">Description</label>
-                    <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
-                        className="w-full px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 resize-none" />
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-parchment/50">Description</label>
+                    <textarea
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        rows={3}
+                        className="w-full px-3.5 py-2.5 text-sm bg-black/25 border border-white/10 rounded-lg text-parchment placeholder:text-parchment/25 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-colors resize-none"
+                    />
                 </div>
 
                 {/* Theme */}
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink/50">Theme</label>
-                    <input type="text" value={theme} onChange={e => setTheme(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-parchment/50">Theme</label>
+                    <input
+                        type="text"
+                        value={theme}
+                        onChange={e => setTheme(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm bg-black/25 border border-white/10 rounded-lg text-parchment placeholder:text-parchment/25 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-colors"
+                    />
                 </div>
 
                 {/* Focus Question */}
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink/50">Focus Question</label>
-                    <input type="text" value={focusQuestion} onChange={e => setFocusQuestion(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-parchment/50">Focus Question</label>
+                    <input
+                        type="text"
+                        value={focusQuestion}
+                        onChange={e => setFocusQuestion(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm bg-black/25 border border-white/10 rounded-lg text-parchment placeholder:text-parchment/25 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-colors"
+                    />
                 </div>
 
                 {/* Anchor Scripture */}
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink/50">Anchor Scripture</label>
-                    <input type="text" value={anchorScripture} onChange={e => setAnchorScripture(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-parchment/50">Anchor Scripture</label>
+                    <input
+                        type="text"
+                        value={anchorScripture}
+                        onChange={e => setAnchorScripture(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-sm bg-black/25 border border-white/10 rounded-lg text-parchment placeholder:text-parchment/25 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-colors"
+                    />
                 </div>
 
                 {/* Weight */}
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-ink/50">Weight</label>
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-parchment/50">Weight</label>
                         <span className="text-xs font-mono text-gold">{Math.round(weight)}%</span>
                     </div>
                     <input type="range" min={0} max={100} step={1} value={weight}
@@ -118,20 +151,21 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
                 {/* Score Mode + Progress */}
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-ink/50">Score</label>
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-parchment/50">Score</label>
                         <span className="text-xs font-mono text-sage">{Math.round(progress)}%</span>
                     </div>
                     <div className="flex items-center space-x-3">
                         <button
+                            type="button"
                             onClick={() => setScoreMode(scoreMode === 'auto' ? 'manual' : 'auto')}
-                            className={`px-3 py-1 text-[10px] font-bold uppercase rounded-lg border transition ${scoreMode === 'auto' ? 'bg-gold/20 text-gold border-gold/40' : 'bg-white/10 text-ink/50 border-white/20'}`}
+                            className={`px-3 py-1 text-[10px] font-bold uppercase rounded-lg border transition ${scoreMode === 'auto' ? 'bg-gold/20 text-gold border-gold/40' : 'bg-white/10 text-parchment/60 border-white/20'}`}
                         >
                             {scoreMode === 'auto' ? 'Auto' : 'Manual'}
                         </button>
                         {scoreMode === 'manual' && (
                             <input type="number" min={0} max={100} value={Math.round(progress)}
                                 onChange={e => setProgress(parseFloat(e.target.value) || 0)}
-                                className="w-16 px-2 py-1 text-xs font-mono bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-center" />
+                                className="w-16 px-2 py-1 text-xs font-mono bg-black/25 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-center text-parchment" />
                         )}
                     </div>
                     <input type="range" min={0} max={100} step={1} value={Math.round(progress)}
@@ -141,19 +175,20 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
 
                 {/* Reflection */}
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-ink/50">Reflection</label>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-parchment/50">Reflection</label>
                     <textarea value={reflection} onChange={e => setReflection(e.target.value)} rows={4}
-                        className="w-full px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 resize-none" />
+                        placeholder="Personal reflection or notes for this category…"
+                        className="w-full px-3.5 py-2.5 text-sm bg-black/25 border border-white/10 rounded-lg text-parchment placeholder:text-parchment/25 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 transition-colors resize-none" />
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center space-x-3 pt-2">
                     <button onClick={handleSave}
-                        className="flex-1 px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70  ">
+                        className="flex-1 px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70">
                         Save Changes
                     </button>
                     <button onClick={onClose}
-                        className="px-4 py-3 text-sm text-ink/50 hover:text-ink hover:bg-white/5 rounded-xl transition">
+                        className="px-4 py-3 text-sm text-parchment/50 hover:text-parchment hover:bg-mist rounded-xl transition">
                         Cancel
                     </button>
                 </div>

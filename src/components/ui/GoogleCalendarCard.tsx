@@ -62,6 +62,8 @@ export function GoogleCalendarCard() {
             void pushBackfill()
           }
         } else if (params.get('calendar') === 'error') {
+          const redirectUri = `${window.location.origin}/api/calendar/callback`
+          setRedirectHint(redirectUri)
           setNote(
             'Google sign-in did not complete. If Google showed "redirect_uri_mismatch", add the Redirect URI shown below to your OAuth client in Google Cloud Console → APIs & Services → Credentials, then connect again.',
           )

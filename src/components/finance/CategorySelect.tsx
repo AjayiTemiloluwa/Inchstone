@@ -176,7 +176,7 @@ export function CategorySelect({
                                     type="button"
                                     onClick={saveOthers}
                                     disabled={!draft.trim()}
-                                    className="flex shrink-0 items-center gap-1 rounded-lg bg-gold px-3 py-2 text-xs font-bold text-ink transition hover:bg-[#cbaa6f] disabled:opacity-40"
+                                    className="flex shrink-0 items-center gap-1 rounded-lg bg-gold px-3 py-2 text-xs font-bold text-ink transition hover:bg-gold-glow disabled:opacity-40"
                                 >
                                     <Plus className="h-3.5 w-3.5" /> Save
                                 </button>

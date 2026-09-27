@@ -282,7 +282,7 @@ export default function ChallengePage() {
         <button
           onClick={() => setShowCreate(v => !v)}
           data-cursor="Start a new bottle"
-          className="rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink hover:bg-[#cbaa6f] transition-colors flex items-center gap-2"
+          className="rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           <span>New Bottle</span>
@@ -352,7 +352,7 @@ export default function ChallengePage() {
           <button
             onClick={handleCreate}
             disabled={saving}
-            className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 text-sm font-semibold text-ink hover:bg-[#cbaa6f] transition-colors disabled:opacity-60"
+            className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors disabled:opacity-60"
           >
             <Check className="w-4 h-4" strokeWidth={1.5} />
             <span>{saving ? 'Creating…' : 'Create Bottle'}</span>
@@ -436,7 +436,7 @@ export default function ChallengePage() {
                       />
                       <button
                         onClick={() => handleSaveTarget(bottle)}
-                        className="rounded-md bg-gold p-1 text-ink transition hover:bg-[#cbaa6f]"
+                        className="rounded-md bg-gold p-1 text-ink transition hover:bg-gold-glow"
                         title="Save target"
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -491,7 +491,7 @@ export default function ChallengePage() {
                       />
                       <button
                         onClick={() => handleSaveChallenge(bottle)}
-                        className="rounded-md bg-gold p-1.5 text-ink transition hover:bg-[#cbaa6f]"
+                        className="rounded-md bg-gold p-1.5 text-ink transition hover:bg-gold-glow"
                         title="Save challenge (Ctrl+Enter)"
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -544,7 +544,7 @@ export default function ChallengePage() {
                   <button
                     onClick={() => handleQuickAdd(bottle)}
                     disabled={saving}
-                    className="shrink-0 rounded-lg bg-gold px-3.5 py-2 text-xs font-bold text-ink hover:bg-[#cbaa6f] transition disabled:opacity-60"
+                    className="shrink-0 rounded-lg bg-gold px-3.5 py-2 text-xs font-bold text-ink hover:bg-gold-glow transition disabled:opacity-60"
                   >
                     Pour
                   </button>

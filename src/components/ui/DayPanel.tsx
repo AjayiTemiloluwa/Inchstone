@@ -80,7 +80,7 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 bg-gold text-surface text-sm font-semibold rounded-xl hover:bg-[#cbaa6f] active:opacity-70 transition-all   touch-manipulation min-h-[44px]"
+          className="px-4 py-2.5 bg-gold text-surface text-sm font-semibold rounded-xl hover:bg-gold-glow active:opacity-70 transition-all   touch-manipulation min-h-[44px]"
         >
           Add Task
         </button>
@@ -258,7 +258,7 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
                 </button>
                 <button
                   onClick={saveTask}
-                  className="px-5 py-2.5 bg-gold text-surface text-sm font-bold rounded-xl hover:bg-[#cbaa6f] active:opacity-70 transition-all   min-h-[44px]"
+                  className="px-5 py-2.5 bg-gold text-surface text-sm font-bold rounded-xl hover:bg-gold-glow active:opacity-70 transition-all   min-h-[44px]"
                 >
                   Save Task
                 </button>

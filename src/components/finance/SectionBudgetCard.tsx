@@ -402,7 +402,7 @@ export function SectionBudgetCard({
                                                 setQuickAddAmount('')
                                                 setQuickAddDesc('')
                                             }}
-                                            className="w-5 h-5 bg-gold text-ink rounded-full text-xs leading-none flex items-center justify-center hover:bg-[#cbaa6f] transition-all shadow-md"
+                                            className="w-5 h-5 bg-gold text-ink rounded-full text-xs leading-none flex items-center justify-center hover:bg-gold-glow transition-all shadow-md"
                                             title="Log an expense here"
                                         >
                                             +

@@ -141,7 +141,7 @@ export function ReviewModal({ onClose, onSaved }: ReviewModalProps) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-md bg-gold px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50"
+            className="rounded-md bg-gold px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-gold-glow disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save Review'}
           </button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
+import { applyStoredAccent } from '@/lib/accent'
 
 /**
  * ThemeToggle — dark ↔ light with a flick of the class on <html>.
@@ -16,6 +17,9 @@ function applyTheme(next: boolean) {
   document
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute('content', next ? '#0A0908' : '#F6F1E7')
+  // The accent is mixed per theme (paper needs a deeper hue than ink does), so
+  // re-assert the stored one after the class flip — see lib/accent.ts.
+  applyStoredAccent()
 }
 
 export function ThemeToggle() {

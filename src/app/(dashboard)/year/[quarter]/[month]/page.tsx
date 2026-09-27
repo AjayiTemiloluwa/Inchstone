@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
+import { ChevronRight, ChevronDown, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 import { getWeeksInMonth } from '@/lib/calendarUtils'
@@ -26,6 +26,9 @@ export default function YearQuarterMonthPage() {
     const [loading, setLoading] = useState(true)
 
     const [addingGoal, setAddingGoal] = useState<string | null>(null)
+    // Accordion — dropdowns closed by default; only one open at a time
+    const [openCategoryId, setOpenCategoryId] = useState<string | null>(null)
+    const [openItemId, setOpenItemId] = useState<string | null>(null)
     const [newGoalTitle, setNewGoalTitle] = useState('')
 
     const [reflectionText, setReflectionText] = useState('')
@@ -322,7 +325,15 @@ export default function YearQuarterMonthPage() {
                                 {/* Category Header */}
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-lg font-bold text-ink">{category.title}</h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setOpenCategoryId(openCategoryId === category.id ? null : category.id); setOpenItemId(null) }}
+                                            aria-expanded={openCategoryId === category.id}
+                                            className="flex items-center gap-2 min-w-0 flex-1 text-left min-h-[44px] rounded-lg px-1 hover:bg-mist/50 transition"
+                                        >
+                                            <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-200 ${openCategoryId === category.id ? 'rotate-180 text-gold' : 'text-ink/40'}`} />
+                                            <span className="text-lg font-bold text-ink truncate">{category.title}</span>
+                                        </button>
                                         <div className="flex items-center space-x-3">
                                             <div className="flex items-center space-x-1">
                                                 <span className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Score:</span>
@@ -334,7 +345,8 @@ export default function YearQuarterMonthPage() {
                                 </div>
 
                                 {/* Monthly Goals */}
-                                <div className="space-y-3 pt-2 border-t border-mist">
+                                {openCategoryId === category.id && (
+                                <div className="space-y-3 pt-2 border-t border-mist animate-fadeIn">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold uppercase text-ink/50">Monthly Goals</span>
                                         <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-1 hover:bg-mist rounded-lg transition text-ink/50 hover:text-gold">
@@ -347,7 +359,7 @@ export default function YearQuarterMonthPage() {
                                             <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)}
                                                 onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)}
                                                 placeholder={`New annual goal in ${category.title}...`} className="flex-1 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all" autoFocus />
-                                            <button onClick={() => handleAddGoal(category.id)} className="px-4 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-[#cbaa6f] transition-all active:opacity-70  ">Add</button>
+                                            <button onClick={() => handleAddGoal(category.id)} className="px-4 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70  ">Add</button>
                                         </div>
                                     )}
 
@@ -360,13 +372,25 @@ export default function YearQuarterMonthPage() {
                                             return (
                                                 <Card key={mItem.id} className="p-4 hover:border-gold transition-colors group relative cursor-pointer" onClick={() => router.push(`/month/${mItem.id}`)}>
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <h4 className="font-bold text-ink text-sm truncate pr-6">{parentYG?.title}</h4>
+                                                        <div className="flex items-center gap-1 min-w-0">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); setOpenItemId(openItemId === mItem.id ? null : mItem.id) }}
+                                                                aria-expanded={openItemId === mItem.id}
+                                                                title={openItemId === mItem.id ? 'Hide sliders' : 'Edit weight & score'}
+                                                                className="p-1.5 rounded-lg hover:bg-mist transition shrink-0 min-w-[32px] min-h-[32px] flex items-center justify-center"
+                                                            >
+                                                                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${openItemId === mItem.id ? 'rotate-180 text-gold' : 'text-ink/40'}`} />
+                                                            </button>
+                                                            <h4 className="font-bold text-ink text-sm truncate pr-6">{parentYG?.title}</h4>
+                                                        </div>
                                                         <div className="flex items-center space-x-2">
                                                             <ProgressRing progress={mScore} size={32} />
                                                             <span className="text-base font-mono font-bold">{Math.round(mScore)}%</span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-4" onClick={e => e.stopPropagation()}>
+                                                    {openItemId === mItem.id && (
+                                                    <div className="flex items-center gap-4 animate-fadeIn" onClick={e => e.stopPropagation()}>
                                                         <div className="flex-1">
                                                             <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight</span>
                                                             <input type="range" min="0" max="100" step={1} value={mItem.weight}
@@ -382,6 +406,7 @@ export default function YearQuarterMonthPage() {
                                                             <span className="text-[9px] font-mono text-ink/50">{Math.round(mScore)}%</span>
                                                         </div>
                                                     </div>
+                                                    )}
                                                     <button onClick={(e) => handleDelete(e, mItem.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-ember/20 rounded-lg transition text-ink/50 hover:text-[#d39a82] z-10" title="Delete">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
@@ -393,6 +418,7 @@ export default function YearQuarterMonthPage() {
                                         <p className="text-xs text-ink/40 italic">{emptyGoals}</p>
                                     )}
                                 </div>
+                                )}
                             </Card>
                         )
                     })}

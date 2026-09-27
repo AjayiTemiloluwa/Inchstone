@@ -183,6 +183,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 }
 
+/**
+ * How much of a recurring series a delete should take out.
+ *   single → only the clicked occurrence
+ *   future → the clicked occurrence and every later one
+ *   all    → every occurrence that ever existed (past + future)
+ */
+type DeleteScope = 'single' | 'future' | 'all'
+
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { userId } = await auth()
@@ -190,6 +198,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
         const { id: taskId } = await params
         const { searchParams } = new URL(req.url)
+        const scopeParam = searchParams.get('scope')
         const deleteAll = searchParams.get('deleteAll') === 'true'
 
         const task = await prisma.task.findFirst({
@@ -199,27 +208,66 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
         const goalId = task.goalId
 
-        if (deleteAll && task.isHabit) {
-            // Delete all future instances of this habit (same title, from today onwards)
+        // Only a series can be deleted in bulk — a one-shot deed always goes
+        // on its own, whatever scope the caller asked for.
+        const isSeries = task.isRecurring || task.isHabit
+        const scope: DeleteScope =
+            !isSeries ? 'single'
+                : scopeParam === 'all' || scopeParam === 'future' || scopeParam === 'single'
+                    ? (scopeParam as DeleteScope)
+                    : 'single'
+
+        // Instances of one series are keyed by title + owning goal + habit
+        // flag — the same identity PUT regeneration and the Google series
+        // lookup use.
+        const seriesWhere: Prisma.TaskWhereInput = {
+            userId,
+            title: task.title,
+            goalId: task.goalId,
+            isHabit: task.isHabit,
+        }
+
+        // Boundary = the clicked occurrence's own stored date. Every instance
+        // of a series is generated from one starting date with identical
+        // time-of-day handling, so `date >= boundary` selects exactly this
+        // occurrence and the later ones — without any timezone guesswork.
+        const cutFrom = new Date(task.date)
+        let truncatedFrom: Date | null = null
+
+        if (!scopeParam && deleteAll && task.isHabit) {
+            // Legacy habit-menu flag (kept for older callers): everything from
+            // today onwards, so past completions stay for the habit graph.
             const now = new Date()
             now.setHours(0, 0, 0, 0)
-            await prisma.task.deleteMany({
-                where: {
-                    userId,
-                    isHabit: true,
-                    title: task.title,
-                    date: { gte: now },
-                }
+            await prisma.task.deleteMany({ where: { ...seriesWhere, date: { gte: now } } })
+        } else if (scope === 'all') {
+            // Whole series — history included.
+            await prisma.task.deleteMany({ where: seriesWhere })
+        } else if (scope === 'future') {
+            // This occurrence and everything after it.
+            await prisma.task.deleteMany({ where: { ...seriesWhere, date: { gte: cutFrom } } })
+
+            // Cap the survivors' recurrence so a later edit can't regenerate
+            // the occurrences we just removed.
+            const survivors = await prisma.task.updateMany({
+                where: { ...seriesWhere, date: { lt: cutFrom } },
+                data: { recurrenceEnd: new Date(cutFrom.getTime() - 1) },
             })
+            // Nothing left before the cut → the whole series is gone; tell
+            // Google to drop the master event rather than clamp its RRULE.
+            truncatedFrom = survivors.count > 0 ? cutFrom : null
         } else {
-            // Delete just this one instance
+            // Just the clicked occurrence.
             await prisma.task.delete({ where: { id: taskId } })
         }
 
-        // Two-way Google Calendar sync — remove the pushed Google event
-        // (whole master series on deleteAll, just this occurrence otherwise).
+        // Two-way Google Calendar sync — remove (or clamp) the pushed event.
         // No-op if the deed was never pushed; never throws.
-        await deleteTaskFromGoogle(userId, task, { deleteAll })
+        const deleteGoogleSeries = scope === 'all' || (scope === 'future' && !truncatedFrom)
+        await deleteTaskFromGoogle(userId, task, {
+            deleteAll: deleteGoogleSeries,
+            truncateFrom: truncatedFrom,
+        })
 
         // Recalculate goal score
         await recalculateItemProgress(goalId)

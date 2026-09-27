@@ -230,7 +230,7 @@ export function YearFilm({ year }: { year: number }) {
             setPlaying(p => !p)
           }}
           aria-label={playing ? 'Pause' : 'Play'}
-          className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-gold text-ink hover:bg-[#cbaa6f] transition-colors"
+          className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-gold text-ink hover:bg-gold-glow transition-colors"
         >
           {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
         </button>

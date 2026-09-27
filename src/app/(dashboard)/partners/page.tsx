@@ -478,7 +478,7 @@ export default function PartnersPage() {
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() || sendingMessage}
                 aria-label="Send message"
-                className="absolute right-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-gold text-ink transition-all hover:bg-[#cbaa6f] disabled:opacity-40 active:scale-90"
+                className="absolute right-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-gold text-ink transition-all hover:bg-gold-glow disabled:opacity-40 active:scale-90"
               >
                 {sendingMessage ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -518,7 +518,7 @@ export default function PartnersPage() {
           <button
             onClick={() => setAdding(!adding)}
             data-cursor="Bring someone aboard"
-            className="flex min-h-11 items-center gap-2 rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-[#cbaa6f]"
+            className="flex min-h-11 items-center gap-2 rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-gold-glow"
           >
             {adding ? <X className="h-4 w-4" strokeWidth={1.5} /> : <Plus className="h-4 w-4" strokeWidth={1.5} />}
             <span>{adding ? 'Cancel' : 'Add Partner'}</span>
@@ -592,7 +592,7 @@ export default function PartnersPage() {
                       />
                       <button
                         onClick={() => copyInviteLink(inviteNotice.acceptUrl!.split('code=')[1] || '', 'notice')}
-                        className="flex shrink-0 items-center gap-1.5 rounded-md bg-gold px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:bg-[#cbaa6f]"
+                        className="flex shrink-0 items-center gap-1.5 rounded-md bg-gold px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:bg-gold-glow"
                       >
                         {copiedId === 'notice' ? 'Copied!' : 'Copy link'}
                       </button>
@@ -677,7 +677,7 @@ export default function PartnersPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex min-h-11 items-center gap-2 rounded-md bg-gold px-6 py-3 font-semibold text-ink transition-colors hover:bg-[#cbaa6f] disabled:opacity-50"
+                className="flex min-h-11 items-center gap-2 rounded-md bg-gold px-6 py-3 font-semibold text-ink transition-colors hover:bg-gold-glow disabled:opacity-50"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 <span>Add Partner</span>

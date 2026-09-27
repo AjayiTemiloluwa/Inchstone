@@ -45,7 +45,7 @@ export default function ReviewsPage() {
           <button
             onClick={() => setShowModal(true)}
             data-cursor="Write it while it's fresh"
-            className="btn-shine rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink hover:bg-[#cbaa6f] transition-colors"
+            className="btn-shine rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors"
           >
             New Review
           </button>

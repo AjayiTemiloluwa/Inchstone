@@ -69,6 +69,17 @@ export default function RootLayout({
                       document.documentElement.classList.add('dark');
                     }
                   } catch (e) {}
+                  // Accent — replay the stored --gold* mix before first paint, so a
+                  // chosen accent never flashes brass. lib/accent.ts keeps both mixes.
+                  try {
+                    var accent = JSON.parse(localStorage.getItem('inchstone-accent-vars') || 'null');
+                    if (accent) {
+                      var mixForTheme = document.documentElement.classList.contains('dark') ? accent.dark : accent.light;
+                      for (var key in mixForTheme) {
+                        document.documentElement.style.setProperty(key, mixForTheme[key]);
+                      }
+                    }
+                  } catch (e) {}
                 })();
               `,
             }}

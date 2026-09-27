@@ -46,8 +46,8 @@ export function BudgetProgress({ category, budgeted, spent, onEdit }: BudgetProg
             className={`h-full rounded-full transition-all duration-700 ease-out ${isOverBudget
               ? 'bg-gradient-to-r from-[#cf8f78] to-[#7a3b2e]'
               : percentage > 85
-                ? 'bg-gradient-to-r from-[#d4af37] to-[#b8935a]'
-                : 'bg-gradient-to-r from-[#b8935a] to-[#8a6d42]'
+                ? 'bg-gradient-to-r from-gold-glow to-gold'
+                : 'bg-gradient-to-r from-gold to-gold-dim'
               }`}
             style={{ width: `${Math.max(percentage, 2)}%` }}
           />
