@@ -5,12 +5,18 @@ plugins {
 
 android {
     namespace = "com.inchstone.widget"
-    compileSdk = 34
+    // 35 = Android 15. Still installs & runs on Android 7 (API 24) → Android 16.
+    // Don't drop compileSdk below 35 or Android 14/15/16 system widget picker
+    // features (previewLayout, targetCell) won't compile.
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.inchstone.widget"
+        // API 24 (Android 7.0) is the floor: FLAG_IMMUTABLE needs 23+,
+        // java.time desugaring needs 24+ for OffsetDateTime. Covers
+        // Android 7 → 13 → 14 → 15 → 16 with one APK.
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }

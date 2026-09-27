@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -104,16 +105,31 @@ object WidgetData {
     fun pages(json: JSONObject): JSONArray = json.optJSONObject("widget")?.optJSONArray("pages") ?: JSONArray()
 
     // ── Rotation scheduler: advance a page every `rotateSeconds` while enabled ──
-    //  Android clamps inexact repeating alarms to a 60s floor, so a short
-    //  dwell still advances on each tick (and the tap handler advances
-    //  instantly for a manual flip).
+    //  Android clamps inexact repeating alarms to a 60s floor (and in Doze /
+    //  App Standby — aggressive from Android 13 → 16 — can stretch ticks to
+    //  ~15 min). So: tap-to-advance is always instant, auto-rotation is
+    //  best-effort. A single exact alarm is NOT used on purpose: Android 12+
+    //  requires SCHEDULE_EXACT_ALARM permission + user opt-in, which would
+    //  break the one-tap install flow. If you ever need exact timing, add
+    //  `<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>`
+    //  and call am.setExactAndAllowWhileIdle() guarded by
+    //  am.canScheduleExactAlarms() on API 31+.
+    //
+    //  NOTE: ELAPSED_REALTIME must pair with SystemClock.elapsedRealtime().
+    //  Pairing it with System.currentTimeMillis() (wall clock) fires at the
+    //  wrong time — fixed below so rotation works on every API level.
     fun scheduleRotation(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        // Cancel first: on Android 12+ (API 31+, incl. 13/14/15/16) two
+        // FLAG_IMMUTABLE PendingIntents with the same requestCode collapse
+        // into one, so rotate + tap intents must not share request codes
+        // (see rotationPending / tap intent in InchstoneWidgetProvider).
+        stopRotation(context)
         val pi = rotationPending(context)
         val interval = maxOf(60_000L, rotateSeconds(context) * 1000L)
         am.setInexactRepeating(
             AlarmManager.ELAPSED_REALTIME,
-            System.currentTimeMillis() + interval,
+            SystemClock.elapsedRealtime() + interval,
             interval,
             pi
         )
@@ -139,7 +155,15 @@ object WidgetData {
         val intent = Intent(context, InchstoneWidgetProvider::class.java).apply {
             action = InchstoneWidgetProvider.ACTION_ROTATE
         }
-        return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // Unique requestCode: taps use appWidgetId (small ints), so rotation
+        // uses a far-away value. On API 31+ (Android 12 → 16) immutable
+        // intents that differ only in extras count as EQUAL, so sharing a
+        // requestCode would let the tap overwrite the rotation alarm.
+        // FLAG_IMMUTABLE is safe back to minSdk 24 (added in API 23).
+        return PendingIntent.getBroadcast(
+            context, 2147000001, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     // ── Formatting helpers ──

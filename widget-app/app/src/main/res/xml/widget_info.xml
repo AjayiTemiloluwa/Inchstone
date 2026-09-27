@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Works Android 7 (API 24) → 16:
+     - minWidth/minHeight: used by Android 7–11 pickers.
+     - targetCellWidth/Height + previewLayout: used by Android 12+ (incl. 13/14/15/16), ignored on older.
+     - previewImage: fallback thumbnail for Android 7–11 (previewLayout is ignored there).
+     - updatePeriodMillis 30 min is the system's safety-net refresh; rotation alarm + tap handle the rest. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="180dp"
     android:minHeight="110dp"
     android:targetCellWidth="4"
     android:targetCellHeight="2"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="110dp"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_loading"
     android:previewLayout="@layout/widget_loading"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_desc"
     android:configure="com.inchstone.widget.MainActivity"
     android:widgetCategory="home_screen" />
