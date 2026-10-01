@@ -1,9 +1,11 @@
 ﻿﻿'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useSyncExternalStore } from 'react'
+import { format } from 'date-fns'
 import { SECTION_CATEGORIES, INCOME_CATEGORIES, BudgetCategoryOption } from './budgetCategories'
 import { CategorySelect } from './CategorySelect'
 import type { CustomCategoryScope } from './customCategories'
+import { useCountdown } from '@/lib/useCountdown'
 
 interface Purse {
   id: string
@@ -17,6 +19,9 @@ interface TransactionFormProps {
   purses?: Purse[]
 }
 
+/** No-op subscription — lets useSyncExternalStore expose a client-only flag. */
+const noopSubscribe = () => () => {}
+
 export function TransactionForm({ onSuccess, purses: externalPurses }: TransactionFormProps) {
   const [type, setType] = useState<'income' | 'expense'>('expense')
   const [amount, setAmount] = useState('')
@@ -24,7 +29,10 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [comments, setComments] = useState('')
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
+  // '' means "follow today": the date field then tracks the live calendar day
+  // until the user picks a day of their own. Keeping that in one piece of state
+  // means no setState-in-effect dance to hold a "today" default in sync.
+  const [userDate, setUserDate] = useState('')
   const [section, setSection] = useState<CustomCategoryScope>('Need')
   const [purse, setPurse] = useState('')
   // Derived: externally supplied purses win; otherwise the fetched fallback.
@@ -32,6 +40,19 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
   const [fetchedPurses, setFetchedPurses] = useState<Purse[]>([])
   const purses = externalPurses && externalPurses.length > 0 ? externalPurses : fetchedPurses
   const effectivePurse = purse || purses[0]?.name || ''
+
+  // The live local day (yyyy-MM-dd). A minute is plenty for a date field, and
+  // `respectReducedMotion: false` keeps it truthful for users who asked for
+  // calm — a frozen ticker would pin the wrong day. "Now" comes from the shared
+  // ticker, never a private setInterval (LIVING_APP_STYLE_GUIDE §1).
+  const now = useCountdown(60_000, { respectReducedMotion: false })
+  // SSR runs in the server's timezone, which can be a different calendar day
+  // than the visitor's, so the real day only lands after hydration — the server
+  // render never claims a date (the same guard the dashboard clock uses).
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false)
+  const today = mounted ? format(now, 'yyyy-MM-dd') : ''
+  // The day this entry belongs to: today, unless the user chose otherwise.
+  const entryDate = userDate || today
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -97,7 +118,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
         setCategory('')
         setDescription('')
         setComments('')
-        setEntryDate(new Date().toISOString().split('T')[0])
+        setUserDate('') // ready for the next entry — back to today
         setSuccess(true)
         onSuccess()
         setTimeout(() => setSuccess(false), 3000)
@@ -155,13 +176,35 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
         </button>
       </div>
 
-      {/* Date */}
+      {/* Date — today by default and follows the calendar as the day rolls
+          over, until you pick a day of your own. */}
       <div>
-        <label className="block text-xs text-parchment/50 mb-1">Date</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs text-parchment/50">Date</label>
+          {/* Only after hydration — the server has no idea what "today" means
+              for this visitor, so rendering it during SSR would just flash. */}
+          {mounted && (userDate === '' ? (
+            <span className="text-xs text-parchment/30">today</span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setUserDate('')}
+              className="text-xs text-gold transition-colors hover:text-gold-glow"
+            >
+              ↺ Back to today
+            </button>
+          ))}
+        </div>
         <input
           type="date"
           value={entryDate}
-          onChange={(e) => setEntryDate(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value
+            // Choosing today again re-arms "follow the day", so the field keeps
+            // tracking the calendar instead of freezing on a date that merely
+            // happens to be today. Clearing the field falls back to today too.
+            setUserDate(next === today ? '' : next)
+          }}
           required
           className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
         />
