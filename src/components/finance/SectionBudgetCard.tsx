@@ -40,7 +40,9 @@ interface SectionBudgetCardProps {
     entries: BudgetEntry[]
     currentMonth: string
     purses?: Purse[]
-    onAllocate: (amount: number) => void
+    /** This month's saved plan, so the card can show which purses fund it. */
+    allocation?: { amount: number; sourcePurse: string; purse: string } | null
+    onAllocate: (amount: number, sourcePurse: string, purse: string) => Promise<{ ok: boolean; error?: string }>
     onAddBudget: (category: string, amount: number) => void
     onDeleteBudget: (id: string) => void
     onDeleteEntry: (id: string) => void
@@ -115,6 +117,7 @@ export function SectionBudgetCard({
     categorySpending,
     entries,
     purses: externalPurses,
+    allocation,
     onAllocate,
     onAddBudget,
     onDeleteBudget,
@@ -124,6 +127,12 @@ export function SectionBudgetCard({
     const config = sectionConfig[section]
     const [showAllocate, setShowAllocate] = useState(false)
     const [allocateAmount, setAllocateAmount] = useState('')
+    // Empty means "use the derived default", so the purse list can arrive a beat
+    // late without a setState-in-effect to seed these.
+    const [allocateFrom, setAllocateFrom] = useState('')
+    const [allocateTo, setAllocateTo] = useState('')
+    const [allocateError, setAllocateError] = useState<string | null>(null)
+    const [allocateLoading, setAllocateLoading] = useState(false)
     const [showAddCategory, setShowAddCategory] = useState(false)
     const [newCategory, setNewCategory] = useState('')
     const [newBudgetAmount, setNewBudgetAmount] = useState('')
@@ -146,6 +155,20 @@ export function SectionBudgetCard({
     const suggestedUnused: BudgetCategoryOption[] = (SECTION_CATEGORIES[section] || []).filter(
         cat => !budgetedCategoryLabels.has(cat.label)
     )
+
+    // An allocation is a real move between two purses, so it needs somewhere to
+    // land: Main is the natural source, and the section's namesake purse
+    // (Savings → the Savings purse) the natural destination.
+    const purseNames = purses.map(p => p.name)
+    const defaultSource = purseNames.includes('Main') ? 'Main' : purseNames[0] ?? ''
+    const defaultDest =
+        purseNames.find(n => n === section && n !== defaultSource) ??
+        purseNames.find(n => n !== defaultSource) ??
+        ''
+    const fromPurse = allocateFrom || defaultSource
+    const toPurse = allocateTo || defaultDest
+    const canMoveMoney = purseNames.length >= 2
+    const getPurseIcon = (name: string) => purses.find(p => p.name === name)?.icon || '👜'
 
     // Ring gauge geometry
     const RING_R = 17
@@ -175,12 +198,27 @@ export function SectionBudgetCard({
         setShowAddCategory(panel === 'category')
         setShowExpenses(panel === 'expenses')
         setQuickAddCategory(null)
+        if (panel === 'allocate') setAllocateError(null)
     }
 
-    const handleAllocate = (e: React.FormEvent) => {
+    const handleAllocate = async (e: React.FormEvent) => {
         e.preventDefault()
         const val = parseFloat(allocateAmount)
-        if (!isNaN(val) && val > 0) { onAllocate(val); setAllocateAmount(''); setShowAllocate(false) }
+        if (isNaN(val) || val <= 0) return
+        if (fromPurse === toPurse) {
+            setAllocateError('The money must land in a different purse than it came from.')
+            return
+        }
+        setAllocateLoading(true)
+        setAllocateError(null)
+        const result = await onAllocate(val, fromPurse, toPurse)
+        setAllocateLoading(false)
+        if (result.ok) {
+            setAllocateAmount('')
+            setShowAllocate(false)
+        } else {
+            setAllocateError(result.error || 'Could not set this month\'s plan.')
+        }
     }
     const handleAddBudget = (e: React.FormEvent) => {
         e.preventDefault()
@@ -278,6 +316,16 @@ export function SectionBudgetCard({
                 </div>
             </div>
 
+            {/* Where this month's plan actually sits — the money has really moved. */}
+            {allocation && allocation.amount > 0 && (
+                <p className="mx-5 mt-2 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-parchment/40"
+                    title={`${allocation.amount.toFixed(2)} moved from ${allocation.sourcePurse} to ${allocation.purse}`}>
+                    {getPurseIcon(allocation.sourcePurse)} {allocation.sourcePurse}
+                    <span className="mx-1 text-parchment/25">→</span>
+                    {getPurseIcon(allocation.purse)} {allocation.purse}
+                </p>
+            )}
+
             {/* ── Spend bar with quarter ticks ── */}
             <div className="mx-5 mt-4">
                 <div className="relative h-1.5 w-full rounded-full bg-white/[0.06] overflow-visible">
@@ -319,22 +367,66 @@ export function SectionBudgetCard({
                 </div>
             </div>
 
-            {/* ── Allocate form ── */}
+            {/* ── Allocate form — the plan, and which purses fund it ── */}
             {showAllocate && (
-                <div className="mx-5 mb-4 animate-fadeIn">
-                    <form onSubmit={handleAllocate} className="flex gap-2">
-                        <input
-                            type="number" step="0.01" value={allocateAmount}
-                            onChange={(e) => setAllocateAmount(e.target.value)} required autoFocus
-                            className="w-full bg-black/25 border border-white/10 rounded-lg py-2.5 px-3 font-mono text-sm font-semibold tabular-nums placeholder:text-parchment/25 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/40 transition-all"
-                            placeholder="Set this month's plan…"
-                        />
-                        <button type="submit"
-                            data-cursor="Set this month's plan"
-                            className={`shrink-0 px-5 py-2.5 rounded-lg text-sm font-bold text-ink bg-gradient-to-r ${config.accentGradient} hover:brightness-110 active:opacity-80 transition-all`}>
-                            Set
-                        </button>
-                    </form>
+                <div className="mx-5 mb-4 space-y-2 animate-fadeIn">
+                    {!canMoveMoney ? (
+                        <p className="rounded-lg border border-ember/25 bg-ember/10 px-3 py-2 text-[11px] text-[#e0a093]">
+                            Allocating moves money between purses, so you need a second purse first.
+                        </p>
+                    ) : (
+                        <form onSubmit={handleAllocate} className="space-y-2">
+                            <input
+                                type="number" step="0.01" value={allocateAmount}
+                                onChange={(e) => setAllocateAmount(e.target.value)} required autoFocus
+                                className="w-full bg-black/25 border border-white/10 rounded-lg py-2.5 px-3 font-mono text-sm font-semibold tabular-nums placeholder:text-parchment/25 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/40 transition-all"
+                                placeholder="Set this month's plan…"
+                            />
+                            <div className="flex items-center gap-2">
+                                <label className="flex min-w-0 flex-1 items-center gap-1.5">
+                                    <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-parchment/35">From</span>
+                                    <select
+                                        value={fromPurse}
+                                        onChange={(e) => setAllocateFrom(e.target.value)}
+                                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-1.5 py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
+                                    >
+                                        {purses.map(p => (
+                                            <option key={p.id} value={p.name}>{p.icon} {p.name}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <span aria-hidden="true" className="shrink-0 text-xs text-parchment/25">→</span>
+                                <label className="flex min-w-0 flex-1 items-center gap-1.5">
+                                    <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-parchment/35">To</span>
+                                    <select
+                                        value={toPurse}
+                                        onChange={(e) => setAllocateTo(e.target.value)}
+                                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-1.5 py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
+                                    >
+                                        {purses.map(p => (
+                                            <option key={p.id} value={p.name}>{p.icon} {p.name}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+                            {fromPurse === toPurse && (
+                                <p className="text-[10px] text-[#e0a093]">
+                                    Pick two different purses — money has to actually move.
+                                </p>
+                            )}
+                            {allocateError && (
+                                <p className="rounded-lg border border-ember/25 bg-ember/10 px-2.5 py-1.5 text-[10px] leading-relaxed text-[#e0a093]">
+                                    {allocateError}
+                                </p>
+                            )}
+                            <button type="submit"
+                                disabled={allocateLoading || fromPurse === toPurse}
+                                data-cursor="Set this month's plan"
+                                className={`w-full px-4 py-2.5 rounded-lg text-sm font-bold text-ink bg-gradient-to-r ${config.accentGradient} hover:brightness-110 active:opacity-80 disabled:opacity-45 disabled:cursor-not-allowed transition-all`}>
+                                {allocateLoading ? 'Moving…' : `Move into ${toPurse || 'purse'}`}
+                            </button>
+                        </form>
+                    )}
                 </div>
             )}
 

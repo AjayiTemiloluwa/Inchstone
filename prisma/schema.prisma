@@ -270,8 +270,14 @@ model FinancialEntry {
   comments    String?
   priority    String? // e.g., "Need", "Want", "Luxury"
   purse       String   @default("main") // references Purse.name
+  // Set on the transfer_out / transfer_in pair a SectionAllocation created, so
+  // re-setting or clearing that section's plan can replace exactly those rows
+  // instead of duplicating the movement or stranding money in a purse.
+  allocationId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([userId, allocationId])
 }
 
 model UserToken {
@@ -346,6 +352,10 @@ model SectionAllocation {
   section   String // "Need", "Want", "Offerings"
   amount    Float
   month     String // e.g., "2026-07"
+  // An allocation is a real move between two purses, so both ends are recorded:
+  // `sourcePurse` is where the money leaves, `purse` is where it lands.
+  sourcePurse String @default("Main")
+  purse       String @default("Main")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -40,6 +40,8 @@ interface Allocation {
   section: string
   amount: number
   month: string
+  sourcePurse: string
+  purse: string
 }
 
 interface Purse {
@@ -159,14 +161,31 @@ export default function FinancePage() {
     fetchData()
   }, [fetchData])
 
-  // Handle section allocation
-  const handleAllocateToSection = async (section: Section, amount: number) => {
-    await fetch('/api/allocations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section, amount, month: viewMonth })
-    })
-    fetchData()
+  // Handle section allocation — this moves real money between purses, so the
+  // server's answer matters (insufficient funds, same purse both ends) and is
+  // handed back to the card to show inline.
+  const handleAllocateToSection = async (
+    section: Section,
+    amount: number,
+    sourcePurse: string,
+    purse: string,
+  ): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/allocations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section, amount, month: viewMonth, sourcePurse, purse })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        return { ok: false, error: data.error || `Could not set the plan (${res.status}).` }
+      }
+      fetchData()
+      return { ok: true }
+    } catch (err) {
+      console.error('Allocate failed:', err)
+      return { ok: false, error: 'Network error. Please try again.' }
+    }
   }
 
   // Handle adding a budget category under a section
@@ -323,8 +342,10 @@ export default function FinancePage() {
 
   // Section totals from allocations
   const sectionAllocations: Record<string, number> = { Need: 0, Want: 0, Offerings: 0, Savings: 0 }
+  const allocationBySection: Record<string, Allocation | undefined> = {}
   allocations.forEach(a => {
     sectionAllocations[a.section] = a.amount
+    allocationBySection[a.section] = a
   })
 
   const totalAllocated = Object.values(sectionAllocations).reduce((sum, v) => sum + v, 0)
@@ -600,7 +621,9 @@ export default function FinancePage() {
               categorySpending={categorySpending}
               entries={entries}
               currentMonth={viewMonth}
-              onAllocate={(amount) => handleAllocateToSection(section, amount)}
+              purses={purses}
+              allocation={allocationBySection[section]}
+              onAllocate={(amount, sourcePurse, purse) => handleAllocateToSection(section, amount, sourcePurse, purse)}
               onAddBudget={(category, amount) => handleAddBudgetCategory(section, category, amount)}
               onDeleteBudget={handleDeleteBudget}
               onDeleteEntry={handleDeleteEntry}
