@@ -17,6 +17,8 @@ const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then
 import { useToast } from '@/components/ui/ToastProvider'
 import { HabitSparkline } from '@/components/ui/HabitSparkline'
 import { BottleMentionTextarea } from '@/components/ui/BottleMentionTextarea'
+import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
+import { DoneView } from '@/components/ui/DoneView'
 import { Loader } from '@/components/ui/Loader'
 
 type GraphRange = 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
@@ -1564,9 +1566,17 @@ export default function DayPage() {
                           </div>
                         </td>
                         <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.completed ? 'bg-sage/20 text-sage' : 'bg-gold/20 text-gold'}`}>
-                            {t.completed ? 'Done' : 'Pending'}
-                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }}
+                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all"
+                            title={t.completed ? 'Mark pending' : 'Mark done'}
+                          >
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${t.completed ? 'bg-sage/20 text-sage border border-sage/30' : 'bg-gold/20 text-gold border border-gold/30'}`}
+                            >
+                              {t.completed ? 'Done' : 'Pending'}
+                            </span>
+                          </button>
                         </td>
                         <td className="p-3 text-xs text-ink/40 max-w-[200px] truncate">{t.reflection || '—'}</td>
                         <td className="p-3">
@@ -1687,6 +1697,14 @@ export default function DayPage() {
               <BookOpen className="w-4 h-4 text-gold" />
               <h3 className="font-display font-bold text-ink"><Scramble text="Day Reflection" mono={false} /></h3>
             </div>
+            <ReflectionPicker
+              timePeriod="day"
+              periodKey={dateStr}
+              itemId={primaryGoal?.id || null}
+              onSelect={(content) => { setReflectionText(content) }}
+              onSaved={() => showToast('Reflection template saved', 'success')}
+              className="mb-3"
+            />
             <BottleMentionTextarea
               value={reflectionText}
               onChange={(text) => { setReflectionText(text); saveReflection(text) }}
@@ -1694,8 +1712,15 @@ export default function DayPage() {
               sourceRef={`day-${dateStr}`}
               className="w-full h-40 bg-black/20 border border-white/10 rounded-xl p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
             />
-            <p className="text-[10px] text-ink/40">Auto-saves as you type</p>
+            <p className="text-[10px] text-ink/40">Auto-saves as you type — pick a saved template above to quick-fill.</p>
           </Card>
+
+          {/* Done views — by hour and by challenge */}
+          <DoneView
+            tasks={allTasks}
+            onDeleteTask={(id) => void handleDeleteTask({ stopPropagation: () => {} } as any, id)}
+            className="mb-6"
+          />
 
 <Card className="p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">

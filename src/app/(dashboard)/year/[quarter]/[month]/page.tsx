@@ -11,6 +11,7 @@ import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
 import { getWeeksInMonth } from '@/lib/calendarUtils'
 import { Loader } from '@/components/ui/Loader'
+import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
 import { useVoiceLine } from '@/lib/voice/use-voice-line'
 import { useActiveYear } from '@/lib/useActiveYear'
 
@@ -431,12 +432,19 @@ export default function YearQuarterMonthPage() {
                     <BookOpen className="w-5 h-5 text-gold" />
                     <h2 className="text-2xl font-display font-bold text-ink">{monthLabel} Reflection</h2>
                 </div>
-                <Card className="p-6">
+                <Card className="p-6 space-y-3">
+                    <ReflectionPicker
+                        timePeriod="month"
+                        periodKey={matchingMonths[0]?.id || monthLabel}
+                        itemId={matchingMonths[0]?.id || null}
+                        onSelect={(content) => { setReflectionText(content) }}
+                        className="mb-2"
+                    />
                     <textarea value={reflectionText}
                         onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
                         placeholder={`Reflect on ${monthLabel} so far... What's working? What needs to change?`}
                         className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 placeholder:text-ink/30 transition-all" />
-                    <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
+                    <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type — pick a saved template above to quick-fill.</p>
                 </Card>
             </div>
 

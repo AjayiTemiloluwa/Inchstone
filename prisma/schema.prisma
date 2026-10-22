@@ -49,6 +49,30 @@ model Item {
   financialEntries FinancialEntry[]
 
   tasks Task[] @relation("GoalTasks")
+
+  // Saved reflection templates attached to this inchstone / time period
+  reflections Reflection[] @relation("ReflectionToItem")
+}
+
+// ── Reflection Templates ──
+// User-saved reflections that persist across devices and can be re-used as a
+// quick-pick dropdown per time period (day / week / month / quarter / year).
+// Each reflection is attached to an Item (inchstone) and scoped to a time
+// period + periodKey so the same template can be re-applied wherever relevant.
+model Reflection {
+  id        String   @id @default(uuid())
+  userId    String
+  itemId    String?     // the Item (inchstone) this reflection is attached to
+  timePeriod String    // 'day' | 'week' | 'month' | 'quarter' | 'year'
+  periodKey  String    // identifies the period: date string (YYYY-MM-DD) for days, item id for longer periods
+  content    String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  item      Item?   @relation("ReflectionToItem", fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([userId, timePeriod, periodKey])
+  @@index([userId, itemId])
 }
 
 model Task {

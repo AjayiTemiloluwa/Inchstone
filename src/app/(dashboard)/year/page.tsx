@@ -15,6 +15,7 @@ import { Reveal, CountUp, Scramble, RevealLines } from '@/components/ui/motion'
 import { AnimatePresence, motion } from 'motion/react'
 import { YearDropdownFloating } from '@/components/ui/YearPicker'
 import { Loader } from '@/components/ui/Loader'
+import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
 import { useVoiceLine } from '@/lib/voice/use-voice-line'
 import { useActiveYear, yearOf } from '@/lib/useActiveYear'
 
@@ -962,12 +963,19 @@ export default function YearPage() {
           <BookOpen className="w-5 h-5 text-gold" />
           <h2 className="text-2xl font-display font-bold text-ink">Year Reflection</h2>
         </div>
-        <Card className="p-4 sm:p-6">
+        <Card className="p-4 sm:p-6 space-y-3">
+          <ReflectionPicker
+            timePeriod="year"
+            periodKey={String(yearItem?.id || activeYear)}
+            itemId={yearItem?.id || null}
+            onSelect={(content) => { setReflectionText(content) }}
+            className="mb-2"
+          />
           <textarea value={reflectionText}
             onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
             placeholder="Reflect on your year so far... What's working? What needs to change?"
             className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-4 sm:p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 placeholder:text-ink/30 transition-all" />
-          <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type</p>
+          <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type — pick a saved template above to quick-fill.</p>
         </Card>
       </div>
 

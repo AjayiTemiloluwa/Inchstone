@@ -10,6 +10,7 @@ import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from
 import { format } from 'date-fns'
 import { Loader } from '@/components/ui/Loader'
 import { InlineEdit } from '@/components/ui/InlineEdit'
+import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
 
 export default function QuarterPage() {
   const router = useRouter()
@@ -381,11 +382,18 @@ export default function QuarterPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+            <ReflectionPicker
+              timePeriod="quarter"
+              periodKey={quarterId}
+              itemId={quarterItem?.id || null}
+              onSelect={(content) => { setReflectionText(content) }}
+              className="mb-3"
+            />
             <textarea value={reflectionText}
               onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
               placeholder="Write your reflection..."
               className="w-full h-32 bg-paper border border-mist rounded-lg p-3 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
-            <p className="text-[10px] text-ink/40 mt-1">Auto-saves as you type</p>
+            <p className="text-[10px] text-ink/40 mt-1">Auto-saves as you type — pick a saved template above to quick-fill.</p>
           </div>
         </div>
       )}

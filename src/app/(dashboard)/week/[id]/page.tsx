@@ -10,6 +10,7 @@ import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from
 import { format, addDays } from 'date-fns'
 import { Loader } from '@/components/ui/Loader'
 import { InlineEdit } from '@/components/ui/InlineEdit'
+import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
 
 export default function WeekPage() {
   const router = useRouter()
@@ -388,12 +389,19 @@ export default function WeekPage() {
           <BookOpen className="w-5 h-5 text-gold" />
           <h2 className="text-2xl font-display font-bold text-ink">Week Reflection</h2>
         </div>
-        <Card className="p-5">
+        <Card className="p-5 space-y-3">
+          <ReflectionPicker
+            timePeriod="week"
+            periodKey={weekId}
+            itemId={weekItem?.id || null}
+            onSelect={(content) => { setReflectionText(content) }}
+            className="mb-2"
+          />
           <textarea value={reflectionText}
             onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
             placeholder="Reflect on this week..."
             className="w-full h-32 bg-paper border border-mist rounded-lg p-3 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
-          <p className="text-[10px] text-ink/40 mt-1">Auto-saves as you type</p>
+          <p className="text-[10px] text-ink/40 mt-1">Auto-saves as you type — pick a saved template above to quick-fill.</p>
         </Card>
       </div>
     </div>
