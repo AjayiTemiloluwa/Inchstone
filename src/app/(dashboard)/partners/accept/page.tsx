@@ -45,7 +45,7 @@ function AcceptInner() {
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-      <div className="w-full max-w-sm rounded-2xl border border-gold/25 bg-surface-solid p-8">
+      <div className="w-full max-w-sm rounded-2xl border border-gold/25 bg-surface-solid p-6 sm:p-8">
         {state === 'working' && <Loader2 className="mx-auto h-10 w-10 animate-spin text-gold" />}
         {state === 'done' && <CheckCircle2 className="mx-auto h-10 w-10 text-moss" />}
         {state === 'error' && <XCircle className="mx-auto h-10 w-10 text-ember" />}

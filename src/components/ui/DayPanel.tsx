@@ -120,7 +120,7 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
                         max="100"
                         value={task.weight}
                         onChange={(e) => handleWeightChange(task.id, Number(e.target.value))}
-                        className="w-14 px-2 py-1.5 text-xs bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-center font-medium touch-manipulation"
+                        className="w-14 px-2 py-2 text-xs bg-paper border border-mist rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-center font-medium touch-manipulation"
                       />
                       <span className="text-[10px] text-ink/40 font-medium">%</span>
                     </div>
@@ -142,11 +142,11 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fadeIn" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-surface rounded-[8px] border border-mist  p-6 w-full max-w-md mx-4 animate-slideUp" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fadeIn p-3 sm:p-4" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-surface rounded-[8px] border border-mist p-4 sm:p-6 w-full max-w-md max-h-[92dvh] overflow-y-auto animate-slideUp" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-ink text-lg">Add New Task</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-mist rounded-lg transition text-ink/30 hover:text-ink">
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-mist rounded-lg transition text-ink/30 hover:text-ink">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -192,19 +192,19 @@ export function DayPanel({ date, deeds, onClose, onRefresh }: { date: Date; deed
 
               <div>
                 <label className="block text-xs font-bold uppercase text-ink/50 mb-1.5">Time Range (optional)</label>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <input
                     type="time"
                     value={newTask.startTime || ''}
                     onChange={(e) => setNewTask({ ...newTask, startTime: e.target.value })}
-                    className="flex-1 px-3 py-3 text-sm bg-paper border border-mist rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 transition-all"
+                    className="flex-1 min-w-0 px-3 py-3 text-sm bg-paper border border-mist rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 transition-all"
                   />
                   <span className="text-ink/30 font-bold">→</span>
                   <input
                     type="time"
                     value={newTask.endTime || ''}
                     onChange={(e) => setNewTask({ ...newTask, endTime: e.target.value })}
-                    className="flex-1 px-3 py-3 text-sm bg-paper border border-mist rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 transition-all"
+                    className="flex-1 min-w-0 px-3 py-3 text-sm bg-paper border border-mist rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 transition-all"
                   />
                 </div>
               </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
+import { useDialog } from '@/components/ui/useDialog'
 import { usePlansStore } from '@/stores/plansStore'
 import { GOAL_STATUSES, type GoalStatus, type PlanGoalRecord } from '@/lib/plans/types'
 import { STATUS_META } from '@/lib/plans/status'
@@ -61,6 +62,7 @@ type TextKey = (typeof PDP_FIELDS)[number]['key']
  * Mounted only while visible — the six PDP answers initialize from `initial`.
  */
 export function GoalFormModal({ sectionId, planStartMonth, planEndMonth, initial, onClose }: Props) {
+  const dialogRef = useDialog<HTMLDivElement>(true, onClose)
   const { addGoal, updateGoal, fetchTrackerItems } = usePlansStore()
   const trackerMap = usePlansStore(s => s.trackerItems)
   const trackerItems = useMemo(() => Object.values(trackerMap), [trackerMap])
@@ -130,12 +132,14 @@ export function GoalFormModal({ sectionId, planStartMonth, planEndMonth, initial
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="max-h-[92vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-[8px] border hairline bg-ink p-6" data-lenis-prevent
+        className="max-h-[92dvh] w-full max-w-xl space-y-5 overflow-y-auto rounded-t-2xl sm:rounded-[8px] border hairline bg-ink p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6" data-lenis-prevent
         onClick={e => e.stopPropagation()}
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
       >
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl text-parchment">{initial ? 'Edit Goal' : 'New Goal'}</h2>

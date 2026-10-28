@@ -1,551 +1,211 @@
-﻿﻿'use client'
+﻿'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
-import { ProgressBar } from '@/components/ui/ProgressBar'
-import { ProgressRing } from '@/components/ui/ProgressRing'
+import { useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, ChevronDown, Plus, X, Trash2, BookOpen, Download } from 'lucide-react'
 import { format, addDays } from 'date-fns'
+import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
+import { Card } from '@/components/ui/Card'
+import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useToast } from '@/components/ui/ToastProvider'
 import { Loader } from '@/components/ui/Loader'
-import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
 import { useVoiceLine } from '@/lib/voice/use-voice-line'
 import { useActiveYear } from '@/lib/useActiveYear'
+import { Breadcrumbs } from '@/components/hierarchy/Breadcrumbs'
+import { PeriodHero } from '@/components/hierarchy/PeriodHero'
+import { PeriodReflection } from '@/components/hierarchy/PeriodReflection'
+import { CategoryGoalsList, type CategoryRow } from '@/components/hierarchy/CategoryGoalsList'
+import { useItemTree } from '@/components/hierarchy/useItemTree'
+import { downloadCategoryReport } from '@/components/hierarchy/exportReport'
+import { createYearlyGoalWithQuarters } from '@/components/hierarchy/createGoal'
+import { equalWeight } from '@/components/hierarchy/itemTree'
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+interface DayGroup {
+  title: string
+  items: Item[]
+  avgScore: number
+  dateLabel: string
+  categories: string[]
+}
 
 export default function YearQuarterMonthWeekPage() {
-    const router = useRouter()
-    const params = useParams()
-    const quarterLabel = params.quarter as string
-    const monthLabel = params.month as string
-    const weekSlug = params.week as string // e.g. "Week1"
+  const router = useRouter()
+  const params = useParams()
+  const quarterLabel = params.quarter as string
+  const monthLabel = params.month as string
+  const weekSlug = params.week as string // e.g. "Week1"
+  // Convert slug back to title: "Week1" -> "Week 1"
+  const weekTitle = weekSlug.replace(/Week(\d+)/i, 'Week $1')
 
-    // Convert slug back to title: "Week1" -> "Week 1"
-    const weekTitle = weekSlug.replace(/Week(\d+)/i, 'Week $1')
+  const { completionMap, getFlatItems } = useHierarchyStore()
+  const { showToast } = useToast()
+  const emptyGoals = useVoiceLine('empty.goals')
+  const { loading, fetchItems } = useItemTree()
 
-    const { items, completionMap, setItems, updateItem, getFlatItems } = useHierarchyStore()
-    const { showToast, confirm } = useToast()
-    const emptyGoals = useVoiceLine('empty.goals')
-    const [loading, setLoading] = useState(true)
+  const flatItems = getFlatItems()
+  const { yearItem, subtreeIds } = useActiveYear(flatItems)
+  const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
+  const yearlyGoals = flatItems.filter(i => i.layer === 2 && subtreeIds.has(i.id))
+  const matchingQuarters = flatItems.filter(i => i.layer === 3 && subtreeIds.has(i.id) && i.title.includes(quarterLabel))
+  const matchingMonths = matchingQuarters.flatMap(q => q.children?.filter(c => c.layer === 4 && c.title === monthLabel) || [])
+  const matchingWeeks = matchingMonths.flatMap(m => m.children?.filter(c => c.layer === 5 && c.title === weekTitle) || [])
 
-    const [addingGoal, setAddingGoal] = useState<string | null>(null)
-    // Accordion — dropdowns closed by default; only one open at a time
-    const [openCategoryId, setOpenCategoryId] = useState<string | null>(null)
-    const [openItemId, setOpenItemId] = useState<string | null>(null)
-    const [newGoalTitle, setNewGoalTitle] = useState('')
-
-    const [reflectionText, setReflectionText] = useState('')
-    const [reflectionTimer, setReflectionTimer] = useState<NodeJS.Timeout | null>(null)
-
-    const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-    const fetchItems = useCallback(async () => {
-        const res = await fetch('/api/items?t=' + Date.now())
-        const data = await res.json()
-        if (data.items) {
-            const itemMap = new Map()
-            data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-            const tree: any[] = []
-            data.items.forEach((item: any) => {
-                if (item.parentId) { const parent = itemMap.get(item.parentId); if (parent) parent.children.push(itemMap.get(item.id)) }
-                else { tree.push(itemMap.get(item.id)) }
-            })
-            setItems(tree)
-        }
-    }, [setItems])
-
-    useEffect(() => {
-        fetchItems().finally(() => setLoading(false))
-    }, [fetchItems])
-
-    const flatItems = getFlatItems()
-
-    const { yearItem, subtreeIds } = useActiveYear(flatItems)
-    const categories = flatItems.filter(i => i.layer === 1 && i.parentId === yearItem?.id)
-    const yearlyGoals = flatItems.filter(i => i.layer === 2 && subtreeIds.has(i.id))
-    const matchingQuarters = flatItems.filter(i => i.layer === 3 && subtreeIds.has(i.id) && i.title.includes(quarterLabel))
-
-    // Find the specific month matching both quarter and month label
-    const matchingMonths = matchingQuarters.flatMap(q =>
-        q.children?.filter(c => c.layer === 4 && c.title === monthLabel) || []
-    )
-
-    // Find only the weeks in THIS specific month that match the week title
-    const matchingWeeks = matchingMonths.flatMap(m =>
-        m.children?.filter(c => c.layer === 5 && c.title === weekTitle) || []
-    )
-
-    // Filter to only include weeks whose date range actually falls within the requested month
-    const filteredWeeks = matchingWeeks.filter(week => {
-        if (!week.startDate) return false
-        const weekStart = new Date(week.startDate)
-        const weekMonth = weekStart.getMonth() // 0-11
-        const weekYear = weekStart.getFullYear()
-
-        // Find the month item to get its date range
-        const monthItem = matchingMonths[0]
-        if (!monthItem?.startDate) return true // If no date on month, include all
-
-        const mStart = new Date(monthItem.startDate)
-        const mEnd = monthItem.endDate ? new Date(monthItem.endDate) : new Date(mStart.getFullYear(), mStart.getMonth() + 1, 0)
-
-        // Check if week overlaps with month
-        const wEnd = week.endDate ? new Date(week.endDate) : weekStart
-        return weekStart <= mEnd && wEnd >= mStart
-    })
-
-    // Auto-create days if none exist for each week
-    const ensureDays = useCallback(async () => {
+  // Auto-create days for any week that has none.
+  const ensuring = useRef(false)
+  const needsDays = matchingWeeks.some(w => (w.children?.filter(c => c.layer === 6) || []).length === 0)
+  useEffect(() => {
+    if (loading || !needsDays || ensuring.current) return
+    ensuring.current = true
+    const run = async () => {
+      try {
         let changed = false
         for (const weekItem of matchingWeeks) {
-            const dailyGoals = weekItem.children?.filter(c => c.layer === 6) || []
-            if (dailyGoals.length === 0 && weekItem.startDate) {
-                changed = true
-                const wStart = new Date(weekItem.startDate)
-                const wEnd = new Date(weekItem.endDate || weekItem.startDate)
-
-                // Calculate how many days in this week
-                const dayCount = Math.round((wEnd.getTime() - wStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
-                const perWeight = Math.round((100 / dayCount) * 10) / 10
-
-                for (let d = 0; d < dayCount; d++) {
-                    const dayDate = addDays(wStart, d)
-                    const dayName = WEEKDAYS[dayDate.getDay()]
-                    const dateStr = format(dayDate, 'yyyy-MM-dd')
-                    await fetch('/api/items', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ layer: 6, parentId: weekItem.id, title: dayName, weight: perWeight, startDate: dateStr, endDate: dateStr })
-                    })
-                }
-            }
-        }
-        if (changed) {
-            await fetchItems()
-        }
-    }, [matchingWeeks, fetchItems])
-
-    useEffect(() => {
-        if (!loading && matchingWeeks.length > 0) {
-            const needsDays = matchingWeeks.some(w => (w.children?.filter(c => c.layer === 6) || []).length === 0)
-            if (needsDays) {
-                ensureDays()
-            }
-        }
-    }, [loading, matchingWeeks, ensureDays])
-
-    // Reflection
-    useEffect(() => {
-        if (matchingWeeks.length > 0 && matchingWeeks[0].reflection && reflectionText === '') {
-            setReflectionText(matchingWeeks[0].reflection)
-        }
-    }, [matchingWeeks, reflectionText])
-
-    const saveReflection = useCallback((text: string) => {
-        if (matchingWeeks.length === 0) return
-        if (reflectionTimer) clearTimeout(reflectionTimer)
-        const timer = setTimeout(() => {
-            updateItem(matchingWeeks[0].id, { reflection: text })
-        }, 800)
-        setReflectionTimer(timer)
-    }, [matchingWeeks, updateItem, reflectionTimer])
-
-    const handleAddGoal = async (categoryId: string) => {
-        if (!newGoalTitle.trim()) return
-        try {
-            const goalRes = await fetch('/api/items', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    layer: 2,
-                    parentId: categoryId,
-                    title: newGoalTitle.trim(),
-                    weight: 0,
-                    startDate: yearItem?.startDate || new Date().toISOString(),
-                    endDate: yearItem?.endDate || new Date().toISOString(),
-                })
+          if ((weekItem.children?.filter(c => c.layer === 6) || []).length > 0 || !weekItem.startDate) continue
+          changed = true
+          const wStart = new Date(weekItem.startDate)
+          const wEnd = new Date(weekItem.endDate || weekItem.startDate)
+          const dayCount = Math.round((wEnd.getTime() - wStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+          const perWeight = equalWeight(dayCount)
+          for (let d = 0; d < dayCount; d++) {
+            const dayDate = addDays(wStart, d)
+            const dateStr = format(dayDate, 'yyyy-MM-dd')
+            await fetch('/api/items', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ layer: 6, parentId: weekItem.id, title: WEEKDAYS[dayDate.getDay()], weight: perWeight, startDate: dateStr, endDate: dateStr }),
             })
-            const goalData = await goalRes.json()
-
-            if (goalData.success && goalData.item) {
-                const quartersToCreate = [
-                    { title: 'Q1 Objective', startMonth: 0, endMonth: 2 },
-                    { title: 'Q2 Objective', startMonth: 3, endMonth: 5 },
-                    { title: 'Q3 Objective', startMonth: 6, endMonth: 8 },
-                    { title: 'Q4 Objective', startMonth: 9, endMonth: 11 },
-                ]
-                const year = new Date(yearItem?.startDate || new Date()).getFullYear()
-                await Promise.all(quartersToCreate.map(q => {
-                    const qStart = new Date(year, q.startMonth, 1)
-                    const qEnd = new Date(year, q.endMonth + 1, 0)
-                    return fetch('/api/items', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            layer: 3, parentId: goalData.item.id, title: q.title, weight: 25,
-                            startDate: qStart.toISOString(), endDate: qEnd.toISOString(),
-                        })
-                    })
-                }))
-            }
-
-            await fetchItems()
-            setNewGoalTitle('')
-            setAddingGoal(null)
-        } catch (e) { console.error(e) }
-    }
-
-    const handleDelete = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation()
-        if (!(await confirm('Are you sure you want to delete this?'))) return
-        try {
-            const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
-            if (!res.ok) { showToast('Failed to delete item', 'error') }
-            else { await fetchItems(); showToast('Item deleted', 'success') }
-        } catch (e) { console.error(e) }
-    }
-
-    const handleDownloadReport = async () => {
-        try {
-            showToast('Generating PDF Report...', 'info')
-            const jsPDF = (await import('jspdf')).default
-            const doc = new jsPDF('p', 'mm', 'a4')
-            const pageWidth = doc.internal.pageSize.getWidth()
-            const margin = 20
-            let y = 20
-
-            doc.setFontSize(18)
-            doc.setTextColor(212, 175, 55)
-            doc.setFont('helvetica', 'bold')
-            doc.text(`Week Report: ${weekTitle}`, margin, y)
-            y += 10
-
-            doc.setFontSize(11)
-            doc.setTextColor(30, 30, 30)
-            doc.setFont('helvetica', 'normal')
-            doc.text(`Generated on ${format(new Date(), 'MMM d, yyyy')}`, margin, y)
-            y += 8
-
-            doc.setDrawColor(200, 200, 200)
-            doc.setLineWidth(0.3)
-            doc.line(margin, y, pageWidth - margin, y)
-            y += 8
-
-            doc.setFontSize(12)
-            doc.setTextColor(30, 30, 30)
-            doc.setFont('helvetica', 'bold')
-            doc.text('Categories & Goals', margin, y)
-            y += 7
-
-            categories.forEach(cat => {
-                if (y > 270) { doc.addPage(); y = 20 }
-                doc.setFontSize(10)
-                doc.setTextColor(212, 175, 55)
-                doc.setFont('helvetica', 'bold')
-                doc.text(cat.title, margin, y)
-                y += 5
-
-                const catScore = completionMap[cat.id] || 0
-                doc.setFontSize(8)
-                doc.setTextColor(30, 30, 30)
-                doc.setFont('helvetica', 'normal')
-                doc.text(`• Overall progress: ${Math.round(catScore)}%`, margin + 4, y)
-                doc.setTextColor(143, 188, 143)
-                doc.text(`${Math.round(catScore)}%`, pageWidth - margin, y, { align: 'right' })
-                y += 5
-                y += 3
-            })
-
-            doc.setFontSize(7)
-            doc.setTextColor(200, 200, 200)
-            doc.setFont('helvetica', 'italic')
-            doc.text(`Generated on ${format(new Date(), 'MMM d, yyyy h:mm a')}`, margin, 285)
-
-            doc.save(`${weekTitle}_Report.pdf`)
-            showToast('PDF Report downloaded successfully', 'success')
-        } catch (err) {
-            console.error('PDF export failed:', err)
-            showToast('Failed to export PDF', 'error')
+          }
         }
+        if (changed) await fetchItems()
+      } catch (e) { console.error(e) } finally { ensuring.current = false }
     }
+    void run()
+  }, [loading, needsDays, matchingWeeks, fetchItems])
 
-    const avgScore = matchingWeeks.length > 0
-        ? matchingWeeks.reduce((s, w) => s + (completionMap[w.id] || 0), 0) / matchingWeeks.length
-        : 0
+  const handleAddGoal = async (categoryId: string, title: string) => {
+    try {
+      await createYearlyGoalWithQuarters({ categoryId, title, weight: 0, yearItem })
+      await fetchItems()
+      return true
+    } catch (e) { console.error(e); return false }
+  }
 
-    if (loading) return <Loader label="Unlocking the week…" routeKey="year-quarter-month-week" />
-    if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
+  const handleDownloadReport = async () => {
+    try {
+      showToast('Generating PDF Report...', 'info')
+      await downloadCategoryReport({ heading: `Week Report: ${weekTitle}`, fileName: `${weekTitle}_Report`, categories, completionMap })
+      showToast('PDF Report downloaded successfully', 'success')
+    } catch (err) {
+      console.error('PDF export failed:', err)
+      showToast('Failed to export PDF', 'error')
+    }
+  }
 
-    // Build day groups across all matching weeks
-    const allDays = matchingWeeks.flatMap(w => w.children?.filter(c => c.layer === 6) || [])
+  const avgScore = matchingWeeks.length > 0
+    ? matchingWeeks.reduce((s, w) => s + (completionMap[w.id] || 0), 0) / matchingWeeks.length
+    : 0
 
-    // Collect days and sort them chronologically by date
-    const dayMap = new Map<string, { items: Item[], avgScore: number, dateLabel: string, categories: string[] }>()
-    allDays.forEach(d => {
-        if (!dayMap.has(d.title)) {
-            dayMap.set(d.title, { items: [], avgScore: 0, dateLabel: '', categories: [] })
-        }
-        const entry = dayMap.get(d.title)!
-        entry.items.push(d)
+  if (loading) return <Loader label="Unlocking the week…" routeKey="year-quarter-month-week" />
+  if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
 
-        // Find which categories this day's tasks belong to
-        const taskCategories = (d.tasks || [])
-            .filter(t => t.categoryId)
-            .map(t => {
-                const cat = categories.find(c => c.id === t.categoryId)
-                return cat?.title
-            })
-            .filter((cat): cat is string => Boolean(cat))
+  const rows: CategoryRow[] = categories.map(category => {
+    const catYearlyGoals = yearlyGoals.filter(g => g.parentId === category.id)
+    const catQuarters = matchingQuarters.filter(q => catYearlyGoals.some(yg => yg.id === q.parentId))
+    const catMonths = catQuarters.flatMap(q => q.children?.filter(c => c.layer === 4 && c.title === monthLabel) || [])
+    const catWeeks = catMonths.flatMap(m => m.children?.filter(c => c.layer === 5 && c.title === weekTitle) || [])
+    return {
+      category,
+      goals: catWeeks.map(item => {
+        const parentMonth = catMonths.find(m => m.id === item.parentId)
+        const parentQ = catQuarters.find(q => q.id === parentMonth?.parentId)
+        return { item, label: catYearlyGoals.find(yg => yg.id === parentQ?.parentId)?.title }
+      }),
+    }
+  })
 
-        // Add unique categories
-        taskCategories.forEach(cat => {
-            if (!entry.categories.includes(cat)) {
-                entry.categories.push(cat)
-            }
-        })
+  // Day groups across all matching weeks, ordered chronologically.
+  const dayMap = new Map<string, { items: Item[]; categories: string[] }>()
+  matchingWeeks.flatMap(w => w.children?.filter(c => c.layer === 6) || []).forEach(d => {
+    const entry = dayMap.get(d.title) ?? { items: [], categories: [] }
+    dayMap.set(d.title, entry)
+    entry.items.push(d)
+    ;(d.tasks || []).forEach(t => {
+      const catTitle = t.categoryId ? categories.find(c => c.id === t.categoryId)?.title : undefined
+      if (catTitle && !entry.categories.includes(catTitle)) entry.categories.push(catTitle)
+    })
+  })
+  const dayTime = (g: { items: Item[] }) => new Date(g.items[0]?.startDate || 0).getTime()
+  const dayGroups: DayGroup[] = Array.from(dayMap.entries())
+    .sort(([, a], [, b]) => dayTime(a) - dayTime(b))
+    .map(([title, entry]) => {
+      const first = entry.items[0]
+      return {
+        title,
+        items: entry.items,
+        avgScore: entry.items.length > 0 ? entry.items.reduce((s, d) => s + (completionMap[d.id] || 0), 0) / entry.items.length : 0,
+        dateLabel: first?.startDate ? format(new Date(first.startDate), 'MMM d') : '',
+        categories: entry.categories,
+      }
     })
 
-    // Sort days chronologically by their date
-    const sortedDayNames = Array.from(dayMap.keys()).sort((a, b) => {
-        const aItems = dayMap.get(a)!.items
-        const bItems = dayMap.get(b)!.items
-        if (aItems.length === 0 || bItems.length === 0) return 0
-        const aDate = new Date(aItems[0].startDate || 0).getTime()
-        const bDate = new Date(bItems[0].startDate || 0).getTime()
-        return aDate - bDate
-    })
+  const firstWeek = matchingWeeks[0]
+  const weekDateRange = firstWeek?.startDate && firstWeek?.endDate
+    ? `${format(new Date(firstWeek.startDate), 'MMM d, yyyy')} – ${format(new Date(firstWeek.endDate), 'MMM d, yyyy')}`
+    : ''
 
-    const dayGroups = sortedDayNames.map(name => {
-        const entry = dayMap.get(name)!
-        const avg = entry.items.length > 0 ? entry.items.reduce((s, d) => s + (completionMap[d.id] || 0), 0) / entry.items.length : 0
-        const firstItem = entry.items[0]
-        const dateLabel = firstItem?.startDate ? format(new Date(firstItem.startDate), 'MMM d') : ''
-        return { title: name, items: entry.items, avgScore: avg, dateLabel, categories: entry.categories }
-    })
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-8 pb-12 stagger-children" id="report-content">
+      <Breadcrumbs crumbs={[
+        { label: 'Year', href: '/year' },
+        { label: quarterLabel, href: `/year/${quarterLabel}` },
+        { label: monthLabel, href: `/year/${quarterLabel}/${monthLabel}` },
+        { label: weekTitle },
+      ]} />
 
-    // Get date range label for the week header
-    let weekDateRange = ''
-    if (matchingWeeks.length > 0 && matchingWeeks[0].startDate && matchingWeeks[0].endDate) {
-        const s = new Date(matchingWeeks[0].startDate)
-        const e = new Date(matchingWeeks[0].endDate)
-        weekDateRange = `${format(s, 'MMM d, yyyy')} – ${format(e, 'MMM d, yyyy')}`
-    }
+      <PeriodHero title={weekTitle} subtitle={`${monthLabel} · ${quarterLabel}${weekDateRange ? ` · ${weekDateRange}` : ''}`}
+        score={avgScore} onDownloadReport={handleDownloadReport} />
 
-    return (
-        <div className="space-y-8 max-w-full pb-12 stagger-children" id="report-content">
-            {/* Breadcrumb */}
-            <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
-                <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
-                <ChevronRight className="w-3 h-3" />
-                <button onClick={() => router.push(`/year/${quarterLabel}`)} className="hover:text-gold transition">{quarterLabel}</button>
-                <ChevronRight className="w-3 h-3" />
-                <button onClick={() => router.push(`/year/${quarterLabel}/${monthLabel}`)} className="hover:text-gold transition">{monthLabel}</button>
-                <ChevronRight className="w-3 h-3" />
-                <span className="text-ink font-bold">{weekTitle}</span>
-            </div>
+      <CategoryGoalsList rows={rows} completionMap={completionMap} heading="Categories & Goals" goalsLabel="Weekly Goals"
+        weightLabel="Weight" emptyText={emptyGoals} hrefFor={item => `/week/${item.id}`}
+        onAddGoal={handleAddGoal} onDeleted={async () => { await fetchItems() }} />
 
-            {/* Week Header */}
-            <div className="glass-gold  rounded-[8px] p-8 animate-slideUp border border-gold/20">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{weekTitle}</h1>
-                        <p className="text-sm text-ink/70 mt-2 font-mono">
-                            {monthLabel} · {quarterLabel}{weekDateRange ? ` · ${weekDateRange}` : ''}
-                        </p>
-                    </div>
-                    <div className="flex items-center space-x-6">
-                        <button onClick={handleDownloadReport} className="px-4 py-2.5 bg-black/20 text-gold border border-gold/30 text-sm font-bold rounded-xl hover:bg-gold/10 transition-all flex items-center space-x-2">
-                            <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">Report</span>
-                        </button>
-                        <ProgressRing progress={avgScore} size={72} />
-                    </div>
+      <PeriodReflection key={firstWeek?.id ?? 'none'} label={weekTitle} timePeriod="week"
+        itemId={firstWeek?.id || null} initialText={firstWeek?.reflection}
+        periodKey={firstWeek?.id || weekTitle}
+        placeholder={`Reflect on ${weekTitle}... What went well? What will you improve?`} />
+
+      <div>
+        <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink mb-6">Days</h2>
+        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+          {dayGroups.map(({ title, items: dItems, avgScore: dAvg, dateLabel, categories: dayCategories }) => {
+            const firstDate = dItems[0]?.startDate ? format(new Date(dItems[0].startDate), 'yyyy-MM-dd') : null
+            return (
+              <Card key={title} className={`p-4 transition-colors group hover:border-gold ${firstDate ? 'cursor-pointer' : ''}`}
+                onClick={() => { if (firstDate) router.push(`/day/${firstDate}`) }}>
+                <div className="text-center mb-4">
+                  <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{title}</p>
+                  {dateLabel && <p className="text-[10px] text-ink/50 mt-1">{dateLabel}</p>}
                 </div>
-            </div>
-
-            {/* Categories & Goals Section */}
-            <div>
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-3xl font-display font-bold text-ink">Categories & Goals</h2>
+                {dayCategories.length > 0 && (
+                  <div className="flex flex-wrap gap-1 justify-center mb-2">
+                    {dayCategories.slice(0, 3).map(cat => (
+                      <span key={cat} className="text-[8px] px-1.5 py-0.5 bg-gold/20 text-gold rounded font-bold uppercase">{cat}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-col items-center">
+                  <ProgressRing progress={dAvg} size={44} />
+                  <p className="text-lg font-mono font-bold mt-2">{Math.round(dAvg)}%</p>
+                  <p className="text-[10px] text-ink/40">{dItems.length} goals</p>
                 </div>
-
-                <div className="space-y-6">
-                    {categories.map(category => {
-                        const catScore = completionMap[category.id] || 0
-                        const catYearlyGoals = yearlyGoals.filter(g => g.parentId === category.id)
-                        const catQuarters = matchingQuarters.filter(q => catYearlyGoals.some(yg => yg.id === q.parentId))
-                        const catMonths = catQuarters.flatMap(q => q.children?.filter(c => c.layer === 4 && c.title === monthLabel) || [])
-                        const catWeeks = catMonths.flatMap(m => m.children?.filter(c => c.layer === 5 && c.title === weekTitle) || [])
-
-                        return (
-                            <Card key={category.id} className="p-5 space-y-4">
-                                {/* Category Header */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <button
-                                            type="button"
-                                            onClick={() => { setOpenCategoryId(openCategoryId === category.id ? null : category.id); setOpenItemId(null) }}
-                                            aria-expanded={openCategoryId === category.id}
-                                            className="flex items-center gap-2 min-w-0 flex-1 text-left min-h-[44px] rounded-lg px-1 hover:bg-mist/50 transition"
-                                        >
-                                            <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-200 ${openCategoryId === category.id ? 'rotate-180 text-gold' : 'text-ink/40'}`} />
-                                            <span className="text-lg font-bold text-ink truncate">{category.title}</span>
-                                        </button>
-                                        <div className="flex items-center space-x-3">
-                                            <div className="flex items-center space-x-1">
-                                                <span className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Score:</span>
-                                                <span className="text-sm font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-ink/80">{Math.round(catScore)}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <ProgressBar progress={catScore} colorClass="bg-sage" />
-                                </div>
-
-                                {/* Weekly Goals */}
-                                {openCategoryId === category.id && (
-                                <div className="space-y-3 pt-2 border-t border-mist animate-fadeIn">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold uppercase text-ink/50">Weekly Goals</span>
-                                        <button onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} className="p-1 hover:bg-mist rounded-lg transition text-ink/50 hover:text-gold">
-                                            {addingGoal === category.id ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                                        </button>
-                                    </div>
-
-                                    {addingGoal === category.id && (
-                                        <div className="flex items-center space-x-2 animate-fadeIn mb-3">
-                                            <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)}
-                                                onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)}
-                                                placeholder={`New annual goal in ${category.title}...`} className="flex-1 px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all" autoFocus />
-                                            <button onClick={() => handleAddGoal(category.id)} className="px-4 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70  ">Add</button>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {catWeeks.map(wItem => {
-                                            const wScore = completionMap[wItem.id] || 0
-                                            // Walk up to find the yearly goal name
-                                            const parentMonth = catMonths.find(m => m.id === wItem.parentId)
-                                            const parentQ = catQuarters.find(q => q.id === parentMonth?.parentId)
-                                            const parentYG = catYearlyGoals.find(yg => yg.id === parentQ?.parentId)
-
-                                            return (
-                                                <Card key={wItem.id} className="p-4 hover:border-gold transition-colors group relative cursor-pointer" onClick={() => router.push(`/week/${wItem.id}`)}>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <div className="flex items-center gap-1 min-w-0">
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => { e.stopPropagation(); setOpenItemId(openItemId === wItem.id ? null : wItem.id) }}
-                                                                aria-expanded={openItemId === wItem.id}
-                                                                title={openItemId === wItem.id ? 'Hide sliders' : 'Edit weight & score'}
-                                                                className="p-1.5 rounded-lg hover:bg-mist transition shrink-0 min-w-[32px] min-h-[32px] flex items-center justify-center"
-                                                            >
-                                                                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${openItemId === wItem.id ? 'rotate-180 text-gold' : 'text-ink/40'}`} />
-                                                            </button>
-                                                            <h4 className="font-bold text-ink text-sm truncate pr-6">{parentYG?.title}</h4>
-                                                        </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <ProgressRing progress={wScore} size={32} />
-                                                            <span className="text-base font-mono font-bold">{Math.round(wScore)}%</span>
-                                                        </div>
-                                                    </div>
-                                                    {openItemId === wItem.id && (
-                                                    <div className="flex items-center gap-4 animate-fadeIn" onClick={e => e.stopPropagation()}>
-                                                        <div className="flex-1">
-                                                            <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight</span>
-                                                            <input type="range" min="0" max="100" step={1} value={wItem.weight}
-                                                                onChange={e => updateItem(wItem.id, { weight: parseFloat(e.target.value) || 0 })}
-                                                                className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
-                                                            <span className="text-[9px] font-mono text-ink/50">{Math.round(wItem.weight || 0)}%</span>
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
-                                                            <input type="range" min="0" max="100" step={1} value={Math.round(wScore)}
-                                                                onChange={e => updateItem(wItem.id, { progress: parseFloat(e.target.value) || 0 })}
-                                                                className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
-                                                            <span className="text-[9px] font-mono text-ink/50">{Math.round(wScore)}%</span>
-                                                        </div>
-                                                    </div>
-                                                    )}
-                                                    <button onClick={(e) => handleDelete(e, wItem.id)} className="absolute top-2 right-2 p-1.5 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-ember/20 rounded-lg transition text-ink/50 hover:text-[#d39a82] z-10" title="Delete">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </Card>
-                                            )
-                                        })}
-                                    </div>
-                                    {catWeeks.length === 0 && !addingGoal && (
-                                        <p className="text-xs text-ink/40 italic">{emptyGoals}</p>
-                                    )}
-                                </div>
-                                )}
-                            </Card>
-                        )
-                    })}
-                </div>
-            </div>
-
-            {/* Week Reflection */}
-            <div>
-                <div className="flex items-center space-x-2 mb-4">
-                    <BookOpen className="w-5 h-5 text-gold" />
-                    <h2 className="text-2xl font-display font-bold text-ink">{weekTitle} Reflection</h2>
-                </div>
-                <Card className="p-6 space-y-3">
-                    <ReflectionPicker
-                        timePeriod="week"
-                        periodKey={matchingWeeks[0]?.id || weekTitle}
-                        itemId={matchingWeeks[0]?.id || null}
-                        onSelect={(content) => { setReflectionText(content) }}
-                        className="mb-2"
-                    />
-                    <textarea value={reflectionText}
-                        onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
-                        placeholder={`Reflect on ${weekTitle}... What went well? What will you improve?`}
-                        className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-5 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/30 placeholder:text-ink/30 transition-all" />
-                    <p className="text-[10px] text-ink/40 mt-2">Auto-saves as you type — pick a saved template above to quick-fill.</p>
-                </Card>
-            </div>
-
-            {/* Days Section */}
-            <div>
-                <h2 className="text-3xl font-display font-bold text-ink mb-6">Days</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-                    {dayGroups.map(({ title, items: dItems, avgScore, dateLabel, categories: dayCategories }) => {
-                        // Get the date from the first day item to navigate to
-                        const firstDate = dItems[0]?.startDate ? format(new Date(dItems[0].startDate), 'yyyy-MM-dd') : null
-
-                        return (
-                            <Card
-                                key={title}
-                                className={`p-4 transition-colors group hover:border-gold ${firstDate ? 'cursor-pointer' : ''}`}
-                                onClick={() => firstDate && router.push(`/day/${firstDate}`)}
-                            >
-                                <div className="text-center mb-4">
-                                    <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{title}</p>
-                                    {dateLabel && <p className="text-[10px] text-ink/50 mt-1">{dateLabel}</p>}
-                                </div>
-                                {dayCategories.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 justify-center mb-2">
-                                        {dayCategories.slice(0, 3).map((cat, idx) => (
-                                            <span key={idx} className="text-[8px] px-1.5 py-0.5 bg-gold/20 text-gold rounded font-bold uppercase">
-                                                {cat}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="flex flex-col items-center">
-                                    <ProgressRing progress={avgScore} size={44} />
-                                    <p className="text-lg font-mono font-bold mt-2">{Math.round(avgScore)}%</p>
-                                    <p className="text-[10px] text-ink/40">{dItems.length} goals</p>
-                                </div>
-                            </Card>
-                        )
-                    })}
-                    {dayGroups.length === 0 && (
-                        <p className="text-sm text-ink/50 italic col-span-full">Days will appear once goals are created.</p>
-                    )}
-                </div>
-            </div>
+              </Card>
+            )
+          })}
+          {dayGroups.length === 0 && (
+            <p className="text-sm text-ink/50 italic col-span-full">Days will appear once goals are created.</p>
+          )}
         </div>
-    )
+      </div>
+    </div>
+  )
 }

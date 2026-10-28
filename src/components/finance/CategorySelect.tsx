@@ -194,7 +194,7 @@ export function CategorySelect({
                             </p>
                         </div>
                     ) : (
-                        <div className="max-h-64 overflow-y-auto" data-lenis-prevent>
+                        <div className="max-h-[min(16rem,50dvh)] overflow-y-auto" data-lenis-prevent>
                             {builtIns.length === 0 && customs.length === 0 && (
                                 <p className="px-3.5 py-4 text-sm text-parchment/40">
                                     Nothing here yet — add your own below.

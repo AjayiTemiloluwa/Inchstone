@@ -1,9 +1,9 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
+import { useDialog } from '@/components/ui/useDialog'
 
 type CategoryEditModalProps = {
     categoryId: string | null
@@ -12,6 +12,7 @@ type CategoryEditModalProps = {
 
 export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProps) {
     const { getFlatItems, updateItem, updateItemScoreMode } = useHierarchyStore()
+    const dialogRef = useDialog<HTMLDivElement>(!!categoryId, onClose)
     const flatItems = getFlatItems()
     const category = categoryId ? flatItems.find(i => i.id === categoryId) : null
 
@@ -25,7 +26,11 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
     const [progress, setProgress] = useState(0)
     const [scoreMode, setScoreMode] = useState<'auto' | 'manual'>('auto')
 
-    useEffect(() => {
+    // Re-sync the form whenever the underlying category record changes
+    // (adjusting state during render instead of in an effect)
+    const [syncedFrom, setSyncedFrom] = useState<Item | null | undefined>(undefined)
+    if (category !== syncedFrom) {
+        setSyncedFrom(category)
         if (category) {
             setTitle(category.title || '')
             setDescription(category.description || '')
@@ -37,7 +42,7 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
             setProgress(category.progress || 0)
             setScoreMode(category.scoreMode as 'auto' | 'manual' || 'auto')
         }
-    }, [category])
+    }
 
     const handleSave = useCallback(() => {
         if (!categoryId || !title.trim()) return
@@ -60,13 +65,15 @@ export function CategoryEditModal({ categoryId, onClose }: CategoryEditModalProp
     if (!category) return null
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/75 backdrop-blur-md" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/75 backdrop-blur-md" onClick={onClose}>
             <div
-                className="w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 animate-fadeIn rounded-xl border border-gold-dim/25 bg-surface-solid text-parchment shadow-2xl shadow-black/60"
+                className="w-full max-w-lg max-h-[92dvh] overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 space-y-5 animate-fadeIn rounded-t-2xl sm:rounded-xl border border-gold-dim/25 bg-surface-solid text-parchment shadow-2xl shadow-black/60"
                 data-lenis-prevent
                 onClick={e => e.stopPropagation()}
+                ref={dialogRef}
                 role="dialog"
                 aria-modal="true"
+                tabIndex={-1}
             >
                 <div className="flex items-center justify-between border-b border-gold-dim/20 pb-4">
                     <div>

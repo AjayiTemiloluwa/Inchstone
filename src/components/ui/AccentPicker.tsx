@@ -155,7 +155,7 @@ export function AccentPicker() {
           spellCheck={false}
           aria-label="Accent hex code"
           data-cursor="Type a hex"
-          className="w-[110px] rounded-md border hairline bg-transparent px-2.5 py-1.5 font-mono text-xs uppercase tracking-wide text-parchment outline-none transition-colors placeholder:text-parchment/30 focus:border-gold"
+          className="w-[110px] rounded-md border hairline bg-transparent px-2.5 py-2.5 sm:py-1.5 font-mono text-xs uppercase tracking-wide text-parchment outline-none transition-colors placeholder:text-parchment/30 focus:border-gold"
         />
 
         {activeId !== DEFAULT_ACCENT_ID && (
@@ -163,7 +163,7 @@ export function AccentPicker() {
             type="button"
             onClick={() => adopt({ kind: 'default' })}
             data-cursor="Back to brass"
-            className="inline-flex items-center gap-1.5 rounded-md border hairline px-3 py-1.5 text-xs text-parchment/70 transition-colors hover:border-gold hover:text-parchment"
+            className="inline-flex items-center gap-1.5 rounded-md border hairline px-3 py-2.5 sm:py-1.5 text-xs text-parchment/70 transition-colors hover:border-gold hover:text-parchment"
           >
             <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
             Brass

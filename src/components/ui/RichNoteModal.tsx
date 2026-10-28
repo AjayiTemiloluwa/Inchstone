@@ -2,13 +2,14 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useSyncExternalStore } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { X, Download, Save } from 'lucide-react'
 import { format } from 'date-fns'
 import { useToast } from '@/components/ui/ToastProvider'
+import { useDialog } from '@/components/ui/useDialog'
 
 interface RichNoteModalProps {
     onClose: () => void
@@ -28,11 +29,9 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
     const [saving, setSaving] = useState(false)
     const { showToast } = useToast()
 
-    const [isClient, setIsClient] = useState(false)
-
-    useEffect(() => {
-        setIsClient(true)
-    }, [])
+    // false during SSR/hydration, true on the client (avoids a setState-in-effect)
+    const isClient = useSyncExternalStore(() => () => {}, () => true, () => false)
+    const dialogRef = useDialog<HTMLDivElement>(isClient, onClose)
 
     const editor = useEditor({
         extensions: [
@@ -85,7 +84,7 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
             } else {
                 showToast('Failed to save note. Please try again.', 'error')
             }
-        } catch (err) {
+        } catch {
             showToast('Network error. Please try again.', 'error')
         } finally {
             setSaving(false)
@@ -160,10 +159,10 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4">
-            <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/60 p-0 sm:p-4">
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={note?.id ? 'Edit note' : 'New note'} tabIndex={-1} className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl sm:rounded-[8px] border border-gold-dim/25 bg-surface-solid pb-[env(safe-area-inset-bottom)] sm:pb-0">
                 {/* Header */}
-                <div className="flex shrink-0 items-center justify-between border-b border-gold-dim/20 px-6 py-4">
+                <div className="flex shrink-0 items-center justify-between border-b border-gold-dim/20 px-4 py-4 sm:px-6">
                     <h3 className="text-lg font-semibold text-parchment">{note?.id ? 'Edit Note' : 'New Note'}</h3>
                     <button onClick={onClose} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-md text-parchment/50 transition-colors hover:text-parchment">
                         <X className="h-5 w-5" strokeWidth={1.5} />
@@ -171,7 +170,7 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 space-y-5 overflow-y-auto p-6" data-lenis-prevent>
+                <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6" data-lenis-prevent>
                     <div>
                         <label className="mb-1.5 block text-xs text-parchment/55">Title</label>
                         <input
@@ -219,7 +218,7 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
                 </div>
 
                 {/* Footer */}
-                <div className="flex shrink-0 items-center justify-between border-t border-gold-dim/20 px-6 py-4">
+                <div className="flex shrink-0 items-center justify-between border-t border-gold-dim/20 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
                     <button onClick={handleDownloadPDF} className="flex items-center gap-2 rounded-md px-4 py-2 text-sm text-parchment/70 transition-colors hover:text-[#cf8f78]">
                         <Download className="w-4 h-4" strokeWidth={1.5} />
                         <span>Download PDF</span>

@@ -1,16 +1,31 @@
 ﻿﻿'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
 import { Card } from '@/components/ui/Card'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, Plus, X, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
+import { ChevronRight, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { Loader } from '@/components/ui/Loader'
 import { InlineEdit } from '@/components/ui/InlineEdit'
 import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
+import { useToast } from '@/components/ui/ToastProvider'
+
+/** Turn the flat /api/items payload into the nested tree the store expects. */
+function buildItemTree(flat: Item[]): Item[] {
+  const itemMap = new Map<string, Item>()
+  flat.forEach(item => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+  const tree: Item[] = []
+  flat.forEach(item => {
+    const node = itemMap.get(item.id)
+    if (!node) return
+    if (item.parentId) { itemMap.get(item.parentId)?.children?.push(node) }
+    else { tree.push(node) }
+  })
+  return tree
+}
 
 export default function WeekPage() {
   const router = useRouter()
@@ -19,9 +34,9 @@ export default function WeekPage() {
 
   const { items, completionMap, setItems, updateItem, updateItemScoreMode } = useHierarchyStore()
   const [loading, setLoading] = useState(true)
-  const [reflectionPopup, setReflectionPopup] = useState<string | null>(null)
-  const [reflectionText, setReflectionText] = useState('')
-  const [reflectionTimer, setReflectionTimer] = useState<NodeJS.Timeout | null>(null)
+  const { showToast, confirm } = useToast()
+  const [reflectionDraft, setReflectionDraft] = useState<string | null>(null)
+  const reflectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [weekScoreMode, setWeekScoreMode] = useState<'auto' | 'manual'>('auto')
 
   const [lockedWeights, setLockedWeights] = useState<Record<string, boolean>>({})
@@ -30,14 +45,7 @@ export default function WeekPage() {
   useEffect(() => {
     fetch('/api/items').then(r => r.json()).then(data => {
       if (data.items) {
-        const itemMap = new Map()
-        data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-        const tree: any[] = []
-        data.items.forEach((item: any) => {
-          if (item.parentId) { const parent = itemMap.get(item.parentId); if (parent) parent.children.push(itemMap.get(item.id)) }
-          else { tree.push(itemMap.get(item.id)) }
-        })
-        setItems(tree)
+        setItems(buildItemTree(data.items as Item[]))
       }
     }).finally(() => setLoading(false))
   }, [setItems])
@@ -57,60 +65,50 @@ export default function WeekPage() {
   const parentYearlyGoal = parentQuarter?.parentId ? findItem(parentQuarter.parentId) : undefined
   const parentCategory = parentYearlyGoal?.parentId ? findItem(parentYearlyGoal.parentId) : undefined
 
-  const [isManualMode, setIsManualMode] = useState(false)
-  const [manualScore, setManualScore] = useState(0)
-
   const weekStart = weekItem?.startDate ? new Date(weekItem.startDate) : new Date()
   const weekEnd = weekItem?.endDate ? new Date(weekItem.endDate) : addDays(weekStart, 6)
   const totalDays = Math.round((weekEnd.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
   // Auto-create days if none exist - calculate proper day count based on week date range
-  const ensureDays = useCallback(async () => {
-    if (!weekItem || dailyGoals.length > 0) return
-    const perWeight = Math.round((100 / totalDays) * 10) / 10
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-    for (let d = 0; d < totalDays; d++) {
-      const dDate = addDays(weekStart, d)
-      const dayName = dayNames[dDate.getDay()]
-      const dateStr = format(dDate, 'yyyy-MM-dd')
-      await fetch('/api/items', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layer: 6, parentId: weekItem.id, title: dayName, weight: perWeight, startDate: dateStr, endDate: dateStr })
-      })
-    }
-    const res = await fetch('/api/items')
-    const data = await res.json()
-    if (data.items) {
-      const itemMap = new Map()
-      data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-      const tree: any[] = []
-      data.items.forEach((item: any) => {
-        if (item.parentId) { const parent = itemMap.get(item.parentId); if (parent) parent.children.push(itemMap.get(item.id)) }
-        else { tree.push(itemMap.get(item.id)) }
-      })
-      setItems(tree)
-      setDayWeights({})
-    }
-  }, [weekItem, dailyGoals.length, setItems, totalDays, weekStart])
-
+  const needsDays = !!weekItem && dailyGoals.length === 0
+  const weekItemId = weekItem?.id
+  const weekStartIso = weekItem?.startDate ?? null
+  const weekEndIso = weekItem?.endDate ?? null
   useEffect(() => {
-    if (!loading && weekItem && dailyGoals.length === 0) {
-      ensureDays()
+    if (loading || !needsDays || !weekItemId) return
+    let cancelled = false
+    const run = async () => {
+      const startD = weekStartIso ? new Date(weekStartIso) : new Date()
+      const endD = weekEndIso ? new Date(weekEndIso) : addDays(startD, 6)
+      const days = Math.round((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      const perWeight = Math.round((100 / days) * 10) / 10
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+      for (let d = 0; d < days; d++) {
+        const dDate = addDays(startD, d)
+        const dayName = dayNames[dDate.getDay()]
+        const dateStr = format(dDate, 'yyyy-MM-dd')
+        await fetch('/api/items', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ layer: 6, parentId: weekItemId, title: dayName, weight: perWeight, startDate: dateStr, endDate: dateStr })
+        })
+      }
+      const res = await fetch('/api/items')
+      const data = await res.json()
+      if (data.items && !cancelled) {
+        setItems(buildItemTree(data.items as Item[]))
+        setDayWeights({})
+      }
     }
-  }, [loading, weekItem, dailyGoals.length, ensureDays])
+    void run()
+    return () => { cancelled = true }
+  }, [loading, needsDays, weekItemId, weekStartIso, weekEndIso, setItems])
 
-  // Initialize day weights from data
-  useEffect(() => {
-    if (dailyGoals.length > 0 && Object.keys(dayWeights).length === 0) {
-      const w: Record<string, number> = {}
-      dailyGoals.forEach(m => { w[m.id] = m.weight || 0 })
-      setDayWeights(w)
-    }
-  }, [dailyGoals, dayWeights])
+  // Effective weights: local edits win, otherwise the stored weight
+  const effWeights: Record<string, number> = {}
+  dailyGoals.forEach(m => { effWeights[m.id] = dayWeights[m.id] ?? m.weight ?? 0 })
 
   const handleWeightChange = (dayId: string, newVal: number) => {
-    const newWeights = { ...dayWeights }
+    const newWeights = { ...effWeights }
     newWeights[dayId] = newVal
 
     const newLocked = { ...lockedWeights, [dayId]: true }
@@ -162,38 +160,27 @@ export default function WeekPage() {
     dailyGoals.forEach(d => updateItemScoreMode(d.id, 'auto'))
   }
 
-  useEffect(() => {
-    if (weekItem?.reflection && reflectionText === '') {
-      setReflectionText(weekItem.reflection)
-    }
-  }, [weekItem, reflectionText])
+  const reflectionText = reflectionDraft ?? weekItem?.reflection ?? ''
 
-  const saveReflection = useCallback((text: string) => {
+  const saveReflection = (text: string) => {
     if (!weekItem) return
-    if (reflectionTimer) clearTimeout(reflectionTimer)
-    const timer = setTimeout(() => { updateItem(weekItem.id, { reflection: text }) }, 800)
-    setReflectionTimer(timer)
-  }, [weekItem, updateItem, reflectionTimer])
+    const id = weekItem.id
+    if (reflectionTimer.current) clearTimeout(reflectionTimer.current)
+    reflectionTimer.current = setTimeout(() => { updateItem(id, { reflection: text }) }, 800)
+  }
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
-    if (!confirm('Are you sure you want to delete this? All nested tasks will also be deleted.')) return
+    if (!(await confirm('Are you sure you want to delete this? All nested tasks will also be deleted.'))) return
     try {
       const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
-      if (!res.ok) { alert('Failed to delete item') }
+      if (!res.ok) { showToast('Failed to delete item', 'error') }
       else {
         if (id === weekId) { router.push(`/month/${parentMonth?.id || ''}`) }
         else {
           fetch('/api/items').then(r => r.json()).then(data => {
             if (data.items) {
-              const itemMap = new Map()
-              data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-              const tree: any[] = []
-              data.items.forEach((item: any) => {
-                if (item.parentId) { const parent = itemMap.get(item.parentId); if (parent) parent.children.push(itemMap.get(item.id)) }
-                else { tree.push(itemMap.get(item.id)) }
-              })
-              setItems(tree)
+              setItems(buildItemTree(data.items as Item[]))
               setDayWeights({})
             }
           })
@@ -206,7 +193,7 @@ export default function WeekPage() {
   if (!weekItem) return <div className="p-6 text-ink/60">Week not found.</div>
 
   const wScore = completionMap[weekItem.id] || 0
-  const dayWeightSum = dailyGoals.reduce((s, m) => s + (dayWeights[m.id] ?? m.weight ?? 0), 0)
+  const dayWeightSum = dailyGoals.reduce((s, m) => s + (effWeights[m.id] ?? 0), 0)
 
   // Build day slots matching the actual length of this week
   const daySlots = Array.from({ length: totalDays }, (_, i) => {
@@ -219,7 +206,7 @@ export default function WeekPage() {
   })
 
   return (
-    <div className="space-y-8 max-w-full pb-12">
+    <div className="space-y-6 sm:space-y-8 max-w-full pb-12 mx-auto 2xl:max-w-[1600px]">
       {/* Breadcrumb */}
       <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
         <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
@@ -232,13 +219,13 @@ export default function WeekPage() {
       </div>
 
       {/* Week Header */}
-      <div className="bg-surface border border-mist rounded-[8px] p-8 relative">
-        <button onClick={(e) => handleDelete(e, weekItem.id)} className="absolute top-4 right-4 p-2 text-ink/30 hover:text-[#cf8f78] hover:bg-ember/15 rounded-lg transition" title="Delete Week">
+      <div className="bg-surface border border-mist rounded-[8px] p-4 sm:p-8 relative">
+        <button onClick={(e) => handleDelete(e, weekItem.id)} className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2.5 sm:p-2 text-ink/30 hover:text-[#cf8f78] hover:bg-ember/15 rounded-lg transition" title="Delete Week">
           <Trash2 className="w-5 h-5" />
         </button>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-display font-bold text-ink">
+        <div className="flex flex-wrap items-center justify-between gap-4 pr-10 sm:pr-0">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-display font-bold text-ink">
               <InlineEdit value={weekItem.title} onSave={(t) => updateItem(weekItem.id, { title: t })} title="Rename week"
                 inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-3xl font-display font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
             </h1>
@@ -264,9 +251,9 @@ export default function WeekPage() {
 
       {/* Week & Days Section (Exact Features of Categories & Goals) */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-display font-bold text-ink">Week & Days</h2>
-          <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h2 className="text-xl sm:text-2xl font-display font-bold text-ink">Week & Days</h2>
+          <div className="flex items-center gap-4">
             <button onClick={resetWeights} className="flex items-center space-x-1.5 text-xs text-gold hover:text-gold/80 transition">
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset Equal</span>
@@ -276,11 +263,11 @@ export default function WeekPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="p-5 space-y-4 border-gold">
+          <Card className="p-4 sm:p-5 space-y-4 border-gold">
             {/* "Category" Header (The Week Itself) */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center space-x-2 min-w-0">
                   <h3 className="text-lg font-bold text-ink">
                     <InlineEdit value={weekItem.title} onSave={(t) => updateItem(weekItem.id, { title: t })} title="Rename week"
                       inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-lg font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
@@ -291,7 +278,7 @@ export default function WeekPage() {
                     <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
                     <input type="number" min="0" max="100" value={Math.round(wScore)}
                       onChange={e => updateItem(weekItem.id, { progress: parseFloat(e.target.value) || 0 })}
-                      className="w-12 px-1 py-0.5 text-[9px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
+                      className="w-12 px-1 py-1 text-[10px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
                     <span className="text-[9px] text-ink/50">%</span>
                   </div>
                   <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(weekItem.weight || 0)}%</span>
@@ -315,17 +302,17 @@ export default function WeekPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
                 {daySlots.map(({ date, dayGoal }, idx) => {
                   const isToday = new Date().toDateString() === date.toDateString()
                   const dScore = dayGoal ? (completionMap[dayGoal.id] || 0) : 0
-                  const w = dayGoal ? (dayWeights[dayGoal.id] ?? dayGoal.weight ?? 0) : 0
+                  const w = dayGoal ? (effWeights[dayGoal.id] ?? 0) : 0
                   const isLocked = dayGoal ? (lockedWeights[dayGoal.id] || false) : false
 
                   return (
                     <Card key={idx} className={`p-4 hover:border-gold transition-colors group relative cursor-pointer ${isToday ? 'ring-2 ring-gold' : ''}`} onClick={() => dayGoal ? router.push(`/day/${format(date, 'yyyy-MM-dd')}`) : null}>
                       {dayGoal && (
-                        <button onClick={(e) => handleDelete(e, dayGoal.id)} className="absolute top-2 right-2 p-1.5 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] z-10" title="Delete Day">
+                        <button onClick={(e) => handleDelete(e, dayGoal.id)} className="absolute top-2 right-2 p-2 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] z-10" title="Delete Day">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
@@ -394,11 +381,11 @@ export default function WeekPage() {
             timePeriod="week"
             periodKey={weekId}
             itemId={weekItem?.id || null}
-            onSelect={(content) => { setReflectionText(content) }}
+            onSelect={(content) => { setReflectionDraft(content) }}
             className="mb-2"
           />
           <textarea value={reflectionText}
-            onChange={(e) => { setReflectionText(e.target.value); saveReflection(e.target.value) }}
+            onChange={(e) => { setReflectionDraft(e.target.value); saveReflection(e.target.value) }}
             placeholder="Reflect on this week..."
             className="w-full h-32 bg-paper border border-mist rounded-lg p-3 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
           <p className="text-[10px] text-ink/40 mt-1">Auto-saves as you type — pick a saved template above to quick-fill.</p>

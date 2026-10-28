@@ -12,6 +12,7 @@ import type { PlanGoalRecord, PlanSectionRecord } from '@/lib/plans/types'
 import { countStatuses } from '@/lib/plans/status'
 import { AddSectionModal } from './AddSectionModal'
 import { GoalRow } from './GoalRow'
+import { useToast } from '@/components/ui/ToastProvider'
 
 type Props = {
   /** Bubbles up to the page-level detail modal */
@@ -23,6 +24,7 @@ type Props = {
 
 export function SectionList({ onGoalClick, onGoalEdit, onGoalAdd }: Props) {
   const { currentPlan, reorderSections, reorderGoals, deleteSection, deleteGoal, updateGoal } = usePlansStore()
+  const { confirm } = useToast()
   const plan = currentPlan
 
   // Track only *collapsed* sections — every section starts expanded, no effect needed
@@ -67,7 +69,7 @@ export function SectionList({ onGoalClick, onGoalEdit, onGoalAdd }: Props) {
   }
 
   const handleDeleteGoal = async (goal: PlanGoalRecord) => {
-    if (!window.confirm('Delete this goal and its milestones/history?')) return
+    if (!(await confirm('Delete this goal and its milestones/history?'))) return
     await deleteGoal(goal.id)
   }
 
@@ -134,7 +136,7 @@ export function SectionList({ onGoalClick, onGoalEdit, onGoalAdd }: Props) {
                 </button>
                 <button
                   onClick={async () => {
-                    if (!window.confirm(`Delete section “${section.name}” with all its goals and milestones?`)) return
+                    if (!(await confirm(`Delete section “${section.name}” with all its goals and milestones?`))) return
                     await deleteSection(section.id)
                   }}
                   aria-label="Delete section"

@@ -196,15 +196,15 @@ export default function CalendarPage() {
         </p>
         <div className="flex items-center gap-1.5 rounded-lg bg-black/20 border border-white/10 px-1.5 py-1">
           <button onClick={() => navigate('prev')} aria-label="Previous month"
-            className="w-7 h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
+            className="w-9 h-9 sm:w-7 sm:h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button onClick={goToToday} title="Jump to today"
-            className="min-w-[8.5rem] text-center text-xs font-mono text-parchment/80 tabular-nums transition-colors hover:text-parchment">
+            className="min-w-[7rem] sm:min-w-[8.5rem] py-2 text-center text-xs font-mono text-parchment/80 tabular-nums transition-colors hover:text-parchment">
             {monthLabel}
           </button>
           <button onClick={() => navigate('next')} aria-label="Next month"
-            className="w-7 h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
+            className="w-9 h-9 sm:w-7 sm:h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
             <ChevronRight className="h-4 w-4" />
           </button>
           {notCurrentMonth && (

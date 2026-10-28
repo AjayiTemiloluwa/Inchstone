@@ -62,8 +62,8 @@ export default async function Home() {
             ))}
           </nav>
           <div className="flex shrink-0 items-center gap-2">
-            <Link href="/sign-in" className="inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-semibold text-ink/70 transition hover:text-gold">Sign in</Link>
-            <Link href="/sign-up" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gold px-4 text-sm font-semibold text-ink transition hover:bg-gold-dim sm:px-5">Get started<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+            <Link href="/sign-in" className="inline-flex h-10 items-center justify-center rounded-lg px-3 sm:px-4 text-sm font-semibold text-ink/70 transition hover:text-gold">Sign in</Link>
+            <Link href="/sign-up" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-gold px-4 text-sm font-semibold text-ink transition hover:bg-gold-dim sm:px-5">Get started<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
           </div>
         </div>
       </header>

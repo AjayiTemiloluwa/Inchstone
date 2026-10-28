@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Copy, RefreshCw, Plus, Trash2 } from 'lucide-react'
+import { useToast } from '@/components/ui/ToastProvider'
 
 type WidgetPage = {
   kind: 'plan' | 'timers' | 'alarms' | 'messages' | 'clock' | 'note'
@@ -28,6 +29,7 @@ const KINDS: WidgetPage['kind'][] = ['plan', 'timers', 'alarms', 'messages', 'cl
  * in what order, with what accent/note styling.
  */
 export function WidgetCard() {
+  const { confirm } = useToast()
   const [secret, setSecret] = useState<string | null>(null)
   const [revealed, setRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -73,7 +75,7 @@ export function WidgetCard() {
   }
 
   const rotate = async () => {
-    if (!confirm('Generate a new pairing secret? Devices paired with the old one will stop updating until re-paired.')) return
+    if (!(await confirm('Generate a new pairing secret? Devices paired with the old one will stop updating until re-paired.'))) return
     try {
       const res = await fetch('/api/widget?rotate=1', { method: 'POST' })
       if (res.ok) { setSecret((await res.json()).secret); setRevealed(true) }
@@ -161,7 +163,7 @@ export function WidgetCard() {
             <select
               value={page.kind}
               onChange={(e) => updatePage(i, { kind: e.target.value as WidgetPage['kind'] })}
-              className="rounded border hairline bg-ink px-2 py-1.5 text-sm text-parchment capitalize"
+              className="rounded border hairline bg-ink px-2 py-2 sm:py-1.5 text-sm text-parchment capitalize"
               aria-label={`Page ${i + 1} type`}
             >
               {KINDS.map((k) => <option key={k} value={k} className="capitalize">{k}</option>)}
@@ -224,7 +226,7 @@ export function WidgetCard() {
             </label>
             <button
               onClick={() => void save({ ...cfg, pages: cfg.pages.filter((_, idx) => idx !== i) })}
-              className="ml-auto rounded p-1.5 text-parchment/40 hover:text-[#cf8f78] transition-colors"
+              className="ml-auto rounded p-2.5 sm:p-1.5 text-parchment/40 hover:text-[#cf8f78] transition-colors"
               aria-label={`Remove page ${i + 1}`}
             >
               <Trash2 className="w-4 h-4" strokeWidth={1.5} />

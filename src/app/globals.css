@@ -2390,3 +2390,12 @@ html:not(.dark) .touch-hint-pill {
     animation: none !important;
   }
 }
+/* ── Touch devices: controls revealed on hover must always be visible ──
+   `opacity-0 group-hover:opacity-100` hides edit/delete buttons behind a
+   hover that phones and tablets never produce. */
+@media (hover: none) {
+  [class*="group-hover:opacity-100"],
+  [class*="hover:opacity-100"] {
+    opacity: 1 !important;
+  }
+}

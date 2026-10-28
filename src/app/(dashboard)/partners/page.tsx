@@ -7,6 +7,7 @@ import { Plus, X, Users, Mail, Loader2, Link as LinkIcon, Trash2, MessageSquare,
 import { format } from 'date-fns'
 import { Scramble } from '@/components/ui/motion'
 import { Loader } from '@/components/ui/Loader'
+import { useToast } from '@/components/ui/ToastProvider'
 
 interface Partner {
   id: string
@@ -73,6 +74,7 @@ interface Message {
 
 export default function PartnersPage() {
   const { user } = useUser()
+  const { showToast, confirm } = useToast()
   const myId = user?.id || null
   const [partners, setPartners] = useState<Partner[]>([])
   const [loading, setLoading] = useState(true)
@@ -303,7 +305,7 @@ export default function PartnersPage() {
         await fetchPartners()
       } else {
         const data = await res.json()
-        alert(data.error || 'Failed to add partner')
+        showToast(data.error || 'Failed to add partner', 'error')
       }
     } catch (e) {
       console.error(e)
@@ -313,7 +315,7 @@ export default function PartnersPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this partner?')) return
+    if (!(await confirm('Are you sure you want to remove this partner?'))) return
     try {
       const res = await fetch(`/api/partners?id=${id}`, { method: 'DELETE' })
       if (res.ok) {
@@ -496,8 +498,8 @@ export default function PartnersPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-24 lg:pb-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-h1 text-parchment"><Scramble text="Partners" mono={false} /></h1>
           <p className="mt-1 text-sm text-parchment/55">Manage your accountability partners</p>
         </div>
@@ -588,11 +590,11 @@ export default function PartnersPage() {
                         readOnly
                         value={inviteNotice.acceptUrl}
                         onFocus={e => e.currentTarget.select()}
-                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5 font-mono text-[11px] text-parchment/70 focus:outline-none"
+                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/20 px-2.5 py-2.5 sm:py-1.5 font-mono text-[11px] text-parchment/70 focus:outline-none"
                       />
                       <button
                         onClick={() => copyInviteLink(inviteNotice.acceptUrl!.split('code=')[1] || '', 'notice')}
-                        className="flex shrink-0 items-center gap-1.5 rounded-md bg-gold px-3 py-1.5 text-xs font-bold text-ink transition-colors hover:bg-gold-glow"
+                        className="flex shrink-0 items-center gap-1.5 rounded-md bg-gold px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-xs font-bold text-ink transition-colors hover:bg-gold-glow"
                       >
                         {copiedId === 'notice' ? 'Copied!' : 'Copy link'}
                       </button>
@@ -604,7 +606,7 @@ export default function PartnersPage() {
             <button
               onClick={() => setInviteNotice(null)}
               aria-label="Dismiss"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-parchment/40 transition-colors hover:bg-mist hover:text-parchment"
+              className="flex h-10 w-10 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-md text-parchment/40 transition-colors hover:bg-mist hover:text-parchment"
             >
               <X className="h-4 w-4" />
             </button>
@@ -812,7 +814,7 @@ export default function PartnersPage() {
                   <button
                     onClick={(e) => { e.stopPropagation(); copyInviteLink(partner.inviteCode!, partner.id) }}
                     title="Copy their invite link to share"
-                    className="flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-parchment/55 transition-colors hover:border-gold/40 hover:text-gold"
+                    className="flex items-center gap-1 rounded-full border border-white/15 px-3 py-2 sm:px-2.5 sm:py-1 text-[10px] font-bold uppercase tracking-wide text-parchment/55 transition-colors hover:border-gold/40 hover:text-gold"
                   >
                     {copiedId === partner.id ? '✓ Copied' : 'Copy invite'}
                   </button>
@@ -820,7 +822,7 @@ export default function PartnersPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleToggleShare(partner) }}
                   title="Turn sharing on or off for this partner"
-                  className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                  className={`rounded-full border px-3 py-2 sm:px-2.5 sm:py-1 text-[10px] font-bold uppercase tracking-wide transition-colors ${
                     partner.shareProgress
                       ? 'border-moss/40 bg-moss/10 text-moss'
                       : 'border-white/15 text-parchment/45 hover:border-gold/40 hover:text-gold'
@@ -864,7 +866,7 @@ export default function PartnersPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between border-t border-gold-dim/15 pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gold-dim/15 pt-4">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-semibold text-parchment/70">{partner.role}</span>
                   <span className="flex items-center gap-1 rounded-md font-mono text-xs font-bold text-moss">
@@ -875,7 +877,7 @@ export default function PartnersPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleSelectPartner(partner) }}
                   data-cursor="Say hello"
-                  className="flex items-center gap-1.5 rounded-md border hairline px-3 py-2 text-xs font-semibold text-parchment transition-colors hover:border-gold"
+                  className="flex items-center gap-1.5 rounded-md border hairline px-3.5 py-2.5 sm:px-3 sm:py-2 text-xs font-semibold text-parchment transition-colors hover:border-gold"
                 >
                   <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
                   <span>Message</span>

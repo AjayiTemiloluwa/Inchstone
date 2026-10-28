@@ -51,12 +51,12 @@ export function DayHeader({ date, score, count }: {
     count: number
 }) {
     return (
-        <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-baseline gap-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
                 <span className="text-sm font-semibold text-parchment">{format(parseISO(date), 'EEEE, MMM d, yyyy')}</span>
                 <span className="font-mono text-[10px] text-parchment/40 tabular-nums">{count} items</span>
             </div>
-            <span className={`font-mono text-xs tabular-nums ${score >= 40 ? 'text-parchment/70' : 'text-ember'}`}>{score}%</span>
+            <span className={`shrink-0 font-mono text-xs tabular-nums ${score >= 40 ? 'text-parchment/70' : 'text-ember'}`}>{score}%</span>
         </div>
     )
 }
@@ -68,12 +68,12 @@ export function FilterPanel({ filters, onChange, categories }: {
 }) {
     const set = (patch: Partial<TaskFilters>) => onChange({ ...filters, ...patch })
     const chip = (active: boolean) =>
-        `rounded-full border px-3 py-1 text-xs transition-colors ${
+        `rounded-full border px-3.5 py-2 text-xs sm:px-3 sm:py-1 transition-colors ${
             active ? 'border-gold text-gold' : 'border-parchment/15 text-parchment/55 hover:text-parchment/75'
         }`
     return (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] uppercase tracking-wider text-parchment/40">Status</span>
                 {(['all', 'completed', 'incomplete'] as const).map(s => (
                     <button key={s} type="button" onClick={() => set({ status: s })} className={chip(filters.status === s)}>
@@ -86,7 +86,7 @@ export function FilterPanel({ filters, onChange, categories }: {
                 <select
                     value={filters.category}
                     onChange={e => set({ category: e.target.value })}
-                    className="rounded-[6px] border border-gold-dim/25 bg-ink px-2 py-1 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none"
+                    className="rounded-[6px] border border-gold-dim/25 bg-ink px-2 py-2 sm:py-1 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none"
                 >
                     <option value="all">All</option>
                     {categories.map(c => (
@@ -97,7 +97,7 @@ export function FilterPanel({ filters, onChange, categories }: {
             <label className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-parchment/40">
                 Priority
                 <select value={filters.priority} onChange={e => set({ priority: e.target.value })}
-                    className="rounded-[6px] border border-hairline bg-ink px-2 py-1 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none">
+                    className="rounded-[6px] border border-hairline bg-ink px-2 py-2 sm:py-1 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none">
                     <option value="all">All</option>
                     <option value="high">High</option>
                     <option value="medium">Medium</option>

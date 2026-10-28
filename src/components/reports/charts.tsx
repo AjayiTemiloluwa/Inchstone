@@ -116,7 +116,7 @@ export function CompletionDonut({
     const cx = size / 2
 
     return (
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:justify-start">
             <svg width={size} height={size} className="-rotate-90 shrink-0" role="img"
                 aria-label={`${pct}% completion`}>
                 <circle stroke={PALETTE.hairline} strokeWidth={thickness} fill="transparent"

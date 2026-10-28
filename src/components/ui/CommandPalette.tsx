@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
+import { useDialog } from '@/components/ui/useDialog'
 
 interface Command {
   id: string
@@ -31,7 +32,6 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
-  const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
   const commands: Command[] = NAV.map(c => ({
@@ -66,17 +66,16 @@ export function CommandPalette() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setOpen(o => !o)
+        setQuery('')
+        setActive(0)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Focus + scroll active into view
-  useEffect(() => {
-    if (open) window.setTimeout(() => inputRef.current?.focus(), 30)
-    else { setQuery(''); setActive(0) }
-  }, [open])
+  // Escape, focus trap, focus-in on open and focus restore on close
+  const dialogRef = useDialog<HTMLDivElement>(open, close)
 
   useEffect(() => {
     listRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' })
@@ -86,17 +85,18 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-start justify-center pt-[12vh] px-4 bg-ink/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[90] flex items-start justify-center pt-[8dvh] sm:pt-[12vh] px-3 sm:px-4 bg-ink/70 backdrop-blur-sm"
       onClick={close}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Command palette"
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+        tabIndex={-1}
         className="w-full max-w-lg rounded-xl border border-gold-dim/25 bg-surface-solid shadow-2xl shadow-black/50 overflow-hidden animate-fadeIn"
         onClick={e => e.stopPropagation()}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') { e.preventDefault(); close() }
           if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(a + 1, filtered.length - 1)) }
           if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(a - 1, 0)) }
           if (e.key === 'Enter') { e.preventDefault(); run(filtered[active]) }
@@ -105,7 +105,7 @@ export function CommandPalette() {
         <div className="flex items-center gap-2.5 border-b border-white/10 px-4">
           <span className="text-parchment/40 text-sm">⌘</span>
           <input
-            ref={inputRef}
+            autoFocus
             value={query}
             onChange={(e) => { setQuery(e.target.value); setActive(0) }}
             placeholder="Where to?"
@@ -114,7 +114,7 @@ export function CommandPalette() {
           <kbd className="rounded border border-white/10 bg-black/20 px-1.5 py-0.5 font-mono text-[10px] text-parchment/40">esc</kbd>
         </div>
 
-        <div ref={listRef} className="max-h-[46vh] overflow-y-auto p-2" data-lenis-prevent>
+        <div ref={listRef} className="max-h-[min(50dvh,24rem)] overflow-y-auto p-2" data-lenis-prevent>
           {filtered.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-parchment/40">No matches for “{query}”</p>
           ) : (

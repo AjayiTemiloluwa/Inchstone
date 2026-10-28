@@ -1,29 +1,28 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useToast } from '@/components/ui/ToastProvider'
+
+const subscribeNoop = () => () => {}
+const getSupported = () => 'serviceWorker' in navigator && 'PushManager' in window
+const getSupportedServer = () => false
 
 export function PushNotificationManager() {
-    const [supported, setSupported] = useState(false)
+    const { showToast } = useToast()
+    const supported = useSyncExternalStore(subscribeNoop, getSupported, getSupportedServer)
     const [subscribed, setSubscribed] = useState(false)
     const [loading, setLoading] = useState(false)
     const [testing, setTesting] = useState(false)
 
     useEffect(() => {
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-            setSupported(true)
-            checkSubscription()
-        }
-    }, [])
-
-    const checkSubscription = async () => {
-        try {
-            const registration = await navigator.serviceWorker.ready
-            const subscription = await registration.pushManager.getSubscription()
-            setSubscribed(!!subscription)
-        } catch {
-            setSubscribed(false)
-        }
-    }
+        if (!supported) return
+        let cancelled = false
+        navigator.serviceWorker.ready
+            .then(registration => registration.pushManager.getSubscription())
+            .then(subscription => { if (!cancelled) setSubscribed(!!subscription) })
+            .catch(() => { if (!cancelled) setSubscribed(false) })
+        return () => { cancelled = true }
+    }, [supported])
 
     const urlBase64ToUint8Array = (base64String: string) => {
         const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -71,12 +70,12 @@ export function PushNotificationManager() {
             const res = await fetch('/api/push/test', { method: 'POST' })
             const data = await res.json()
             if (data.success) {
-                alert(`✅ ${data.message}`)
+                showToast(data.message, 'success')
             } else {
-                alert(`❌ ${data.error || 'Test failed'}`)
+                showToast(data.error || 'Test failed', 'error')
             }
         } catch (err) {
-            alert('❌ Failed to send test notification')
+            showToast('Failed to send test notification', 'error')
             console.error(err)
         } finally {
             setTesting(false)

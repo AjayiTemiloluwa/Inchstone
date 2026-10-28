@@ -1,9 +1,10 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Target, FlaskConical } from 'lucide-react'
+import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Target, FlaskConical, CalendarRange, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { useDialog } from '@/components/ui/useDialog'
 
 /**
  * BottomNav — the standard mobile tab bar.
@@ -18,6 +19,7 @@ export function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const sheetRef = useDialog<HTMLDivElement>(showMoreMenu, () => setShowMoreMenu(false))
 
   const mainLinks = [
     { name: 'Home', href: '/dashboard', icon: Home, hint: 'Your home base' },
@@ -28,11 +30,13 @@ export function BottomNav() {
   ]
 
   const moreLinks = [
+    { name: 'This Week', href: '/week', icon: CalendarRange, hint: 'Seven days at a glance', desc: 'Plan and review the current week' },
     { name: 'Challenge', href: '/challenge', icon: FlaskConical, hint: 'Fill the bottles', desc: 'Challenge bottles filled from reflections' },
     { name: 'Long-Term Plans', href: '/plans', icon: Target, hint: 'Dream in decades', desc: 'Goals across months, years & decades' },
     { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down', desc: 'Notes & journal entries' },
     { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people', desc: 'Accountability partners & messaging' },
     { name: 'Reports', href: '/reports', icon: BarChart3, hint: 'See the patterns', desc: 'Progress reports & analytics' },
+    { name: 'Atelier', href: '/atelier', icon: Sparkles, hint: 'The living showcase', desc: 'The animated GL showcase' },
     { name: 'Settings', href: '/settings', icon: Settings, hint: 'Make it yours', desc: 'App settings & preferences' },
   ]
 
@@ -115,7 +119,10 @@ export function BottomNav() {
               role="dialog"
               aria-modal="true"
               aria-label="More"
-              className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-ink hairline-top shadow-[0_-18px_50px_rgba(0,0,0,0.35)]"
+              ref={sheetRef}
+              tabIndex={-1}
+              data-lenis-prevent
+              className="absolute bottom-0 left-0 right-0 max-h-[88dvh] overflow-y-auto overscroll-contain rounded-t-2xl bg-ink hairline-top shadow-[0_-18px_50px_rgba(0,0,0,0.35)]"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}

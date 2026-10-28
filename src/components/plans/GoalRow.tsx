@@ -30,9 +30,9 @@ export function GoalRow({ goal, onOpenDetail, onEdit, onDelete, onArchiveToggle,
         overdue ? 'border-ember/40 hover:border-ember/60' : 'border-parchment/12 hover:border-gold/35'
       }`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         {/* Clickable main area */}
-        <button onClick={onOpenDetail} className="min-w-0 flex-1 text-left">
+        <button onClick={onOpenDetail} className="min-w-0 basis-full text-left sm:flex-1 sm:basis-0">
           <p className={`truncate text-sm ${goal.isDraft ? 'text-parchment/70 italic' : 'text-parchment'}`}>{excerpt}</p>
           <p className="mt-0.5 font-mono text-[11px] text-parchment/40">
             {format(new Date(goal.startDate), 'MMM yyyy')} → {format(new Date(goal.targetDate), 'MMM yyyy')}
@@ -56,7 +56,7 @@ export function GoalRow({ goal, onOpenDetail, onEdit, onDelete, onArchiveToggle,
             onClick={() => onMove(-1)}
             disabled={moveDisabledUp}
             aria-label="Move goal up"
-            className="rounded p-1.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment disabled:opacity-25"
+            className="rounded p-1.5 max-lg:p-2.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment disabled:opacity-25"
           >
             <ArrowUp className="h-3.5 w-3.5" />
           </button>
@@ -64,17 +64,17 @@ export function GoalRow({ goal, onOpenDetail, onEdit, onDelete, onArchiveToggle,
             onClick={() => onMove(1)}
             disabled={moveDisabledDown}
             aria-label="Move goal down"
-            className="rounded p-1.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment disabled:opacity-25"
+            className="rounded p-1.5 max-lg:p-2.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment disabled:opacity-25"
           >
             <ArrowDown className="h-3.5 w-3.5" />
           </button>
-          <button onClick={onEdit} aria-label="Edit goal" className="rounded p-1.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment">
+          <button onClick={onEdit} aria-label="Edit goal" className="rounded p-1.5 max-lg:p-2.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment">
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button onClick={onArchiveToggle} aria-label={goal.archived ? 'Unarchive goal' : 'Archive goal'} className="rounded p-1.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment">
+          <button onClick={onArchiveToggle} aria-label={goal.archived ? 'Unarchive goal' : 'Archive goal'} className="rounded p-1.5 max-lg:p-2.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment">
             {goal.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
           </button>
-          <button onClick={onDelete} aria-label="Delete goal" className="rounded p-1.5 text-ember/70 transition-colors hover:bg-ember/20 hover:text-[#CD8B70]">
+          <button onClick={onDelete} aria-label="Delete goal" className="rounded p-1.5 max-lg:p-2.5 text-ember/70 transition-colors hover:bg-ember/20 hover:text-[#CD8B70]">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>

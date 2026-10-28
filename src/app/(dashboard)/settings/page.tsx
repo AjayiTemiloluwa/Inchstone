@@ -13,10 +13,12 @@ import { Loader } from '@/components/ui/Loader'
 import { GoogleCalendarCard } from '@/components/ui/GoogleCalendarCard'
 import { WidgetCard } from '@/components/ui/WidgetCard'
 import { Scramble } from '@/components/ui/motion'
+import { useToast } from '@/components/ui/ToastProvider'
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser()
-  const { promptInstall } = useInstallPrompt()
+  const { promptInstall, installHint, dismissInstallHint } = useInstallPrompt()
+  const { showToast, confirm } = useToast()
   const [seeding, setSeeding] = useState(false)
   const [dangerOpen, setDangerOpen] = useState(false)
   const [emailStatus, setEmailStatus] = useState<{
@@ -43,45 +45,45 @@ export default function SettingsPage() {
   }, [])
 
   const handleSeedFramework = async () => {
-    if (!confirm('This will create the default structure for the current year (it is normally created automatically). Proceed?')) return
+    if (!(await confirm('This will create the default structure for the current year (it is normally created automatically). Proceed?'))) return
     setSeeding(true)
     try {
       const res = await fetch('/api/seed', { method: 'POST' })
       if (!res.ok) {
         const data = await res.json()
-        alert(data.error || 'Failed to seed framework')
+        showToast(data.error || 'Failed to seed framework', 'error')
       } else {
-        alert('Framework seeded.')
-        window.location.reload()
+        showToast('Framework seeded.', 'success')
+        setTimeout(() => window.location.reload(), 800)
       }
     } catch {
-      alert('Error seeding framework')
+      showToast('Error seeding framework', 'error')
     } finally {
       setSeeding(false)
     }
   }
 
   const handleResetFramework = async () => {
-    if (!confirm('WARNING: This will delete all items, tasks, habits, financial entries, notes, reviews, events, trackers, and settings, then reseed the framework. This cannot be undone.')) return
-    if (!confirm('Are you absolutely sure? This permanently deletes all your data.')) return
+    if (!(await confirm('WARNING: This will delete all items, tasks, habits, financial entries, notes, reviews, events, trackers, and settings, then reseed the framework. This cannot be undone.'))) return
+    if (!(await confirm('Final check: are you absolutely sure? This permanently deletes all your data.'))) return
     setSeeding(true)
     try {
       const resetRes = await fetch('/api/reset', { method: 'POST' })
       if (!resetRes.ok) {
         const data = await resetRes.json()
-        alert(data.error || 'Failed to reset data')
+        showToast(data.error || 'Failed to reset data', 'error')
         return
       }
       const seedRes = await fetch('/api/seed', { method: 'POST' })
       if (!seedRes.ok) {
         const data = await seedRes.json()
-        alert(data.error || 'Failed to seed framework')
+        showToast(data.error || 'Failed to seed framework', 'error')
       } else {
-        alert('Data reset and framework seeded.')
-        window.location.reload()
+        showToast('Data reset and framework seeded.', 'success')
+        setTimeout(() => window.location.reload(), 800)
       }
     } catch {
-      alert('Error resetting data')
+      showToast('Error resetting data', 'error')
     } finally {
       setSeeding(false)
     }
@@ -92,23 +94,23 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-[720px] mx-auto space-y-8 pb-24">
+    <div className="max-w-[720px] lg:max-w-3xl mx-auto space-y-8 pb-24">
       <h1 className="text-h1 text-parchment"><Scramble text="Settings" mono={false} /></h1>
 
       {/* Profile */}
       <Card className="space-y-4 p-5 border hairline">
         <h2 className="text-heading text-parchment">Profile</h2>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-mist flex items-center justify-center text-2xl font-bold text-parchment/50 overflow-hidden">
+          <div className="w-16 h-16 shrink-0 rounded-full bg-mist flex items-center justify-center text-2xl font-bold text-parchment/50 overflow-hidden">
             {user?.imageUrl ? (
               <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               user?.firstName?.charAt(0) || '?'
             )}
           </div>
-          <div>
-            <p className="font-semibold text-parchment">{user?.fullName || 'User'}</p>
-            <p className="text-sm text-parchment/60">{user?.primaryEmailAddress?.emailAddress || 'No email'}</p>
+          <div className="min-w-0">
+            <p className="font-semibold text-parchment break-words">{user?.fullName || 'User'}</p>
+            <p className="text-sm text-parchment/60 break-all">{user?.primaryEmailAddress?.emailAddress || 'No email'}</p>
             <p className="text-xs text-parchment/40 mt-1">Account managed via Clerk</p>
           </div>
         </div>
@@ -186,8 +188,8 @@ export default function SettingsPage() {
       {/* Notifications */}
       <Card className="space-y-5 p-5 border hairline">
         <h2 className="text-heading text-parchment">Notifications</h2>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="font-medium text-parchment">Push Notifications</p>
             <p className="text-sm text-parchment/60 mt-1">Get notified for nudges and reminders.</p>
           </div>
@@ -231,11 +233,17 @@ export default function SettingsPage() {
           <button
             onClick={promptInstall}
             data-cursor="Put Inchstone in your pocket"
-            className="rounded-md bg-gold px-6 py-3 text-body font-semibold text-ink hover:bg-gold-glow transition-colors"
+            className="rounded-md bg-gold px-6 py-3 text-body font-semibold text-ink hover:bg-gold-glow transition-colors w-full sm:w-auto"
           >
             Install
           </button>
         </div>
+        {installHint && (
+          <div role="status" className="flex items-start justify-between gap-3 rounded-md border hairline bg-parchment/5 px-4 py-3 text-sm text-parchment/80">
+            <span>{installHint}</span>
+            <button onClick={dismissInstallHint} className="shrink-0 text-xs font-bold text-gold hover:text-gold-glow">Dismiss</button>
+          </div>
+        )}
       </Card>
 
       {/* Danger zone — collapsed by default */}
@@ -263,7 +271,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleSeedFramework}
                 disabled={seeding}
-                className="rounded-md border hairline px-4 py-2 text-sm text-parchment hover:border-gold transition-colors flex items-center gap-2 disabled:opacity-50"
+                className="rounded-md border hairline px-4 py-2.5 sm:py-2 text-sm text-parchment hover:border-gold transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 <Database className="w-4 h-4" strokeWidth={1.5} />
                 {seeding ? 'Working…' : 'Seed'}
@@ -278,7 +286,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleResetFramework}
                 disabled={seeding}
-                className="rounded-md border border-ember/40 px-4 py-2 text-sm text-[#cf8f78] hover:bg-ember/15 transition-colors disabled:opacity-50"
+                className="rounded-md border border-ember/40 px-4 py-2.5 sm:py-2 text-sm text-[#cf8f78] hover:bg-ember/15 transition-colors disabled:opacity-50"
               >
                 {seeding ? 'Working…' : 'Reset & Seed'}
               </button>

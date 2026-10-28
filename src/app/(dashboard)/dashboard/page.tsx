@@ -63,7 +63,7 @@ function LedgerCell({
 }) {
   return (
     <div className="flex min-w-0 flex-col px-4 first:pl-0 last:pr-0 sm:px-7">
-      <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-parchment/35">{label}</p>
+      <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-parchment/35 sm:tracking-[0.26em]">{label}</p>
       <div className="mt-3 flex min-h-[3.25rem] items-center">
         <p className="font-display text-[2rem] leading-none text-parchment tabular-nums sm:text-[2.6rem]">
           <CountUp value={value ?? 0} duration={1100} format={n => `${Math.round(n)}${suffix}`} />
@@ -290,7 +290,7 @@ export default function DashboardPage() {
             : todWord
 
   return (
-    <div className="mx-auto max-w-[880px] space-y-8 px-1 pb-28 pt-2 sm:space-y-10 sm:pt-4">
+    <div className="mx-auto max-w-[880px] space-y-8 px-1 pb-28 lg:max-w-[960px] pt-2 sm:space-y-10 sm:pt-4">
       {/* ── Meta strip + greeting hero (single card, instrument at rest) ── */}
       <div className={CARD}>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b hairline-bottom pb-3.5">
@@ -451,7 +451,7 @@ export default function DashboardPage() {
             <button
               onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
               data-cursor="Open today"
-              className="flex shrink-0 items-center gap-1 font-mono text-xs uppercase tracking-[0.18em] text-parchment/45 transition-colors hover:text-parchment"
+              className="flex shrink-0 items-center gap-1 py-2 font-mono text-xs uppercase tracking-[0.18em] text-parchment/45 transition-colors hover:text-parchment"
             >
               Open day
               <ArrowRight className="h-3.5 w-3.5" />
@@ -494,7 +494,7 @@ export default function DashboardPage() {
                         e.stopPropagation()
                         toggleDeed(deed, !done)
                       }}
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-200 ${
+                      className={`flex h-7 w-7 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-200 ${
                         done ? 'border-moss bg-moss text-ink' : 'border-gold-dim/40 hover:border-gold'
                       }`}
                     >
@@ -525,7 +525,7 @@ export default function DashboardPage() {
             <button
               onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
               data-cursor="Sketch the day"
-              className="text-sm font-medium text-gold transition-colors hover:text-gold/80"
+              className="py-2 text-sm font-medium text-gold transition-colors hover:text-gold/80"
             >
               Plan the day
             </button>
@@ -557,7 +557,7 @@ export default function DashboardPage() {
           <button
             onClick={() => setNudgeDismissed(true)}
             aria-label="Dismiss nudge"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-parchment/45 transition-colors hover:text-parchment"
+            className="-m-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-parchment/45 transition-colors hover:text-parchment sm:m-0 sm:h-8 sm:w-8"
           >
             <X className="h-4 w-4" />
           </button>
@@ -588,7 +588,7 @@ export default function DashboardPage() {
         <button
           onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
           data-cursor="Sketch the day"
-          className="rounded-full border hairline px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-parchment/55 transition-colors hover:border-gold/40 hover:text-gold"
+          className="rounded-full border hairline px-5 py-3 sm:py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-parchment/55 transition-colors hover:border-gold/40 hover:text-gold"
         >
           Plan today
         </button>

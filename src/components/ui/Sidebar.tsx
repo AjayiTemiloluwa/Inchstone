@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, ChevronLeft, ChevronRight, Target, FlaskConical } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, ChevronLeft, ChevronRight, Target, FlaskConical, CalendarRange, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { WorkClock } from '@/components/ui/WorkClock'
 
@@ -14,12 +14,14 @@ export function Sidebar() {
     { name: 'Dashboard', href: '/dashboard', icon: Home, hint: 'Your home base' },
     { name: 'Finance', href: '/finance', icon: DollarSign, hint: 'Count your coins' },
     { name: 'Calendar', href: '/calendar', icon: CalendarDays, hint: 'Mark the days' },
+    { name: 'This Week', href: '/week', icon: CalendarRange, hint: 'Seven days at a glance' },
     { name: 'Year View', href: '/year', icon: Calendar, hint: 'The long view' },
     { name: 'Challenge', href: '/challenge', icon: FlaskConical, hint: 'Fill the bottles' },
     { name: 'Long-Term', href: '/plans', icon: Target, hint: 'Dream in decades' },
     { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people' },
     { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down' },
     { name: 'Reports', href: '/reports', icon: BarChart3, hint: 'See the patterns' },
+    { name: 'Atelier', href: '/atelier', icon: Sparkles, hint: 'The living showcase' },
     { name: 'Settings', href: '/settings', icon: Settings, hint: 'Make it yours' },
   ]
 
@@ -49,7 +51,7 @@ export function Sidebar() {
         </div>
 
         {/* Nav Links */}
-        <nav className="flex-1 px-3 space-y-0.5 mt-2">
+        <nav aria-label="Primary" className="flex-1 min-h-0 overflow-y-auto px-3 space-y-0.5 mt-2">
           {links.map((link) => {
             const Icon = link.icon
             const active = isActive(link.href)
@@ -59,6 +61,7 @@ export function Sidebar() {
                 href={link.href}
                 title={collapsed ? link.name : undefined}
                 data-cursor={link.hint}
+                aria-current={active ? 'page' : undefined}
                 className={`relative flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
                   active ? 'text-parchment' : 'text-parchment/55 hover:text-parchment/85 hover:bg-mist'
                 }`}

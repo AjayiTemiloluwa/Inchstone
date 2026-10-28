@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
+import { useDialog } from '@/components/ui/useDialog'
 import {
   QUICK_PICKS,
   cadenceOptionsForSpan,
@@ -28,6 +29,7 @@ const LABEL = 'text-[10px] font-bold uppercase tracking-wider text-parchment/50'
  * initializes straight from `initial` — no reset effects needed.
  */
 export function PlanFormModal({ initial, onClose, onSaved }: Props) {
+  const dialogRef = useDialog<HTMLDivElement>(true, onClose)
   const [title, setTitle] = useState(initial?.title ?? '')
   const [startMonth, setStartMonth] = useState(initial?.startMonth ?? '')
   const [endMonth, setEndMonth] = useState(initial?.endMonth ?? '')
@@ -81,12 +83,14 @@ export function PlanFormModal({ initial, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[8px] border hairline bg-ink p-6 space-y-5" data-lenis-prevent
+        className="w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-[8px] border hairline bg-ink p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6 space-y-5" data-lenis-prevent
         onClick={e => e.stopPropagation()}
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
       >
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl text-parchment">{initial ? 'Edit Plan' : 'New Long-Term Plan'}</h2>

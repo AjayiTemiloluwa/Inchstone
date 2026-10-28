@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useToast } from '@/components/ui/ToastProvider'
 import { X, Search, Trash2 } from 'lucide-react'
+import { useDialog } from '@/components/ui/useDialog'
 
 interface Entry {
   id: string
@@ -55,6 +56,7 @@ export function BottleContentsModal({
   onChanged: () => void
 }) {
   const { showToast, confirm } = useToast()
+  const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [bottle, setBottle] = useState<BottleInfo | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
@@ -125,18 +127,18 @@ export function BottleContentsModal({
     }
   }, [bottleId, fetchContents, apply])
 
-  // Esc to close + scroll lock while open
+  // Scroll lock while open
   useEffect(() => {
     if (!bottleId) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
     }
-  }, [bottleId, onClose])
+  }, [bottleId])
+
+  // Esc / focus trap; paused while the nested confirm dialog is on top
+  const dialogRef = useDialog<HTMLDivElement>(!!bottleId && !confirming, onClose)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -163,7 +165,8 @@ export function BottleContentsModal({
   }, [filtered])
 
   const handleRemove = async (entry: Entry) => {
-    const ok = await confirm(`Remove the ${entry.amount.toLocaleString()} pour from this bottle?`)
+    setConfirming(true)
+    const ok = await confirm(`Remove the ${entry.amount.toLocaleString()} pour from this bottle?`).finally(() => setConfirming(false))
     if (!ok || !bottleId) return
     setRemoving(true)
     try {
@@ -191,18 +194,20 @@ export function BottleContentsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/70 backdrop-blur-sm p-0 sm:p-4"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         data-lenis-prevent
-        className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid text-parchment shadow-2xl"
+        className="relative flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl pb-[env(safe-area-inset-bottom)] sm:rounded-[8px] sm:pb-0 border border-gold-dim/25 bg-surface-solid text-parchment shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex shrink-0 items-start gap-3 border-b border-white/10 px-6 pt-6 pb-4">
+        <div className="flex shrink-0 items-start gap-3 border-b border-white/10 px-4 pt-5 pb-4 sm:px-6 sm:pt-6">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gold-dim/30 bg-gold/10 text-2xl">
             {bottle?.emoji || '🫙'}
           </span>
@@ -216,7 +221,7 @@ export function BottleContentsModal({
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 rounded-md p-1.5 text-parchment/40 transition hover:bg-white/10 hover:text-parchment"
+            className="shrink-0 rounded-md p-2.5 sm:p-1.5 text-parchment/40 transition hover:bg-white/10 hover:text-parchment"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -224,7 +229,7 @@ export function BottleContentsModal({
         </div>
 
         {/* Scrollable middle — search, stats, and pour history scroll as one */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6">
         <div className="border-b border-white/10 py-4">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-parchment/35" />
@@ -286,7 +291,7 @@ export function BottleContentsModal({
                     <button
                       onClick={() => handleRemove(e)}
                       disabled={removing}
-                      className="shrink-0 rounded-md p-1 text-parchment/25 opacity-0 transition hover:bg-ember/15 hover:text-[#cf8f78] focus:opacity-100 group-hover:opacity-100 disabled:opacity-40"
+                      className="shrink-0 rounded-md p-2 sm:p-1 text-parchment/25 opacity-0 transition hover:bg-ember/15 hover:text-[#cf8f78] focus:opacity-100 group-hover:opacity-100 disabled:opacity-40"
                       aria-label="Remove pour"
                       title="Remove pour"
                     >
@@ -302,7 +307,7 @@ export function BottleContentsModal({
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 border-t border-white/10 px-6 py-3">
+        <div className="shrink-0 border-t border-white/10 px-4 py-3 sm:px-6">
           <p className="text-center font-mono text-[11px] text-parchment/35">
             {query
               ? `${filtered.length} of ${entries.length} pours shown`

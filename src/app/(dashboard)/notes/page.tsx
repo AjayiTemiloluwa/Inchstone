@@ -53,16 +53,16 @@ export default function NotesPage() {
   if (loading) return <Loader routeKey="notes" />
 
   return (
-    <div className="max-w-[720px] mx-auto space-y-6 pb-24">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="max-w-[720px] lg:max-w-5xl mx-auto space-y-6 pb-24">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-h1 text-parchment"><Scramble text="Notes" mono={false} /></h1>
           <p className="mt-1 font-mono text-xs text-parchment/50">Rich text notes with PDF export</p>
         </div>
         <button
           onClick={() => { setEditingNote(null); setShowModal(true) }}
           data-cursor="Start a fresh page"
-          className="rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors flex items-center gap-2"
+          className="rounded-md bg-gold px-4 py-3 sm:py-2.5 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           <span>New Note</span>
@@ -77,13 +77,13 @@ export default function NotesPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {notes.map(note => (
             <Card key={note.id} className="hover:border-gold/40 transition-colors flex flex-col">
-              <div className="flex-1">
-                <h3 className="font-semibold text-parchment mb-2">{note.title}</h3>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-parchment mb-2 break-words">{note.title}</h3>
                 <div
-                  className="text-sm text-parchment/70 line-clamp-3 prose prose-sm max-w-none"
+                  className="text-sm text-parchment/70 line-clamp-3 break-words prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{ __html: note.content }}
                 />
                 <div className="flex items-center gap-2 mt-3">
@@ -93,7 +93,7 @@ export default function NotesPage() {
                   {note.itemId && (
                     <Link
                       href={`/day/${new Date(note.itemId).toISOString().split('T')[0]}`}
-                      className="font-mono text-[11px] text-gold hover:text-gold/80"
+                      className="font-mono text-[11px] text-gold hover:text-gold/80 py-1"
                     >
                       View Day
                     </Link>
@@ -103,14 +103,14 @@ export default function NotesPage() {
               <div className="mt-4 flex items-center gap-2 border-t border-gold-dim/15 pt-3">
                 <button
                   onClick={() => handleEdit(note)}
-                  className="flex-1 rounded-md border hairline px-3 py-1.5 text-xs text-parchment/80 hover:border-gold transition-colors"
+                  className="flex-1 rounded-md border hairline px-3 py-2.5 sm:py-1.5 text-xs text-parchment/80 hover:border-gold transition-colors"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => handleDownload(note)}
                   aria-label="Download note"
-                  className="rounded-md border hairline px-3 py-1.5 text-parchment/80 hover:border-gold transition-colors flex items-center gap-1"
+                  className="rounded-md border hairline px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-parchment/80 hover:border-gold transition-colors flex items-center gap-1"
                 >
                   <Download className="w-3 h-3" strokeWidth={1.5} />
                 </button>

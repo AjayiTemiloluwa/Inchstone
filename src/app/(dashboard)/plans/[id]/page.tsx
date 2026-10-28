@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import { usePlansStore } from '@/stores/plansStore'
+import { useToast } from '@/components/ui/ToastProvider'
 import { Segmented } from '@/components/ui/Segmented'
 import { PlanFormModal } from '@/components/plans/PlanFormModal'
 import { SectionList } from '@/components/plans/SectionList'
@@ -25,6 +26,7 @@ export default function PlanDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
   const router = useRouter()
+  const { confirm } = useToast()
   const { currentPlan, loadingPlan, planError, fetchPlan, deletePlan, fetchTrackerItems } = usePlansStore()
 
   const [tab, setTab] = useState<TabKey>('overview')
@@ -74,7 +76,7 @@ export default function PlanDetailPage() {
     .flatMap(s => (s.goals ?? []).filter(g => !g.archived).map(g => g.status))
 
   const handleDeletePlan = async () => {
-    if (!window.confirm(`Delete “${plan.title}” with all sections, goals and history? This cannot be undone.`)) return
+    if (!(await confirm(`Delete “${plan.title}” with all sections, goals and history? This cannot be undone.`))) return
     const ok = await deletePlan(plan.id)
     if (ok) router.push('/plans')
   }

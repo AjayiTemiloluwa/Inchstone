@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 
 export interface SavedReflection {
@@ -23,6 +23,21 @@ interface ReflectionPickerProps {
   className?: string
 }
 
+async function fetchReflectionList(timePeriod: string, periodKey: string): Promise<SavedReflection[] | null> {
+  try {
+    const url = new URL('/api/reflections', window.location.origin)
+    url.searchParams.set('timePeriod', timePeriod)
+    url.searchParams.set('periodKey', periodKey)
+    const res = await fetch(url.toString())
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.reflections || []
+  } catch (e) {
+    console.error('Failed to fetch reflections', e)
+    return null
+  }
+}
+
 export function ReflectionPicker({
   timePeriod,
   periodKey,
@@ -32,31 +47,30 @@ export function ReflectionPicker({
   className = '',
 }: ReflectionPickerProps) {
   const [reflections, setReflections] = useState<SavedReflection[]>([])
-  const [loading, setLoading] = useState(false)
+  // Which period the current `reflections` belong to; loading is derived from it
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
+  const periodId = `${timePeriod}:${periodKey}`
+  const loading = loadedKey !== periodId
   const [creating, setCreating] = useState(false)
   const [newContent, setNewContent] = useState('')
-  const [deleteTimer, setDeleteTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchReflections = useCallback(async () => {
-    setLoading(true)
-    try {
-      const url = new URL('/api/reflections', window.location.origin)
-      url.searchParams.set('timePeriod', timePeriod)
-      url.searchParams.set('periodKey', periodKey)
-      const res = await fetch(url.toString())
-      if (!res.ok) return
-      const data = await res.json()
-      setReflections(data.reflections || [])
-    } catch (e) {
-      console.error('Failed to fetch reflections', e)
-    } finally {
-      setLoading(false)
-    }
-  }, [timePeriod, periodKey])
+  // Reload after a failed delete (resolves to the list, or null on failure)
+  const refetch = useCallback(
+    () => fetchReflectionList(timePeriod, periodKey).then(list => { if (list) setReflections(list) }),
+    [timePeriod, periodKey],
+  )
 
   useEffect(() => {
-    fetchReflections()
-  }, [fetchReflections])
+    let cancelled = false
+    fetchReflectionList(timePeriod, periodKey).then(list => {
+      if (cancelled) return
+      if (list) setReflections(list)
+      setLoadedKey(`${timePeriod}:${periodKey}`)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [timePeriod, periodKey])
 
   const handleSelect = (content: string) => {
     onSelect(content)
@@ -94,15 +108,14 @@ export function ReflectionPicker({
   }
 
   const handleDelete = async (id: string) => {
-    if (deleteTimer) clearTimeout(deleteTimer)
     setReflections(prev => prev.filter(r => r.id !== id))
     try {
       const res = await fetch(`/api/reflections/${id}`, { method: 'DELETE' })
       if (!res.ok) {
-        await fetchReflections()
+        await refetch()
       }
     } catch {
-      await fetchReflections()
+      await refetch()
     }
   }
 
@@ -122,13 +135,19 @@ export function ReflectionPicker({
           Saved reflections
         </span>
         {creating ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <textarea
               value={newContent}
               onChange={e => setNewContent(e.target.value)}
               placeholder="New reflection template…"
-              className="w-48 h-8 bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
+              className="w-full min-w-0 sm:w-48 h-9 bg-black/20 border border-white/10 rounded-lg p-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
               onKeyDown={e => {
+                if (e.key === 'Escape') {
+                  e.stopPropagation()
+                  setCreating(false)
+                  setNewContent('')
+                  return
+                }
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   void handleSaveNew()
@@ -177,8 +196,9 @@ export function ReflectionPicker({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); void handleDelete(r.id) }}
-                className="p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]"
+                className="p-1.5 opacity-0 group-hover:opacity-100 max-lg:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]"
                 title="Delete template"
+                aria-label="Delete template"
               >
                 <span className="w-3 h-3">✕</span>
               </button>

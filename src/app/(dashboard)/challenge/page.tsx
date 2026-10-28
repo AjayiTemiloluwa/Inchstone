@@ -270,10 +270,10 @@ export default function ChallengePage() {
   const grandTotal = bottles.reduce((s, b) => s + b.total, 0)
 
   return (
-    <div className="max-w-[720px] mx-auto space-y-6 pb-24">
+    <div className="max-w-[720px] lg:max-w-[960px] mx-auto space-y-6 pb-24">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-h1 text-parchment"><Scramble text="Challenge" mono={false} /></h1>
           <p className="mt-1 font-mono text-xs text-parchment/50">
             Fill the bottles · {bottles.length} bottle{bottles.length === 1 ? '' : 's'} · {grandTotal.toLocaleString()} poured
@@ -282,7 +282,7 @@ export default function ChallengePage() {
         <button
           onClick={() => setShowCreate(v => !v)}
           data-cursor="Start a new bottle"
-          className="rounded-md bg-gold px-4 py-2.5 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors flex items-center gap-2"
+          className="rounded-md bg-gold px-4 py-3 sm:py-2.5 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" strokeWidth={1.5} />
           <span>New Bottle</span>
@@ -312,7 +312,7 @@ export default function ChallengePage() {
         <Card className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wider text-parchment/50">New bottle</p>
-            <button onClick={() => setShowCreate(false)} className="p-1 rounded-md text-parchment/45 hover:text-parchment transition" aria-label="Cancel">
+            <button onClick={() => setShowCreate(false)} className="p-2 -m-1 rounded-md text-parchment/45 hover:text-parchment transition" aria-label="Cancel">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -337,7 +337,7 @@ export default function ChallengePage() {
               value={newUnit}
               onChange={e => setNewUnit(e.target.value)}
               placeholder="Unit — e.g. press-ups"
-              className="rounded-md border hairline bg-transparent px-3 py-2 text-sm text-parchment placeholder:text-parchment/30 focus:border-gold focus:outline-none"
+              className="col-span-2 sm:col-span-1 rounded-md border hairline bg-transparent px-3 py-2 text-sm text-parchment placeholder:text-parchment/30 focus:border-gold focus:outline-none"
               aria-label="Unit"
             />
             <input
@@ -345,14 +345,14 @@ export default function ChallengePage() {
               onChange={e => setNewTarget(e.target.value)}
               inputMode="decimal"
               placeholder="Target (optional)"
-              className="rounded-md border hairline bg-transparent px-3 py-2 text-sm text-parchment placeholder:text-parchment/30 focus:border-gold focus:outline-none"
+              className="col-span-2 sm:col-span-1 rounded-md border hairline bg-transparent px-3 py-2 text-sm text-parchment placeholder:text-parchment/30 focus:border-gold focus:outline-none"
               aria-label="Target amount"
             />
           </div>
           <button
             onClick={handleCreate}
             disabled={saving}
-            className="flex items-center gap-2 rounded-md bg-gold px-4 py-2 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors disabled:opacity-60"
+            className="flex items-center gap-2 rounded-md bg-gold px-4 py-3 sm:py-2 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors disabled:opacity-60"
           >
             <Check className="w-4 h-4" strokeWidth={1.5} />
             <span>{saving ? 'Creating…' : 'Create Bottle'}</span>
@@ -402,7 +402,7 @@ export default function ChallengePage() {
                   </div>
                   <ChevronDown
                     onClick={() => setExpandedId(expanded ? null : bottle.id)}
-                    className={`w-4 h-4 shrink-0 transition-transform ${expanded ? 'rotate-180 text-gold' : 'text-parchment/40'}`}
+                    className={`box-content cursor-pointer p-2 -m-2 w-4 h-4 shrink-0 transition-transform ${expanded ? 'rotate-180 text-gold' : 'text-parchment/40'}`}
                   />
                 </div>
 
@@ -431,19 +431,19 @@ export default function ChallengePage() {
                         autoFocus
                         inputMode="decimal"
                         placeholder="e.g. 10000"
-                        className="w-24 rounded-md border border-ink/40 bg-ink/50 px-2 py-1 font-mono text-xs text-parchment placeholder:text-parchment/25 focus:border-gold focus:outline-none"
+                        className="w-24 rounded-md border border-ink/40 bg-ink/50 px-2 py-1.5 font-mono text-xs text-parchment placeholder:text-parchment/25 focus:border-gold focus:outline-none"
                         aria-label={`Target for ${bottle.name}`}
                       />
                       <button
                         onClick={() => handleSaveTarget(bottle)}
-                        className="rounded-md bg-gold p-1 text-ink transition hover:bg-gold-glow"
+                        className="rounded-md bg-gold p-2 sm:p-1 text-ink transition hover:bg-gold-glow"
                         title="Save target"
                       >
                         <Check className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setTargetEditId(null)}
-                        className="rounded-md p-1 text-parchment/45 transition hover:bg-white/10 hover:text-parchment"
+                        className="rounded-md p-2 sm:p-1 text-parchment/45 transition hover:bg-white/10 hover:text-parchment"
                         title="Cancel"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -452,7 +452,7 @@ export default function ChallengePage() {
                   ) : (
                     <button
                       onClick={() => openTargetEditor(bottle)}
-                      className="group/target flex items-center gap-1.5 rounded-md border border-dashed border-white/15 px-2 py-1 font-mono text-[10px] text-parchment/45 transition hover:border-gold/50 hover:text-parchment/70"
+                      className="group/target flex items-center gap-1.5 rounded-md border border-dashed border-white/15 px-2.5 py-2 sm:px-2 sm:py-1 font-mono text-[10px] text-parchment/45 transition hover:border-gold/50 hover:text-parchment/70"
                       title={bottle.target != null ? 'Edit target' : 'Set a target'}
                     >
                       <span className="text-parchment/50">🎯</span>
@@ -491,14 +491,14 @@ export default function ChallengePage() {
                       />
                       <button
                         onClick={() => handleSaveChallenge(bottle)}
-                        className="rounded-md bg-gold p-1.5 text-ink transition hover:bg-gold-glow"
+                        className="rounded-md bg-gold p-2.5 sm:p-1.5 text-ink transition hover:bg-gold-glow"
                         title="Save challenge (Ctrl+Enter)"
                       >
                         <Check className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setChallengeEditId(null)}
-                        className="rounded-md p-1.5 text-parchment/45 transition hover:bg-white/10 hover:text-parchment"
+                        className="rounded-md p-2.5 sm:p-1.5 text-parchment/45 transition hover:bg-white/10 hover:text-parchment"
                         title="Cancel"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -514,7 +514,7 @@ export default function ChallengePage() {
                     </div>
                     <button
                       onClick={() => openChallengeEditor(bottle)}
-                      className="shrink-0 rounded p-1 text-parchment/30 opacity-0 transition group-hover/chal:opacity-100 hover:bg-white/10 hover:text-gold"
+                      className="shrink-0 rounded p-2 sm:p-1 text-parchment/30 opacity-0 transition group-hover/chal:opacity-100 hover:bg-white/10 hover:text-gold"
                       title="Edit challenge"
                     >
                       <Pencil className="w-3 h-3" />
@@ -538,13 +538,13 @@ export default function ChallengePage() {
                     onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(bottle) }}
                     inputMode="decimal"
                     placeholder={bottle.unit ? `Amount (${bottle.unit})` : 'Amount'}
-                    className="min-w-0 flex-1 rounded-lg border border-ink/40 bg-ink/50 px-3 py-2 font-mono text-xs text-parchment placeholder:text-parchment/25 focus:border-gold focus:outline-none"
+                    className="min-w-0 flex-1 rounded-lg border border-ink/40 bg-ink/50 px-3 py-2.5 sm:py-2 font-mono text-xs text-parchment placeholder:text-parchment/25 focus:border-gold focus:outline-none"
                     aria-label={`Pour amount for ${bottle.name}`}
                   />
                   <button
                     onClick={() => handleQuickAdd(bottle)}
                     disabled={saving}
-                    className="shrink-0 rounded-lg bg-gold px-3.5 py-2 text-xs font-bold text-ink hover:bg-gold-glow transition disabled:opacity-60"
+                    className="shrink-0 rounded-lg bg-gold px-4 py-2.5 sm:px-3.5 sm:py-2 text-xs font-bold text-ink hover:bg-gold-glow transition disabled:opacity-60"
                   >
                     Pour
                   </button>
@@ -554,7 +554,7 @@ export default function ChallengePage() {
                 <div className="flex items-center justify-between">
                   <button
                     onClick={() => setExpandedId(expanded ? null : bottle.id)}
-                    className="flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-parchment/45 transition hover:text-gold"
+                    className="flex shrink-0 items-center gap-1 py-2 sm:py-0 font-mono text-[10px] uppercase tracking-wider text-parchment/45 transition hover:text-gold"
                     data-cursor="See the pour log"
                   >
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
@@ -563,7 +563,7 @@ export default function ChallengePage() {
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       onClick={() => setViewingId(bottle.id)}
-                      className="rounded-md p-1.5 text-parchment/35 transition hover:bg-white/10 hover:text-gold"
+                      className="rounded-md p-2.5 sm:p-1.5 text-parchment/35 transition hover:bg-white/10 hover:text-gold"
                       title="See everything in this bottle"
                       data-cursor="Open the bottle"
                     >
@@ -571,7 +571,7 @@ export default function ChallengePage() {
                     </button>
                     <button
                       onClick={() => handleDeleteBottle(bottle)}
-                      className="rounded-md p-1.5 text-parchment/35 transition hover:bg-ember/15 hover:text-[#e0a093]"
+                      className="rounded-md p-2.5 sm:p-1.5 text-parchment/35 transition hover:bg-ember/15 hover:text-[#e0a093]"
                       title="Delete bottle"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -591,7 +591,7 @@ export default function ChallengePage() {
                         </span>
                         <button
                           onClick={() => handleDeleteEntry(bottle.id, entry.id)}
-                          className="shrink-0 rounded p-1 text-parchment/30 transition hover:bg-ember/15 hover:text-[#e0a093]"
+                          className="shrink-0 rounded p-2 sm:p-1 text-parchment/30 transition hover:bg-ember/15 hover:text-[#e0a093]"
                           title="Remove pour"
                         >
                           <X className="w-3 h-3" />

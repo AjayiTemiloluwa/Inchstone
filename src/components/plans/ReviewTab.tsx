@@ -184,7 +184,7 @@ export function ReviewTab({ plan }: { plan: LongTermPlanRecord }) {
             <p className="font-mono text-[11px] uppercase tracking-wider text-parchment/40">
               Goal {idx + 1} of {walkItems.length}
             </p>
-            <div className="flex h-1 w-40 overflow-hidden rounded-full bg-parchment/10">
+            <div className="flex h-1 w-24 sm:w-40 overflow-hidden rounded-full bg-parchment/10">
               <div className="bg-gold transition-all" style={{ width: `${((idx + 1) / walkItems.length) * 100}%` }} />
             </div>
           </div>

@@ -1,6 +1,6 @@
-﻿﻿'use client'
+﻿'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState } from 'react'
 
 interface Entry {
     id: string
@@ -21,16 +21,102 @@ interface Purse {
     color: string
 }
 
+type SortKey = 'date' | 'amount' | 'category'
+
+const PAGE_SIZE = 50
+
+const fieldClass =
+    'w-full bg-white/5 border border-white/10 rounded-lg py-2.5 md:py-2 px-3 text-sm text-parchment focus:outline-none focus:border-gold/40 min-h-[40px]'
+const labelClass = 'block text-xs text-parchment/50 mb-1'
+const thClass = 'p-3 font-semibold text-parchment/50 text-xs uppercase'
+const cardClass = 'bg-surface-solid border-hairline rounded-xl border border-white/10'
+
+function calculatePurseBreakdown(entries: Entry[]) {
+    const breakdown: Record<string, { income: number; expense: number; net: number }> = {}
+    entries.forEach(e => {
+        if (!breakdown[e.purse]) breakdown[e.purse] = { income: 0, expense: 0, net: 0 }
+        if (e.type === 'income' || e.type === 'transfer_in') breakdown[e.purse].income += e.amount
+        if (e.type === 'expense' || e.type === 'transfer_out') breakdown[e.purse].expense += e.amount
+        breakdown[e.purse].net = breakdown[e.purse].income - breakdown[e.purse].expense
+    })
+    return breakdown
+}
+
+function calculateMonthlyTrend(entries: Entry[]) {
+    const trend: Record<string, { income: number; expense: number }> = {}
+    entries.forEach(e => {
+        const month = e.entryDate.slice(0, 7)
+        if (!trend[month]) trend[month] = { income: 0, expense: 0 }
+        if (e.type === 'income') trend[month].income += e.amount
+        if (e.type === 'expense') trend[month].expense += e.amount
+    })
+    return trend
+}
+
+const isCredit = (type: string) => type === 'income' || type === 'transfer_in'
+
+function TypeBadge({ type }: { type: string }) {
+    const tone =
+        type === 'income' ? 'bg-moss/15 text-moss' :
+        type === 'expense' ? 'bg-ember/15 text-ember' :
+        type === 'transfer_in' ? 'bg-gold/15 text-gold' :
+        'bg-gold-dim/20 text-gold-glow'
+    const icon = type === 'income' ? '📥' : type === 'expense' ? '💸' : type === 'transfer_in' ? '📩' : '📤'
+    return (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${tone}`}>
+            {icon} {type.replace('_', ' ')}
+        </span>
+    )
+}
+
+function SectionBadge({ priority }: { priority: string | null }) {
+    if (!priority || !['Need', 'Want', 'Offerings', 'Savings'].includes(priority)) return null
+    const tone =
+        priority === 'Need' ? 'bg-gold/15 text-gold' :
+        priority === 'Want' ? 'bg-gold-glow/15 text-gold-glow' :
+        priority === 'Offerings' ? 'bg-moss/15 text-moss' :
+        'bg-white/10 text-parchment/70'
+    const icon = priority === 'Need' ? '💪' : priority === 'Want' ? '🌟' : priority === 'Offerings' ? '🙏' : '🏦'
+    return (
+        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${tone}`}>
+            {icon} {priority}
+        </span>
+    )
+}
+
+function PurseBadge({ name, icon, color }: { name: string; icon: string; color: string }) {
+    return (
+        <span
+            className="px-1.5 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1"
+            style={{ backgroundColor: `${color}20`, color }}
+        >
+            {icon} {name}
+        </span>
+    )
+}
+
+function AmountText({ entry, className = '' }: { entry: Entry; className?: string }) {
+    const credit = isCredit(entry.type)
+    return (
+        <span className={`font-semibold whitespace-nowrap ${credit ? 'text-moss' : 'text-ember'} ${className}`}>
+            {credit ? '+' : '-'}₦{entry.amount.toFixed(2)}
+        </span>
+    )
+}
+
+function formatDate(d: string) {
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export default function TransactionsPage() {
     const [entries, setEntries] = useState<Entry[]>([])
     const [purses, setPurses] = useState<Purse[]>([])
-    const [loading, setLoading] = useState(true)
     const [filterPurse, setFilterPurse] = useState('')
     const [filterCategory, setFilterCategory] = useState('')
     const [filterType, setFilterType] = useState('')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
-    const [sortBy, setSortBy] = useState<'date' | 'amount' | 'category'>('date')
+    const [sortBy, setSortBy] = useState<SortKey>('date')
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
     const [page, setPage] = useState(0)
     const [totalCount, setTotalCount] = useState(0)
@@ -42,75 +128,60 @@ export default function TransactionsPage() {
         purseBreakdown: Record<string, { income: number; expense: number; net: number }>
         monthlyTrend: Record<string, { income: number; expense: number }>
     } | null>(null)
-    const PAGE_SIZE = 50
 
-    const fetchData = useCallback(async () => {
-        setLoading(true)
-        try {
-            const params = new URLSearchParams()
-            if (filterPurse) params.set('purse', filterPurse)
-            if (filterCategory) params.set('category', filterCategory)
-            if (filterType) params.set('type', filterType)
-            if (startDate) params.set('startDate', startDate)
-            if (endDate) params.set('endDate', endDate)
-            params.set('limit', PAGE_SIZE.toString())
-            params.set('offset', (page * PAGE_SIZE).toString())
-
-            const [finRes, purseRes] = await Promise.all([
-                fetch(`/api/financial?${params.toString()}`),
-                fetch('/api/purses'),
-            ])
-
-            if (finRes.ok) {
-                const data = await finRes.json()
-                setEntries(data.entries || [])
-                setTotalCount(data.totalCount || 0)
-                setAnalysis({
-                    totalIncome: data.totalIncome || 0,
-                    totalExpense: data.totalExpense || 0,
-                    netFlow: (data.totalIncome || 0) - (data.totalExpense || 0),
-                    categoryBreakdown: data.categoryBreakdown || {},
-                    purseBreakdown: calculatePurseBreakdown(data.entries || []),
-                    monthlyTrend: calculateMonthlyTrend(data.entries || []),
-                })
-            }
-
-            if (purseRes.ok) {
-                const data = await purseRes.json()
-                setPurses(data.purses || [])
-            }
-        } catch (err) {
-            console.error(err)
-        } finally {
-            setLoading(false)
-        }
-    }, [filterPurse, filterCategory, filterType, startDate, endDate, page])
+    // Loading is derived: it is true until the latest query key has finished loading.
+    const queryKey = JSON.stringify([filterPurse, filterCategory, filterType, startDate, endDate, page])
+    const [loadedKey, setLoadedKey] = useState<string | null>(null)
+    const loading = loadedKey !== queryKey
 
     useEffect(() => {
-        fetchData()
-    }, [fetchData])
+        let cancelled = false
+        const load = async () => {
+            try {
+                const params = new URLSearchParams()
+                if (filterPurse) params.set('purse', filterPurse)
+                if (filterCategory) params.set('category', filterCategory)
+                if (filterType) params.set('type', filterType)
+                if (startDate) params.set('startDate', startDate)
+                if (endDate) params.set('endDate', endDate)
+                params.set('limit', PAGE_SIZE.toString())
+                params.set('offset', (page * PAGE_SIZE).toString())
 
-    const calculatePurseBreakdown = (entries: Entry[]) => {
-        const breakdown: Record<string, { income: number; expense: number; net: number }> = {}
-        entries.forEach(e => {
-            if (!breakdown[e.purse]) breakdown[e.purse] = { income: 0, expense: 0, net: 0 }
-            if (e.type === 'income' || e.type === 'transfer_in') breakdown[e.purse].income += e.amount
-            if (e.type === 'expense' || e.type === 'transfer_out') breakdown[e.purse].expense += e.amount
-            breakdown[e.purse].net = breakdown[e.purse].income - breakdown[e.purse].expense
-        })
-        return breakdown
-    }
+                const [finRes, purseRes] = await Promise.all([
+                    fetch(`/api/financial?${params.toString()}`),
+                    fetch('/api/purses'),
+                ])
+                if (cancelled) return
 
-    const calculateMonthlyTrend = (entries: Entry[]) => {
-        const trend: Record<string, { income: number; expense: number }> = {}
-        entries.forEach(e => {
-            const month = e.entryDate.slice(0, 7)
-            if (!trend[month]) trend[month] = { income: 0, expense: 0 }
-            if (e.type === 'income') trend[month].income += e.amount
-            if (e.type === 'expense') trend[month].expense += e.amount
-        })
-        return trend
-    }
+                if (finRes.ok) {
+                    const data = await finRes.json()
+                    if (cancelled) return
+                    setEntries(data.entries || [])
+                    setTotalCount(data.totalCount || 0)
+                    setAnalysis({
+                        totalIncome: data.totalIncome || 0,
+                        totalExpense: data.totalExpense || 0,
+                        netFlow: (data.totalIncome || 0) - (data.totalExpense || 0),
+                        categoryBreakdown: data.categoryBreakdown || {},
+                        purseBreakdown: calculatePurseBreakdown(data.entries || []),
+                        monthlyTrend: calculateMonthlyTrend(data.entries || []),
+                    })
+                }
+
+                if (purseRes.ok) {
+                    const data = await purseRes.json()
+                    if (cancelled) return
+                    setPurses(data.purses || [])
+                }
+            } catch (err) {
+                console.error(err)
+            } finally {
+                if (!cancelled) setLoadedKey(queryKey)
+            }
+        }
+        load()
+        return () => { cancelled = true }
+    }, [queryKey, filterPurse, filterCategory, filterType, startDate, endDate, page])
 
     const getPurseIcon = (name: string) => {
         const p = purses.find(p => p.name === name)
@@ -175,22 +246,22 @@ export default function TransactionsPage() {
     const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
     return (
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 pb-24">
-            <div className="flex items-center justify-between">
-                <div>
+        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 pb-24 text-parchment">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
                     <h1 className="text-2xl font-bold mb-1">📊 Transactions & Analysis</h1>
-                    <p className="text-sm text-gray-500">View, filter, download, and analyze all your financial transactions.</p>
+                    <p className="text-sm text-parchment/50">View, filter, download, and analyze all your financial transactions.</p>
                 </div>
                 <div className="flex gap-2">
                     <button
                         onClick={handleDownloadCSV}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        className="px-4 py-2.5 min-h-[40px] bg-gold hover:bg-gold-glow text-ink text-sm font-medium rounded-lg transition-colors"
                     >
                         📥 CSV
                     </button>
                     <button
                         onClick={handleDownloadJSON}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        className="px-4 py-2.5 min-h-[40px] bg-white/5 hover:bg-white/10 border border-gold/30 text-gold text-sm font-medium rounded-lg transition-colors"
                     >
                         📥 JSON
                     </button>
@@ -198,14 +269,14 @@ export default function TransactionsPage() {
             </div>
 
             {/* Filters */}
-            <div className="bg-surface-solid border-hairline p-4 rounded-xl border border-gold-dim/20 ">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className={`${cardClass} p-4`}>
+                <div className="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div>
-                        <label className="block text-xs text-gray-500 mb-1">Purse</label>
+                        <label className={labelClass}>Purse</label>
                         <select
                             value={filterPurse}
                             onChange={(e) => { setFilterPurse(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                            className={fieldClass}
                         >
                             <option value="">All Purses</option>
                             {purses.map(p => (
@@ -214,11 +285,11 @@ export default function TransactionsPage() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 mb-1">Type</label>
+                        <label className={labelClass}>Type</label>
                         <select
                             value={filterType}
                             onChange={(e) => { setFilterType(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                            className={fieldClass}
                         >
                             <option value="">All Types</option>
                             <option value="income">Income</option>
@@ -228,40 +299,40 @@ export default function TransactionsPage() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 mb-1">Category</label>
+                        <label className={labelClass}>Category</label>
                         <input
                             type="text"
                             value={filterCategory}
                             onChange={(e) => { setFilterCategory(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                            className={fieldClass}
                             placeholder="Filter category..."
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 mb-1">Start Date</label>
+                        <label className={labelClass}>Start Date</label>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => { setStartDate(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                            className={fieldClass}
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 mb-1">End Date</label>
+                        <label className={labelClass}>End Date</label>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => { setEndDate(e.target.value); setPage(0) }}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                            className={fieldClass}
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-gray-500 mb-1">Sort By</label>
+                        <label className={labelClass}>Sort By</label>
                         <div className="flex gap-1">
                             <select
                                 value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as any)}
-                                className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg py-2 px-3 text-sm"
+                                onChange={(e) => setSortBy(e.target.value as SortKey)}
+                                className={`${fieldClass} flex-1`}
                             >
                                 <option value="date">Date</option>
                                 <option value="amount">Amount</option>
@@ -269,7 +340,8 @@ export default function TransactionsPage() {
                             </select>
                             <button
                                 onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                                className="px-2 bg-gray-50 dark:bg-gray-900 border border-gold-dim/20 rounded-lg text-sm"
+                                aria-label={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
+                                className="px-3 min-w-[44px] min-h-[40px] bg-white/5 border border-white/10 rounded-lg text-sm text-gold"
                             >
                                 {sortDir === 'asc' ? '↑' : '↓'}
                             </button>
@@ -281,17 +353,17 @@ export default function TransactionsPage() {
             {/* Analysis Summary */}
             {analysis && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/5 p-5 rounded-xl border border-moss/30 dark:border-moss/40/40">
-                        <div className="text-xs text-[#7fa871] dark:text-[#7fa871] font-medium uppercase tracking-wider mb-1">Total Income</div>
-                        <div className="text-2xl font-bold text-green-700 dark:text-green-300">₦{analysis.totalIncome.toFixed(2)}</div>
+                    <div className="bg-moss/10 p-5 rounded-xl border border-moss/30">
+                        <div className="text-xs text-moss font-medium uppercase tracking-wider mb-1">Total Income</div>
+                        <div className="text-2xl font-bold text-moss">₦{analysis.totalIncome.toFixed(2)}</div>
                     </div>
-                    <div className="bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/5 p-5 rounded-xl border border-ember/30 dark:border-ember/40/40">
-                        <div className="text-xs text-[#cf8f78] dark:text-[#cf8f78] font-medium uppercase tracking-wider mb-1">Total Expenses</div>
-                        <div className="text-2xl font-bold text-[#cf8f78] dark:text-[#cf8f78]">₦{analysis.totalExpense.toFixed(2)}</div>
+                    <div className="bg-ember/10 p-5 rounded-xl border border-ember/30">
+                        <div className="text-xs text-ember font-medium uppercase tracking-wider mb-1">Total Expenses</div>
+                        <div className="text-2xl font-bold text-ember">₦{analysis.totalExpense.toFixed(2)}</div>
                     </div>
-                    <div className={`bg-gradient-to-br p-5 rounded-xl border ${analysis.netFlow >= 0 ? 'from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-900/5 border-blue-200 dark:border-blue-800/40' : 'from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-900/5 border-orange-200 dark:border-orange-800/40'}`}>
-                        <div className="text-xs font-medium uppercase tracking-wider mb-1 text-gray-500">Net Cash Flow</div>
-                        <div className={`text-2xl font-bold ${analysis.netFlow >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-orange-700 dark:text-orange-300'}`}>
+                    <div className={`p-5 rounded-xl border ${analysis.netFlow >= 0 ? 'bg-gold/10 border-gold/30' : 'bg-ember/10 border-ember/30'}`}>
+                        <div className="text-xs font-medium uppercase tracking-wider mb-1 text-parchment/50">Net Cash Flow</div>
+                        <div className={`text-2xl font-bold ${analysis.netFlow >= 0 ? 'text-gold' : 'text-ember'}`}>
                             {analysis.netFlow >= 0 ? '+' : ''}₦{analysis.netFlow.toFixed(2)}
                         </div>
                     </div>
@@ -300,30 +372,30 @@ export default function TransactionsPage() {
 
             {/* Category Breakdown */}
             {analysis && Object.keys(analysis.categoryBreakdown).length > 0 && (
-                <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
+                <div className={`${cardClass} p-5`}>
                     <h2 className="text-lg font-semibold mb-4">📂 Category Breakdown</h2>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-b border-gray-100 dark:border-gray-700">
-                                    <th className="text-left p-2 font-semibold text-gray-500 text-xs uppercase">Category</th>
-                                    <th className="text-right p-2 font-semibold text-gray-500 text-xs uppercase">Total (₦)</th>
-                                    <th className="text-right p-2 font-semibold text-gray-500 text-xs uppercase">Count</th>
-                                    <th className="text-left p-2 font-semibold text-gray-500 text-xs uppercase">Type</th>
+                                <tr className="border-b border-white/10">
+                                    <th className="text-left p-2 font-semibold text-parchment/50 text-xs uppercase">Category</th>
+                                    <th className="text-right p-2 font-semibold text-parchment/50 text-xs uppercase">Total (₦)</th>
+                                    <th className="text-right p-2 font-semibold text-parchment/50 text-xs uppercase">Count</th>
+                                    <th className="text-left p-2 font-semibold text-parchment/50 text-xs uppercase">Type</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            <tbody className="divide-y divide-white/5">
                                 {Object.entries(analysis.categoryBreakdown)
                                     .sort(([, a], [, b]) => b.total - a.total)
                                     .map(([cat, data]) => (
-                                        <tr key={cat} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                                        <tr key={cat} className="hover:bg-white/5">
                                             <td className="p-2 font-medium">{cat}</td>
-                                            <td className={`p-2 text-right font-semibold ${data.type === 'expense' ? 'text-[#cf8f78]' : 'text-[#7fa871]'}`}>
+                                            <td className={`p-2 text-right font-semibold ${data.type === 'expense' ? 'text-ember' : 'text-moss'}`}>
                                                 ₦{data.total.toFixed(2)}
                                             </td>
-                                            <td className="p-2 text-right text-gray-500">{data.count}</td>
+                                            <td className="p-2 text-right text-parchment/50">{data.count}</td>
                                             <td className="p-2">
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${data.type === 'expense' ? 'bg-red-100 text-red-700' : 'bg-moss/15 text-[#7fa871]'}`}>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${data.type === 'expense' ? 'bg-ember/15 text-ember' : 'bg-moss/15 text-moss'}`}>
                                                     {data.type}
                                                 </span>
                                             </td>
@@ -337,11 +409,11 @@ export default function TransactionsPage() {
 
             {/* Purse Breakdown */}
             {analysis && Object.keys(analysis.purseBreakdown).length > 0 && (
-                <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
+                <div className={`${cardClass} p-5`}>
                     <h2 className="text-lg font-semibold mb-4">👛 Purse Breakdown</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {Object.entries(analysis.purseBreakdown).map(([name, data]) => (
-                            <div key={name} className="p-4 rounded-xl border border-gold-dim/20 bg-gray-50 dark:bg-gray-900/50">
+                            <div key={name} className="p-4 rounded-xl border border-white/10 bg-white/5">
                                 <div className="flex items-center gap-2 mb-2">
                                     <span className="text-xl">{getPurseIcon(name)}</span>
                                     <span className="font-semibold">{name}</span>
@@ -349,16 +421,16 @@ export default function TransactionsPage() {
                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                     <div>
                                         <div className="text-[10px] text-parchment/40">Income</div>
-                                        <div className="font-semibold text-[#7fa871]">₦{data.income.toFixed(0)}</div>
+                                        <div className="font-semibold text-moss">₦{data.income.toFixed(0)}</div>
                                     </div>
                                     <div>
                                         <div className="text-[10px] text-parchment/40">Expense</div>
-                                        <div className="font-semibold text-[#cf8f78]">₦{data.expense.toFixed(0)}</div>
+                                        <div className="font-semibold text-ember">₦{data.expense.toFixed(0)}</div>
                                     </div>
                                 </div>
-                                <div className="mt-2 pt-2 border-t border-gold-dim/20">
+                                <div className="mt-2 pt-2 border-t border-white/10">
                                     <div className="text-[10px] text-parchment/40">Net</div>
-                                    <div className={`font-bold ${data.net >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}`}>
+                                    <div className={`font-bold ${data.net >= 0 ? 'text-parchment' : 'text-ember'}`}>
                                         {data.net >= 0 ? '+' : ''}₦{data.net.toFixed(0)}
                                     </div>
                                 </div>
@@ -370,29 +442,29 @@ export default function TransactionsPage() {
 
             {/* Monthly Trend */}
             {analysis && Object.keys(analysis.monthlyTrend).length > 0 && (
-                <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
+                <div className={`${cardClass} p-5`}>
                     <h2 className="text-lg font-semibold mb-4">📈 Monthly Trend</h2>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-b border-gray-100 dark:border-gray-700">
-                                    <th className="text-left p-2 font-semibold text-gray-500 text-xs uppercase">Month</th>
-                                    <th className="text-right p-2 font-semibold text-gray-500 text-xs uppercase">Income (₦)</th>
-                                    <th className="text-right p-2 font-semibold text-gray-500 text-xs uppercase">Expense (₦)</th>
-                                    <th className="text-right p-2 font-semibold text-gray-500 text-xs uppercase">Net (₦)</th>
+                                <tr className="border-b border-white/10">
+                                    <th className="text-left p-2 font-semibold text-parchment/50 text-xs uppercase">Month</th>
+                                    <th className="text-right p-2 font-semibold text-parchment/50 text-xs uppercase">Income (₦)</th>
+                                    <th className="text-right p-2 font-semibold text-parchment/50 text-xs uppercase">Expense (₦)</th>
+                                    <th className="text-right p-2 font-semibold text-parchment/50 text-xs uppercase">Net (₦)</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            <tbody className="divide-y divide-white/5">
                                 {Object.entries(analysis.monthlyTrend)
                                     .sort(([a], [b]) => b.localeCompare(a))
                                     .map(([month, data]) => {
                                         const net = data.income - data.expense
                                         return (
-                                            <tr key={month} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                                            <tr key={month} className="hover:bg-white/5">
                                                 <td className="p-2 font-medium">{month}</td>
-                                                <td className="p-2 text-right text-[#7fa871] font-semibold">₦{data.income.toFixed(0)}</td>
-                                                <td className="p-2 text-right text-[#cf8f78] font-semibold">₦{data.expense.toFixed(0)}</td>
-                                                <td className={`p-2 text-right font-bold ${net >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}`}>
+                                                <td className="p-2 text-right text-moss font-semibold">₦{data.income.toFixed(0)}</td>
+                                                <td className="p-2 text-right text-ember font-semibold">₦{data.expense.toFixed(0)}</td>
+                                                <td className={`p-2 text-right font-bold ${net >= 0 ? 'text-parchment' : 'text-ember'}`}>
                                                     {net >= 0 ? '+' : ''}₦{net.toFixed(0)}
                                                 </td>
                                             </tr>
@@ -404,99 +476,99 @@ export default function TransactionsPage() {
                 </div>
             )}
 
-            {/* Transactions Table */}
-            <div className="bg-surface-solid border-hairline rounded-xl border border-gold-dim/20 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            {/* Transactions */}
+            <div className={`${cardClass} overflow-hidden`}>
+                <div className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-lg font-semibold">📋 All Transactions</h2>
-                    <span className="text-sm text-gray-500">{totalCount} total</span>
+                    <span className="text-sm text-parchment/50">{totalCount} total</span>
                 </div>
                 {loading ? (
-                    <div className="p-8 text-center text-gray-500">Loading transactions...</div>
+                    <div className="p-8 text-center text-parchment/50">Loading transactions...</div>
                 ) : sortedEntries.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">No transactions found matching your filters.</div>
+                    <div className="p-8 text-center text-parchment/50">No transactions found matching your filters.</div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                                    <th className="text-left p-3 font-semibold text-gray-500 text-xs uppercase">Date</th>
-                                    <th className="text-left p-3 font-semibold text-gray-500 text-xs uppercase">Type</th>
-                                    <th className="text-left p-3 font-semibold text-gray-500 text-xs uppercase">Category</th>
-                                    <th className="text-left p-3 font-semibold text-gray-500 text-xs uppercase">Description</th>
-                                    <th className="text-right p-3 font-semibold text-gray-500 text-xs uppercase">Amount (₦)</th>
-                                    <th className="text-left p-3 font-semibold text-gray-500 text-xs uppercase">Purse</th>
-                                    <th className="text-left p-3 font-semibold text-gray-500 text-xs uppercase">Section</th>
-                                    <th className="text-left p-3 font-semibold text-gray-500 text-xs uppercase">Comments</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {sortedEntries.map(entry => (
-                                    <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                        <td className="p-3 whitespace-nowrap text-xs text-gray-500">
-                                            {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </td>
-                                        <td className="p-3">
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${entry.type === 'income' ? 'bg-moss/15 text-[#7fa871] dark:bg-green-900/30 dark:text-[#7fa871]' :
-                                                    entry.type === 'expense' ? 'bg-ember/15 text-[#cf8f78] dark:bg-ember/25' :
-                                                        entry.type === 'transfer_in' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-parchment' :
-                                                            'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                                                }`}>
-                                                {entry.type === 'income' ? '📥' : entry.type === 'expense' ? '💸' : entry.type === 'transfer_in' ? '📩' : '📤'} {entry.type.replace('_', ' ')}
-                                            </span>
-                                        </td>
-                                        <td className="p-3 font-medium">{entry.category}</td>
-                                        <td className="p-3 text-gray-500 max-w-[200px] truncate">{entry.description || '-'}</td>
-                                        <td className={`p-3 text-right font-semibold whitespace-nowrap ${entry.type === 'income' || entry.type === 'transfer_in' ? 'text-[#7fa871]' : 'text-[#cf8f78]'
-                                            }`}>
-                                            {entry.type === 'income' || entry.type === 'transfer_in' ? '+' : '-'}₦{entry.amount.toFixed(2)}
-                                        </td>
-                                        <td className="p-3">
-                                            <span
-                                                className="px-1.5 py-0.5 rounded text-[10px] font-medium inline-flex items-center gap-1"
-                                                style={{
-                                                    backgroundColor: `${getPurseColor(entry.purse)}20`,
-                                                    color: getPurseColor(entry.purse),
-                                                }}
-                                            >
-                                                {getPurseIcon(entry.purse)} {entry.purse}
-                                            </span>
-                                        </td>
-                                        <td className="p-3 text-xs">
-                                            {entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) ? (
-                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${entry.priority === 'Need' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-parchment' :
-                                                        entry.priority === 'Want' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                                                            entry.priority === 'Offerings' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                                                                'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                                                    }`}>
-                                                    {entry.priority === 'Need' ? '💪' : entry.priority === 'Want' ? '🌟' : entry.priority === 'Offerings' ? '🙏' : '🏦'} {entry.priority}
-                                                </span>
-                                            ) : '-'}
-                                        </td>
-                                        <td className="p-3 text-xs text-gray-500 max-w-[150px] truncate">{entry.comments || '-'}</td>
+                    <>
+                        {/* Phones: stacked cards */}
+                        <ul className="md:hidden divide-y divide-white/5">
+                            {sortedEntries.map(entry => (
+                                <li key={entry.id} className="p-4 space-y-2">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="font-medium break-words">{entry.category}</div>
+                                            <div className="text-xs text-parchment/50">{formatDate(entry.entryDate)}</div>
+                                        </div>
+                                        <AmountText entry={entry} className="text-lg" />
+                                    </div>
+                                    {entry.description && (
+                                        <p className="text-sm text-parchment/70 break-words">{entry.description}</p>
+                                    )}
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <TypeBadge type={entry.type} />
+                                        <PurseBadge name={entry.purse} icon={getPurseIcon(entry.purse)} color={getPurseColor(entry.purse)} />
+                                        <SectionBadge priority={entry.priority} />
+                                    </div>
+                                    {entry.comments && (
+                                        <p className="text-xs text-parchment/50 break-words">{entry.comments}</p>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+
+                        {/* md and up: table */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-sm min-w-[860px]">
+                                <thead>
+                                    <tr className="border-b border-white/10 bg-white/5">
+                                        <th className={`text-left ${thClass}`}>Date</th>
+                                        <th className={`text-left ${thClass}`}>Type</th>
+                                        <th className={`text-left ${thClass}`}>Category</th>
+                                        <th className={`text-left ${thClass}`}>Description</th>
+                                        <th className={`text-right ${thClass}`}>Amount (₦)</th>
+                                        <th className={`text-left ${thClass}`}>Purse</th>
+                                        <th className={`text-left ${thClass}`}>Section</th>
+                                        <th className={`text-left ${thClass}`}>Comments</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {sortedEntries.map(entry => (
+                                        <tr key={entry.id} className="hover:bg-white/5 transition-colors">
+                                            <td className="p-3 whitespace-nowrap text-xs text-parchment/50">{formatDate(entry.entryDate)}</td>
+                                            <td className="p-3"><TypeBadge type={entry.type} /></td>
+                                            <td className="p-3 font-medium">{entry.category}</td>
+                                            <td className="p-3 text-parchment/50 max-w-[200px] truncate">{entry.description || '-'}</td>
+                                            <td className="p-3 text-right"><AmountText entry={entry} /></td>
+                                            <td className="p-3">
+                                                <PurseBadge name={entry.purse} icon={getPurseIcon(entry.purse)} color={getPurseColor(entry.purse)} />
+                                            </td>
+                                            <td className="p-3 text-xs">
+                                                {entry.priority ? <SectionBadge priority={entry.priority} /> : '-'}
+                                            </td>
+                                            <td className="p-3 text-xs text-parchment/50 max-w-[150px] truncate">{entry.comments || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <div className="p-4 border-t border-white/10 flex items-center justify-between gap-2">
                         <button
                             onClick={() => setPage(p => Math.max(0, p - 1))}
                             disabled={page === 0}
-                            className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                            className="px-3 py-2.5 min-h-[40px] text-sm bg-white/5 border border-white/10 rounded-lg disabled:opacity-50 hover:bg-white/10 transition-colors"
                         >
                             ← Previous
                         </button>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-parchment/50 text-center">
                             Page {page + 1} of {totalPages}
                         </span>
                         <button
                             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                             disabled={page >= totalPages - 1}
-                            className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                            className="px-3 py-2.5 min-h-[40px] text-sm bg-white/5 border border-white/10 rounded-lg disabled:opacity-50 hover:bg-white/10 transition-colors"
                         >
                             Next →
                         </button>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { useDialog } from '@/components/ui/useDialog'
 
 interface NoteModalProps {
   onClose: () => void
@@ -9,6 +10,7 @@ interface NoteModalProps {
 }
 
 export function NoteModal({ onClose, onSaved }: NoteModalProps) {
+  const dialogRef = useDialog<HTMLDivElement>(true, onClose)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [saving, setSaving] = useState(false)
@@ -30,7 +32,7 @@ export function NoteModal({ onClose, onSaved }: NoteModalProps) {
       } else {
         setError('Failed to save note. Please try again.')
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.')
     } finally {
       setSaving(false)
@@ -38,15 +40,15 @@ export function NoteModal({ onClose, onSaved }: NoteModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 backdrop-blur-sm p-4">
-      <div className="bg-paper w-full max-w-lg rounded-[8px]  overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-mist">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/50 backdrop-blur-sm p-0 sm:p-4">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="New note" tabIndex={-1} data-lenis-prevent className="bg-paper w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-[8px] pb-[env(safe-area-inset-bottom)] sm:pb-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-mist">
           <h3 className="font-bold text-ink">New Note</h3>
-          <button onClick={onClose} className="p-1 hover:bg-mist rounded-full transition-colors">
+          <button onClick={onClose} className="p-2.5 -m-1.5 sm:p-1 sm:m-0 hover:bg-mist rounded-full transition-colors">
             <X className="w-5 h-5 text-ink/60" />
           </button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           <div>
             <label className="text-xs font-bold text-ink/70 mb-1 block">Title</label>
             <input
@@ -73,14 +75,14 @@ export function NoteModal({ onClose, onSaved }: NoteModalProps) {
           <div className="flex justify-end space-x-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-ink/70 hover:text-ink transition"
+              className="px-4 py-2.5 sm:py-2 text-sm text-ink/70 hover:text-ink transition"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !title.trim() || !content.trim()}
-              className="px-4 py-2 text-sm bg-ink text-surface rounded-lg font-medium hover:bg-ink/90 transition disabled:opacity-50"
+              className="px-4 py-2.5 sm:py-2 text-sm bg-ink text-surface rounded-lg font-medium hover:bg-ink/90 transition disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save Note'}
             </button>

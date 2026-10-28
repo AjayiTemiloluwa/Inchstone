@@ -2,7 +2,7 @@ import { SignUp } from '@clerk/nextjs'
 
 export default function Page() {
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center p-6">
+    <div className="min-h-dvh bg-paper flex items-center justify-center px-3 py-6 sm:p-6 overflow-x-hidden">
       <SignUp />
     </div>
   )

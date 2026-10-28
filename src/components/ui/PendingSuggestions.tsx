@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect } from 'react'
+import { useToast } from '@/components/ui/ToastProvider'
 import { Check, X, Sparkles, Loader2 } from 'lucide-react'
 
 interface Suggestion {
@@ -23,7 +24,8 @@ export function PendingSuggestions({
   onSuggestionAccepted: () => void
 }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
-  const [loading, setLoading] = useState(false)
+  const { showToast } = useToast()
+  const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
 
   const fetchSuggestions = async () => {
@@ -33,7 +35,7 @@ export function PendingSuggestions({
       const data = await res.json()
       if (data.suggestions) {
         // Filter suggestions for this specific item and only show 'pending'
-        const relevant = data.suggestions.filter((s: any) => s.itemId === itemId && s.status === 'pending')
+        const relevant = data.suggestions.filter((s: Suggestion & { itemId: string }) => s.itemId === itemId && s.status === 'pending')
         setSuggestions(relevant)
       }
     } catch (e) {
@@ -44,7 +46,16 @@ export function PendingSuggestions({
   }
 
   useEffect(() => {
-    fetchSuggestions()
+    let cancelled = false
+    fetch('/api/suggestions')
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled || !data.suggestions) return
+        setSuggestions(data.suggestions.filter((s: Suggestion & { itemId: string }) => s.itemId === itemId && s.status === 'pending'))
+      })
+      .catch(e => console.error(e))
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [itemId])
 
   const generateSuggestions = async () => {
@@ -57,13 +68,13 @@ export function PendingSuggestions({
       })
       if (!res.ok) {
         const err = await res.json()
-        alert('Failed to generate suggestions: ' + (err.error || 'Unknown error'))
+        showToast('Failed to generate suggestions: ' + (err.error || 'Unknown error'), 'error')
         return
       }
       await fetchSuggestions()
     } catch (e) {
       console.error(e)
-      alert('Error connecting to AI service.')
+      showToast('Error connecting to AI service.', 'error')
     } finally {
       setGenerating(false)
     }
@@ -104,7 +115,7 @@ export function PendingSuggestions({
       if (res.ok) {
         await updateSuggestionStatus(suggestion.id, 'accepted')
       } else {
-        alert('Failed to create the goal.')
+        showToast('Failed to create the goal.', 'error')
       }
     } catch (e) {
       console.error(e)

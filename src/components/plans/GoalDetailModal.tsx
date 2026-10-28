@@ -14,6 +14,8 @@ import { isOverdue } from '@/lib/plans/status'
 import { StatusBadge, DraftBadge } from './StatusBadge'
 import { HistoryTimeline } from './HistoryTimeline'
 import { MilestoneFormModal } from './MilestoneFormModal'
+import { useDialog } from '@/components/ui/useDialog'
+import { useToast } from '@/components/ui/ToastProvider'
 
 type Props = {
   goalId: string
@@ -34,6 +36,8 @@ const LABEL_CLASS = 'text-[10px] font-bold uppercase tracking-wider text-parchme
 export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
   const { currentPlan, fetchStatusLog, updateMilestone, deleteMilestone, updateGoal, deleteGoal } = usePlansStore()
   const trackerItems = usePlansStore(s => s.trackerItems)
+  const { confirm } = useToast()
+  const [confirming, setConfirming] = useState(false)
 
   // Resolve the freshest goal + section name from the store tree on every render
   // (plain loop — cheap for personal-scale trees and compiler-friendly)
@@ -50,6 +54,9 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
 
   const [history, setHistory] = useState<StatusLogEntryRecord[]>([])
   const [msModal, setMsModal] = useState<{ open: boolean; initial: PlanMilestoneRecord | null }>({ open: false, initial: null })
+
+  // Pause this dialog's key handling while a nested milestone form or confirm is on top
+  const dialogRef = useDialog<HTMLDivElement>(!msModal.open && !confirming, onClose)
 
   useEffect(() => {
     let cancelled = false
@@ -75,19 +82,30 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
     refreshHistory()
   }
 
+  const askConfirm = async (message: string) => {
+    setConfirming(true)
+    try {
+      return await confirm(message)
+    } finally {
+      setConfirming(false)
+    }
+  }
+
   const handleDelete = async () => {
-    if (!window.confirm('Delete this goal, its milestones and their history? This cannot be undone.')) return
+    if (!(await askConfirm('Delete this goal, its milestones and their history? This cannot be undone.'))) return
     const ok = await deleteGoal(goal.id)
     if (ok) onClose()
   }
 
   return (
-    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="max-h-[92vh] w-full max-w-2xl space-y-6 overflow-y-auto rounded-[8px] border hairline bg-ink p-6" data-lenis-prevent
+        className="max-h-[92dvh] w-full max-w-2xl space-y-6 overflow-y-auto rounded-t-2xl sm:rounded-[8px] border hairline bg-ink p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6" data-lenis-prevent
         onClick={e => e.stopPropagation()}
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
       >
         {/* Header */}
         <div className="space-y-3">
@@ -200,7 +218,7 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
                     </button>
                     <button
                       onClick={async () => {
-                        if (!window.confirm(`Delete milestone “${m.title}”?`)) return
+                        if (!(await askConfirm(`Delete milestone “${m.title}”?`))) return
                         await deleteMilestone(m.id)
                       }}
                       aria-label="Delete milestone"

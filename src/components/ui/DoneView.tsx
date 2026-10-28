@@ -117,7 +117,7 @@ export function DoneView({ tasks, onDeleteTask, className = '' }: DoneViewProps)
       <div className="flex items-center gap-2 border border-white/10 rounded-lg bg-black/10 p-1">
         <button
           onClick={() => setView('hour')}
-          className={`px-3 py-1.5 text-xs rounded-md transition ${
+          className={`flex-1 sm:flex-none min-h-[40px] sm:min-h-0 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition ${
             view === 'hour'
               ? 'bg-gold/10 text-gold border border-gold/30'
               : 'text-ink/50 hover:text-ink hover:bg-white/5'
@@ -127,7 +127,7 @@ export function DoneView({ tasks, onDeleteTask, className = '' }: DoneViewProps)
         </button>
         <button
           onClick={() => setView('challenge')}
-          className={`px-3 py-1.5 text-xs rounded-md transition ${
+          className={`flex-1 sm:flex-none min-h-[40px] sm:min-h-0 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition ${
             view === 'challenge'
               ? 'bg-gold/10 text-gold border border-gold/30'
               : 'text-ink/50 hover:text-ink hover:bg-white/5'
@@ -165,7 +165,7 @@ export function DoneView({ tasks, onDeleteTask, className = '' }: DoneViewProps)
                     )}
                     {t.reflection && (
                       <span
-                        className="text-[10px] text-ink/30 italic shrink-0"
+                        className="hidden sm:block max-w-[40%] truncate text-[10px] text-ink/30 italic shrink-0"
                         title={t.reflection}
                       >
                         “{t.reflection.length > 40 ? t.reflection.slice(0, 40) + '…' : t.reflection}”
@@ -174,7 +174,7 @@ export function DoneView({ tasks, onDeleteTask, className = '' }: DoneViewProps)
                     {onDeleteTask && (
                       <button
                         onClick={(e) => { e.stopPropagation(); void handleDelete(t.id) }}
-                        className="p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] shrink-0"
+                        className="p-1.5 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] shrink-0"
                         title="Delete"
                       >
                         <DelIcon />
@@ -219,7 +219,7 @@ export function DoneView({ tasks, onDeleteTask, className = '' }: DoneViewProps)
                       {onDeleteTask && (
                         <button
                           onClick={(e) => { e.stopPropagation(); void handleDelete(t.id) }}
-                          className="p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] shrink-0"
+                          className="p-1.5 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] shrink-0"
                           title="Delete"
                         >
                           <DelIcon />

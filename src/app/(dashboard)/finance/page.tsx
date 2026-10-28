@@ -8,6 +8,7 @@ import { SectionBudgetCard } from '@/components/finance/SectionBudgetCard'
 import { CountUp, SectionHeading, Scramble, Reveal, RevealLines } from '@/components/ui/motion'
 import { Loader } from '@/components/ui/Loader'
 import { Float } from '@/components/effects/fluid'
+import { useToast } from '@/components/ui/ToastProvider'
 
 const SECTION_KEYS = ['Need', 'Want', 'Offerings', 'Savings'] as const
 const SECTION_TINT: Record<string, string> = { Need: '#B8935A', Want: '#CF8F78', Offerings: '#7FA871', Savings: '#8FA3BF' }
@@ -60,7 +61,27 @@ const PURSE_COLORS = [
   '#9a8f7a', '#4a5a6b', '#5a4a3f', '#7a6a8a',
 ]
 
+function SectionTag({ priority }: { priority: string | null }) {
+  if (!priority || !(SECTION_KEYS as readonly string[]).includes(priority)) return null
+  return (
+    <span className="px-1 py-px rounded text-[9px] font-bold shrink-0"
+      style={{ backgroundColor: `${SECTION_TINT[priority]}22`, color: SECTION_TINT[priority] }}>
+      {priority}
+    </span>
+  )
+}
+
+function PurseTag({ name, icon, color }: { name: string; icon: string; color: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap"
+      style={{ backgroundColor: `${color}22`, color }}>
+      {icon} {name}
+    </span>
+  )
+}
+
 export default function FinancePage() {
+  const { showToast, confirm } = useToast()
   const [entries, setEntries] = useState<Entry[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [allocations, setAllocations] = useState<Allocation[]>([])
@@ -68,7 +89,8 @@ export default function FinancePage() {
   const [purseBalances, setPurseBalances] = useState<Record<string, number>>({})
   const [totalIncome, setTotalIncome] = useState(0)
   const [totalExpense, setTotalExpense] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadedMonth, setLoadedMonth] = useState<string | null>(null)
   const [savingsTarget, setSavingsTarget] = useState(0)
   const [editSavings, setEditSavings] = useState(false)
   const [savingsInput, setSavingsInput] = useState('')
@@ -97,6 +119,7 @@ export default function FinancePage() {
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
   })
   const nowKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const loading = refreshing || loadedMonth !== viewMonth
   const isCurrentMonth = viewMonth === nowKey
 
   const shiftMonth = (delta: number) => {
@@ -112,12 +135,15 @@ export default function FinancePage() {
   ).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   useEffect(() => {
-    const stored = localStorage.getItem('monthlySavingsTarget')
-    if (stored) setSavingsTarget(parseFloat(stored))
+    const timer = setTimeout(() => {
+      const stored = localStorage.getItem('monthlySavingsTarget')
+      if (stored) setSavingsTarget(parseFloat(stored))
+    }, 0)
+    return () => clearTimeout(timer)
   }, [])
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async () => {
+
     try {
       const [finRes, budRes, purseRes] = await Promise.all([
         fetch('/api/financial'),
@@ -153,13 +179,20 @@ export default function FinancePage() {
     } catch (err) {
       console.error(err)
     } finally {
-      setLoading(false)
+      setRefreshing(false)
+      setLoadedMonth(viewMonth)
     }
   }, [viewMonth])
 
+  const fetchData = useCallback(() => {
+    setRefreshing(true)
+    return loadData()
+  }, [loadData])
+
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    const timer = setTimeout(() => { void loadData() }, 0)
+    return () => clearTimeout(timer)
+  }, [loadData])
 
   // Handle section allocation — this moves real money between purses, so the
   // server's answer matters (insufficient funds, same purse both ends) and is
@@ -200,7 +233,7 @@ export default function FinancePage() {
 
   // Handle deleting a budget
   const handleDeleteBudget = async (id: string) => {
-    if (!confirm('Delete this budget category?')) return
+    if (!(await confirm('Delete this budget category?'))) return
     await fetch('/api/budgets', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -210,7 +243,7 @@ export default function FinancePage() {
   }
 
   const handleDeleteEntry = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this transaction?')) return
+    if (!(await confirm('Are you sure you want to delete this transaction?'))) return
     await fetch('/api/financial', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -252,11 +285,11 @@ export default function FinancePage() {
         fetchData()
       } else {
         const data = await res.json()
-        alert(data.error || 'Transfer failed')
+        showToast(data.error || 'Transfer failed', 'error')
       }
     } catch (err) {
       console.error('Transfer failed:', err)
-      alert('Transfer failed. Please try again.')
+      showToast('Transfer failed. Please try again.', 'error')
     } finally {
       setTransferLoading(false)
     }
@@ -286,7 +319,7 @@ export default function FinancePage() {
         fetchData()
       } else {
         const data = await res.json()
-        alert(data.error || 'Failed to create purse')
+        showToast(data.error || 'Failed to create purse', 'error')
       }
     } catch (err) {
       console.error('Failed to create purse:', err)
@@ -308,7 +341,7 @@ export default function FinancePage() {
         fetchData()
       } else {
         const data = await res.json()
-        alert(data.error || 'Failed to delete purse')
+        showToast(data.error || 'Failed to delete purse', 'error')
       }
     } catch (err) {
       console.error('Failed to delete purse:', err)
@@ -389,20 +422,20 @@ export default function FinancePage() {
         <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">Ledger · {entries.length} entries</p>
         <div className="flex items-center gap-1.5 rounded-lg bg-black/20 border border-white/10 px-1.5 py-1">
           <button onClick={() => shiftMonth(-1)} aria-label="Previous month"
-            className="w-7 h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
+            className="w-9 h-9 sm:w-7 sm:h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="min-w-[8.5rem] text-center text-xs font-mono text-parchment/80 tabular-nums">
+          <span className="min-w-[7.5rem] sm:min-w-[8.5rem] text-center text-xs font-mono text-parchment/80 tabular-nums">
             {viewMonthLabel}
           </span>
           <button onClick={() => shiftMonth(1)} aria-label="Next month" disabled={isCurrentMonth}
-            className="w-7 h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors disabled:opacity-25 disabled:hover:bg-transparent">
+            className="w-9 h-9 sm:w-7 sm:h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors disabled:opacity-25 disabled:hover:bg-transparent">
             <ChevronRight className="h-4 w-4" />
           </button>
           {!isCurrentMonth && (
             <button onClick={() => setViewMonth(nowKey)}
               data-cursor="Back to now"
-              className="ml-1 px-2 py-1 rounded-md bg-gold/15 border border-gold/30 text-[10px] font-bold uppercase tracking-wider text-gold hover:bg-gold/25 transition-colors">
+              className="ml-1 px-3 py-2 sm:px-2 sm:py-1 rounded-md bg-gold/15 border border-gold/30 text-[10px] font-bold uppercase tracking-wider text-gold hover:bg-gold/25 transition-colors">
               Today
             </button>
           )}
@@ -575,7 +608,7 @@ export default function FinancePage() {
                 {deleteConfirm === purse.id && (
                   <div className="absolute inset-0 rounded-xl bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 z-10">
                     <div className="text-center">
-                      <p className="text-xs text-white/90 mb-2">Delete "{purse.name}"?<br />Entries will move to another purse.</p>
+                      <p className="text-xs text-white/90 mb-2">Delete &quot;{purse.name}&quot;?<br />Entries will move to another purse.</p>
                       <div className="flex gap-2 justify-center">
                         <button
                           onClick={() => handleDeletePurse(purse.id)}
@@ -761,8 +794,43 @@ export default function FinancePage() {
           {entries.length === 0 ? (
             <div className="p-6 text-sm text-parchment/40 text-center">No transactions yet. Add your first one above.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[720px]">
+            <>
+            {/* Phones: stacked cards */}
+            <ul className="md:hidden divide-y divide-white/5">
+              {recentEntries.map(entry => {
+                const credit = entry.type === 'income' || entry.type === 'transfer_in'
+                return (
+                  <li key={entry.id} className="p-4 flex items-start gap-3">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-medium text-parchment break-words">{entry.description || entry.category}</div>
+                          <div className="text-[11px] text-parchment/40 font-mono">
+                            {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {entry.category}
+                          </div>
+                        </div>
+                        <div className={`text-base font-mono tabular-nums whitespace-nowrap font-semibold ${credit ? 'text-moss' : 'text-ember'}`}>
+                          {credit ? '+' : '−'}₦{entry.amount.toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <PurseTag name={entry.purse} icon={getPurseIcon(entry.purse)} color={getPurseColor(entry.purse)} />
+                        <SectionTag priority={entry.priority} />
+                        <span className="ml-auto text-[11px] font-mono tabular-nums text-parchment/50">
+                          Bal ₦{(balanceById.get(entry.id) ?? 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteEntry(entry.id)} aria-label="Delete transaction"
+                      className="w-10 h-10 shrink-0 rounded-lg text-parchment/50 hover:text-ember hover:bg-ember/10 transition-colors text-xl leading-none">×</button>
+                  </li>
+                )
+              })}
+            </ul>
+
+            {/* md and up: table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-black/20">
                     <th className="text-left p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Date</th>
@@ -782,22 +850,14 @@ export default function FinancePage() {
                           {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </td>
                         <td className="p-3">
-                          <div className="font-medium text-parchment truncate max-w-[280px]">{entry.description || entry.category}</div>
+                          <div className="font-medium text-parchment truncate max-w-[200px] md:max-w-[280px]">{entry.description || entry.category}</div>
                           <div className="text-[11px] text-parchment/40 flex items-center gap-1.5 mt-0.5 min-w-0">
                             <span className="truncate">{entry.category}</span>
-                            {entry.priority && ['Need', 'Want', 'Offerings', 'Savings'].includes(entry.priority) && (
-                              <span className="px-1 py-px rounded text-[9px] font-bold shrink-0"
-                                style={{ backgroundColor: `${SECTION_TINT[entry.priority]}22`, color: SECTION_TINT[entry.priority] }}>
-                                {entry.priority}
-                              </span>
-                            )}
+                            <SectionTag priority={entry.priority} />
                           </div>
                         </td>
                         <td className="p-3">
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap"
-                            style={{ backgroundColor: `${getPurseColor(entry.purse)}22`, color: getPurseColor(entry.purse) }}>
-                            {getPurseIcon(entry.purse)} {entry.purse}
-                          </span>
+                          <PurseTag name={entry.purse} icon={getPurseIcon(entry.purse)} color={getPurseColor(entry.purse)} />
                         </td>
                         <td className={`p-3 text-right font-mono tabular-nums whitespace-nowrap font-medium ${isCredit ? 'text-[#7fa871]' : 'text-[#cf8f78]'}`}>
                           {isCredit ? '+' : '−'}₦{entry.amount.toFixed(2)}
@@ -807,7 +867,7 @@ export default function FinancePage() {
                         </td>
                         <td className="p-3 text-right">
                           <button onClick={() => handleDeleteEntry(entry.id)} aria-label="Delete transaction"
-                            className="w-7 h-7 rounded-lg text-parchment/30 hover:text-[#cf8f78] hover:bg-ember/10 transition-colors leading-none opacity-100 lg:opacity-0 lg:group-hover:opacity-100">×</button>
+                            className="w-9 h-9 sm:w-7 sm:h-7 rounded-lg text-parchment/30 hover:text-[#cf8f78] hover:bg-ember/10 transition-colors leading-none opacity-100 lg:opacity-0 lg:group-hover:opacity-100">×</button>
                         </td>
                       </tr>
                     )
@@ -815,6 +875,7 @@ export default function FinancePage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
         {recentEntries.length >= 30 && (

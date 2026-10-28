@@ -279,6 +279,8 @@ export function BottleMentionTextarea({
       }
     } else if (e.key === 'Escape') {
       e.preventDefault()
+      // Close only the suggestion list, not an enclosing modal
+      e.stopPropagation()
       setMention(null)
     }
   }, [mention, optionCount, highlight, filtered, canCreate, insertBottle])
@@ -310,7 +312,7 @@ export function BottleMentionTextarea({
 
       {mention && (optionCount > 0 || filtered.length === 0) && (
         <div
-          className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-56 overflow-y-auto rounded-xl border border-mist bg-paper p-1.5 shadow-lg animate-fadeIn"
+          className="absolute bottom-full left-0 right-0 z-50 mb-2 max-h-[min(14rem,40dvh)] overflow-y-auto rounded-xl border border-mist bg-paper p-1.5 shadow-lg animate-fadeIn"
           role="listbox"
           aria-label="Challenge bottles"
         >

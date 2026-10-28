@@ -255,14 +255,14 @@ export default function ReportsPage() {
         <div className="mx-auto max-w-[1100px] space-y-6 pb-24">
             {/* Header */}
             <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                     <h1 className="text-h1 text-parchment"><Scramble text="Reports" mono={false} /></h1>
                     <p className="mt-1 font-mono text-xs text-parchment/50">Customisable activity reports — charts, filters & time ranges</p>
                 </div>
                 {report && (
                     <button onClick={downloadPDF}
                         data-cursor="Save it as a PDF"
-                        className="flex items-center gap-2 rounded-md border hairline px-4 py-2.5 text-sm text-parchment transition-colors hover:border-gold">
+                        className="flex items-center gap-2 rounded-md border hairline px-4 py-3 sm:py-2.5 text-sm text-parchment transition-colors hover:border-gold">
                         <Download className="h-4 w-4" strokeWidth={1.5} />
                         <span>Download PDF</span>
                     </button>
@@ -270,13 +270,13 @@ export default function ReportsPage() {
             </div>
 
             {/* Controls: period + time navigation */}
-            <Card className="p-5">
+            <Card className="p-4 sm:p-5">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                     <div className="inline-flex max-w-full flex-wrap items-center rounded-md border hairline p-0.5">
                         {PERIOD_OPTIONS.map(opt => (
                             <button key={opt.value} type="button"
                                 onClick={() => handleTypeChange(opt.value)}
-                                className={`whitespace-nowrap rounded px-3 py-1.5 text-xs transition-colors ${
+                                className={`whitespace-nowrap rounded px-3 py-2 sm:py-1.5 text-xs transition-colors ${
                                     reportType === opt.value ? 'bg-gold/15 text-gold' : 'text-parchment/55 hover:text-parchment'
                                 }`}>
                                 {opt.label}
@@ -287,11 +287,11 @@ export default function ReportsPage() {
                     {reportType !== 'custom' && (
                         <div className="flex items-center gap-1 text-parchment/70">
                             <button onClick={() => go(-1)} aria-label="Previous period"
-                                className="rounded p-1.5 hover:text-parchment"><ChevronLeft className="h-4 w-4" /></button>
+                                className="rounded p-2.5 sm:p-1.5 hover:text-parchment"><ChevronLeft className="h-4 w-4" /></button>
                             <button onClick={goToday}
-                                className="rounded border-hairline px-3 py-1.5 text-xs text-parchment/70 hover:text-parchment">Today</button>
+                                className="rounded border-hairline px-3 py-2.5 sm:py-1.5 text-xs text-parchment/70 hover:text-parchment">Today</button>
                             <button onClick={() => go(1)} aria-label="Next period"
-                                className="rounded p-1.5 hover:text-parchment"><ChevronRight className="h-4 w-4" /></button>
+                                className="rounded p-2.5 sm:p-1.5 hover:text-parchment"><ChevronRight className="h-4 w-4" /></button>
                         </div>
                     )}
                 </div>
@@ -301,15 +301,15 @@ export default function ReportsPage() {
                         <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-parchment/45">
                             Start
                             <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-                                className="rounded-md border border-gold-dim/25 bg-ink px-2 py-1.5 font-mono text-xs text-parchment" />
+                                className="rounded-md border border-gold-dim/25 bg-ink px-2 py-2.5 sm:py-1.5 font-mono text-xs text-parchment" />
                         </label>
                         <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-parchment/45">
                             End
                             <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-                                className="rounded-md border border-gold-dim/25 bg-ink px-2 py-1.5 font-mono text-xs text-parchment" />
+                                className="rounded-md border border-gold-dim/25 bg-ink px-2 py-2.5 sm:py-1.5 font-mono text-xs text-parchment" />
                         </label>
                         <button onClick={applyCustom}
-                            className="rounded-md bg-gold px-4 py-1.5 text-xs font-semibold text-ink">Apply range</button>
+                            className="rounded-md bg-gold px-4 py-2.5 sm:py-1.5 text-xs font-semibold text-ink">Apply range</button>
                     </div>
                 )}
 
@@ -331,7 +331,7 @@ export default function ReportsPage() {
                                 <span className="font-mono text-[10px] text-parchment/40">Avg {report.stats.avgScore}%</span>
                             </div>
                             <ScoreBarChart days={report.days} height={220} />
-                            <div className="mt-2 flex items-center gap-4 border-t hairline-top pt-2 text-[10px] text-parchment/40">
+                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t hairline-top pt-2 text-[10px] text-parchment/40">
                                 <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ background: '#7fa871' }} />100%</span>
                                 <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ background: '#B8935A' }} />40–99%</span>
                                 <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ background: '#cf8a68' }} />under 40%</span>
@@ -392,15 +392,15 @@ export default function ReportsPage() {
                             categories={report.categories.map(c => ({ id: c.id, title: c.title }))} />
 
                         <div className="flex flex-wrap items-center gap-3 border-t hairline-top pt-3">
-                            <label className="flex items-center gap-2 rounded-md border border-gold-dim/25 px-2 py-1.5 focus-within:border-gold">
+                            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-gold-dim/25 px-2 py-2.5 sm:py-1.5 sm:flex-none focus-within:border-gold">
                                 <Search className="h-3.5 w-3.5 text-parchment/40" strokeWidth={1.5} />
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks…"
-                                    className="w-40 bg-transparent text-xs text-parchment placeholder:text-parchment/30 focus:outline-none" />
+                                    className="w-full min-w-0 sm:w-40 bg-transparent text-xs text-parchment placeholder:text-parchment/30 focus:outline-none" />
                             </label>
                             <label className="ml-auto flex items-center gap-2 text-[10px] uppercase tracking-wider text-parchment/40">
                                 Sort by
                                 <select value={sort} onChange={e => setSort(e.target.value as TaskSort)}
-                                    className="rounded-[6px] border border-gold-dim/25 bg-ink px-2 py-1.5 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none">
+                                    className="rounded-[6px] border border-gold-dim/25 bg-ink px-2 py-2.5 sm:py-1.5 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none">
                                     <option value="date-asc">Date ↑</option>
                                     <option value="date-desc">Date ↓</option>
                                     <option value="score-desc">Score ↓</option>
@@ -451,17 +451,17 @@ export default function ReportsPage() {
                                             <p className="text-xs text-parchment/40">No activity</p>
                                         )}
                                         {day.tasks.map(t => (
-                                            <div key={t.id} className="flex items-center gap-2 text-xs">
-                                                <span className={`h-2 w-2 shrink-0 rounded-full ${t.completed ? 'bg-moss' : 'bg-gold'}`} />
-                                                <span className={t.completed ? 'line-through text-parchment/45' : 'text-parchment'}>{t.title}</span>
+                                            <div key={t.id} className="flex items-start gap-2 text-xs sm:items-center">
+                                                <span className={`mt-1 h-2 w-2 shrink-0 rounded-full sm:mt-0 ${t.completed ? 'bg-moss' : 'bg-gold'}`} />
+                                                <span className={`min-w-0 break-words ${t.completed ? 'line-through text-parchment/45' : 'text-parchment'}`}>{t.title}</span>
                                                 <span className="hidden font-mono text-parchment/35 sm:inline">{t.categoryTitle ?? t.priority ?? ''}</span>
-                                                <span className="ml-auto font-mono text-parchment/40 tabular-nums">{t.weight}%</span>
+                                                <span className="ml-auto shrink-0 font-mono text-parchment/40 tabular-nums">{t.weight}%</span>
                                             </div>
                                         ))}
                                         {showNotes && day.notes.map(n => (
                                             <div key={n.id} className="flex items-center gap-2 text-xs">
                                                 <span className="h-2 w-2 shrink-0 rounded-full bg-gold-dim" />
-                                                <span className="text-parchment/55">{n.title}</span>
+                                                <span className="min-w-0 break-words text-parchment/55">{n.title}</span>
                                                 <span className="ml-auto font-mono text-[9px] uppercase text-parchment/35">note</span>
                                             </div>
                                         ))}

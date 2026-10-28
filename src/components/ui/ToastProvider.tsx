@@ -1,7 +1,8 @@
 ﻿'use client'
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { useDialog } from './useDialog'
 
 type ToastType = 'success' | 'error' | 'info'
 
@@ -49,12 +50,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    const dismissConfirm = () => handleConfirmClose(false)
+    const confirmRef = useDialog<HTMLDivElement>(confirmState !== null, dismissConfirm)
+    const cancelRef = useRef<HTMLButtonElement>(null)
+
+    // Safe action gets focus first
+    useEffect(() => {
+        if (confirmState) cancelRef.current?.focus({ preventScroll: true })
+    }, [confirmState])
+
     return (
         <ToastContext.Provider value={{ showToast, confirm }}>
             {children}
 
             {/* Toasts overlay */}
-            <div className="fixed bottom-6 right-6 z-[100] flex flex-col space-y-3 pointer-events-none">
+            <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 sm:right-6 left-4 sm:left-auto z-[100] items-end flex flex-col space-y-3 pointer-events-none">
                 {toasts.map(t => (
                     <div key={t.id} className={`pointer-events-auto flex items-center justify-between p-4 min-w-[250px] rounded-[8px]  shadow-black/20 border backdrop-blur-xl animate-slideUp ${t.type === 'error' ? 'bg-ember/20 border-red-500/30 text-red-100' : t.type === 'success' ? 'bg-sage/20 border-sage/30 text-sage-100' : 'bg-black/40 border-white/10 text-white'}`}>
                         <span className="text-sm font-bold">{t.message}</span>
@@ -67,13 +77,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
             {/* Confirm Modal */}
             {confirmState && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
-                    <div className="glass rounded-[8px] border border-white/10 p-6 max-w-sm w-full mx-4  animate-slideUp">
-                        <h3 className="text-xl font-display font-bold text-ink mb-2">Are you sure?</h3>
-                        <p className="text-sm text-ink/70 mb-6">{confirmState.message}</p>
+                <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={dismissConfirm}>
+                    <div ref={confirmRef} role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message" tabIndex={-1} onClick={e => e.stopPropagation()} className="glass w-full max-w-sm sm:mx-4 rounded-t-2xl sm:rounded-[8px] border border-white/10 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 max-h-[92dvh] overflow-y-auto animate-slideUp" data-lenis-prevent>
+                        <h3 id="confirm-title" className="text-xl font-display font-bold text-ink mb-2">Are you sure?</h3>
+                        <p id="confirm-message" className="text-sm text-ink/70 mb-6">{confirmState.message}</p>
                         <div className="flex justify-end space-x-3">
-                            <button onClick={() => handleConfirmClose(false)} className="px-4 py-2 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition-all">Cancel</button>
-                            <button onClick={() => handleConfirmClose(true)} className="px-4 py-2 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all  ">Confirm</button>
+                            <button ref={cancelRef} onClick={() => handleConfirmClose(false)} className="min-h-10 px-4 py-2 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition-all">Cancel</button>
+                            <button onClick={() => handleConfirmClose(true)} className="min-h-10 px-4 py-2 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all  ">Confirm</button>
                         </div>
                     </div>
                 </div>

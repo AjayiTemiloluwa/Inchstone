@@ -38,7 +38,7 @@ export default function AppLayout({
         <DeedCountdown />
         <ScrollText />
         <GLProvider>
-        <div className="app-shell relative flex h-screen w-full overflow-hidden">
+        <div className="app-shell relative flex h-screen h-dvh w-full overflow-hidden">
           {/* Backdrop: living sky → dimming veil → app UI (back to front) */}
           <AmbientBackground />
           <div className="app-overlay" aria-hidden="true" />

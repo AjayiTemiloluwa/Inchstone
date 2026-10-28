@@ -60,7 +60,7 @@ const SECTIONS: Array<{ title: string; body: Array<string> }> = [
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-paper px-6 py-[8vh]">
+    <div className="min-h-dvh bg-paper px-4 py-[6dvh] sm:px-6 sm:py-[8vh] pb-[max(2rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-[720px]">
         <h1 className="text-display font-display text-parchment">Privacy Policy</h1>
         <p className="mt-3 text-body text-ink/60">
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
               <h2 className="text-body font-semibold text-gold">{section.title}</h2>
               <div className="mt-3 space-y-3">
                 {section.body.map((paragraph, i) => (
-                  <p key={i} className="text-body leading-relaxed text-ink/80">
+                  <p key={i} className="text-body leading-relaxed text-ink/80 break-words">
                     {paragraph}
                   </p>
                 ))}

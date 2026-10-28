@@ -1,53 +1,47 @@
-﻿﻿'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useHierarchyStore, Item, Task } from '@/stores/hierarchyStore'
 import { Card } from '@/components/ui/Card'
-import { ProgressBar } from '@/components/ui/ProgressBar'
-import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, BookOpen, Plus, X, CheckCircle2, Circle, Clock, Target, Trash2, StickyNote, Repeat, BarChart3, Upload, Activity, Calendar, ChevronLeft, ChevronDown, Star, Bell, Pencil } from 'lucide-react'
-import { format, parseISO, subDays, subWeeks, subMonths, subYears, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfDay, endOfDay, eachDayOfInterval, addDays, differenceInDays } from 'date-fns'
-import { AnimatePresence, motion } from 'motion/react'
+import { ChevronRight, Plus, X, Clock, Target, Activity, Calendar } from 'lucide-react'
+import { format, parseISO, addDays } from 'date-fns'
+import { AnimatePresence } from 'motion/react'
 import { Scramble } from '@/components/ui/motion'
 import dynamic from 'next/dynamic'
 import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
-
-const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 import { useToast } from '@/components/ui/ToastProvider'
-import { HabitSparkline } from '@/components/ui/HabitSparkline'
-import { BottleMentionTextarea } from '@/components/ui/BottleMentionTextarea'
-import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
 import { DoneView } from '@/components/ui/DoneView'
 import { Loader } from '@/components/ui/Loader'
+import { AddDeedForm } from '@/components/day/AddDeedForm'
+import { DayHeader } from '@/components/day/DayHeader'
+import { DayNotesCard } from '@/components/day/DayNotesCard'
+import { DeedAgenda } from '@/components/day/DeedAgenda'
+import { DeedDetailModal } from '@/components/day/DeedDetailModal'
+import { DeedTable } from '@/components/day/DeedTable'
+import { DeedTimeline } from '@/components/day/DeedTimeline'
+import { DeleteScopeDialog, type DeleteScopeTarget } from '@/components/day/DeleteScopeDialog'
+import { FrogCard } from '@/components/day/FrogCard'
+import { GoalCards } from '@/components/day/GoalCards'
+import { HabitTracker } from '@/components/day/HabitTracker'
+import { ReflectionCard } from '@/components/day/ReflectionCard'
+import { UnscheduledDeeds } from '@/components/day/UnscheduledDeeds'
+import { useHabitData } from '@/components/day/useHabitData'
+import type { DayNote, DeedModalData, DeleteScope, GoogleEventView, NewDeedValues } from '@/components/day/types'
 
-type GraphRange = 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
+const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 
-// How much of a repeating deed/habit a delete should take out. Mirrors the
-// `scope` query param accepted by DELETE /api/tasks/[id].
-type DeleteScope = 'single' | 'future' | 'all'
+type StopEvent = { stopPropagation: () => void }
 
-type DeedModalData = {
-  task: Task
-  parentGoal: Item | null
-}
+const SHOW_GOOGLE_KEY = 'inchstone:day:showGoogle'
 
-type GoogleEventView = {
-  id: string
-  title: string
-  startTime: string
-  endTime: string
-  type?: string
-}
-
-// Human labels for the recurrence patterns a habit can carry.
-const HABIT_PATTERN_LABEL: Record<string, string> = {
-  daily: 'Daily',
-  weekdays: 'Weekdays',
-  weekly: 'Weekly',
-  biweekly: 'Biweekly',
-  monthly: 'Monthly',
-  yearly: 'Yearly',
+function readShowGoogle(): boolean {
+  try {
+    const stored = window.localStorage.getItem(SHOW_GOOGLE_KEY)
+    return stored === null ? true : stored !== '0'
+  } catch {
+    return true
+  }
 }
 
 export default function DayPage() {
@@ -59,52 +53,40 @@ export default function DayPage() {
   const { showToast, confirm } = useToast()
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline')
-  const [reflectionText, setReflectionText] = useState('')
-  const [reflectionTimer, setReflectionTimer] = useState<NodeJS.Timeout | null>(null)
   const [selectedDeed, setSelectedDeed] = useState<DeedModalData | null>(null)
   const [deedReflection, setDeedReflection] = useState('')
   const [addingDeed, setAddingDeed] = useState(false)
-  const [newDeedTitle, setNewDeedTitle] = useState('')
-  const [newDeedStart, setNewDeedStart] = useState('')
-  const [newDeedEnd, setNewDeedEnd] = useState('')
-  const [newDeedWeight, setNewDeedWeight] = useState('10')
-  const [newDeedCategory, setNewDeedCategory] = useState<string>('')
-  const [isRecurring, setIsRecurring] = useState(false)
-  const [recurrencePattern, setRecurrencePattern] = useState('')
-  const [recurrenceEnd, setRecurrenceEnd] = useState('')
-  const [isFrog, setIsFrog] = useState(false)
-  const [newDeedImportant, setNewDeedImportant] = useState(false)
-  const [newDeedReminder, setNewDeedReminder] = useState('10')
-  const [newDeedNotify, setNewDeedNotify] = useState(true)
-  const [newDeedEndWarn, setNewDeedEndWarn] = useState('10')
-  const [isHabit, setIsHabit] = useState(false)
-  const [deedColor, setDeedColor] = useState('')
-  const [dayNotes, setDayNotes] = useState<any[]>([])
-  const [showNoteModal, setShowNoteModal] = useState(false)
-  const [editingNote, setEditingNote] = useState<any>(null)
-  const [newHabitTitle, setNewHabitTitle] = useState('')
-  const [newHabitPattern, setNewHabitPattern] = useState('daily')
-  const [showHabitAdd, setShowHabitAdd] = useState(false)
-  const [showHabitGraph, setShowHabitGraph] = useState(false)
-  const [habitHistory, setHabitHistory] = useState<any[]>([])
-  const [expandedHabit, setExpandedHabit] = useState<string | null>(null)
-  const [habitGraphRange, setHabitGraphRange] = useState<GraphRange>('month')
-  const [habitGraphCustomStart, setHabitGraphCustomStart] = useState('')
-  const [habitGraphCustomEnd, setHabitGraphCustomEnd] = useState('')
-  const [showGraphDatePicker, setShowGraphDatePicker] = useState(false)
-  const [deleteScopeTarget, setDeleteScopeTarget] = useState<{ taskId: string; title: string; isHabit: boolean } | null>(null)
+  const [addPrefill, setAddPrefill] = useState({ start: '', end: '' })
   const [savingDeed, setSavingDeed] = useState(false)
-  const [habitHover, setHabitHover] = useState<number | null>(null)
-  const [renamingHabitRow, setRenamingHabitRow] = useState<string | null>(null)
-  const [renameHabitRowValue, setRenameHabitRowValue] = useState('')
-  const renameHabitSubmittedRef = useRef(false)
+  const [dayNotes, setDayNotes] = useState<DayNote[]>([])
+  const [showNoteModal, setShowNoteModal] = useState(false)
+  const [editingNote, setEditingNote] = useState<DayNote | null>(null)
+  const [deleteScopeTarget, setDeleteScopeTarget] = useState<DeleteScopeTarget | null>(null)
+
+  const {
+    todayHabits,
+    setTodayHabits,
+    habitOverview,
+    habitHistory,
+    range: habitGraphRange,
+    setRange: setHabitGraphRange,
+    customStart: habitGraphCustomStart,
+    setCustomStart: setHabitGraphCustomStart,
+    customEnd: habitGraphCustomEnd,
+    setCustomEnd: setHabitGraphCustomEnd,
+    fetchTodayHabits,
+    fetchHabitOverview,
+    fetchHabitHistory,
+    habitSeriesByTitle,
+    habitDetail,
+  } = useHabitData(dateStr)
 
   // Google Calendar events for this day — pull-only, rendered as
   // non-checkable gold-dim blockers alongside deeds. The "Google" toggle in
   // the Deeds toolbar flips them on/off (choice remembered across visits).
   const [googleEvents, setGoogleEvents] = useState<GoogleEventView[]>([])
   const [googleConnected, setGoogleConnected] = useState(false)
-  const [showGoogle, setShowGoogle] = useState(true)
+  const [showGoogle, setShowGoogle] = useState<boolean>(() => (typeof window === 'undefined' ? true : readShowGoogle()))
 
   useEffect(() => {
     let cancelled = false
@@ -126,23 +108,32 @@ export default function DayPage() {
   }, [dateStr])
 
   // Remember the Google-events visibility preference per device.
-  useEffect(() => {
-    const stored = window.localStorage.getItem('inchstone:day:showGoogle')
-    if (stored !== null) setShowGoogle(stored !== '0')
-  }, [])
-  useEffect(() => {
-    window.localStorage.setItem('inchstone:day:showGoogle', showGoogle ? '1' : '0')
-  }, [showGoogle])
+  const toggleGoogle = () => {
+    setShowGoogle(v => {
+      const next = !v
+      try { window.localStorage.setItem(SHOW_GOOGLE_KEY, next ? '1' : '0') } catch { /* storage unavailable */ }
+      return next
+    })
+  }
 
   // Live "now" ticker for scheduled-deed countdowns (1s cadence).
   const countdownNow = useCountdown()
 
+  const currentDate = useMemo(() => parseISO(dateStr), [dateStr])
   const activeCategories = getFlatItems().filter(i => i.layer === 1)
-  const currentDate = parseISO(dateStr)
-  const [nowLineTop, setNowLineTop] = useState<number | null>(null)
-  const prevAddingDeed = useRef(addingDeed)
 
-  const findDailyGoalsForDate = (): Item[] => {
+  const findItem = useCallback((id: string): Item | undefined => {
+    const search = (nodes: Item[]): Item | undefined => {
+      for (const n of nodes) {
+        if (n.id === id) return n
+        if (n.children) { const f = search(n.children); if (f) return f }
+      }
+      return undefined
+    }
+    return search(items)
+  }, [items])
+
+  const dailyGoals = useMemo<Item[]>(() => {
     const seen = new Set<string>()
     const result: Item[] = []
     const search = (nodes: Item[]) => {
@@ -161,274 +152,46 @@ export default function DayPage() {
     }
     search(items)
     return result
-  }
+  }, [items, dateStr])
+  const primaryGoal: Item | undefined = dailyGoals[0]
 
-  const dailyGoals = findDailyGoalsForDate()
-
-  useEffect(() => {
-    if (addingDeed && !prevAddingDeed.current) {
-      const goal = dailyGoals[0]
-      if (goal) {
-        const existingTasks = goal.tasks || []
-        const totalWeight = existingTasks.reduce((sum, t) => sum + t.weight, 0)
-        const remaining = Math.max(0, 100 - totalWeight)
-        const calculated = existingTasks.length > 0 ? remaining / (existingTasks.length + 1) : 100
-        setNewDeedWeight(String(Math.round(calculated * 10) / 10))
-      }
-    }
-    prevAddingDeed.current = addingDeed
-  }, [addingDeed, dailyGoals])
-
-  useEffect(() => {
-    const updateNowLine = () => {
-      const now = new Date()
-      if (dateStr === format(now, 'yyyy-MM-dd')) {
-        const currentHour = now.getHours() + now.getMinutes() / 60
-        setNowLineTop(currentHour * 64)
-      } else {
-        setNowLineTop(null)
-      }
-    }
-    updateNowLine()
-    const interval = setInterval(updateNowLine, 60000)
-    return () => clearInterval(interval)
-  }, [dateStr])
-
-  // Auto-scroll the 24h timeline to the current hour when today opens
-  useEffect(() => {
-    if (viewMode !== 'timeline' || dateStr !== format(new Date(), 'yyyy-MM-dd')) return
-    const t = window.setTimeout(() => {
-      timelineScrollRef.current?.scrollTo({
-        top: Math.max(0, new Date().getHours() * 64 - 150),
-        behavior: 'smooth',
-      })
-    }, 400)
-    return () => window.clearTimeout(t)
-  }, [viewMode, dateStr])
-
-  const fetchDayNotes = async () => {
+  const loadDayNotes = useCallback(async (): Promise<DayNote[] | null> => {
     try {
       const noteRes = await fetch(`/api/notes?date=${dateStr}`)
-      if (noteRes.ok) {
-        const data = await noteRes.json()
-        setDayNotes(data.notes || [])
-      }
+      if (!noteRes.ok) return null
+      const data = await noteRes.json()
+      return data.notes || []
     } catch (e) {
       console.error('Failed to fetch notes', e)
-    }
-  }
-
-  useEffect(() => {
-    fetchDayNotes()
-  }, [dateStr])
-
-  // Fetch today's habit tasks (from any goal) to show in the Habit Tracker
-  const [todayHabits, setTodayHabits] = useState<any[]>([])
-
-  const fetchTodayHabits = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/tasks?date=${dateStr}&habit=true`)
-      if (res.ok) {
-        const data = await res.json()
-        // Filter only habit tasks
-        const habits = (data.tasks || []).filter((t: any) => t.isHabit)
-        setTodayHabits(habits)
-      }
-    } catch (e) {
-      console.error('Failed to fetch today habits', e)
+      return null
     }
   }, [dateStr])
+  const fetchDayNotes = useCallback(async () => {
+    const notes = await loadDayNotes()
+    if (notes) setDayNotes(notes)
+  }, [loadDayNotes])
 
   useEffect(() => {
-    fetchTodayHabits()
-  }, [fetchTodayHabits, dateStr])
-
-  // Habit definitions for the selected day — lets the tracker list habits that are
-  // not due today (weekly / weekdays / monthly patterns) instead of hiding them.
-  const [habitOverview, setHabitOverview] = useState<any[]>([])
-
-  const fetchHabitOverview = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/habits/overview?date=${dateStr}`)
-      if (res.ok) {
-        const data = await res.json()
-        setHabitOverview(data.habits || [])
-      }
-    } catch (e) {
-      console.error('Failed to fetch habit overview', e)
-    }
-  }, [dateStr])
-
-  useEffect(() => {
-    fetchHabitOverview()
-  }, [fetchHabitOverview, dateStr])
-
-  // Last-30-day completion series per habit title — feeds the inline sparklines.
-  const habitSeriesByTitle = useMemo(() => {
-    const days = 30
-    const map: Record<string, boolean[]> = {}
-    const seriesStart = new Date(currentDate)
-    seriesStart.setDate(seriesStart.getDate() - (days - 1))
-    seriesStart.setHours(0, 0, 0, 0)
-    for (const h of habitHistory as any[]) {
-      const d = new Date(h.date)
-      const idx = Math.floor((d.getTime() - seriesStart.getTime()) / 86_400_000)
-      if (idx < 0 || idx >= days) continue
-      if (!map[h.title]) map[h.title] = Array(days).fill(false)
-      if (h.completed) map[h.title][idx] = true
-    }
-    return map
-  }, [habitHistory, currentDate])
-
-  // Per-habit detail (last-30-days list, streak, rate) — feeds the expandable habit row.
-  const habitDetail = useMemo(() => {
-    const out: Record<string, { days: { date: Date; done: boolean }[]; streak: number; rate: number; total: number; done: number }> = {}
-    const titles = [...new Set((habitHistory as any[]).map(h => h.title))]
-    const days = 30
-    const seriesStart = new Date(currentDate)
-    seriesStart.setDate(seriesStart.getDate() - (days - 1))
-    seriesStart.setHours(0, 0, 0, 0)
-    for (const title of titles) {
-      const inst = (habitHistory as any[]).filter(h => h.title === title)
-      const doneSet = new Set(
-        inst.filter(h => h.completed).map(h => format(parseISO(h.date), 'yyyy-MM-dd')),
-      )
-      const dayList = eachDayOfInterval({ start: seriesStart, end: startOfDay(currentDate) }).map(d => ({
-        date: d,
-        done: doneSet.has(format(d, 'yyyy-MM-dd')),
-      }))
-      let streak = 0
-      for (let i = dayList.length - 1; i >= 0; i--) {
-        if (dayList[i].done) streak++
-        else break
-      }
-      const total = inst.length
-      const done = inst.filter(h => h.completed).length
-      out[title] = { days: dayList, streak, rate: total > 0 ? Math.round((done / total) * 100) : 0, total, done }
-    }
-    return out
-  }, [habitHistory, currentDate])
-
-  // Fetch habit history for graph
-  const fetchHabitHistory = useCallback(async () => {
-    try {
-      let url = '/api/habits?range=year'
-      if (habitGraphRange === 'week') url = '/api/habits?range=week'
-      else if (habitGraphRange === 'month') url = '/api/habits?range=month'
-      else if (habitGraphRange === 'year') url = '/api/habits?range=year'
-      else if (habitGraphRange === 'all') {
-        const res = await fetch('/api/habits?t=' + Date.now())
-        if (res.ok) {
-          const data = await res.json()
-          setHabitHistory(data.habits || [])
-        }
-        return
-      } else if (habitGraphRange === 'custom' && habitGraphCustomStart && habitGraphCustomEnd) {
-        url = `/api/habits?start=${habitGraphCustomStart}&end=${habitGraphCustomEnd}`
-      }
-
-      const res = await fetch(url)
-      if (res.ok) {
-        const data = await res.json()
-        setHabitHistory(data.habits || [])
-      }
-    } catch (e) {
-      console.error('Failed to fetch habit history', e)
-    }
-  }, [habitGraphRange, habitGraphCustomStart, habitGraphCustomEnd])
-
-  useEffect(() => {
-    fetchHabitHistory()
-  }, [fetchHabitHistory, dateStr])
-
-  const handleGridClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('.task-block')) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const clickY = e.clientY - rect.top + e.currentTarget.scrollTop
-    const clickedHour = Math.max(0, Math.min(23, Math.floor(clickY / 64)))
-    const startStr = `${String(clickedHour).padStart(2, '0')}:00`
-    const endStr = `${String(Math.min(23, clickedHour + 1)).padStart(2, '0')}:00`
-    setNewDeedStart(startStr)
-    setNewDeedEnd(endStr)
-    setAddingDeed(true)
-  }
-
-  const getPositionedTasks = (tasks: Task[]) => {
-    const scheduled = tasks.filter(t => t.startTime && t.endTime).map(t => {
-      const start = new Date(t.startTime!)
-      const end = new Date(t.endTime!)
-      const startHour = start.getHours() + start.getMinutes() / 60
-      const endHour = Math.max(startHour + 0.5, end.getHours() + end.getMinutes() / 60)
-      return { task: t, startHour, endHour }
-    })
-    scheduled.sort((a, b) => a.startHour - b.startHour)
-    const groups: Array<typeof scheduled> = []
-    let currentGroup: typeof scheduled = []
-    let groupEnd = 0
-    scheduled.forEach(item => {
-      if (currentGroup.length === 0) {
-        currentGroup.push(item)
-        groupEnd = item.endHour
-      } else if (item.startHour < groupEnd) {
-        currentGroup.push(item)
-        groupEnd = Math.max(groupEnd, item.endHour)
-      } else {
-        groups.push(currentGroup)
-        currentGroup = [item]
-        groupEnd = item.endHour
-      }
-    })
-    if (currentGroup.length > 0) groups.push(currentGroup)
-    const result: Array<{ task: Task; top: number; height: number; left: number; width: number }> = []
-    groups.forEach(group => {
-      const columns: Array<number[]> = []
-      const taskPlacements: Array<{ item: typeof scheduled[0]; colIndex: number }> = []
-      group.forEach(item => {
-        let placed = false
-        for (let i = 0; i < columns.length; i++) {
-          const lastEndHour = columns[i][columns[i].length - 1]
-          if (item.startHour >= lastEndHour) {
-            columns[i].push(item.endHour)
-            taskPlacements.push({ item, colIndex: i })
-            placed = true
-            break
-          }
-        }
-        if (!placed) {
-          columns.push([item.endHour])
-          taskPlacements.push({ item, colIndex: columns.length - 1 })
-        }
-      })
-      const numCols = columns.length
-      taskPlacements.forEach(({ item, colIndex }) => {
-        const top = item.startHour * 64
-        const height = (item.endHour - item.startHour) * 64
-        const width = 94 / numCols
-        const left = colIndex * (96 / numCols) + 2
-        result.push({ task: item.task, top, height, left, width })
-      })
-    })
-    return result
-  }
-
-  const goToDay = (offset: number) => {
-    router.push(`/day/${format(addDays(currentDate, offset), 'yyyy-MM-dd')}`)
-  }
+    let cancelled = false
+    loadDayNotes().then(n => { if (!cancelled && n) setDayNotes(n) })
+    return () => { cancelled = true }
+  }, [loadDayNotes])
 
   const fetchItems = useCallback(async () => {
     try {
       const res = await fetch('/api/items')
       const data = await res.json()
       if (data.items) {
-        const itemMap = new Map()
-        data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-        const tree: any[] = []
-        data.items.forEach((item: any) => {
+        const itemMap = new Map<string, Item>()
+        ;(data.items as Item[]).forEach(item => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+        const tree: Item[] = []
+        ;(data.items as Item[]).forEach(item => {
+          const node = itemMap.get(item.id)!
           if (item.parentId) {
             const parent = itemMap.get(item.parentId)
-            if (parent) parent.children.push(itemMap.get(item.id))
+            if (parent) parent.children!.push(node)
           } else {
-            tree.push(itemMap.get(item.id))
+            tree.push(node)
           }
         })
         setItems(tree)
@@ -443,17 +206,6 @@ export default function DayPage() {
   useEffect(() => {
     fetchItems()
   }, [fetchItems])
-
-  const findItem = (id: string): Item | undefined => {
-    const search = (nodes: Item[]): Item | undefined => {
-      for (const n of nodes) {
-        if (n.id === id) return n
-        if (n.children) { const f = search(n.children); if (f) return f }
-      }
-      return undefined
-    }
-    return search(items)
-  }
 
   const allTasks: Task[] = useMemo(() => {
     const tasks: Task[] = []
@@ -473,7 +225,7 @@ export default function DayPage() {
     searchTasks(items)
     return tasks
   }, [items, dateStr])
-  const scheduledTasks = allTasks.filter(t => t.startTime && t.endTime)
+  const scheduledTasks = useMemo(() => allTasks.filter(t => t.startTime && t.endTime), [allTasks])
   const unscheduledTasks = allTasks.filter(t => !t.startTime && !t.isHabit)
   const frogTasks = allTasks.filter(t => t.isFrog).sort((a, b) => {
     if (a.startTime && b.startTime) return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
@@ -484,13 +236,11 @@ export default function DayPage() {
   const habitTasks = allTasks.filter(t => t.isHabit)
   // Habits rendered in the tracker = fetched per-day habits, else store fallback
   const displayedHabits = todayHabits.length > 0 ? todayHabits : habitTasks
-  const habitsDone = displayedHabits.filter((h: any) => h.completed).length
-  const habitsTotal = displayedHabits.length
   // Habits the user owns that fall outside today's schedule. They stay visible as
   // read-only rows (with their next due date) so no habit ever vanishes from the
   // tracker — the counters above still measure only what is actually due today.
-  const scheduledHabitTitles = new Set(displayedHabits.map((h: any) => h.title))
-  const offDayHabits = (habitOverview as any[]).filter(h => !h.scheduled && !scheduledHabitTitles.has(h.title))
+  const scheduledHabitTitles = new Set(displayedHabits.map(h => h.title))
+  const offDayHabits = habitOverview.filter(h => !h.scheduled && !scheduledHabitTitles.has(h.title))
   // Day score counts only non-habit tasks (regular deeds)
   const deedTasks = allTasks.filter(t => !t.isHabit)
   const completedTasks = deedTasks.filter(t => t.completed)
@@ -498,11 +248,8 @@ export default function DayPage() {
   const dayScore = totalWeight > 0
     ? deedTasks.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0) / totalWeight * 100
     : 0
-  const primaryGoal = dailyGoals[0]
 
-  // ── Live countdown of the next scheduled (time-ranged) deed ──────────
-  // Finds the soonest upcoming/live scheduled deed so we can surface a subtle
-  // "next up" ticker in the header and countdown chips in table + modal.
+  // Soonest upcoming/live scheduled deed — surfaces a subtle "next up" ticker.
   const nextScheduledDeed = useMemo(() => {
     const candidates = scheduledTasks
       .filter(t => !t.completed && t.startTime)
@@ -512,70 +259,26 @@ export default function DayPage() {
       }))
       .sort((a, b) => a.parts.totalSeconds - b.parts.totalSeconds)
     return candidates[0] || null
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduledTasks, countdownNow.getTime()])
+  }, [scheduledTasks, countdownNow])
 
-  const countdownForDeed = (t: Task) => {
-    if (!t.startTime) return null
-    return formatCountdown(countdownNow, new Date(t.startTime), t.endTime ? new Date(t.endTime) : null)
-  }
-
-  // Compact live countdown chip — used in the table, timeline blocks and the
-  // deed edit modal. Colour reflects state: LIVE (moss), imminent (ember),
-  // upcoming (gold).
-  const renderCountdownChip = (t: Task) => {
-    if (!t.startTime) return null
-    const p = countdownForDeed(t)
-    if (!p) return null
-    const label = compactCountdownLabel(p)
-    const tone =
-      p.state === 'live'
-        ? 'bg-moss/15 text-sage border-sage/30'
-        : p.soon
-          ? 'bg-ember/15 text-[#e0a093] border-ember/40'
-          : 'bg-gold/15 text-gold border-gold/30'
-    const Icon = p.state === 'live' ? Activity : Clock
-    return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide tabular-nums ${tone}`}
-        title={t.startTime ? `Scheduled ${format(new Date(t.startTime), 'h:mm a')}` : undefined}
-      >
-        <Icon className="w-3 h-3" />
-        {p.state === 'live' ? '● ' : ''}
-        {label}
-      </span>
-    )
-  }
-
-  // 🎉 Celebrate a perfect day — confetti + haptic, once per date
+  // Celebrate a perfect day — confetti + haptic, once per date
   const prevScoreRef = useRef(dayScore)
-  const timelineScrollRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     let already = false
-    try { already = window.localStorage.getItem(`inchstone-celebrated-${dateStr}`) === '1' } catch {}
+    try { already = window.localStorage.getItem(`inchstone-celebrated-${dateStr}`) === '1' } catch { /* storage unavailable */ }
     if (!already && prevScoreRef.current < 100 && dayScore >= 100 && deedTasks.length >= 3) {
       import('@/components/ui/Confetti').then(m => m.fireConfetti())
       navigator.vibrate?.(35)
-      try { window.localStorage.setItem(`inchstone-celebrated-${dateStr}`, '1') } catch {}
+      try { window.localStorage.setItem(`inchstone-celebrated-${dateStr}`, '1') } catch { /* storage unavailable */ }
     }
     prevScoreRef.current = dayScore
   }, [dayScore, deedTasks.length, dateStr])
 
-  useEffect(() => {
-    if (primaryGoal?.reflection && reflectionText === '') {
-      setReflectionText(primaryGoal.reflection)
-    }
-  }, [primaryGoal, reflectionText])
+  const goToDay = (offset: number) => {
+    router.push(`/day/${format(addDays(currentDate, offset), 'yyyy-MM-dd')}`)
+  }
 
-  const saveReflection = useCallback((text: string) => {
-    if (!primaryGoal) return
-    if (reflectionTimer) clearTimeout(reflectionTimer)
-    const timer = setTimeout(() => {
-      updateItem(primaryGoal.id, { reflection: text })
-    }, 800)
-    setReflectionTimer(timer)
-  }, [primaryGoal, updateItem, reflectionTimer])
-
+  // ── Deed actions (shared by the hour grid, agenda, table and cards) ────
   const handleToggleTask = (task: Task) => {
     const goalItem = findItem(task.goalId)
     if (!goalItem) return
@@ -612,7 +315,6 @@ export default function DayPage() {
     const goalItem = findItem(task.goalId)
     if (!goalItem) return
 
-    // Persist to backend
     try {
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'PUT',
@@ -652,7 +354,34 @@ export default function DayPage() {
     showToast(task.isRecurring ? 'Recurrence enabled — instances created!' : 'Changes saved', 'success')
   }
 
-  const handleDeleteTask = async (e: React.MouseEvent, taskId: string) => {
+  const handleToggleSelectedComplete = () => {
+    if (!selectedDeed) return
+    const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(t => t.id === selectedDeed.task.id))
+    if (goalItem) {
+      updateTask(goalItem.id, selectedDeed.task.id, { completed: !selectedDeed.task.completed })
+      setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, completed: !selectedDeed.task.completed } })
+    }
+  }
+
+  const performDeleteTask = async (taskId: string, scope: DeleteScope = 'single') => {
+    setDeleteScopeTarget(null)
+    try {
+      const res = await fetch(`/api/tasks/${taskId}?scope=${scope}`, { method: 'DELETE' })
+      if (!res.ok) {
+        showToast('Failed to delete', 'error')
+      } else {
+        fetchItems()
+        fetchTodayHabits()
+        fetchHabitHistory()
+        showToast(scope === 'single' ? 'Deleted' : 'Deleted from the series', 'success')
+      }
+    } catch (e) {
+      console.error(e)
+      showToast('Network error', 'error')
+    }
+  }
+
+  const handleDeleteTask = async (e: StopEvent, taskId: string) => {
     e.stopPropagation()
     const task = allTasks.find(t => t.id === taskId)
 
@@ -676,90 +405,40 @@ export default function DayPage() {
     setDeleteScopeTarget({ taskId, title: task.title, isHabit: !!task.isHabit })
   }
 
-  const performDeleteTask = async (taskId: string, scope: DeleteScope = 'single') => {
-    setDeleteScopeTarget(null)
+  const handleUpdateTaskField = async (task: Task, field: 'weight' | 'progress', value: number) => {
+    const goalItem = findItem(task.goalId)
+    if (!goalItem) return
     try {
-      const res = await fetch(`/api/tasks/${taskId}?scope=${scope}`, { method: 'DELETE' })
-      if (!res.ok) {
-        showToast('Failed to delete', 'error')
-      } else {
-        fetchItems()
-        fetchTodayHabits()
-        fetchHabitHistory()
-        showToast(scope === 'single' ? 'Deleted' : 'Deleted from the series', 'success')
-      }
-    } catch (e) {
-      console.error(e)
-      showToast('Network error', 'error')
-    }
-  }
-
-  const handleRenameHabit = async (oldTitle: string) => {
-    if (renameHabitSubmittedRef.current) return
-    const value = renameHabitRowValue.trim()
-    if (!value || value === oldTitle) {
-      setRenamingHabitRow(null)
-      return
-    }
-    renameHabitSubmittedRef.current = true
-    try {
-      const res = await fetch('/api/habits', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oldTitle, newTitle: value }),
-      })
-      if (res.ok) {
-        showToast('Habit renamed — all instances updated', 'success')
-        setRenamingHabitRow(null)
-        setExpandedHabit(null)
-        await Promise.all([fetchItems(), fetchTodayHabits(), fetchHabitHistory(), fetchHabitOverview()])
-      } else {
-        const data = await res.json()
-        showToast(data.error || 'Failed to rename habit', 'error')
-      }
-    } catch (e) {
-      console.error(e)
-      showToast('Network error', 'error')
-    } finally {
-      renameHabitSubmittedRef.current = false
-    }
-  }
-
-  const handleUpdateTaskWeight = async (taskId: string, goalId: string, weight: number) => {
-    try {
-      await fetch(`/api/tasks/${taskId}`, {
+      await fetch(`/api/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weight })
+        body: JSON.stringify({ [field]: value }),
       })
-      updateTask(goalId, taskId, { weight })
+      updateTask(goalItem.id, task.id, { [field]: value })
     } catch (e) {
       console.error(e)
     }
   }
+  const handleWeightChange = (task: Task, weight: number) => { void handleUpdateTaskField(task, 'weight', weight) }
+  const handleProgressChange = (task: Task, progress: number) => { void handleUpdateTaskField(task, 'progress', progress) }
 
-  const handleUpdateTaskProgress = async (taskId: string, goalId: string, progress: number) => {
-    try {
-      await fetch(`/api/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ progress })
-      })
-      updateTask(goalId, taskId, { progress })
-    } catch (e) {
-      console.error(e)
-    }
+  // ── Add deed ──────────────────────────────────────────────────────────
+  const openAddDeed = (start = '', end = '') => {
+    setAddPrefill({ start, end })
+    setAddingDeed(true)
   }
 
-  const handleAddDeed = async (overrides?: { isHabit?: boolean; isRecurring?: boolean; recurrencePattern?: string; isFrog?: boolean; color?: string; title?: string }) => {
-    const finalIsHabit = overrides?.isHabit ?? isHabit
-    const finalIsRecurring = overrides?.isRecurring ?? isRecurring
-    const finalRecurrencePattern = overrides?.recurrencePattern ?? recurrencePattern
-    const finalIsFrog = overrides?.isFrog ?? isFrog
-    const finalColor = overrides?.color ?? deedColor
-    const deedTitle = overrides?.title ?? newDeedTitle
+  const suggestedWeight = (): string => {
+    if (!primaryGoal) return '10'
+    const existing = primaryGoal.tasks || []
+    const total = existing.reduce((sum, t) => sum + t.weight, 0)
+    const remaining = Math.max(0, 100 - total)
+    const calculated = existing.length > 0 ? remaining / (existing.length + 1) : 100
+    return String(Math.round(calculated * 10) / 10)
+  }
 
-    if (!deedTitle.trim() || savingDeed) return
+  const handleAddDeed = async (v: NewDeedValues): Promise<boolean> => {
+    if (!v.title.trim() || savingDeed) return false
     setSavingDeed(true)
     try {
       let goalId: string
@@ -782,14 +461,13 @@ export default function DayPage() {
           }
         }
         searchForWeek(items)
-        const dayName = format(currentDate, 'EEEE')
         const createRes = await fetch('/api/items', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             layer: 6,
             parentId: parentWeekId || null,
-            title: dayName,
+            title: format(currentDate, 'EEEE'),
             weight: 14.3,
             startDate: dateStr,
             endDate: dateStr,
@@ -798,28 +476,14 @@ export default function DayPage() {
         const createData = await createRes.json()
         if (!createData.item?.id) {
           showToast('Could not create a daily goal for this date.', 'error')
-          return
+          return false
         }
         goalId = createData.item.id
-        await new Promise<void>(resolve => {
-          fetch('/api/items').then(r => r.json()).then(data => {
-            if (data.items) {
-              const itemMap = new Map()
-              data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-              const tree: any[] = []
-              data.items.forEach((item: any) => {
-                if (item.parentId) { const parent = itemMap.get(item.parentId); if (parent) parent.children.push(itemMap.get(item.id)) }
-                else { tree.push(itemMap.get(item.id)) }
-              })
-              setItems(tree)
-            }
-            resolve()
-          })
-        })
+        await fetchItems()
       }
 
-      const startTimeISO = newDeedStart ? new Date(`${dateStr}T${newDeedStart}:00`).toISOString() : null
-      const endTimeISO = newDeedEnd ? new Date(`${dateStr}T${newDeedEnd}:00`).toISOString() : null
+      const startTimeISO = v.start ? new Date(`${dateStr}T${v.start}:00`).toISOString() : null
+      const endTimeISO = v.end ? new Date(`${dateStr}T${v.end}:00`).toISOString() : null
       const existingTasks = dailyGoals.find(dg => dg.id === goalId)?.tasks || []
       const totalExistingWeight = existingTasks.reduce((sum, t) => sum + t.weight, 0)
       const remaining = Math.max(0, 100 - totalExistingWeight)
@@ -831,217 +495,44 @@ export default function DayPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           goalId,
-          title: deedTitle.trim(),
+          title: v.title.trim(),
           date: dateStr,
           startTime: startTimeISO,
           endTime: endTimeISO,
           weight: finalWeight,
-          categoryId: newDeedCategory || null,
-          isRecurring: finalIsRecurring,
-          recurrencePattern: finalIsRecurring ? finalRecurrencePattern : null,
-          recurrenceEnd: finalIsRecurring && recurrenceEnd ? new Date(recurrenceEnd).toISOString() : null,
-          color: finalColor || null,
-          isFrog: finalIsFrog,
-          isHabit: finalIsHabit,
-          isImportant: newDeedImportant,
-          reminderMinutes: newDeedImportant ? (parseInt(newDeedReminder, 10) || 0) : null,
-                    notifyDeed: newDeedNotify && !!newDeedStart,
-          endWarnMinutes: newDeedNotify && !!newDeedStart ? (parseInt(newDeedEndWarn, 10) || 10) : null,
+          categoryId: v.categoryId || null,
+          isRecurring: v.isRecurring,
+          recurrencePattern: v.isRecurring ? v.recurrencePattern : null,
+          recurrenceEnd: v.isRecurring && v.recurrenceEnd ? new Date(v.recurrenceEnd).toISOString() : null,
+          color: v.color || null,
+          isFrog: v.isFrog,
+          isHabit: v.isHabit,
+          isImportant: v.isImportant,
+          reminderMinutes: v.isImportant ? (parseInt(v.reminder, 10) || 0) : null,
+          notifyDeed: v.notify && !!v.start,
+          endWarnMinutes: v.notify && !!v.start ? (parseInt(v.endWarn, 10) || 10) : null,
         })
       })
       const resData = await res.json()
       if (!res.ok) {
         showToast(`Failed to save task: ${resData.error || 'Unknown error'}`, 'error')
-        return
+        return false
       }
       fetchItems()
       fetchHabitHistory()
-      showToast(finalIsHabit ? 'Habit added for every day going forward' : 'Deed added', 'success')
-      setNewDeedTitle('')
-      setNewDeedStart('')
-      setNewDeedEnd('')
-      setNewDeedWeight('10')
-      setNewDeedCategory('')
-      setIsRecurring(false)
-      setRecurrencePattern('')
-      setRecurrenceEnd('')
-      setIsFrog(false)
-      setNewDeedImportant(false)
-      setNewDeedReminder('10')
-      setNewDeedNotify(true)
-      setNewDeedEndWarn('10')
-      setIsHabit(false)
-      setDeedColor('')
+      showToast(v.isHabit ? 'Habit added for every day going forward' : 'Deed added', 'success')
       setAddingDeed(false)
+      return true
     } catch (e) {
       console.error('Error adding deed:', e)
       showToast('An error occurred while saving the task.', 'error')
+      return false
     } finally {
       setSavingDeed(false)
     }
   }
 
-  // Build habit graph data — SMOOTH CUBIC BEZIER showing overall completion % per day
-  const buildHabitGraph = () => {
-    if (habitHistory.length === 0) return null
-
-    // Group by date: count total habits and completed habits per day
-    const byDate: Record<string, { total: number; done: number }> = {}
-    habitHistory.forEach((h: any) => {
-      const d = new Date(h.date).toISOString().substring(0, 10)
-      if (!byDate[d]) byDate[d] = { total: 0, done: 0 }
-      byDate[d].total++
-      if (h.completed) byDate[d].done++
-    })
-
-    // Collect and sort all dates
-    let dates = Object.keys(byDate).sort()
-
-    // Limit dates based on range
-    if (dates.length > 90 && habitGraphRange !== 'all') {
-      dates = dates.slice(-90)
-    }
-
-    if (dates.length < 2) return null
-
-    const width = 120
-    const height = 100
-    const padding = { top: 6, right: 6, bottom: 18, left: 18 }
-    const chartW = width - padding.left - padding.right
-    const chartH = height - padding.top - padding.bottom
-    const stepX = chartW / (dates.length - 1)
-
-    const gold = 'rgb(212, 175, 55)'
-    const sage = 'rgb(143, 188, 143)'
-
-    // Build single line — overall completion percentage per day with 3-day rolling avg
-    const points = dates.map((date, i) => {
-      let totalDone = 0
-      let totalCount = 0
-      for (let offset = -1; offset <= 1; offset++) {
-        const neighborIdx = i + offset
-        if (neighborIdx >= 0 && neighborIdx < dates.length) {
-          const d = dates[neighborIdx]
-          if (byDate[d]) {
-            totalDone += byDate[d].done
-            totalCount += byDate[d].total
-          }
-        }
-      }
-      const rate = totalCount > 0 ? (totalDone / totalCount) * 100 : 0
-      const x = padding.left + i * stepX
-      const y = padding.top + chartH - (rate / 100) * chartH
-      return { x, y, date, rawRate: byDate[date] ? (byDate[date].done / byDate[date].total) * 100 : 0 }
-    })
-
-    // Generate standard monotone cubic bezier path (industry standard, no overshoot)
-    const getMonotonePath = (pts: typeof points) => {
-      if (pts.length < 2) return ''
-      let path = `M ${pts[0].x} ${pts[0].y}`
-      for (let i = 0; i < pts.length - 1; i++) {
-        const p0 = pts[i]
-        const p1 = pts[i + 1]
-        const dx = p1.x - p0.x
-        const dy = p1.y - p0.y
-
-        // Compute tangents using finite differences
-        let m0: number, m1: number
-        if (i === 0) {
-          m0 = dy / dx
-          m1 = (pts[i + 2] ? (pts[i + 2].y - p0.y) / (pts[i + 2].x - p0.x) : dy / dx)
-        } else if (i >= pts.length - 2) {
-          m0 = (p1.y - pts[i - 1].y) / (p1.x - pts[i - 1].x)
-          m1 = dy / dx
-        } else {
-          const mPrev = (p1.y - pts[i - 1].y) / (p1.x - pts[i - 1].x)
-          const mNext = (pts[i + 2].y - p0.y) / (pts[i + 2].x - p0.x)
-          m0 = (mPrev + mNext) / 2
-          m1 = m0
-        }
-
-        // Monotone preservation: clamp tangents
-        if (dy === 0) {
-          m0 = 0
-          m1 = 0
-        } else {
-          const maxSlope = 3 * Math.abs(dy / dx)
-          m0 = Math.max(-maxSlope, Math.min(maxSlope, m0))
-          m1 = Math.max(-maxSlope, Math.min(maxSlope, m1))
-        }
-
-        const cp1x = p0.x + dx / 3
-        const cp1y = p0.y + m0 * dx / 3
-        const cp2x = p1.x - dx / 3
-        const cp2y = p1.y - m1 * dx / 3
-        path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`
-      }
-      return path
-    }
-
-    const smoothPath = getMonotonePath(points)
-
-    // Generate area path (monotone path closed at bottom)
-    const getAreaPath = (pts: typeof points) => {
-      if (pts.length < 2) return ''
-      const bottomY = padding.top + chartH
-      let path = `M ${pts[0].x} ${bottomY} L ${pts[0].x} ${pts[0].y}`
-      for (let i = 0; i < pts.length - 1; i++) {
-        const p0 = pts[i]
-        const p1 = pts[i + 1]
-        const dx = p1.x - p0.x
-        const dy = p1.y - p0.y
-
-        let m0: number, m1: number
-        if (i === 0) {
-          m0 = dy / dx
-          m1 = (pts[i + 2] ? (pts[i + 2].y - p0.y) / (pts[i + 2].x - p0.x) : dy / dx)
-        } else if (i >= pts.length - 2) {
-          m0 = (p1.y - pts[i - 1].y) / (p1.x - pts[i - 1].x)
-          m1 = dy / dx
-        } else {
-          const mPrev = (p1.y - pts[i - 1].y) / (p1.x - pts[i - 1].x)
-          const mNext = (pts[i + 2].y - p0.y) / (pts[i + 2].x - p0.x)
-          m0 = (mPrev + mNext) / 2
-          m1 = m0
-        }
-
-        if (dy === 0) {
-          m0 = 0
-          m1 = 0
-        } else {
-          const maxSlope = 3 * Math.abs(dy / dx)
-          m0 = Math.max(-maxSlope, Math.min(maxSlope, m0))
-          m1 = Math.max(-maxSlope, Math.min(maxSlope, m1))
-        }
-
-        const cp1x = p0.x + dx / 3
-        const cp1y = p0.y + m0 * dx / 3
-        const cp2x = p1.x - dx / 3
-        const cp2y = p1.y - m1 * dx / 3
-        path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`
-      }
-      path += ` L ${pts[pts.length - 1].x} ${bottomY} Z`
-      return path
-    }
-
-    const areaPath = getAreaPath(points)
-
-    return {
-      dates,
-      points,
-      gold,
-      sage,
-      width,
-      height,
-      padding,
-      chartW,
-      chartH,
-      stepX,
-      smoothPath,
-      areaPath,
-    }
-  }
-
+  // ── Habit actions ─────────────────────────────────────────────────────
   // Dedicated quick-add for habits — bypasses the complex handleAddDeed flow
   const handleQuickAddHabit = async (title: string, pattern: string = 'daily') => {
     try {
@@ -1066,82 +557,63 @@ export default function DayPage() {
     }
   }
 
-  const hours = Array.from({ length: 24 }, (_, i) => i)
-
-  const formatHourLabel = (hour: number): string => {
-    if (hour === 0) return '12 AM'
-    if (hour < 12) return `${hour} AM`
-    if (hour === 12) return '12 PM'
-    return `${hour - 12} PM`
+  const handleToggleHabit = async (task: Task) => {
+    await fetch(`/api/tasks/${task.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed: !task.completed }),
+    })
+    setTodayHabits(prev => prev.map(h => (h.id === task.id ? { ...h, completed: !h.completed } : h)))
+    fetchHabitHistory()
   }
 
-  // Graph range label
-  const graphRangeLabel = (range: GraphRange) => {
-    switch (range) {
-      case 'week': return 'Week'
-      case 'month': return 'Month'
-      case 'quarter': return 'Quarter'
-      case 'year': return 'Year'
-      case 'all': return 'All Time'
-      case 'custom': return 'Custom'
+  const handleRenameHabit = async (oldTitle: string, newTitle: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/habits', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldTitle, newTitle }),
+      })
+      if (res.ok) {
+        showToast('Habit renamed — all instances updated', 'success')
+        await Promise.all([fetchItems(), fetchTodayHabits(), fetchHabitHistory(), fetchHabitOverview()])
+        return true
+      }
+      const data = await res.json()
+      showToast(data.error || 'Failed to rename habit', 'error')
+    } catch (e) {
+      console.error(e)
+      showToast('Network error', 'error')
     }
+    return false
   }
 
   if (loading) return <Loader label="Spinning the day slots…" routeKey="day" />
 
+  const tabBtn = (active: boolean) =>
+    `px-3 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition ${active ? 'bg-gold text-ink' : 'text-ink/60 hover:text-gold'}`
+  const pillBtn = 'flex items-center gap-1.5 rounded-xl border px-3 py-2 sm:py-1.5 text-xs font-bold transition'
+
   return (
-<div className="space-y-6 max-w-full pb-12 stagger-children">
+    <div className="space-y-6 max-w-full pb-12 stagger-children mx-auto 2xl:max-w-[1600px]">
       <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
         <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
         <ChevronRight className="w-3 h-3" />
         <span className="text-ink font-bold">{format(currentDate, 'EEEE, MMMM d, yyyy')}</span>
       </div>
 
-<div className="glass-gold rounded-[8px] p-5 sm:p-6 animate-slideUp border border-gold/20">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => goToDay(-1)}
-              aria-label="Previous day"
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/20 border border-white/10 text-ink/50 hover:text-gold hover:border-gold/40 transition shrink-0"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <div className="text-left">
-              <h1 className="text-3xl sm:text-4xl font-display font-bold bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{format(currentDate, 'EEEE')}</h1>
-              <p className="text-sm sm:text-base text-ink/70 mt-0.5 font-mono">{format(currentDate, 'MMMM d, yyyy')}</p>
-              <p className="text-[10px] text-ink/40 mt-0.5 font-mono">Day {differenceInDays(currentDate, startOfYear(currentDate)) + 1} of {differenceInDays(endOfYear(currentDate), startOfYear(currentDate)) + 1}</p>
-            </div>
-            <button
-              onClick={() => goToDay(1)}
-              aria-label="Next day"
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-black/20 border border-white/10 text-ink/50 hover:text-gold hover:border-gold/40 transition shrink-0"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex items-center gap-4 sm:gap-6">
-            <div className="text-right">
-              <p className="text-[11px] text-ink/50 uppercase font-bold tracking-wider">Tasks</p>
-              <p className="text-xl font-mono font-bold">{completedTasks.length}/{deedTasks.length}</p>
-            </div>
-            <ProgressRing progress={dayScore} size={56} />
-          </div>
-        </div>
-        <div className="mt-4">
-          <div className="flex justify-between text-xs text-ink/50 mb-1">
-            <span>Day Progress</span>
-            <span className="font-mono font-bold">{Math.round(dayScore)}%</span>
-          </div>
-          <ProgressBar progress={dayScore} colorClass={dayScore >= 80 ? 'bg-sage' : dayScore >= 40 ? 'bg-gold' : 'bg-ember'} />
-        </div>
-      </div>
+      <DayHeader
+        currentDate={currentDate}
+        completed={completedTasks.length}
+        total={deedTasks.length}
+        dayScore={dayScore}
+        onPrev={() => goToDay(-1)}
+        onNext={() => goToDay(1)}
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-
         <div className="xl:col-span-2 space-y-6">
-
-<Card className="p-4 sm:p-5 space-y-4">
+          <Card className="p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-gold" />
@@ -1154,21 +626,21 @@ export default function DayPage() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex rounded-xl border border-white/10 bg-black/20 p-1">
-                  <button onClick={() => setViewMode('timeline')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${viewMode === 'timeline' ? 'bg-gold text-ink' : 'text-ink/60 hover:text-gold'}`}>
+                  <button onClick={() => setViewMode('timeline')} className={tabBtn(viewMode === 'timeline')}>
                     <Clock className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Timeline
                   </button>
-                  <button onClick={() => setViewMode('table')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${viewMode === 'table' ? 'bg-gold text-ink' : 'text-ink/60 hover:text-gold'}`}>
+                  <button onClick={() => setViewMode('table')} className={tabBtn(viewMode === 'table')}>
                     <Target className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Table
                   </button>
                 </div>
                 {googleConnected ? (
                   <button
-                    onClick={() => setShowGoogle(v => !v)}
+                    onClick={toggleGoogle}
                     aria-pressed={showGoogle}
                     title={showGoogle ? 'Hide Google Calendar events' : 'Show Google Calendar events'}
-                    className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition ${showGoogle ? 'border-gold/25 bg-gold/10 text-gold hover:bg-gold/20' : 'border-white/10 bg-white/5 text-ink/40 hover:border-gold/25 hover:text-gold/70'}`}
+                    className={`${pillBtn} ${showGoogle ? 'border-gold/25 bg-gold/10 text-gold hover:bg-gold/20' : 'border-white/10 bg-white/5 text-ink/40 hover:border-gold/25 hover:text-gold'}`}
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Google</span>
@@ -1181,7 +653,7 @@ export default function DayPage() {
                   <a
                     href="/settings"
                     title="Connect Google Calendar to see your events here"
-                    className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-ink/50 transition hover:border-gold/25 hover:text-gold"
+                    className={`${pillBtn} border-white/10 bg-white/5 text-ink/50 hover:border-gold/25 hover:text-gold`}
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Google</span>
@@ -1189,7 +661,10 @@ export default function DayPage() {
                     <Plus className="w-3 h-3" />
                   </a>
                 )}
-                <button onClick={() => setAddingDeed(!addingDeed)} className={`px-3 py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 ${addingDeed ? 'bg-ember/20 text-[#cf8f78] border border-ember/30' : 'bg-gold text-ink hover:bg-gold-glow'}`}>
+                <button
+                  onClick={() => (addingDeed ? setAddingDeed(false) : openAddDeed())}
+                  className={`px-3 py-2 sm:py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 ${addingDeed ? 'bg-ember/20 text-[#cf8f78] border border-ember/30' : 'bg-gold text-ink hover:bg-gold-glow'}`}
+                >
                   {addingDeed ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                   <span>{addingDeed ? 'Close' : 'Add Deed'}</span>
                 </button>
@@ -1197,1126 +672,126 @@ export default function DayPage() {
             </div>
 
             {addingDeed && (
-              <div className="pt-4 border-t border-white/10 animate-fadeIn space-y-4">
-                {/* What → title */}
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">What are you doing?</label>
-                  <input
-                    type="text"
-                    value={newDeedTitle}
-                    onChange={e => setNewDeedTitle(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAddDeed()}
-                    placeholder="Deed title…"
-                    autoFocus
-                    className="w-full px-4 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 text-ink"
-                  />
-                </div>
-
-                {/* When → time range */}
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Time (optional)</label>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                    <input type="time" value={newDeedStart} onChange={e => setNewDeedStart(e.target.value)}
-                      className="px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-                    <span className="text-ink/30 text-xs">–</span>
-                    <input type="time" value={newDeedEnd} onChange={e => setNewDeedEnd(e.target.value)}
-                      className="px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-                  </div>
-                </div>
-
-                {/* Group → category + weight */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Category</label>
-                    <select value={newDeedCategory} onChange={e => setNewDeedCategory(e.target.value)} className="w-full px-3 py-2.5 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80">
-                      <option value="">None</option>
-                      {getFlatItems().filter(i => i.layer === 1).map(cat => <option key={cat.id} value={cat.id}>{cat.title}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Weight</label>
-                    <div className="flex items-center gap-2">
-                      <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}
-                        min="1" max="100" placeholder="Wt"
-                        className="w-20 px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-                      <span className="text-xs text-ink/40">% of the day</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Color */}
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Accent color</label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {['#d4af37', '#8fbc8f', '#6495ed', '#ff7f50', '#9370db', '#3cb371', '#ffd700', '#00bfff', '#ff6b6b', '#a8e6cf', '#ffb347', '#ba68c8'].map(c => (
-                      <button
-                        key={c}
-                        onClick={() => setDeedColor(deedColor === c ? '' : c)}
-                        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all ${
-                          deedColor === c ? 'border-white' : 'border-transparent'
-                        }`}
-                        style={{ backgroundColor: c }}
-                        aria-label={`color ${c}`}
-                      >
-                        {deedColor === c && <span className="text-[#0a0908] font-bold text-xs">✓</span>}
-                      </button>
-                    ))}
-                    <button onClick={() => setDeedColor('')} className={`px-2 py-1 text-[9px] font-bold rounded border ${!deedColor ? 'bg-white/20 border-white/40 text-ink' : 'border-white/10 text-ink/50'}`}>None</button>
-                  </div>
-                </div>
-          {/* Flags */}
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-3">
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked={isFrog} onChange={e => setIsFrog(e.target.checked)}
-                      className="w-4 h-4 rounded border-mist text-gold focus:ring-gold" />
-                    <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                      <span className="text-sm">🐸</span><span>Eat That Frog</span>
-                    </span>
-                  </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isHabit}
-                      onChange={e => {
-                        setIsHabit(e.target.checked)
-                        if (e.target.checked) { setIsRecurring(true); setRecurrencePattern('daily') }
-                      }}
-                      className="w-4 h-4 rounded accent-moss focus:ring-moss" />
-                    <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                      <span className="text-sm">🌱</span><span>Habit</span>
-                    </span>
-                  </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)}
-                      className="w-4 h-4 rounded accent-gold focus:ring-gold" />
-                    <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                      <Repeat className="w-3.5 h-3.5" /><span>Recurring</span>
-                    </span>
-                  </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" checked={newDeedImportant} onChange={e => setNewDeedImportant(e.target.checked)}
-                      className="w-4 h-4 rounded accent-gold focus:ring-gold" />
-                    <span className="text-xs font-bold text-ink/70 flex items-center space-x-1">
-                      <Star className="w-3.5 h-3.5 text-gold" /><span>Very important</span>
-                    </span>
-                  </label>
-                  {newDeedImportant && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Ring alarm</span>
-                      <select
-                        value={newDeedReminder}
-                        onChange={e => setNewDeedReminder(e.target.value)}
-                        className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                      >
-                        <option value="0">At start time</option>
-                        <option value="5">5 min before</option>
-                        <option value="10">10 min before</option>
-                        <option value="15">15 min before</option>
-                        <option value="30">30 min before</option>
-                        <option value="60">1 hour before</option>
-                      </select>
-                    </div>
-                  )}
-                                    <label className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newDeedNotify}
-                      disabled={!newDeedStart}
-                      onChange={e => {
-                        setNewDeedNotify(e.target.checked)
-                        // Ask for permission the moment they opt in.
-                        if (e.target.checked) {
-                          try {
-                            if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                              Notification.requestPermission().catch(() => {})
-                            }
-                          } catch {
-                            /* notifications unavailable — skip */
-                          }
-                        }
-                      }}
-                      className="w-4 h-4 rounded accent-gold focus:ring-gold" />
-                    <span className={`text-xs font-bold ${newDeedStart ? 'text-ink/70' : 'text-ink/35'} flex items-center space-x-1`}>
-                      <Bell className="w-3.5 h-3.5 text-gold" /><span>Notify me</span>
-                    </span>
-                  </label>
-                  {!newDeedStart && (
-                    <p className="w-full text-[10px] text-ink/40">Add a start time to pin a countdown + finish alert.</p>
-                  )}
-                  {newDeedNotify && newDeedStart && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Ring before end</span>
-                      <select
-                        value={newDeedEndWarn}
-                        onChange={e => setNewDeedEndWarn(e.target.value)}
-                        className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                      >
-                        <option value="5">5 min before end</option>
-                        <option value="10">10 min before end</option>
-                        <option value="15">15 min before end</option>
-                      </select>
-                    </div>
-                  )}
-                  {isRecurring && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={recurrencePattern}
-                        onChange={e => setRecurrencePattern(e.target.value)}
-                        className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                      >
-                        <option value="">Every…</option>
-                        <option value="daily">Day</option>
-                        <option value="weekly">Week</option>
-                        <option value="biweekly">2 weeks</option>
-                        <option value="monthly">Month</option>
-                        <option value="yearly">Year</option>
-                        <option value="weekdays">Weekdays</option>
-                      </select>
-                      <input
-                        type="date"
-                        value={recurrenceEnd}
-                        onChange={e => setRecurrenceEnd(e.target.value)}
-                        className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                        placeholder="End date"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-2 border-t border-white/10 pt-3">
-                  <button
-                    onClick={() => setAddingDeed(false)}
-                    className="px-4 py-2.5 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => handleAddDeed()}
-                    disabled={savingDeed || !newDeedTitle.trim()}
-                    className="px-5 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {savingDeed ? 'Adding…' : '+ Add Deed'}
-                  </button>
-                </div>
-              </div>
+              <AddDeedForm
+                initialStart={addPrefill.start}
+                initialEnd={addPrefill.end}
+                initialWeight={suggestedWeight()}
+                categories={activeCategories}
+                saving={savingDeed}
+                onCancel={() => setAddingDeed(false)}
+                onSubmit={handleAddDeed}
+              />
             )}
           </Card>
 
-{viewMode === 'timeline' ? (
-            <div className="glass rounded-[8px] overflow-hidden flex select-none animate-fadeIn border border-white/10">
-              <div ref={timelineScrollRef} className="overflow-y-auto flex w-full" data-lenis-prevent style={{ maxHeight: 'min(1536px, 55vh)' }}>
-              <div className="w-20 shrink-0 border-r border-white/10 bg-black/20 relative z-10" style={{ height: `${24 * 64}px` }}>
-                {hours.map(hour => (
-                  <div key={hour} className="absolute left-0 right-0 text-right pr-3 text-[10px] font-mono text-ink/40" style={{ top: `${hour * 64 + 6}px`, height: '64px' }}>
-                    {formatHourLabel(hour)}
-                  </div>
-                ))}
-              </div>
-              <div className="flex-1 relative cursor-crosshair" style={{ height: `${24 * 64}px` }} onClick={handleGridClick}>
-                {hours.map(hour => (
-                  <div key={hour} className="absolute left-0 right-0 border-b border-white/5" style={{ top: `${hour * 64}px`, height: '64px' }} />
-                ))}
-                {nowLineTop !== null && (
-                  <div className="absolute left-0 right-0 flex items-center z-20 pointer-events-none" style={{ top: `${nowLineTop}px` }}>
-                    <div className="w-2 h-2 rounded-full bg-ember -ml-1" />
-                    <div className="flex-1 h-0.5 bg-ember" />
-                  </div>
-                )}
-                {getPositionedTasks(allTasks.concat(showGoogle ? googleEvents as any : [])).map(({ task, top, height, left, width }) => {
-                  // Google events — gold-dim, non-checkable (no checkbox,
-                  // weight, progress or delete; just an informational block).
-                  if ((task as any).type === 'google') {
-                    return (
-                      <div
-                        key={task.id}
-                        className="absolute rounded-xl border p-2.5 text-left text-xs select-none overflow-hidden"
-                        style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 9, borderLeft: '3px solid rgb(var(--gold-rgb) / 0.55)', borderColor: 'rgb(var(--gold-rgb) / 0.25)', background: 'rgb(var(--gold-rgb) / 0.08)' }}
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-semibold truncate text-gold/90">{task.title}</span>
-                          <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-gold/50">Google</span>
-                        </div>
-                        {task.startTime && task.endTime && (
-                          <span className="mt-1 block text-[10px] font-mono text-gold/50">
-                            {format(new Date(task.startTime), 'h:mm a')} - {format(new Date(task.endTime), 'h:mm a')}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  }
-                  const goalItem = findItem(task.goalId)
-                  // Untagged deeds fall back to the theme accent. That has to be the
-                  // var (not a hex) so it follows the chosen accent — and since a hex
-                  // alpha suffix can't be appended to a variable, the translucent
-                  // variants go through color-mix, which renders user colours identically.
-                  const taskBorderColor = task.color || (task.completed ? '#8fbc8f' : 'var(--gold)')
-                  return (
-                    <div
-                      key={task.id}
-                      onClick={(e) => { e.stopPropagation(); handleOpenDeed(task) }}
-                      className={`absolute rounded-xl border p-2.5 text-left text-xs flex flex-col justify-between transition-all cursor-pointer group/task select-none overflow-hidden task-block ${task.completed ? 'glass text-ink/50 opacity-80' : 'text-ink hover:-translate-y-0.5'}`}
-                      style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10, borderLeft: `4px solid ${taskBorderColor}`, borderColor: task.completed ? `color-mix(in srgb, ${taskBorderColor} 25%, transparent)` : taskBorderColor, background: task.completed ? `color-mix(in srgb, ${taskBorderColor} 13%, transparent)` : `color-mix(in srgb, ${taskBorderColor} 21%, transparent)` }}
-                    >
-                      <div className="flex items-start justify-between gap-1">
-                        <div className="flex items-center space-x-1.5 min-w-0">
-                          <button onClick={(e) => { e.stopPropagation(); handleToggleTask(task) }} className="shrink-0">
-                            {task.completed ? <CheckCircle2 className="w-3.5 h-3.5 text-sage" /> : <Circle className="w-3.5 h-3.5 text-ink/30" />}
-                          </button>
-                          <span className={`font-semibold truncate ${task.completed ? 'line-through' : ''}`}>{task.title}</span>
-                          {task.isImportant && <Star className="w-3 h-3 shrink-0 fill-gold text-gold" />}
-                        </div>
-                        <button onClick={(e) => handleDeleteTask(e, task.id)} className="shrink-0 p-0.5 opacity-0 group-hover/task:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]" title="Delete">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <div className="space-y-1 mt-1">
-                        {task.startTime && task.endTime && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] text-ink/40 font-mono">
-                              {format(new Date(task.startTime), 'h:mm a')} - {format(new Date(task.endTime), 'h:mm a')}
-                            </span>
-                            {renderCountdownChip(task)}
-                          </div>
-                        )}
-                        {task.categoryId && (() => {
-                          const category = items.find(i => i.id === task.categoryId)
-                          return category ? (
-                            <span className="inline-block text-[8px] font-bold uppercase tracking-wider bg-gold/20 text-gold px-1.5 py-0.5 rounded">
-                              {category.title}
-                            </span>
-                          ) : null
-                        })()}
-                        <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
-                          <span className="text-[9px] text-ink/40">Wt</span>
-                          <input
-                            type="number" min="1" max="100" value={task.weight}
-                            onChange={e => goalItem && handleUpdateTaskWeight(task.id, goalItem.id, parseFloat(e.target.value) || 1)}
-                            className="w-8 px-0.5 py-0.5 bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono text-[10px]"
-                          />
-                          <span className="text-[9px] text-ink/40">%</span>
-                        </div>
-                        <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
-                          <span className="text-[9px] text-ink/40">Prog</span>
-                          <input
-                            type="range" min="0" max="100" step="1" value={Math.round(task.progress)}
-                            onChange={e => goalItem && handleUpdateTaskProgress(task.id, goalItem.id, parseFloat(e.target.value) || 0)}
-                            className="flex-1 h-1 bg-mist rounded-full appearance-none cursor-pointer accent-gold"
-                          />
-                          <span className="text-[9px] font-mono text-ink/40 w-6 text-right">{Math.round(task.progress)}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              </div>
-            </div>
+          {viewMode === 'timeline' ? (
+            <>
+              <DeedAgenda
+                tasks={allTasks}
+                googleEvents={googleEvents}
+                showGoogle={showGoogle}
+                countdownNow={countdownNow}
+                onOpen={handleOpenDeed}
+                onToggle={handleToggleTask}
+              />
+              <DeedTimeline
+                dateStr={dateStr}
+                tasks={allTasks}
+                googleEvents={googleEvents}
+                showGoogle={showGoogle}
+                categories={activeCategories}
+                countdownNow={countdownNow}
+                onOpen={handleOpenDeed}
+                onToggle={handleToggleTask}
+                onDelete={handleDeleteTask}
+                onWeightChange={handleWeightChange}
+                onProgressChange={handleProgressChange}
+                onCreateAt={openAddDeed}
+              />
+            </>
           ) : (
-            <div className="glass rounded-[8px] overflow-hidden border border-white/10 animate-fadeIn">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
-                <thead>
-                  <tr className="border-b border-white/10 bg-black/20">
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Time</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Deed</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Weight</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Status</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Reflection</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allTasks.sort((a, b) => {
-                    if (!a.startTime) return 1
-                    if (!b.startTime) return -1
-                    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-                  }).map(t => {
-                    const goalItem = findItem(t.goalId)
-                    return (
-                      <tr key={t.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => handleOpenDeed(t)}>
-                        <td className="p-3 font-mono text-xs text-ink/50">
-                          <div className="flex items-center gap-1.5">
-                            <span>
-                              {t.startTime ? format(new Date(t.startTime), 'h:mm a') : '—'}
-                              {t.endTime ? `–${format(new Date(t.endTime), 'h:mm a')}` : ''}
-                            </span>
-                            {renderCountdownChip(t)}
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center space-x-2">
-                            <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
-                              {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
-                            </button>
-                            <span className={t.completed ? 'line-through text-ink/50' : 'text-ink'}>{t.title}</span>
-                          </div>
-                        </td>
-                        <td className="p-3" onClick={e => e.stopPropagation()}>
-                          <div className="space-y-1">
-                            <div className="flex items-center">
-                              <span className="text-[9px] text-ink/40 mr-1">Wt</span>
-                              <input
-                                type="number" min="1" max="100" value={t.weight}
-                                onChange={e => goalItem && handleUpdateTaskWeight(t.id, goalItem.id, parseFloat(e.target.value) || 1)}
-                                className="w-10 px-1 py-0.5 text-[10px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none font-mono"
-                              />
-                              <span className="text-[10px] text-ink/40 ml-0.5">%</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }}
-                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all"
-                            title={t.completed ? 'Mark pending' : 'Mark done'}
-                          >
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${t.completed ? 'bg-sage/20 text-sage border border-sage/30' : 'bg-gold/20 text-gold border border-gold/30'}`}
-                            >
-                              {t.completed ? 'Done' : 'Pending'}
-                            </span>
-                          </button>
-                        </td>
-                        <td className="p-3 text-xs text-ink/40 max-w-[200px] truncate">{t.reflection || '—'}</td>
-                        <td className="p-3">
-                          <button
-                            onClick={(e) => handleDeleteTask(e, t.id)}
-                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78]"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {showGoogle && googleEvents.map(g => (
-                    <tr key={g.id} className="border-b border-white/5 last:border-0">
-                      <td className="p-3 font-mono text-xs text-gold/50">
-                        {format(new Date(g.startTime), 'h:mm a')}{g.endTime ? `–${format(new Date(g.endTime), 'h:mm a')}` : ''}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-gold/80">{g.title}</span>
-                        </div>
-                      </td>
-                      <td className="p-3 text-xs text-ink/30">—</td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gold/10 text-gold/80">Google</span>
-                      </td>
-                      <td className="p-3 text-xs text-ink/30">—</td>
-                      <td className="p-3"></td>
-                    </tr>
-                  ))}
-                  {allTasks.length === 0 && (
-                    <tr><td colSpan={6} className="p-6 text-center text-ink/40">No deeds scheduled for today.</td></tr>
-                  )}
-                </tbody>
-              </table>
-              </div>
-            </div>
+            <DeedTable
+              allTasks={allTasks}
+              googleEvents={googleEvents}
+              showGoogle={showGoogle}
+              countdownNow={countdownNow}
+              onOpen={handleOpenDeed}
+              onToggle={handleToggleTask}
+              onDelete={handleDeleteTask}
+              onWeightChange={handleWeightChange}
+            />
           )}
-          {allTasks.filter(t => !t.startTime && !t.isHabit).length > 0 && viewMode === 'timeline' && (
-            <div className="mt-6">
-              <h3 className="text-sm font-bold text-ink/60 uppercase tracking-wider mb-3">Unscheduled</h3>
-              <div className="space-y-2">
-                {allTasks.filter(t => !t.startTime && !t.isHabit).map(t => {
-                  const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(tt => tt.id === t.id))
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => handleOpenDeed(t)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border text-sm flex items-center space-x-3 transition-all group cursor-pointer ${t.completed ? 'glass border-sage/20 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold hover:bg-black/40'}`}
-                    >
-                      <button onClick={(e) => { e.stopPropagation(); handleToggleTask(t) }} className="shrink-0">
-                        {t.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
-                      </button>
-                      <span className={`flex-1 ${t.completed ? 'line-through text-ink/50' : ''}`}>{t.title}</span>
-                      <div className="flex items-center shrink-0 space-x-1" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="number" min="1" max="100" value={t.weight}
-                          onChange={e => goalItem && handleUpdateTaskWeight(t.id, goalItem.id, parseFloat(e.target.value) || 1)}
-                          className="w-10 px-1 py-0.5 text-[10px] bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono"
-                        />
-                        <span className="text-[10px] font-mono text-ink/40">%</span>
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteTask(e, t.id)}
-                        className="shrink-0 p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+          {viewMode === 'timeline' && (
+            <UnscheduledDeeds
+              tasks={unscheduledTasks}
+              onOpen={handleOpenDeed}
+              onToggle={handleToggleTask}
+              onDelete={handleDeleteTask}
+              onWeightChange={handleWeightChange}
+            />
           )}
         </div>
 
         <div className="space-y-6">
+          <FrogCard
+            frogTasks={frogTasks}
+            onAdd={() => openAddDeed()}
+            onToggle={handleToggleTask}
+            onDelete={handleDeleteTask}
+          />
 
-{/* Eat That Frog — top priority */}
-          <Card className="p-4 sm:p-5 border border-gold/30">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-gold" />
-                <h3 className="font-display font-bold text-ink"><Scramble text="Eat That Frog" mono={false} /></h3>
-              </div>
-              <button onClick={() => setAddingDeed(true)} className="px-2.5 py-1 text-[11px] font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 transition flex items-center gap-1">
-                <Plus className="w-3 h-3" />
-                <span>Add</span>
-              </button>
-            </div>
-            {frogTasks.length === 0 ? (
-              <p className="text-xs text-ink/40 py-2">No frogs yet. Highlight your hardest task of the day.</p>
-            ) : (
-              <div className="space-y-2">
-                {frogTasks.map((task, idx) => (
-                  <div key={task.id} className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 p-2.5 rounded-xl border transition-all sm:flex-nowrap sm:gap-3 ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
-                    <button onClick={() => handleToggleTask(task)} className="shrink-0">
-                      {task.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
-                    </button>
-                    <span className="text-[9px] font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full shrink-0 uppercase">Frog #{idx + 1}</span>
-                    <span className={`min-w-[120px] flex-[1_1_160px] break-words text-sm font-medium leading-snug sm:min-w-0 sm:flex-1 ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
-                    {task.startTime && <span className="text-[10px] font-mono text-ink/40 shrink-0">{format(new Date(task.startTime), 'h:mm a')}</span>}
-                    <button onClick={(e) => handleDeleteTask(e, task.id)} className="p-1 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] shrink-0" title="Delete">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-{/* Day Reflection */}
-          <Card className="p-4 sm:p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-gold" />
-              <h3 className="font-display font-bold text-ink"><Scramble text="Day Reflection" mono={false} /></h3>
-            </div>
-            <ReflectionPicker
-              timePeriod="day"
-              periodKey={dateStr}
-              itemId={primaryGoal?.id || null}
-              onSelect={(content) => { setReflectionText(content) }}
-              onSaved={() => showToast('Reflection template saved', 'success')}
-              className="mb-3"
-            />
-            <BottleMentionTextarea
-              value={reflectionText}
-              onChange={(text) => { setReflectionText(text); saveReflection(text) }}
-              placeholder="Reflect on today…  e.g. I did @Workout 400 press-ups"
-              sourceRef={`day-${dateStr}`}
-              className="w-full h-40 bg-black/20 border border-white/10 rounded-xl p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
-            />
-            <p className="text-[10px] text-ink/40">Auto-saves as you type — pick a saved template above to quick-fill.</p>
-          </Card>
+          <ReflectionCard
+            key={primaryGoal?.id ?? 'no-goal'}
+            dateStr={dateStr}
+            goalId={primaryGoal?.id ?? null}
+            initialText={primaryGoal?.reflection ?? ''}
+            onSave={text => { if (primaryGoal) updateItem(primaryGoal.id, { reflection: text }) }}
+            onTemplateSaved={() => showToast('Reflection template saved', 'success')}
+          />
 
           {/* Done views — by hour and by challenge */}
           <DoneView
             tasks={allTasks}
-            onDeleteTask={(id) => void handleDeleteTask({ stopPropagation: () => {} } as any, id)}
+            onDeleteTask={id => void handleDeleteTask({ stopPropagation: () => {} }, id)}
             className="mb-6"
           />
 
-<Card className="p-4 sm:p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <StickyNote className="w-5 h-5 text-gold" />
-            <h2 className="text-xl font-display font-bold text-ink"><Scramble text="Day Notes" mono={false} /></h2>
-          </div>
-          <button
-            onClick={() => { setEditingNote(null); setShowNoteModal(true) }}
-            data-cursor="Jot a note"
-            className="px-3 py-1.5 text-xs font-medium bg-ink text-surface rounded hover:bg-ink/90 transition flex items-center space-x-1"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Note</span>
-          </button>
+          <DayNotesCard
+            notes={dayNotes}
+            onAdd={() => { setEditingNote(null); setShowNoteModal(true) }}
+            onEdit={note => { setEditingNote(note); setShowNoteModal(true) }}
+          />
+
+          <GoalCards
+            primaryGoal={primaryGoal}
+            dailyGoals={dailyGoals}
+            completionMap={completionMap}
+            findItem={findItem}
+          />
         </div>
-        {dayNotes.length === 0 ? (
-          <p className="text-xs text-ink/40 text-center py-4">No notes for this day yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {dayNotes.map(note => (
-              <div key={note.id} className="bg-black/20 border border-white/10 rounded-xl p-4 hover:border-gold/50 transition-all">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-bold text-sm text-ink">{note.title}</h4>
-                    <div
-                      className="text-xs text-ink/70 mt-1 prose prose-sm max-w-none line-clamp-2"
-                      dangerouslySetInnerHTML={{ __html: note.content }}
-                    />
-                    <p className="text-[10px] text-ink/40 mt-2 font-mono">
-                      {new Date(note.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-1 ml-3">
-                    <button
-                      onClick={() => { setEditingNote(note); setShowNoteModal(true) }}
-                      className="p-1.5 hover:bg-mist rounded transition text-ink/50 hover:text-gold"
-                      title="Edit note"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-<Card className="p-6 space-y-4">
-              <p className="text-xs font-bold uppercase text-ink/50">Today's Goals</p>
-              {(() => {
-                // Only show the primary daily goal (the one that actually has tasks, or the first one)
-                const activeGoal = primaryGoal || dailyGoals[0]
-                if (!activeGoal) return <p className="text-xs text-ink/40">No daily goals for this date.</p>
-                return (
-                  <div key={activeGoal.id} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-ink truncate">{activeGoal.title}</span>
-                      <span className="font-mono text-xs text-ink/50">{Math.round(completionMap[activeGoal.id] || 0)}%</span>
-                    </div>
-                    <ProgressBar progress={completionMap[activeGoal.id] || 0} colorClass="bg-sage" />
-                  </div>
-                )
-              })()}
-            </Card>
-
-{primaryGoal && (
-              <Card className="p-5 space-y-3">
-                <p className="text-xs font-bold uppercase text-ink/50">Contributes To</p>
-                {(() => {
-                  const chain: Item[] = []
-                  let current: Item | undefined = primaryGoal
-                  while (current?.parentId) {
-                    const parent = findItem(current.parentId)
-                    if (parent) {
-                      chain.push(parent)
-                      current = parent
-                    } else break
-                  }
-                  return chain.map(ancestor => (
-                    <div key={ancestor.id} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-2 flex-1 min-w-0">
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
-                          ancestor.layer === 0 ? 'bg-gold-dim/20 text-gold-dim' :
-                            ancestor.layer === 1 ? 'bg-gold/15 text-gold' :
-                              ancestor.layer === 2 ? 'bg-moss/15 text-[#7fa871]' :
-                                ancestor.layer === 3 ? 'bg-ember/15 text-[#cf8f78]' :
-                                  ancestor.layer === 4 ? 'bg-parchment/10 text-parchment/70' :
-                                    'bg-mist/30 text-parchment/60'
-                        }`}>
-                          {ancestor.layer === 0 ? 'Year' :
-                            ancestor.layer === 1 ? 'Cat' :
-                              ancestor.layer === 2 ? 'Annual' :
-                                ancestor.layer === 3 ? 'Qtr' :
-                                  ancestor.layer === 4 ? 'Month' :
-                                    'Week'}
-                        </span>
-                        <span className="truncate text-ink/70">{ancestor.title}</span>
-                      </div>
-                      <span className="font-mono text-xs text-ink/40 shrink-0 ml-2">{Math.round(completionMap[ancestor.id] || 0)}%</span>
-                    </div>
-                  ))
-                })()}
-              </Card>
-            )}
-
-        </div>
-
       </div>
 
-{/* Daily Tracker — now the unified Habit Tracker */}
-      <Card className="p-4 sm:p-5 border border-gold/30">
-        <div className="relative z-10">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gold/25 bg-gold/10">
-                <Activity className="w-4 h-4 text-gold" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h2 className="font-display font-bold text-ink"><Scramble text="Habit Tracker" mono={false} /></h2>
-                  {habitsTotal > 0 && (
-                    <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
-                      habitsDone === habitsTotal ? 'border-sage/30 bg-sage/10 text-sage' : 'border-gold/25 bg-gold/10 text-gold'
-                    }`}>
-                      {habitsDone}/{habitsTotal} today
-                      {offDayHabits.length > 0 && (
-                        <span className="text-ink/35"> · {offDayHabits.length} off-day</span>
-                      )}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-ink/45 truncate">
-                  {offDayHabits.length > 0
-                    ? `Repeats automatically — ${offDayHabits.length} habit${offDayHabits.length === 1 ? '' : 's'} not due today, listed below`
-                    : 'Repeats automatically — check in each day'}
-                </p>
-              </div>
-            </div>
+      <HabitTracker
+        displayedHabits={displayedHabits}
+        offDayHabits={offDayHabits}
+        hasOverview={habitOverview.length > 0}
+        habitDetail={habitDetail}
+        habitSeriesByTitle={habitSeriesByTitle}
+        habitHistory={habitHistory}
+        range={habitGraphRange}
+        customStart={habitGraphCustomStart}
+        customEnd={habitGraphCustomEnd}
+        onRangeChange={setHabitGraphRange}
+        onCustomStart={setHabitGraphCustomStart}
+        onCustomEnd={setHabitGraphCustomEnd}
+        onApplyCustom={() => { void fetchHabitHistory() }}
+        onQuickAdd={handleQuickAddHabit}
+        onToggleHabit={handleToggleHabit}
+        onDelete={handleDeleteTask}
+        onRename={handleRenameHabit}
+      />
 
-            <button
-              onClick={() => setShowHabitAdd(v => !v)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
-                showHabitAdd ? 'border-gold/40 bg-gold/15 text-gold' : 'border-gold/25 bg-gold/10 text-gold hover:bg-gold/20'
-              }`}
-            >
-              {showHabitAdd ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-              {showHabitAdd ? 'Close' : 'New habit'}
-            </button>
-          </div>
-
-          {/* Quick-add (collapsible to keep the box compact) */}
-          {showHabitAdd && (
-            <div className="mb-4 flex flex-wrap items-center gap-2 animate-fadeIn">
-              <input
-                type="text"
-                value={newHabitTitle}
-                onChange={e => setNewHabitTitle(e.target.value)}
-                onKeyDown={async e => {
-                  if (e.key === 'Enter' && newHabitTitle.trim()) {
-                    const title = newHabitTitle.trim()
-                    setNewHabitTitle('')
-                    await handleQuickAddHabit(title, newHabitPattern)
-                  }
-                }}
-                autoFocus
-                placeholder="New habit title…"
-                className="flex-1 min-w-[150px] px-3 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 placeholder:text-ink/30"
-              />
-              <select
-                value={newHabitPattern}
-                onChange={e => setNewHabitPattern(e.target.value)}
-                className="px-2.5 py-2 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Biweekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-                <option value="weekdays">Weekdays</option>
-              </select>
-              <button
-                onClick={async () => {
-                  if (newHabitTitle.trim()) {
-                    const title = newHabitTitle.trim()
-                    setNewHabitTitle('')
-                    await handleQuickAddHabit(title, newHabitPattern)
-                  }
-                }}
-                className="px-3.5 py-2 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-gold-glow transition flex items-center space-x-1"
-              >
-                <Plus className="w-3 h-3" />
-                <span>Add</span>
-              </button>
-            </div>
-          )}
-
-          {/* Today's Habits — compact rows */}
-          <div className="space-y-1.5">
-            {displayedHabits.map((task: any, idx: number) => {
-              const detail = habitDetail[task.title]
-              const expanded = expandedHabit === task.title
-              return (
-                <div key={task.id} className="space-y-1.5">
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setExpandedHabit(expanded ? null : task.title)}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedHabit(expanded ? null : task.title) } }}
-                data-cursor={expanded ? 'Hide days & trend' : 'Show days & trend'}
-                className={`group flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border px-3 py-2.5 transition-all sm:flex-nowrap sm:gap-3 sm:px-2.5 sm:py-2 ${expanded ? 'border-gold/40 bg-gold/[0.04]' : task.completed ? 'border-sage/25 bg-sage/[0.05]' : 'border-white/10 bg-black/15 hover:border-gold/40'}`}
-              >
-                <span className="hidden w-4 shrink-0 text-center font-mono text-[10px] text-ink/30 tabular-nums min-[400px]:block">{idx + 1}</span>
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    await fetch(`/api/tasks/${task.id}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ completed: !task.completed }),
-                    })
-                    setTodayHabits(prev => prev.map((h: any) => h.id === task.id ? { ...h, completed: !h.completed } : h))
-                    fetchHabitHistory()
-                  }}
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] border transition-colors sm:h-5 sm:w-5 ${
-                    task.completed ? 'border-sage bg-sage text-ink' : 'border-white/20 text-transparent hover:border-gold'
-                  }`}
-                  aria-label={`Mark ${task.title} ${task.completed ? 'incomplete' : 'complete'}`}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </button>
-                {renamingHabitRow === task.id ? (
-                  <input
-                    autoFocus
-                    value={renameHabitRowValue}
-                    onChange={e => setRenameHabitRowValue(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') { e.stopPropagation(); handleRenameHabit(task.title) }
-                      if (e.key === 'Escape') { e.stopPropagation(); setRenamingHabitRow(null) }
-                    }}
-                    onBlur={() => handleRenameHabit(task.title)}
-                    onClick={e => e.stopPropagation()}
-                    className="min-w-[120px] flex-[1_1_160px] break-words rounded-md border border-gold/40 bg-white/[0.07] px-1.5 py-0.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold/30 sm:min-w-0 sm:flex-1"
-                  />
-                ) : (
-                  <span className={`min-w-[120px] flex-[1_1_160px] break-words text-sm leading-snug sm:min-w-0 sm:flex-1 ${task.completed ? 'line-through text-ink/45' : 'text-ink font-medium'}`}>{task.title}</span>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setRenamingHabitRow(task.id)
-                    setRenameHabitRowValue(task.title)
-                  }}
-                  className="hidden shrink-0 p-1 rounded sm:block opacity-0 group-hover:opacity-100 hover:bg-gold/15 transition text-ink/30 hover:text-gold"
-                  title="Rename habit"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={96} height={20} className="hidden md:block" />
-                <HabitSparkline values={habitSeriesByTitle[task.title] || []} width={44} height={20} className="hidden sm:block md:hidden" />
-                {task.completed ? (
-                  <span className="shrink-0 rounded-full bg-sage/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sage">Done</span>
-                ) : (
-                  <span className="hidden shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink/40 sm:inline-block">Today</span>
-                )}
-                <button onClick={(e) => handleDeleteTask(e, task.id)} className="shrink-0 p-1.5 -m-0.5 rounded hover:bg-ember/15 transition sm:opacity-0 sm:p-1 sm:m-0 sm:group-hover:opacity-100 text-ink/30 hover:text-[#cf8f78]" title="Delete">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-                <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-ink/30 transition-transform ${expanded ? 'rotate-180 text-gold' : ''}`} />
-              </div>
-
-              {expanded && detail && (
-                <div className="rounded-lg border border-gold/20 bg-gold/[0.04] px-3 pb-3 pt-3 animate-fadeIn">
-                  <div className="mb-2.5 flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gold">Last {detail.days.length} days</p>
-                    <div className="flex items-center gap-2.5 font-mono text-[10px]">
-                      <span className="text-sage">streak {detail.streak}d</span>
-                      <span className="text-ink/50">{detail.rate}% · {detail.done}/{detail.total}</span>
-                    </div>
-                  </div>
-                  <div className="mb-3 grid grid-cols-10 gap-1">
-                    {detail.days.map((d, i) => (
-                      <div key={i} className="flex flex-col items-center gap-1" title={format(d.date, 'EEE d MMM')}>
-                        <span className={`h-4 w-4 rounded-[5px] border ${d.done ? 'border-sage bg-sage/80' : 'border-white/15 bg-black/15'}`} />
-                        <span className="font-mono text-[8px] text-ink/35">{format(d.date, 'd')}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <HabitSparkline values={detail.days.map(d => d.done)} width={320} height={44} className="w-full" />
-                  <p className="mt-1.5 font-mono text-[9px] text-ink/35">Gold = done · grey = missed · tap the row to collapse</p>
-                </div>
-              )}
-              </div>
-            )})}
-            {(displayedHabits.length === 0 && habitOverview.length === 0) && (
-              <button
-                onClick={() => setShowHabitAdd(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 py-3 text-xs text-ink/40 transition hover:border-gold/40 hover:text-gold"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add your first habit
-              </button>
-            )}
-
-            {/* Off-day habits — owned but not due today. Read-only, so the schedule
-                stays intact while nothing silently disappears from the tracker. */}
-            {offDayHabits.length > 0 && (
-              <div className="pt-2">
-                <div className="mb-1.5 flex items-center gap-2">
-                  <span className="h-px flex-1 bg-white/10" />
-                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/35">
-                    Not scheduled today · {offDayHabits.length}
-                  </span>
-                  <span className="h-px flex-1 bg-white/10" />
-                </div>
-                <div className="space-y-1.5">
-                  {offDayHabits.map((h: any) => (
-                    <div
-                      key={h.title}
-                      className="flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-lg border border-dashed border-white/10 bg-black/10 px-3 py-2.5 sm:flex-nowrap sm:gap-3 sm:px-2.5 sm:py-2"
-                      title={h.nextDue ? `Next due ${format(parseISO(h.nextDue), 'EEEE d MMMM yyyy')}` : 'No further instances scheduled'}
-                    >
-                      <span className="hidden w-4 shrink-0 justify-center text-ink/25 min-[400px]:flex">
-                        <Clock className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="min-w-0 flex-[1_1_160px] truncate text-sm leading-snug text-ink/40 sm:flex-1">
-                        {h.title}
-                      </span>
-                      <HabitSparkline values={habitSeriesByTitle[h.title] || []} width={96} height={20} className="hidden opacity-45 md:block" />
-                      <HabitSparkline values={habitSeriesByTitle[h.title] || []} width={44} height={20} className="hidden opacity-45 sm:block md:hidden" />
-                      <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink/35">
-                        {HABIT_PATTERN_LABEL[h.pattern] || h.pattern}
-                      </span>
-                      <span className="shrink-0 font-mono text-[9px] tabular-nums text-ink/45">
-                        {h.nextDue ? `Next ${format(parseISO(h.nextDue), 'EEE d MMM')}` : 'No further dates'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Habit Graph */}
-          {habitHistory.length > 0 && (() => {
-            const graph = buildHabitGraph()
-            if (!graph) return null
-
-            const totalHabitTitles = [...new Set(habitHistory.map((h: any) => h.title))]
-            const completionRates = totalHabitTitles.map((title: string) => {
-              const instances = habitHistory.filter((h: any) => h.title === title)
-              const total = instances.length
-              const done = instances.filter((h: any) => h.completed).length
-              return { title, rate: total > 0 ? Math.round((done / total) * 100) : 0 }
-            })
-
-            const overallRate = totalHabitTitles.length
-              ? Math.round(completionRates.reduce((s, c) => s + c.rate, 0) / completionRates.length)
-              : 0
-
-            return (
-              <div className="mt-5 pt-4 border-t border-white/10">
-                {/* Trend toggle — keeps the tracker compact by default */}
-                <button
-                  onClick={() => setShowHabitGraph(v => !v)}
-                  className="mb-3 flex w-full items-center justify-between rounded-lg border border-white/10 bg-black/15 px-3 py-2 text-xs font-bold text-ink/70 transition hover:border-gold/40 hover:text-gold"
-                >
-                  <span className="flex items-center gap-2">
-                    <BarChart3 className="w-3.5 h-3.5 text-gold" />
-                    Habit trend
-                  </span>
-                  <span className="flex items-center gap-2">
-                    {overallRate > 0 && (
-                      <span className="rounded-full bg-gold/15 px-2 py-0.5 font-mono text-[10px] font-bold text-gold tabular-nums">{overallRate}% avg</span>
-                    )}
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showHabitGraph ? 'rotate-180' : ''}`} />
-                  </span>
-                </button>
-                {showHabitGraph && (
-                <>
-                {/* Range selector */}
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <BarChart3 className="w-4 h-4 text-gold" />
-                    <h3 className="text-xs font-bold uppercase text-ink/50">Habit Completion</h3>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    {(['week', 'month', 'quarter', 'year', 'all'] as GraphRange[]).map(range => (
-                      <button
-                        key={range}
-                        onClick={() => { setHabitGraphRange(range); setShowGraphDatePicker(false) }}
-                        className={`px-2 py-1 text-[9px] font-bold rounded-lg transition ${habitGraphRange === range && !showGraphDatePicker
-                          ? 'bg-gold/20 text-gold border border-gold/30'
-                          : 'text-ink/40 hover:text-ink hover:bg-white/5 border border-transparent'
-                          }`}
-                      >
-                        {graphRangeLabel(range)}
-                      </button>
-                    ))}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowGraphDatePicker(!showGraphDatePicker)}
-                        className={`px-2 py-1 text-[9px] font-bold rounded-lg transition flex items-center space-x-1 ${habitGraphRange === 'custom' || showGraphDatePicker
-                          ? 'bg-gold/20 text-gold border border-gold/30'
-                          : 'text-ink/40 hover:text-ink hover:bg-white/5 border border-transparent'
-                          }`}
-                      >
-                        <Calendar className="w-3 h-3" />
-                        <span>Custom</span>
-                      </button>
-                      {showGraphDatePicker && (
-                        <div className="absolute right-0 top-8 z-50 bg-paper border border-mist rounded-xl  p-3 min-w-[240px] animate-fadeIn">
-                          <div className="space-y-2">
-                            <div>
-                              <label className="text-[9px] text-ink/50 font-bold uppercase">From</label>
-                              <input type="date" value={habitGraphCustomStart} onChange={e => setHabitGraphCustomStart(e.target.value)}
-                                className="w-full px-2 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 mt-1" />
-                            </div>
-                            <div>
-                              <label className="text-[9px] text-ink/50 font-bold uppercase">To</label>
-                              <input type="date" value={habitGraphCustomEnd} onChange={e => setHabitGraphCustomEnd(e.target.value)}
-                                className="w-full px-2 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 mt-1" />
-                            </div>
-                            <button
-                              onClick={() => { if (habitGraphCustomStart && habitGraphCustomEnd) { setHabitGraphRange('custom'); setShowGraphDatePicker(false); fetchHabitHistory() } }}
-                              className="w-full px-3 py-1.5 text-xs font-bold bg-gold text-ink rounded-lg hover:bg-gold-glow transition"
-                            >
-                              Apply
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Habit overall completion rates */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
-                  {completionRates.map(({ title, rate }) => (
-                    <div key={title} className="bg-black/20 border border-white/10 rounded-lg p-2 text-center">
-                      <p className="text-[8px] text-ink/50 truncate font-bold uppercase">{title}</p>
-                      <p className="text-sm font-mono font-bold text-gold">{rate}%</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* SVG Line Graph — ultra smooth flowing curve with colored bottom */}
-                <div
-                  className="relative h-48"
-                  data-cursor="Explore"
-                  onPointerMove={(e) => {
-                    if (!graph || graph.points.length === 0) { setHabitHover(null); return }
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const vx = ((e.clientX - rect.left) / rect.width) * graph.width
-                    const idx = Math.round((vx - graph.padding.left) / graph.stepX)
-                    setHabitHover(Math.max(0, Math.min(graph.points.length - 1, idx)))
-                  }}
-                  onPointerLeave={() => setHabitHover(null)}
-                >
-                  <svg viewBox={`0 0 ${graph.width} ${graph.height}`} className="w-full h-full" preserveAspectRatio="none">
-                    <defs>
-                      {/* Rich gradient fill under the curve — colored bottom */}
-                      <linearGradient id="habitGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={graph.gold} stopOpacity="0.35" />
-                        <stop offset="30%" stopColor={graph.gold} stopOpacity="0.20" />
-                        <stop offset="70%" stopColor={graph.gold} stopOpacity="0.10" />
-                        <stop offset="100%" stopColor={graph.gold} stopOpacity="0.40" />
-                      </linearGradient>
-                      {/* Stronger bottom-only fill */}
-                      <linearGradient id="bottomGlow" x1="0" y1="0.7" x2="0" y2="1">
-                        <stop offset="0%" stopColor={graph.gold} stopOpacity="0" />
-                        <stop offset="100%" stopColor={graph.gold} stopOpacity="0.25" />
-                      </linearGradient>
-                      {/* Glow filter for the line */}
-                      <filter id="habitGlow" x="-30%" y="-30%" width="160%" height="160%">
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-                        <feMerge>
-                          <feMergeNode in="blur" />
-                          <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                      </filter>
-                    </defs>
-
-                    {/* Grid lines with premium percentile labels */}
-                    {[0, 25, 50, 75, 100].map(pct => {
-                      const y = graph.padding.top + graph.chartH - (pct / 100) * graph.chartH
-                      return (
-                        <g key={pct}>
-                          <line x1={graph.padding.left} y1={y} x2={graph.width - graph.padding.right} y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" strokeDasharray="2,3" />
-                          <text x={graph.padding.left - 4} y={y + 1.5} textAnchor="end" className="text-[3.5px] fill-ink/25 font-mono" fontWeight="500">{pct}%</text>
-                        </g>
-                      )
-                    })}
-
-                    {/* Bottom accent bar */}
-                    <rect x={graph.padding.left} y={graph.padding.top + graph.chartH} width={graph.chartW} height={2} fill={graph.gold} opacity="0.15" rx="1" />
-
-                    {/* Smooth area fill — full gradient */}
-                    {graph.areaPath && (
-                      <path d={graph.areaPath} fill="url(#habitGradient)" />
-                    )}
-
-                    {/* Bottom glow layer */}
-                    {graph.areaPath && (
-                      <path d={graph.areaPath} fill="url(#bottomGlow)" />
-                    )}
-
-                    {/* Smooth line with glow */}
-                    {graph.smoothPath && (
-                      <path d={graph.smoothPath} fill="none" stroke={graph.gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#habitGlow)" opacity="0.95" pathLength={1} strokeDasharray={1} className="graph-draw" />
-                    )}
-
-                    {/* Hover crosshair */}
-                    {habitHover != null && graph.points[habitHover] && (() => {
-                      const p = graph.points[habitHover]
-                      return (
-                        <g pointerEvents="none">
-                          <line x1={p.x} y1={graph.padding.top} x2={p.x} y2={graph.padding.top + graph.chartH} stroke="rgba(243,239,230,0.25)" strokeWidth="0.5" />
-                          <circle cx={p.x} cy={p.y} r="2.4" fill="#f3efe6" stroke={graph.gold} strokeWidth="1" />
-                        </g>
-                      )
-                    })()}
-
-                    {/* X-Axis Date Labels */}
-                    {graph.dates && graph.dates.length > 1 && (() => {
-                      const totalDates = graph.dates.length
-                      const indicesToDisplay = [
-                        0,
-                        Math.floor(totalDates * 0.25),
-                        Math.floor(totalDates * 0.5),
-                        Math.floor(totalDates * 0.75),
-                        totalDates - 1
-                      ].filter((v, i, a) => a.indexOf(v) === i)
-
-                      return indicesToDisplay.map(idx => {
-                        const dateStr = graph.dates[idx]
-                        const pt = graph.points[idx]
-                        if (!pt) return null
-                        let formatted = dateStr
-                        try {
-                          formatted = format(parseISO(dateStr), 'MMM d')
-                        } catch (e) { }
-
-                        return (
-                          <text
-                            key={idx}
-                            x={pt.x}
-                            y={graph.padding.top + graph.chartH + 11}
-                            textAnchor="middle"
-                            className="text-[3.2px] fill-ink/40 font-mono"
-                            fontWeight="500"
-                          >
-                            {formatted}
-                          </text>
-                        )
-                      })
-                    })()}
-
-                    {/* Bottom gradient overlay bar */}
-                    <rect x={graph.padding.left} y={graph.padding.top + graph.chartH - 8} width={graph.chartW} height={8} fill={`url(#bottomGlow)`} opacity="0.6" />
-                  </svg>
-
-                  {/* Hover tooltip */}
-                  {habitHover != null && graph.points[habitHover] && (() => {
-                    const p = graph.points[habitHover]
-                    return (
-                      <div
-                        className="pointer-events-none absolute z-10 px-2 py-1 rounded-lg bg-surface-solid border border-gold-dim/30 shadow-lg text-[10px] font-mono whitespace-nowrap"
-                        style={{
-                          left: `calc(${(p.x / graph.width) * 100}% )`,
-                          top: `calc(${(p.y / graph.height) * 100}% )`,
-                          transform: 'translate(-50%, -130%)',
-                        }}
-                      >
-                        <span className="text-parchment/70">{format(parseISO(p.date), 'MMM d')}</span>
-                        <span className="text-gold font-bold ml-1.5">{Math.round(p.rawRate)}%</span>
-                      </div>
-                    )
-                  })()}
-                </div>
-                </>
-                )}
-              </div>
-            )
-          })()}
-        </div>
-      </Card>
-
-{/* Hidden button to trigger habit add via input */}
-      <button id="trigger-habit-add" className="hidden" onClick={() => {
-        if (!newDeedTitle.trim()) return
-        handleAddDeed({ isHabit: true, isRecurring: true, recurrencePattern: 'daily' })
-      }} />
-
-{showNoteModal && (
+      {showNoteModal && (
         <RichNoteModal
           onClose={() => { setShowNoteModal(false); setEditingNote(null) }}
           onSaved={() => { fetchDayNotes(); fetchItems() }}
@@ -2325,503 +800,39 @@ export default function DayPage() {
         />
       )}
 
-<AnimatePresence>
-      {selectedDeed && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={() => setSelectedDeed(null)}>
-          <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 6 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} className="w-full max-w-lg mx-4 overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid" onClick={e => e.stopPropagation()}>
-
-            {/* Header */}
-            <div className="px-7 pt-7 pb-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 space-y-3">
-                  <input
-                    type="text"
-                    value={selectedDeed.task.title}
-                    onChange={e => {
-                      const updated = { ...selectedDeed, task: { ...selectedDeed.task, title: e.target.value } }
-                      setSelectedDeed(updated)
-                    }}
-                    placeholder="Deed title"
-                    className="w-full text-2xl font-display font-bold text-ink bg-transparent border-b-2 border-transparent hover:border-white/20 focus:border-gold/50 focus:outline-none px-1 py-1 transition-all placeholder:text-ink/30"
-                  />
-                  <div className="flex items-center space-x-3 text-xs text-ink/50">
-                    <button
-                      onClick={() => {
-                        const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(t => t.id === selectedDeed.task.id))
-                        if (goalItem) {
-                          updateTask(goalItem.id, selectedDeed.task.id, { completed: !selectedDeed.task.completed })
-                          setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, completed: !selectedDeed.task.completed } })
-                        }
-                      }}
-                      className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedDeed.task.completed
-                        ? 'bg-sage/20 text-sage border border-sage/30'
-                        : 'border-gold-dim/30 text-parchment/80 hover:border-gold hover:bg-mist'
-                        }`}
-                    >
-                      {selectedDeed.task.completed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
-                      <span>{selectedDeed.task.completed ? 'Completed' : 'Mark Complete'}</span>
-                    </button>
-                    {selectedDeed.task.isFrog && (
-                      <span className="flex items-center space-x-1 px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full">
-                        <Target className="w-3 h-3" />
-                        <span>Frog</span>
-                      </span>
-                    )}
-                    {selectedDeed.task.isImportant && (
-                      <span className="flex items-center space-x-1 px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full">
-                        <Star className="w-3 h-3 fill-amber-400" />
-                        <span>Important</span>
-                      </span>
-                    )}
-                    {selectedDeed.task.isHabit && (
-                      <span className="flex items-center space-x-1 px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">
-                        <Repeat className="w-3 h-3" />
-                        <span>Habit</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button onClick={() => handleSaveDeedChanges()} className="p-2 hover:bg-white/10 rounded-xl transition text-ink/50 hover:text-ink" title="Close & save">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Body */}
-            <div className="px-7 pb-6 space-y-5 max-h-[60vh] overflow-y-auto" data-lenis-prevent>
-              {/* Time section - Google Calendar style */}
-              <div className="space-y-3">
-                <p className="text-[10px] font-bold uppercase text-ink/40 tracking-wider flex items-center space-x-2">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Date & Time</span>
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className="text-[9px] text-ink/40 font-bold uppercase">Date</label>
-                    <div className="mt-1 px-3 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm text-ink/80 font-mono">
-                      {format(currentDate, 'EEEE, MMMM d, yyyy')}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-ink/40 font-bold uppercase">Start Time</label>
-                    <input
-                      type="time"
-                      value={selectedDeed.task.startTime ? format(new Date(selectedDeed.task.startTime as string), 'HH:mm') : ''}
-                      onChange={e => {
-                        const [h, m] = e.target.value.split(':')
-                        const newStart = selectedDeed.task.startTime ? new Date(selectedDeed.task.startTime as string) : new Date()
-                        newStart.setHours(parseInt(h), parseInt(m))
-                        setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, startTime: newStart.toISOString() } })
-                      }}
-                      className="w-full mt-1 px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-ink/40 font-bold uppercase">End Time</label>
-                    <input
-                      type="time"
-                      value={selectedDeed.task.endTime ? format(new Date(selectedDeed.task.endTime as string), 'HH:mm') : ''}
-                      onChange={e => {
-                        const [h, m] = e.target.value.split(':')
-                        const newEnd = selectedDeed.task.endTime ? new Date(selectedDeed.task.endTime as string) : (selectedDeed.task.startTime ? new Date(selectedDeed.task.startTime as string) : new Date())
-                        newEnd.setHours(parseInt(h), parseInt(m))
-                        setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, endTime: newEnd.toISOString() } })
-                      }}
-                      className="w-full mt-1 px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                    />
-                  </div>
-                  <div className="col-span-2 flex items-center space-x-2 pt-1">
-                    <button
-                      onClick={() => {
-                        const now = new Date()
-                        const start = new Date(now)
-                        start.setMinutes(Math.floor(start.getMinutes() / 30) * 30)
-                        const end = new Date(start)
-                        end.setHours(end.getHours() + 1)
-                        setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, startTime: start.toISOString(), endTime: end.toISOString() } })
-                      }}
-                      className="px-3 py-1 text-[10px] font-bold text-ink/50 border border-dashed border-white/20 rounded-lg hover:border-gold/50 hover:text-gold transition"
-                    >
-                      + Set to now
-                    </button>
-                    <button
-                      onClick={() => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, startTime: null as any, endTime: null as any } })}
-                      className="px-3 py-1 text-[10px] font-bold text-ink/50 border border-dashed border-white/20 rounded-lg hover:border-ember/60 hover:text-[#e0a093] transition"
-                    >
-                      Clear time
-                    </button>
-                  </div>
-                </div>
-
-                {/* Live countdown for this scheduled deed */}
-                {(() => {
-                  const st = selectedDeed.task.startTime
-                  if (!st) return null
-                  const pt = countdownForDeed(selectedDeed.task)
-                  if (!pt) return null
-                  const label = compactCountdownLabel(pt)
-                  const isLive = pt.state === 'live'
-                  const isSoon = pt.state === 'future' && pt.soon
-                  return (
-                    <div
-                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 animate-fadeIn ${
-                        isLive ? 'border-moss/40 bg-moss/10' : isSoon ? 'border-ember/40 bg-ember/10' : 'border-gold/30 bg-gold/10'
-                      }`}
-                    >
-                      <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isLive ? 'bg-moss/20 text-sage' : isSoon ? 'bg-ember/20 text-[#e0a093]' : 'bg-gold/20 text-gold'}`}>
-                        {isLive ? <Activity className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                      </span>
-                      <div className="min-w-0">
-                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isLive ? 'text-sage' : isSoon ? 'text-[#e0a093]' : 'text-gold'}`}>
-                          {isLive ? '● In progress' : isSoon ? 'Starting soon' : 'Countdown'}
-                        </p>
-                        <p className="font-mono text-lg font-bold text-ink tabular-nums leading-tight">{label}</p>
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-
-              {/* Details section */}
-              <div className="space-y-3">
-                <p className="text-[10px] font-bold uppercase text-ink/40 tracking-wider flex items-center space-x-2">
-                  <Target className="w-3.5 h-3.5" />
-                  <span>Details</span>
-                </p>
-                {/* Very-important toggle + its alarm lead */}
-                <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition ${selectedDeed.task.isImportant ? 'border-gold/40 bg-gold/10' : 'border-white/10 bg-black/10'}`}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, isImportant: !selectedDeed.task.isImportant } })}
-                    className="flex items-center space-x-2 text-left"
-                  >
-                    <Star className={`w-4 h-4 shrink-0 ${selectedDeed.task.isImportant ? 'fill-gold text-gold' : 'text-ink/40'}`} />
-                    <span>
-                      <span className="block text-xs font-bold text-ink">Very important</span>
-                      <span className="block text-[10px] text-ink/50">Rings an alarm before it starts</span>
-                    </span>
-                  </button>
-                  {selectedDeed.task.isImportant && (
-                    <select
-                      value={String(selectedDeed.task.reminderMinutes ?? 10)}
-                      onChange={e => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, reminderMinutes: parseInt(e.target.value, 10) } })}
-                      className="shrink-0 px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                    >
-                      <option value="0">At start time</option>
-                      <option value="5">5 min before</option>
-                      <option value="10">10 min before</option>
-                      <option value="15">15 min before</option>
-                      <option value="30">30 min before</option>
-                      <option value="60">1 hour before</option>
-                    </select>
-                  )}
-                </div>
-
-                {/* Notify-me toggle — pins a live countdown + finish alert */}
-                <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition ${selectedDeed.task.notifyDeed ? 'border-gold/40 bg-gold/10' : 'border-white/10 bg-black/10'}`}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !selectedDeed.task.notifyDeed
-                      setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, notifyDeed: next } })
-                      // Ask for permission the moment they opt in.
-                      if (next) {
-                        try {
-                          if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                            Notification.requestPermission().catch(() => {})
-                          }
-                        } catch {
-                          /* notifications unavailable — skip */
-                        }
-                      }
-                    }}
-                    className="flex items-center space-x-2 text-left"
-                  >
-                    <Bell className={`w-4 h-4 shrink-0 ${selectedDeed.task.notifyDeed ? 'text-gold' : 'text-ink/40'}`} />
-                    <span>
-                      <span className="block text-xs font-bold text-ink">Notify me</span>
-                      <span className="block text-[10px] text-ink/50">Pins a live countdown + light finish alert</span>
-                    </span>
-                  </button>
-                  {selectedDeed.task.notifyDeed && selectedDeed.task.startTime && (
-                    <select
-                      value={String(selectedDeed.task.endWarnMinutes ?? 10)}
-                      onChange={e => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, endWarnMinutes: parseInt(e.target.value, 10) } })}
-                      className="shrink-0 px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
-                    >
-                      <option value="5">5 min before end</option>
-                      <option value="10">10 min before end</option>
-                      <option value="15">15 min before end</option>
-                    </select>
-                  )}
-                  {!selectedDeed.task.startTime && (
-                    <span className="shrink-0 text-[10px] text-ink/40">Add a start time to enable</span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[9px] text-ink/40 font-bold uppercase">Weight</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        type="range" min="1" max="100"
-                        value={selectedDeed.task.weight}
-                        onChange={e => {
-                          const w = parseFloat(e.target.value)
-                          setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, weight: w } })
-                        }}
-                        className="flex-1 h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold"
-                      />
-                      <input
-                        type="number" min="1" max="100"
-                        value={selectedDeed.task.weight}
-                        onChange={e => {
-                          const w = parseFloat(e.target.value) || 1
-                          setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, weight: w } })
-                        }}
-                        className="w-14 px-1.5 py-1.5 text-xs font-mono bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80 text-center"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-ink/40 font-bold uppercase">Progress</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        type="range" min="0" max="100"
-                        value={Math.round(selectedDeed.task.progress)}
-                        onChange={e => {
-                          const p = parseFloat(e.target.value)
-                          setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, progress: p } })
-                        }}
-                        className="flex-1 h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage"
-                      />
-                      <span className="w-10 text-center text-xs font-mono text-sage font-bold">{Math.round(selectedDeed.task.progress)}%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Category / Color tag */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase text-ink/40 tracking-wider flex items-center space-x-2">
-                  <span className="text-sm">🏷️</span>
-                  <span>Category</span>
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, categoryId: null as any } })}
-                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition ${!selectedDeed.task.categoryId
-                      ? 'bg-white/10 border-white/30 text-ink'
-                      : 'border-white/10 text-ink/50 hover:border-white/30'
-                      }`}
-                  >
-                    No tag
-                  </button>
-                  {activeCategories.map((cat, idx) => {
-                    const catColors = ['#d4af37', '#8fbc8f', '#6495ed', '#ff7f50', '#9370db', '#3cb371', '#ffd700', '#00bfff']
-                    const color = catColors[idx % catColors.length]
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, categoryId: cat.id } })}
-                        className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition flex items-center space-x-1.5 ${selectedDeed.task.categoryId === cat.id
-                          ? 'border-current text-ink'
-                          : 'border-white/10 text-ink/50 hover:border-white/30'
-                          }`}
-                        style={selectedDeed.task.categoryId === cat.id ? { borderColor: color, backgroundColor: `${color}15`, color } : {}}
-                      >
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                        <span>{cat.title}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Recurrence */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase text-ink/40 tracking-wider flex items-center space-x-2">
-                  <Repeat className="w-3.5 h-3.5" />
-                  <span>Repeat</span>
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {['', 'daily', 'weekly', 'weekdays', 'monthly', 'yearly'].map(pattern => (
-                    <button
-                      key={pattern}
-                      onClick={() => {
-                        const isRecurring = pattern !== ''
-                        setSelectedDeed({
-                          ...selectedDeed,
-                          task: {
-                            ...selectedDeed.task,
-                            isRecurring,
-                            recurrencePattern: pattern || null as any,
-                          }
-                        })
-                      }}
-                      className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition ${(pattern === '' && !selectedDeed.task.isRecurring) || selectedDeed.task.recurrencePattern === pattern
-                        ? 'bg-white/10 border-white/30 text-ink'
-                        : 'border-white/10 text-ink/50 hover:border-white/30'
-                        }`}
-                    >
-                      {pattern === '' ? 'Does not repeat' :
-                        pattern === 'daily' ? 'Daily' :
-                          pattern === 'weekly' ? 'Weekly' :
-                            pattern === 'weekdays' ? 'Weekdays' :
-                              pattern === 'monthly' ? 'Monthly' : 'Yearly'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Reflection */}
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase text-ink/40 tracking-wider flex items-center space-x-2">
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>Reflection</span>
-                </p>
-                <BottleMentionTextarea
-                  value={deedReflection}
-                  onChange={setDeedReflection}
-                  placeholder="What did you learn? How did it go?  e.g. @Workout 400 press-ups"
-                  sourceRef={`deed-${selectedDeed.task.id}`}
-                  className="w-full h-28 bg-black/20 border border-white/10 rounded-xl p-4 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all"
-                />
-              </div>
-
-              {/* Goal contribution */}
-              {selectedDeed.parentGoal && (
-                <div className="bg-gradient-to-r from-black/30 to-black/10 border border-white/10 rounded-xl p-4 space-y-2">
-                  <p className="text-[9px] font-bold uppercase text-ink/40 tracking-wider">Contributes To</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 min-w-0">
-                      <span className="w-2 h-2 rounded-full bg-gold shrink-0" />
-                      <span className="text-sm font-bold text-ink truncate">{selectedDeed.parentGoal.title}</span>
-                    </div>
-                    <span className="text-xs font-mono font-bold text-gold">{Math.round(completionMap[selectedDeed.parentGoal.id] || 0)}%</span>
-                  </div>
-                  <ProgressBar progress={completionMap[selectedDeed.parentGoal.id] || 0} colorClass="bg-gold" />
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-7 py-4 border-t border-white/10 bg-black/20 flex items-center justify-between">
-              <button
-                onClick={async (e) => {
-                  await handleDeleteTask(e, selectedDeed.task.id)
-                  setSelectedDeed(null)
-                }}
-                className="flex items-center space-x-1.5 px-3 py-2 text-xs text-[#cf8f78] hover:bg-ember/10 rounded-xl transition"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete</span>
-              </button>
-              <div className="flex items-center space-x-3">
-                <button onClick={() => setSelectedDeed(null)} className="px-5 py-2.5 text-sm font-bold text-ink/60 hover:text-ink hover:bg-white/5 rounded-xl transition">Cancel</button>
-                <button onClick={handleSaveDeedChanges} className="px-6 py-2.5 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70   flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Save</span>
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-      </AnimatePresence>
-      {/* Delete scope prompt — repeating deeds and habits can be removed as one
-          occurrence, as this occurrence plus every later one, or as the whole
-          series. One-shot deeds never reach here (they get a plain confirm). */}
       <AnimatePresence>
-        {deleteScopeTarget && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={() => setDeleteScopeTarget(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 6 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-              className="w-full max-w-md overflow-hidden rounded-[8px] border border-gold-dim/25 bg-surface-solid"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="border-b border-white/10 px-6 py-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gold">
-                  {deleteScopeTarget.isHabit ? 'Delete habit' : 'Delete repeating deed'}
-                </p>
-                <h3 className="mt-1 truncate font-display text-lg font-bold text-ink">{deleteScopeTarget.title}</h3>
-                <p className="mt-1 text-xs text-ink/50">This one repeats. How much should go?</p>
-              </div>
-
-              <div className="space-y-1.5 px-4 py-4">
-                <button
-                  onClick={() => performDeleteTask(deleteScopeTarget.taskId, 'single')}
-                  className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
-                >
-                  <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-ink">
-                      {deleteScopeTarget.isHabit ? 'Just today' : 'Just this one'}
-                    </span>
-                    <span className="block text-[11px] text-ink/45">
-                      {deleteScopeTarget.isHabit
-                        ? 'Skips today only — the habit is back tomorrow.'
-                        : 'Skips this occurrence only — the series carries on.'}
-                    </span>
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => performDeleteTask(deleteScopeTarget.taskId, 'future')}
-                  className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
-                >
-                  <Repeat className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-ink">This and all future</span>
-                    <span className="block text-[11px] text-ink/45">
-                      Stops everything from this day forward; earlier days are kept.
-                    </span>
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => performDeleteTask(deleteScopeTarget.taskId, 'all')}
-                  className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-ember/10"
-                >
-                  <Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-[#cf8f78]" />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-[#cf8f78]">The entire series</span>
-                    <span className="block text-[11px] text-ink/45">
-                      {deleteScopeTarget.isHabit
-                        ? 'Every instance, past and future — this erases the history too.'
-                        : 'Every occurrence, past and future.'}
-                    </span>
-                  </span>
-                </button>
-              </div>
-
-              <div className="flex justify-end border-t border-white/10 bg-black/20 px-6 py-3">
-                <button
-                  onClick={() => setDeleteScopeTarget(null)}
-                  className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-ink/60 transition hover:bg-white/5 hover:text-ink"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  <span>Cancel</span>
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+        {selectedDeed && (
+          <DeedDetailModal
+            key="deed-detail"
+            selectedDeed={selectedDeed}
+            currentDate={currentDate}
+            categories={activeCategories}
+            completionMap={completionMap}
+            countdownNow={countdownNow}
+            reflection={deedReflection}
+            onReflectionChange={setDeedReflection}
+            onChange={setSelectedDeed}
+            onToggleComplete={handleToggleSelectedComplete}
+            onSave={handleSaveDeedChanges}
+            onClose={() => setSelectedDeed(null)}
+            onDelete={async (e, id) => {
+              await handleDeleteTask(e, id)
+              setSelectedDeed(null)
+            }}
+          />
         )}
       </AnimatePresence>
 
-
-
+      <AnimatePresence>
+        {deleteScopeTarget && (
+          <DeleteScopeDialog
+            key="delete-scope"
+            target={deleteScopeTarget}
+            onDelete={scope => { void performDeleteTask(deleteScopeTarget.taskId, scope) }}
+            onClose={() => setDeleteScopeTarget(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
-
   )
-
 }

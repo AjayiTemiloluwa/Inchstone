@@ -347,19 +347,19 @@ export function SectionBudgetCard({
                 <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] p-1">
                     <button
                         onClick={() => togglePanel('allocate')}
-                        className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition-colors active:opacity-70 ${showAllocate ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
+                        className={`flex-1 rounded-md py-2.5 sm:py-1.5 text-[11px] font-semibold transition-colors active:opacity-70 ${showAllocate ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
                     >
                         Allocate
                     </button>
                     <button
                         onClick={() => togglePanel('category')}
-                        className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition-colors active:opacity-70 ${showAddCategory ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
+                        className={`flex-1 rounded-md py-2.5 sm:py-1.5 text-[11px] font-semibold transition-colors active:opacity-70 ${showAddCategory ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
                     >
                         Category
                     </button>
                     <button
                         onClick={() => togglePanel('expenses')}
-                        className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-semibold tabular-nums transition-colors active:opacity-70 ${showExpenses ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
+                        className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2.5 sm:px-2.5 sm:py-1.5 text-[11px] font-semibold tabular-nums transition-colors active:opacity-70 ${showExpenses ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
                     >
                         {sectionEntries.length}
                         <span className={config.text}>{showExpenses ? 'Hide' : 'Entries'}</span>
@@ -388,7 +388,7 @@ export function SectionBudgetCard({
                                     <select
                                         value={fromPurse}
                                         onChange={(e) => setAllocateFrom(e.target.value)}
-                                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-1.5 py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
+                                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-1.5 py-2 sm:py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
                                     >
                                         {purses.map(p => (
                                             <option key={p.id} value={p.name}>{p.icon} {p.name}</option>
@@ -401,7 +401,7 @@ export function SectionBudgetCard({
                                     <select
                                         value={toPurse}
                                         onChange={(e) => setAllocateTo(e.target.value)}
-                                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-1.5 py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
+                                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-1.5 py-2 sm:py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
                                     >
                                         {purses.map(p => (
                                             <option key={p.id} value={p.name}>{p.icon} {p.name}</option>
@@ -460,7 +460,7 @@ export function SectionBudgetCard({
                                 {suggestedUnused.slice(0, 6).map(cat => (
                                     <button key={cat.label} type="button" onClick={() => handleQuickAdd(cat)}
                                         title={`${cat.label} — ${defaultBudgetAmounts[cat.label] || 100}`}
-                                        className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-parchment/70 transition-all hover:border-gold/40 hover:text-parchment active:opacity-70 flex items-center gap-1">
+                                        className="rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5 sm:px-2 sm:py-1 text-[11px] text-parchment/70 transition-all hover:border-gold/40 hover:text-parchment active:opacity-70 flex items-center gap-1">
                                         <span>{cat.icon}</span>
                                         <span className="font-mono font-semibold tabular-nums">{defaultBudgetAmounts[cat.label] || 100}</span>
                                     </button>
@@ -494,7 +494,7 @@ export function SectionBudgetCard({
                                                 setQuickAddAmount('')
                                                 setQuickAddDesc('')
                                             }}
-                                            className="w-5 h-5 bg-gold text-ink rounded-full text-xs leading-none flex items-center justify-center hover:bg-gold-glow transition-all shadow-md"
+                                            className="w-7 h-7 sm:w-5 sm:h-5 bg-gold text-ink rounded-full text-xs leading-none flex items-center justify-center hover:bg-gold-glow transition-all shadow-md"
                                             title="Log an expense here"
                                         >
                                             +

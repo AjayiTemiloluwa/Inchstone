@@ -33,19 +33,19 @@ export default function ReviewsPage() {
   }, [loadReviews])
 
   return (
-    <div className="max-w-[720px] mx-auto space-y-6 pb-24">
+    <div className="max-w-[720px] lg:max-w-4xl mx-auto space-y-6 pb-24">
       {/* Full-page standard loading gate — same pattern as every other route. */}
       {loading && <Loader label="Snagging your reviews…" routeKey="reviews" />}
 
       {!loading && (
         <>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-h1 text-parchment"><Scramble text="Periodic Reviews" mono={false} /></h1>
         <Magnetic>
           <button
             onClick={() => setShowModal(true)}
             data-cursor="Write it while it's fresh"
-            className="btn-shine rounded-md bg-gold px-5 py-2.5 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors"
+            className="btn-shine rounded-md bg-gold px-5 py-3 sm:py-2.5 text-sm font-semibold text-ink hover:bg-gold-glow transition-colors"
           >
             New Review
           </button>
@@ -61,7 +61,7 @@ export default function ReviewsPage() {
             <button
               onClick={() => setShowModal(true)}
               data-cursor="Start your first review"
-              className="mt-4 text-sm font-medium text-gold hover:text-gold/80 transition-colors"
+              className="mt-4 py-2 text-sm font-medium text-gold hover:text-gold/80 transition-colors"
             >
               Write your first review
             </button>
@@ -82,8 +82,8 @@ export default function ReviewsPage() {
                   i < reviews.length - 1 ? 'shadow-xl shadow-black/30' : ''
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
+                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                  <div className="min-w-0">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-parchment">
                       {review.periodType} Review
                     </h3>
@@ -91,13 +91,13 @@ export default function ReviewsPage() {
                       {new Date(review.periodStart).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="whitespace-nowrap font-mono text-xs text-parchment/60 tabular-nums">
+                  <div className="font-mono text-xs text-parchment/60 tabular-nums">
                     <span>mood {review.mood} / 4</span>
                     <span className="text-gold-dim"> · </span>
                     <span>energy {review.energy} / 10</span>
                   </div>
                 </div>
-                <p className="mt-3 text-sm leading-relaxed text-parchment/80">{review.reflection}</p>
+                <p className="mt-3 break-words text-sm leading-relaxed text-parchment/80">{review.reflection}</p>
                 {review.wins && (
                   <div className="mt-3 border-l-2 border-moss pl-3">
                     <p className="font-mono text-xs uppercase tracking-wider text-parchment/50">Wins</p>

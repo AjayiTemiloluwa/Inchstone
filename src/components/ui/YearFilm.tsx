@@ -230,7 +230,7 @@ export function YearFilm({ year }: { year: number }) {
             setPlaying(p => !p)
           }}
           aria-label={playing ? 'Pause' : 'Play'}
-          className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-gold text-ink hover:bg-gold-glow transition-colors"
+          className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl bg-gold text-ink hover:bg-gold-glow transition-colors"
         >
           {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
         </button>
@@ -241,7 +241,7 @@ export function YearFilm({ year }: { year: number }) {
           value={idx}
           onChange={e => setIdx(Number(e.target.value))}
           aria-label="Scrub through the year"
-          className="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-gold"
+          className="min-w-0 flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-gold"
         />
         <span className="font-mono text-[11px] text-parchment/40 whitespace-nowrap tabular-nums">
           {current ? format(current.date, 'MMM d') : '—'}

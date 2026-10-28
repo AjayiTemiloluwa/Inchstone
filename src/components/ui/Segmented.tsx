@@ -31,7 +31,7 @@ export function Segmented<T extends string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className={`inline-flex items-center gap-1 ${className}`}
+      className={`inline-flex max-w-full items-center gap-1 overflow-x-auto ${className}`}
     >
       {options.map((opt) => {
         const active = opt.value === value

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { useDialog } from '@/components/ui/useDialog'
 import { usePlansStore } from '@/stores/plansStore'
 import { errMsg } from '@/lib/plans/errors'
 
@@ -17,6 +18,7 @@ const LABEL = 'text-[10px] font-bold uppercase tracking-wider text-parchment/50'
 
 /** Sections are pure containers — just a name and optional description (§3) */
 export function AddSectionModal({ planId, initial, onClose }: Props) {
+  const dialogRef = useDialog<HTMLDivElement>(true, onClose)
   const { addSection, updateSection } = usePlansStore()
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -41,12 +43,14 @@ export function AddSectionModal({ planId, initial, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-md space-y-5 rounded-[8px] border hairline bg-ink p-6"
+        className="max-h-[92dvh] w-full max-w-md space-y-5 overflow-y-auto rounded-t-2xl sm:rounded-[8px] border hairline bg-ink p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6" data-lenis-prevent
         onClick={e => e.stopPropagation()}
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
       >
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg text-parchment">{initial ? 'Edit Section' : 'Add Section'}</h2>
