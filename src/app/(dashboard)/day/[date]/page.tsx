@@ -69,6 +69,7 @@ export default function DayPage() {
   const [editingNote, setEditingNote] = useState<DayNote | null>(null)
   const [deleteScopeTarget, setDeleteScopeTarget] = useState<DeleteScopeTarget | null>(null)
   const [pendingEdit, setPendingEdit] = useState<{ taskId: string; changes: Record<string, unknown>; becameRecurring: boolean; target: EditScopeTarget } | null>(null)
+  const savingEditRef = useRef(false)
 
   const {
     todayHabits,
@@ -328,7 +329,10 @@ export default function DayPage() {
     scope: DeleteScope,
     becameRecurring: boolean,
   ) => {
+    if (savingEditRef.current) return
+    savingEditRef.current = true
     setPendingEdit(null)
+    try {
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
@@ -355,6 +359,9 @@ export default function DayPage() {
         : 'Changes saved',
       'success',
     )
+    } finally {
+      savingEditRef.current = false
+    }
   }
 
   const handleSaveDeedChanges = async () => {

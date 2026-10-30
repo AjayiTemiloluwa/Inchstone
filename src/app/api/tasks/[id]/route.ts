@@ -63,6 +63,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (isRecurring !== undefined) updateData.isRecurring = isRecurring
         if (recurrencePattern !== undefined) updateData.recurrencePattern = recurrencePattern
 
+        // How far a change on a repeating deed reaches: single | future | all.
+        const scope: 'single' | 'future' | 'all' =
+            body.scope === 'future' || body.scope === 'all' ? body.scope : 'single'
+        // The repeat rule belongs to the whole series: changing it for one day
+        // would leave the series inconsistent, so a single-day edit ignores it.
+        if (scope === 'single' && task.isRecurring) {
+            delete updateData.isRecurring
+            delete updateData.recurrencePattern
+        }
+
         await prisma.task.update({
             where: { id: taskId },
             data: updateData,
@@ -76,8 +86,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         // Per-day state (completed, progress, reflection) is never copied, and
         // existing siblings are updated in place — never deleted and rebuilt —
         // so one edit can no longer reset the rest of the series.
-        const scope: 'single' | 'future' | 'all' =
-            body.scope === 'future' || body.scope === 'all' ? body.scope : 'single'
         const wasSeries = task.isRecurring || task.isHabit
         const finalIsRecurring = isRecurring !== undefined ? isRecurring : task.isRecurring
         const finalRecurrencePattern = recurrencePattern !== undefined ? recurrencePattern : task.recurrencePattern
@@ -91,6 +99,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             goalId: originalGoalId,
             isHabit: task.isHabit,
             id: { not: taskId },
+            // Only real series members — a one-off deed that happens to share the
+            // title must never be edited or deleted along with the series.
+            ...(task.isHabit ? {} : { isRecurring: true }),
+        }
+        // Reshape runs after step 1, which may already have renamed the siblings.
+        const reshapeWhere: Prisma.TaskWhereInput = {
+            ...seriesWhere,
+            title: scope !== 'single' && title !== undefined ? title : originalTitle,
         }
         const startOfToday = new Date()
         startOfToday.setHours(0, 0, 0, 0)
@@ -149,12 +165,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (reshape) {
             const from = new Date(Math.max(tomorrow.getTime(), task.date.getTime() + 86_400_000))
             await prisma.task.deleteMany({
-                where: { ...seriesWhere, completed: false, date: { gte: from } },
+                where: { ...reshapeWhere, completed: false, date: { gte: from } },
             })
 
             if (finalIsRecurring && finalRecurrencePattern) {
                 const keptDates = new Set(
-                    (await prisma.task.findMany({ where: { ...seriesWhere, date: { gte: from } }, select: { date: true } }))
+                    (await prisma.task.findMany({ where: { ...reshapeWhere, date: { gte: from } }, select: { date: true } }))
                         .map(r => r.date.getTime()),
                 )
                 const fresh = await prisma.task.findUniqueOrThrow({ where: { id: taskId } })
