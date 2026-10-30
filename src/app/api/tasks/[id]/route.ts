@@ -117,6 +117,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                 let shouldCreate = false
                 const day = currentDate.getUTCDay()
 
+                // Only days at/after `tomorrow` were cleared above. Regenerating
+                // earlier days (between the master's date and today) would stack
+                // a fresh copy on top of the surviving ones on every save.
+                if (currentDate < tomorrow) {
+                    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+                    continue
+                }
+
                 switch (finalRecurrencePattern) {
                     case 'daily': shouldCreate = true; break
                     case 'weekly': shouldCreate = day === taskDate.getUTCDay(); break

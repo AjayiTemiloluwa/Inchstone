@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, ChevronLeft, ChevronRight, Target, FlaskConical, CalendarRange, Sparkles } from 'lucide-react'
+import { Home, CalendarDays, Calendar, Users, FileText, Settings, BarChart3, DollarSign, ChevronLeft, ChevronRight, Target, FlaskConical, CalendarRange } from 'lucide-react'
 import { useState } from 'react'
 import { WorkClock } from '@/components/ui/WorkClock'
 
@@ -21,7 +21,6 @@ export function Sidebar() {
     { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people' },
     { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down' },
     { name: 'Reports', href: '/reports', icon: BarChart3, hint: 'See the patterns' },
-    { name: 'Atelier', href: '/atelier', icon: Sparkles, hint: 'The living showcase' },
     { name: 'Settings', href: '/settings', icon: Settings, hint: 'Make it yours' },
   ]
 

@@ -99,8 +99,6 @@ export function DeedTimeline({
   onOpen,
   onToggle,
   onDelete,
-  onWeightChange,
-  onProgressChange,
   onCreateAt,
 }: {
   dateStr: string
@@ -112,8 +110,9 @@ export function DeedTimeline({
   onOpen: (task: Task) => void
   onToggle: (task: Task) => void
   onDelete: (e: React.MouseEvent, taskId: string) => void
-  onWeightChange: (task: Task, weight: number) => void
-  onProgressChange: (task: Task, progress: number) => void
+  /** Weight/progress are edited in the deed sheet now; accepted so callers needn't change. */
+  onWeightChange?: (task: Task, weight: number) => void
+  onProgressChange?: (task: Task, progress: number) => void
   onCreateAt: (start: string, end: string) => void
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -157,8 +156,16 @@ export function DeedTimeline({
   }
 
   return (
-            <div className="hidden sm:flex glass rounded-[8px] overflow-hidden select-none animate-fadeIn border border-white/10">
-              <div ref={scrollRef} className="overflow-y-auto flex w-full" data-lenis-prevent style={{ maxHeight: 'min(1536px, 65dvh)' }}>
+            <div className="hidden sm:block relative glass rounded-2xl overflow-hidden select-none animate-fadeIn border border-white/10">
+              {nowLineTop !== null && (
+                <button
+                  onClick={() => scrollRef.current?.scrollTo({ top: Math.max(0, nowLineTop - 150), behavior: 'smooth' })}
+                  className="absolute right-3 top-3 z-30 rounded-full border border-ember/40 bg-ember/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#e0a093] backdrop-blur hover:bg-ember/25 transition"
+                >
+                  Jump to now
+                </button>
+              )}
+              <div ref={scrollRef} className="overflow-y-auto flex w-full scroll-smooth" data-lenis-prevent style={{ maxHeight: 'min(1536px, 65dvh)' }}>
               <div className="w-14 sm:w-20 shrink-0 border-r border-white/10 bg-black/20 relative z-10" style={{ height: `${24 * 64}px` }}>
                 {HOURS.map(hour => (
                   <div key={hour} className="absolute left-0 right-0 text-right pr-1.5 sm:pr-3 text-[10px] font-mono text-ink/40" style={{ top: `${hour * 64 + 6}px`, height: '64px' }}>
@@ -172,8 +179,8 @@ export function DeedTimeline({
                 ))}
                 {nowLineTop !== null && (
                   <div className="absolute left-0 right-0 flex items-center z-20 pointer-events-none" style={{ top: `${nowLineTop}px` }}>
-                    <div className="w-2 h-2 rounded-full bg-ember -ml-1" />
-                    <div className="flex-1 h-0.5 bg-ember" />
+                    <span className="rounded-full bg-ember px-1.5 py-0.5 font-mono text-[9px] font-bold text-white shadow-md">{format(now, 'h:mm')}</span>
+                    <div className="flex-1 h-px bg-ember/80" />
                   </div>
                 )}
                 {getPositionedTasks(entries).map(({ task, top, height, left, width }) => {
@@ -207,9 +214,12 @@ export function DeedTimeline({
                     <div
                       key={task.id}
                       onClick={(e) => { e.stopPropagation(); onOpen(task) }}
-                      className={`absolute rounded-xl border p-2.5 text-left text-xs flex flex-col justify-between transition-all cursor-pointer group/task select-none overflow-hidden task-block ${task.completed ? 'glass text-ink/50 opacity-80' : 'text-ink hover:-translate-y-0.5'}`}
-                      style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10, borderLeft: `4px solid ${taskBorderColor}`, borderColor: task.completed ? `color-mix(in srgb, ${taskBorderColor} 25%, transparent)` : taskBorderColor, background: task.completed ? `color-mix(in srgb, ${taskBorderColor} 13%, transparent)` : `color-mix(in srgb, ${taskBorderColor} 21%, transparent)` }}
+                      className={`absolute rounded-2xl border px-3 py-2 text-left text-xs flex flex-col justify-between transition-all duration-200 cursor-pointer group/task select-none overflow-hidden task-block shadow-sm hover:shadow-lg hover:z-30 ${task.completed ? 'text-ink/50 opacity-75' : 'text-ink hover:-translate-y-0.5'}`}
+                      style={{ top: `${top + 2}px`, height: `${height - 4}px`, left: `${left}%`, width: `${width}%`, zIndex: 10, borderLeft: `4px solid ${taskBorderColor}`, borderColor: `color-mix(in srgb, ${taskBorderColor} 30%, transparent)`, background: task.completed ? `color-mix(in srgb, ${taskBorderColor} 10%, transparent)` : `color-mix(in srgb, ${taskBorderColor} 18%, transparent)` }}
                     >
+                      {!task.completed && task.progress > 0 && (
+                        <div className="absolute bottom-0 left-0 h-0.5 rounded-full" style={{ width: `${Math.min(100, Math.round(task.progress))}%`, background: taskBorderColor }} />
+                      )}
                       <div className="flex items-start justify-between gap-1">
                         <div className="flex items-center space-x-1.5 min-w-0">
                           <button onClick={(e) => { e.stopPropagation(); onToggle(task) }} className="shrink-0">
@@ -239,24 +249,6 @@ export function DeedTimeline({
                             </span>
                           ) : null
                         })()}
-                        <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
-                          <span className="text-[9px] text-ink/40">Wt</span>
-                          <input
-                            type="number" min="1" max="100" value={task.weight}
-                            onChange={e => onWeightChange(task, parseFloat(e.target.value) || 1)}
-                            className="w-8 px-0.5 py-0.5 bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono text-[10px]"
-                          />
-                          <span className="text-[9px] text-ink/40">%</span>
-                        </div>
-                        <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
-                          <span className="text-[9px] text-ink/40">Prog</span>
-                          <input
-                            type="range" min="0" max="100" step="1" value={Math.round(task.progress)}
-                            onChange={e => onProgressChange(task, parseFloat(e.target.value) || 0)}
-                            className="flex-1 h-1 bg-mist rounded-full appearance-none cursor-pointer accent-gold"
-                          />
-                          <span className="text-[9px] font-mono text-ink/40 w-6 text-right">{Math.round(task.progress)}%</span>
-                        </div>
                       </div>
                     </div>
                   )

@@ -27,6 +27,7 @@ import { HabitTracker } from '@/components/day/HabitTracker'
 import { ReflectionCard } from '@/components/day/ReflectionCard'
 import { UnscheduledDeeds } from '@/components/day/UnscheduledDeeds'
 import { useHabitData } from '@/components/day/useHabitData'
+import { dedupeGoogleEvents, dedupeTasks, withoutDeedMirrors } from '@/components/day/dedupe'
 import type { DayNote, DeedModalData, DeleteScope, GoogleEventView, NewDeedValues } from '@/components/day/types'
 
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
@@ -98,7 +99,7 @@ export default function DayPage() {
         if (!res.ok) return
         const data = await res.json()
         if (cancelled) return
-        if (Array.isArray(data.events)) setGoogleEvents(data.events)
+        if (Array.isArray(data.events)) setGoogleEvents(dedupeGoogleEvents(data.events))
         setGoogleConnected(!data.needsAuth)
       } catch {
         /* calendar is optional — never block the day view */
@@ -223,8 +224,9 @@ export default function DayPage() {
       })
     }
     searchTasks(items)
-    return tasks
+    return dedupeTasks(tasks)
   }, [items, dateStr])
+  const visibleGoogleEvents = useMemo(() => withoutDeedMirrors(googleEvents, allTasks), [googleEvents, allTasks])
   const scheduledTasks = useMemo(() => allTasks.filter(t => t.startTime && t.endTime), [allTasks])
   const unscheduledTasks = allTasks.filter(t => !t.startTime && !t.isHabit)
   const frogTasks = allTasks.filter(t => t.isFrog).sort((a, b) => {
@@ -591,11 +593,11 @@ export default function DayPage() {
   if (loading) return <Loader label="Spinning the day slots…" routeKey="day" />
 
   const tabBtn = (active: boolean) =>
-    `px-3 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition ${active ? 'bg-gold text-ink' : 'text-ink/60 hover:text-gold'}`
+    `px-3.5 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${active ? 'bg-gold text-ink shadow-md' : 'text-ink/60 hover:text-gold hover:bg-white/5'}`
   const pillBtn = 'flex items-center gap-1.5 rounded-xl border px-3 py-2 sm:py-1.5 text-xs font-bold transition'
 
   return (
-    <div className="space-y-6 max-w-full pb-12 stagger-children mx-auto 2xl:max-w-[1600px]">
+    <div className="space-y-5 sm:space-y-6 max-w-full pb-12 stagger-children mx-auto 2xl:max-w-[1600px]">
       <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
         <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
         <ChevronRight className="w-3 h-3" />
@@ -609,11 +611,12 @@ export default function DayPage() {
         dayScore={dayScore}
         onPrev={() => goToDay(-1)}
         onNext={() => goToDay(1)}
+        onToday={() => router.push(`/day/${format(new Date(), 'yyyy-MM-dd')}`)}
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
         <div className="xl:col-span-2 space-y-6">
-          <Card className="p-4 sm:p-5 space-y-4">
+          <Card className="p-4 sm:p-5 space-y-4 rounded-2xl">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-gold" />
@@ -627,7 +630,7 @@ export default function DayPage() {
                 )}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex rounded-xl border border-white/10 bg-black/20 p-1">
+                <div className="flex rounded-2xl border border-white/10 bg-black/20 p-1 backdrop-blur">
                   <button onClick={() => setViewMode('timeline')} className={tabBtn(viewMode === 'timeline')}>
                     <Clock className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Timeline
                   </button>
@@ -645,8 +648,8 @@ export default function DayPage() {
                     <Calendar className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Google</span>
                     <span className="sm:hidden">Gcal</span>
-                    {showGoogle && googleEvents.length > 0 && (
-                      <span className="rounded-full bg-gold/20 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums leading-none">{googleEvents.length}</span>
+                    {showGoogle && visibleGoogleEvents.length > 0 && (
+                      <span className="rounded-full bg-gold/20 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums leading-none">{visibleGoogleEvents.length}</span>
                     )}
                   </button>
                 ) : (
@@ -688,7 +691,7 @@ export default function DayPage() {
             <>
               <DeedAgenda
                 tasks={allTasks}
-                googleEvents={googleEvents}
+                googleEvents={visibleGoogleEvents}
                 showGoogle={showGoogle}
                 countdownNow={countdownNow}
                 onOpen={handleOpenDeed}
@@ -697,7 +700,7 @@ export default function DayPage() {
               <DeedTimeline
                 dateStr={dateStr}
                 tasks={allTasks}
-                googleEvents={googleEvents}
+                googleEvents={visibleGoogleEvents}
                 showGoogle={showGoogle}
                 categories={activeCategories}
                 countdownNow={countdownNow}
@@ -712,7 +715,7 @@ export default function DayPage() {
           ) : (
             <DeedTable
               allTasks={allTasks}
-              googleEvents={googleEvents}
+              googleEvents={visibleGoogleEvents}
               showGoogle={showGoogle}
               countdownNow={countdownNow}
               onOpen={handleOpenDeed}

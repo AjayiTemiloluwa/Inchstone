@@ -43,7 +43,7 @@ export function DeedAgenda({
 
   if (entries.length === 0) {
     return (
-      <div className="sm:hidden glass rounded-[8px] border border-white/10 p-6 text-center text-sm text-ink/40 animate-fadeIn">
+      <div className="sm:hidden glass rounded-2xl border border-white/10 p-6 text-center text-sm text-ink/40 animate-fadeIn">
         Nothing scheduled yet. Tap Add Deed and give it a time.
       </div>
     )
@@ -85,7 +85,7 @@ export function DeedAgenda({
                   onOpen(t)
                 }
               }}
-              className={`flex min-h-[64px] cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all active:opacity-80 ${
+              className={`flex min-h-[68px] cursor-pointer items-center gap-3 rounded-2xl border px-3 py-3 text-left shadow-sm transition-all duration-200 active:scale-[0.99] ${
                 t.completed ? 'glass opacity-80' : 'border-white/10 bg-black/20'
               }`}
               style={{ borderLeft: `4px solid ${accent}` }}

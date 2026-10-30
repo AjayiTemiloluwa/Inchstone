@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Target, FlaskConical, CalendarRange, Sparkles } from 'lucide-react'
+import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Target, FlaskConical, CalendarRange } from 'lucide-react'
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useDialog } from '@/components/ui/useDialog'
@@ -36,7 +36,6 @@ export function BottomNav() {
     { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down', desc: 'Notes & journal entries' },
     { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people', desc: 'Accountability partners & messaging' },
     { name: 'Reports', href: '/reports', icon: BarChart3, hint: 'See the patterns', desc: 'Progress reports & analytics' },
-    { name: 'Atelier', href: '/atelier', icon: Sparkles, hint: 'The living showcase', desc: 'The animated GL showcase' },
     { name: 'Settings', href: '/settings', icon: Settings, hint: 'Make it yours', desc: 'App settings & preferences' },
   ]
 
