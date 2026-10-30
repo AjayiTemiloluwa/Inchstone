@@ -430,7 +430,7 @@ export default function ReportsPage() {
                                 ))}
                             </div>
                             <p className="mt-3 border-t hairline-top pt-2 font-mono text-[10px] text-parchment/35 tabular-nums">
-                                Within current filters · {filtered.completed}/{filtered.total} tasks done · weighted {filtered.completion}%
+                                Within current filters · {filtered.completed}/{filtered.total} tasks done · {filtered.completion}% of points
                             </p>
                         </Card>
                     )}
@@ -455,7 +455,7 @@ export default function ReportsPage() {
                                                 <span className={`mt-1 h-2 w-2 shrink-0 rounded-full sm:mt-0 ${t.completed ? 'bg-moss' : 'bg-gold'}`} />
                                                 <span className={`min-w-0 break-words ${t.completed ? 'line-through text-parchment/45' : 'text-parchment'}`}>{t.title}</span>
                                                 <span className="hidden font-mono text-parchment/35 sm:inline">{t.categoryTitle ?? t.priority ?? ''}</span>
-                                                <span className="ml-auto shrink-0 font-mono text-parchment/40 tabular-nums">{t.weight}%</span>
+                                                <span className="ml-auto shrink-0 font-mono text-parchment/40 tabular-nums">{t.weight} pts</span>
                                             </div>
                                         ))}
                                         {showNotes && day.notes.map(n => (

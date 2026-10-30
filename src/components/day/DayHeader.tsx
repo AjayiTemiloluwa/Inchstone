@@ -8,9 +8,13 @@ import { ProgressRing } from '@/components/ui/ProgressRing'
 const navBtn =
   'w-10 h-10 flex items-center justify-center rounded-full bg-black/20 border border-white/10 text-ink/60 hover:text-gold hover:border-gold/40 hover:bg-gold/10 active:scale-95 transition-all shrink-0'
 
+const fmt = (n: number) => String(Math.round(n * 10) / 10)
+
 export function DayHeader({
   currentDate,
   completed,
+  earnedPoints,
+  totalPoints,
   total,
   dayScore,
   onPrev,
@@ -19,6 +23,8 @@ export function DayHeader({
 }: {
   currentDate: Date
   completed: number
+  earnedPoints: number
+  totalPoints: number
   total: number
   dayScore: number
   onPrev: () => void
@@ -64,9 +70,13 @@ export function DayHeader({
           </button>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 sm:gap-6">
           <div className="text-right">
-            <p className="text-[10px] text-ink/50 uppercase font-bold tracking-wider">Done</p>
+            <p className="text-[10px] text-ink/50 uppercase font-bold tracking-wider">Points</p>
+            <p className="text-xl font-mono font-bold tabular-nums">{fmt(earnedPoints)}<span className="text-ink/40">/{fmt(totalPoints)}</span></p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-ink/50 uppercase font-bold tracking-wider">Tasks</p>
             <p className="text-xl font-mono font-bold tabular-nums">{completed}<span className="text-ink/40">/{total}</span></p>
           </div>
           <ProgressRing progress={dayScore} size={56} />

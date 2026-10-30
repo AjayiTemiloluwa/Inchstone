@@ -110,7 +110,7 @@ export function DeedAgenda({
                 </div>
               </div>
               <span className="shrink-0 rounded-md bg-white/5 px-2 py-1 font-mono text-[11px] font-bold tabular-nums text-ink/60">
-                {Math.round(t.weight)}%
+                {Math.round(t.weight * 10) / 10} pts
               </span>
             </div>
           </li>

@@ -34,11 +34,11 @@ export function UnscheduledDeeds({
                       <span className={`flex-1 min-w-0 break-words ${t.completed ? 'line-through text-ink/50' : ''}`}>{t.title}</span>
                       <div className="flex items-center shrink-0 space-x-1" onClick={e => e.stopPropagation()}>
                         <input
-                          type="number" min="1" max="100" value={t.weight}
+                          type="number" min="1" step="any" value={t.weight}
                           onChange={e => onWeightChange(t, parseFloat(e.target.value) || 1)}
-                          className="w-10 px-1 py-0.5 text-[10px] bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono"
+                          className="w-14 px-1 py-0.5 text-[10px] bg-transparent rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none text-right font-mono"
                         />
-                        <span className="text-[10px] font-mono text-ink/40">%</span>
+                        <span className="text-[10px] font-mono text-ink/40">pts</span>
                       </div>
                       <button
                         onClick={(e) => onDelete(e, t.id)}

@@ -21,6 +21,7 @@ import { DeedDetailModal } from '@/components/day/DeedDetailModal'
 import { DeedTable } from '@/components/day/DeedTable'
 import { DeedTimeline } from '@/components/day/DeedTimeline'
 import { DeleteScopeDialog, type DeleteScopeTarget } from '@/components/day/DeleteScopeDialog'
+import { EditScopeDialog, type EditScopeTarget } from '@/components/day/EditScopeDialog'
 import { FrogCard } from '@/components/day/FrogCard'
 import { GoalCards } from '@/components/day/GoalCards'
 import { HabitTracker } from '@/components/day/HabitTracker'
@@ -33,6 +34,10 @@ import type { DayNote, DeedModalData, DeleteScope, GoogleEventView, NewDeedValue
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
 
 type StopEvent = { stopPropagation: () => void }
+
+// Every deed carries free-form points (stored in Task.weight). A deed's share of
+// the day is its points / the day's total points — nothing has to add up to 100.
+const DEFAULT_POINTS = 10
 
 const SHOW_GOOGLE_KEY = 'inchstone:day:showGoogle'
 
@@ -63,6 +68,8 @@ export default function DayPage() {
   const [showNoteModal, setShowNoteModal] = useState(false)
   const [editingNote, setEditingNote] = useState<DayNote | null>(null)
   const [deleteScopeTarget, setDeleteScopeTarget] = useState<DeleteScopeTarget | null>(null)
+  const [pendingEdit, setPendingEdit] = useState<{ taskId: string; changes: Record<string, unknown>; becameRecurring: boolean; target: EditScopeTarget } | null>(null)
+  const savingEditRef = useRef(false)
 
   const {
     todayHabits,
@@ -247,6 +254,7 @@ export default function DayPage() {
   const deedTasks = allTasks.filter(t => !t.isHabit)
   const completedTasks = deedTasks.filter(t => t.completed)
   const totalWeight = deedTasks.reduce((sum, t) => sum + t.weight, 0)
+  const earnedPoints = deedTasks.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0)
   const dayScore = totalWeight > 0
     ? deedTasks.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0) / totalWeight * 100
     : 0
@@ -311,49 +319,91 @@ export default function DayPage() {
     setDeedReflection(task.reflection || '')
   }
 
+  // Persist the sheet's edits. Only fields that actually changed are sent, so a
+  // tweak to one thing (say the colour) can never overwrite another day's time
+  // or points. Repeating deeds/habits ask "just this / this and following / all"
+  // first; everything else saves straight away.
+  const commitDeedSave = async (
+    taskId: string,
+    changes: Record<string, unknown>,
+    scope: DeleteScope,
+    becameRecurring: boolean,
+  ) => {
+    if (savingEditRef.current) return
+    savingEditRef.current = true
+    setPendingEdit(null)
+    try {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...changes, reflection: deedReflection, scope }),
+      })
+      if (!res.ok) {
+        console.error('Save failed:', await res.text())
+        showToast('Could not save changes', 'error')
+        return
+      }
+    } catch (e) {
+      console.error('Failed to save task changes:', e)
+      showToast('Network error', 'error')
+      return
+    }
+
+    setSelectedDeed(null)
+    await Promise.all([fetchItems(), fetchTodayHabits(), fetchHabitHistory()])
+    showToast(
+      becameRecurring ? 'Now repeating — upcoming days created'
+        : scope === 'all' ? 'Updated the whole series'
+        : scope === 'future' ? 'Updated this and following days'
+        : 'Changes saved',
+      'success',
+    )
+    } finally {
+      savingEditRef.current = false
+    }
+  }
+
   const handleSaveDeedChanges = async () => {
     if (!selectedDeed) return
     const task = selectedDeed.task
     const goalItem = findItem(task.goalId)
     if (!goalItem) return
+    const original = (goalItem.tasks || []).find(t => t.id === task.id)
 
-    try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: task.title,
-          reflection: deedReflection,
-          startTime: task.startTime,
-          endTime: task.endTime,
-          weight: task.weight,
-          progress: task.progress,
-          categoryId: task.categoryId,
-          isRecurring: task.isRecurring,
-          recurrencePattern: task.recurrencePattern,
-          isFrog: task.isFrog,
-          isHabit: task.isHabit,
-          isImportant: task.isImportant,
-          reminderMinutes: task.isImportant ? (task.reminderMinutes ?? 10) : null,
-          notifyDeed: !!task.notifyDeed,
-          endWarnMinutes: task.notifyDeed ? (task.endWarnMinutes ?? 10) : null,
-          color: task.color,
-        }),
-      })
-      if (!res.ok) {
-        console.error('Save failed:', await res.text())
-      }
-    } catch (e) {
-      console.error('Failed to save task changes:', e)
+    const changes: Record<string, unknown> = {}
+    const labels: string[] = []
+    const track = (label: string, keys: (keyof Task)[], build: () => Record<string, unknown>) => {
+      if (original && !keys.some(k => original[k] !== task[k])) return
+      Object.assign(changes, build())
+      labels.push(label)
     }
+    track('Title', ['title'], () => ({ title: task.title }))
+    track('Time', ['startTime', 'endTime'], () => ({ startTime: task.startTime, endTime: task.endTime }))
+    track('Points', ['weight'], () => ({ weight: task.weight }))
+    track('Category', ['categoryId'], () => ({ categoryId: task.categoryId }))
+    track('Repeat', ['isRecurring', 'recurrencePattern'], () => ({ isRecurring: task.isRecurring, recurrencePattern: task.recurrencePattern }))
+    track('Frog', ['isFrog'], () => ({ isFrog: task.isFrog }))
+    track('Habit', ['isHabit'], () => ({ isHabit: task.isHabit }))
+    track('Reminder', ['isImportant', 'reminderMinutes'], () => ({
+      isImportant: task.isImportant,
+      reminderMinutes: task.isImportant ? (task.reminderMinutes ?? 10) : null,
+    }))
+    track('Alerts', ['notifyDeed', 'endWarnMinutes'], () => ({
+      notifyDeed: !!task.notifyDeed,
+      endWarnMinutes: task.notifyDeed ? (task.endWarnMinutes ?? 10) : null,
+    }))
+    track('Color', ['color'], () => ({ color: task.color }))
+    // Progress belongs to the day it was logged on — never part of a series edit.
+    if (!original || original.progress !== task.progress) changes.progress = task.progress
 
-    setSelectedDeed(null)
-
-    // Refresh UI to show new instances
-    await fetchItems()
-    await fetchTodayHabits()
-    await fetchHabitHistory()
-    showToast(task.isRecurring ? 'Recurrence enabled — instances created!' : 'Changes saved', 'success')
+    const becameRecurring = !!original && !original.isRecurring && !!task.isRecurring
+    const isSeries = !!original && (original.isRecurring || original.isHabit)
+    if (isSeries && labels.length > 0) {
+      setPendingEdit({ taskId: task.id, changes, becameRecurring, target: { title: task.title, isHabit: !!task.isHabit, changes: labels } })
+      return
+    }
+    await commitDeedSave(task.id, changes, 'single', becameRecurring)
   }
 
   const handleToggleSelectedComplete = () => {
@@ -430,14 +480,7 @@ export default function DayPage() {
     setAddingDeed(true)
   }
 
-  const suggestedWeight = (): string => {
-    if (!primaryGoal) return '10'
-    const existing = primaryGoal.tasks || []
-    const total = existing.reduce((sum, t) => sum + t.weight, 0)
-    const remaining = Math.max(0, 100 - total)
-    const calculated = existing.length > 0 ? remaining / (existing.length + 1) : 100
-    return String(Math.round(calculated * 10) / 10)
-  }
+  const suggestedWeight = (): string => String(DEFAULT_POINTS)
 
   const handleAddDeed = async (v: NewDeedValues): Promise<boolean> => {
     if (!v.title.trim() || savingDeed) return false
@@ -486,11 +529,8 @@ export default function DayPage() {
 
       const startTimeISO = v.start ? new Date(`${dateStr}T${v.start}:00`).toISOString() : null
       const endTimeISO = v.end ? new Date(`${dateStr}T${v.end}:00`).toISOString() : null
-      const existingTasks = dailyGoals.find(dg => dg.id === goalId)?.tasks || []
-      const totalExistingWeight = existingTasks.reduce((sum, t) => sum + t.weight, 0)
-      const remaining = Math.max(0, 100 - totalExistingWeight)
-      const calculatedWeight = existingTasks.length > 0 ? remaining / (existingTasks.length + 1) : 100
-      const finalWeight = calculatedWeight > 0 ? calculatedWeight : 1
+      const parsedPoints = parseFloat(v.points)
+      const finalWeight = parsedPoints > 0 ? parsedPoints : DEFAULT_POINTS
 
       const res = await fetch('/api/tasks', {
         method: 'POST',
@@ -607,6 +647,8 @@ export default function DayPage() {
       <DayHeader
         currentDate={currentDate}
         completed={completedTasks.length}
+        earnedPoints={earnedPoints}
+        totalPoints={totalWeight}
         total={deedTasks.length}
         dayScore={dayScore}
         onPrev={() => goToDay(-1)}
@@ -679,6 +721,7 @@ export default function DayPage() {
                 initialStart={addPrefill.start}
                 initialEnd={addPrefill.end}
                 initialWeight={suggestedWeight()}
+                dayTotalPoints={totalWeight}
                 categories={activeCategories}
                 saving={savingDeed}
                 onCancel={() => setAddingDeed(false)}
@@ -714,6 +757,7 @@ export default function DayPage() {
             </>
           ) : (
             <DeedTable
+              totalPoints={totalWeight}
               allTasks={allTasks}
               googleEvents={visibleGoogleEvents}
               showGoogle={showGoogle}
@@ -806,6 +850,7 @@ export default function DayPage() {
       <AnimatePresence>
         {selectedDeed && (
           <DeedDetailModal
+            totalPoints={totalWeight}
             key="deed-detail"
             selectedDeed={selectedDeed}
             currentDate={currentDate}
@@ -833,6 +878,17 @@ export default function DayPage() {
             target={deleteScopeTarget}
             onDelete={scope => { void performDeleteTask(deleteScopeTarget.taskId, scope) }}
             onClose={() => setDeleteScopeTarget(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {pendingEdit && (
+          <EditScopeDialog
+            key="edit-scope"
+            target={pendingEdit.target}
+            onChoose={scope => { void commitDeedSave(pendingEdit.taskId, pendingEdit.changes, scope, pendingEdit.becameRecurring) }}
+            onClose={() => setPendingEdit(null)}
           />
         )}
       </AnimatePresence>

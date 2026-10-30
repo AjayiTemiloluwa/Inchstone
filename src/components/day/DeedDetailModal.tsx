@@ -16,6 +16,7 @@ import { BACKDROP_CLASS, SHEET_SAFE_AREA, type DeedModalData } from './types'
  */
 export function DeedDetailModal({
   selectedDeed,
+  totalPoints,
   currentDate,
   categories,
   completionMap,
@@ -29,6 +30,8 @@ export function DeedDetailModal({
   onDelete,
 }: {
   selectedDeed: DeedModalData
+  /** Day total points, to show this deed's share. */
+  totalPoints: number
   currentDate: Date
   categories: Item[]
   completionMap: Record<string, number>
@@ -291,10 +294,10 @@ export function DeedDetailModal({
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[9px] text-ink/40 font-bold uppercase">Weight</label>
+                    <label className="text-[9px] text-ink/40 font-bold uppercase">Points &middot; {totalPoints > 0 ? Math.round((selectedDeed.task.weight / totalPoints) * 100) : 0}% of day</label>
                     <div className="flex items-center space-x-2 mt-1">
                       <input
-                        type="range" min="1" max="100"
+                        type="range" min="1" max={Math.max(100, Math.ceil(selectedDeed.task.weight))}
                         value={selectedDeed.task.weight}
                         onChange={e => {
                           const w = parseFloat(e.target.value)
@@ -303,7 +306,7 @@ export function DeedDetailModal({
                         className="flex-1 h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold"
                       />
                       <input
-                        type="number" min="1" max="100"
+                        type="number" min="1" step="any"
                         value={selectedDeed.task.weight}
                         onChange={e => {
                           const w = parseFloat(e.target.value) || 1

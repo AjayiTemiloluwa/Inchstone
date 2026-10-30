@@ -64,6 +64,8 @@ export type NewDeedValues = {
   reminder: string
   notify: boolean
   endWarn: string
+  /** Points this deed is worth (free-form; share of day = points / day total). */
+  points: string
   color: string
 }
 
