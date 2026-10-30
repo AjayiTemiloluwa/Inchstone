@@ -250,8 +250,8 @@ export default function DayPage() {
   // tracker — the counters above still measure only what is actually due today.
   const scheduledHabitTitles = new Set(displayedHabits.map(h => h.title))
   const offDayHabits = habitOverview.filter(h => !h.scheduled && !scheduledHabitTitles.has(h.title))
-  // Day score counts only non-habit tasks (regular deeds)
-  const deedTasks = allTasks.filter(t => !t.isHabit)
+  // Day score counts every task for the day, including habits
+  const deedTasks = allTasks
   const completedTasks = deedTasks.filter(t => t.completed)
   const totalWeight = deedTasks.reduce((sum, t) => sum + t.weight, 0)
   const earnedPoints = deedTasks.reduce((sum, t) => sum + (t.completed ? t.weight : 0), 0)
@@ -408,11 +408,17 @@ export default function DayPage() {
 
   const handleToggleSelectedComplete = () => {
     if (!selectedDeed) return
-    const goalItem = dailyGoals.find(dg => (dg.tasks || []).some(t => t.id === selectedDeed.task.id))
-    if (goalItem) {
-      updateTask(goalItem.id, selectedDeed.task.id, { completed: !selectedDeed.task.completed })
-      setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, completed: !selectedDeed.task.completed } })
-    }
+    const task = selectedDeed.task
+    const goalItem = findItem(task.goalId)
+    if (!goalItem) return
+    const nextCompleted = !task.completed
+    updateTask(goalItem.id, task.id, { completed: nextCompleted })
+    setSelectedDeed({ ...selectedDeed, task: { ...task, completed: nextCompleted } })
+    fetch(`/api/tasks/${task.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed: nextCompleted }),
+    }).then(() => fetchHabitHistory())
   }
 
   const performDeleteTask = async (taskId: string, scope: DeleteScope = 'single') => {
