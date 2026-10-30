@@ -68,109 +68,142 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             data: updateData,
         })
 
-        // Only regenerate instances if this is the original task AND core recurrence settings changed
+        // ── Series edits ────────────────────────────────────────────────────
+        // `scope` says how far a change on a repeating deed/habit reaches:
+        //   single → only the edited occurrence (default; nothing else moves)
+        //   future → this occurrence and every later one
+        //   all    → every occurrence, past and future
+        // Per-day state (completed, progress, reflection) is never copied, and
+        // existing siblings are updated in place — never deleted and rebuilt —
+        // so one edit can no longer reset the rest of the series.
+        const scope: 'single' | 'future' | 'all' =
+            body.scope === 'future' || body.scope === 'all' ? body.scope : 'single'
+        const wasSeries = task.isRecurring || task.isHabit
         const finalIsRecurring = isRecurring !== undefined ? isRecurring : task.isRecurring
         const finalRecurrencePattern = recurrencePattern !== undefined ? recurrencePattern : task.recurrencePattern
+        const becameRecurring = !task.isRecurring && !!finalIsRecurring && !!finalRecurrencePattern
+        const patternChanged = task.isRecurring && !!finalIsRecurring && recurrencePattern !== undefined && recurrencePattern !== task.recurrencePattern
+        const stoppedRecurring = task.isRecurring && isRecurring === false
 
-        // Check if this is the master task (earliest instance with this title)
-        const earliestSameTitle = await prisma.task.findFirst({
-            where: {
-                userId,
-                title: originalTitle,
-                goalId: originalGoalId,
-            },
-            orderBy: { date: 'asc' },
-            select: { id: true }
-        })
-        const isMasterTask = earliestSameTitle?.id === taskId
+        const seriesWhere: Prisma.TaskWhereInput = {
+            userId,
+            title: originalTitle,
+            goalId: originalGoalId,
+            isHabit: task.isHabit,
+            id: { not: taskId },
+        }
+        const startOfToday = new Date()
+        startOfToday.setHours(0, 0, 0, 0)
+        const tomorrow = new Date(startOfToday)
+        tomorrow.setDate(tomorrow.getDate() + 1)
 
-        // Only regenerate if master task AND recurrence-related properties changed
-        const recurrencePropsChanged = isRecurring !== undefined || recurrencePattern !== undefined || title !== undefined || startTime !== undefined || endTime !== undefined || color !== undefined || weight !== undefined || categoryId !== undefined || goalId !== undefined
+        // 1. Copy the edited fields onto the other occurrences in scope.
+        if (wasSeries && scope !== 'single') {
+            const rangeWhere: Prisma.TaskWhereInput =
+                scope === 'future' ? { ...seriesWhere, date: { gt: task.date } } : seriesWhere
+            const siblings = await prisma.task.findMany({ where: rangeWhere })
+            const timeChanged = startTime !== undefined || endTime !== undefined
+            const shared: Prisma.TaskUpdateInput = {}
+            if (title !== undefined) shared.title = title
+            if (weight !== undefined) shared.weight = weight
+            if (color !== undefined) shared.color = color
+            if (isFrog !== undefined) shared.isFrog = isFrog
+            if (isHabit !== undefined) shared.isHabit = isHabit
+            if (isImportant !== undefined) shared.isImportant = isImportant
+            if (reminderMinutes !== undefined) shared.reminderMinutes = reminderMinutes
+            if (notifyDeed !== undefined) shared.notifyDeed = notifyDeed
+            if (endWarnMinutes !== undefined) shared.endWarnMinutes = endWarnMinutes
+            if (recurrencePattern !== undefined) shared.recurrencePattern = recurrencePattern
+            if (isRecurring !== undefined) shared.isRecurring = isRecurring
+            if (categoryId !== undefined) shared.categoryId = categoryId
 
-        if (finalIsRecurring && finalRecurrencePattern && isMasterTask && recurrencePropsChanged) {
-            // First, delete all existing future instances with same title (not isHabit to avoid deleting habits)
-            const now = new Date()
-            now.setHours(0, 0, 0, 0)
-            const tomorrow = new Date(now)
-            tomorrow.setDate(tomorrow.getDate() + 1)
-            tomorrow.setHours(0, 0, 0, 0)
+            // Keep each sibling's own day; carry only the time-of-day change.
+            const startOffset = timeChanged && startTime ? new Date(startTime).getTime() - task.date.getTime() : null
+            const endOffset = timeChanged && endTime ? new Date(endTime).getTime() - task.date.getTime() : null
+            const clearStart = startTime !== undefined && !startTime
+            const clearEnd = endTime !== undefined && !endTime
 
+            await prisma.$transaction(
+                siblings.map(s => {
+                    const data: Prisma.TaskUpdateInput = { ...shared }
+                    if (startOffset !== null) data.startTime = new Date(s.date.getTime() + startOffset)
+                    if (endOffset !== null) data.endTime = new Date(s.date.getTime() + endOffset)
+                    if (clearStart) data.startTime = null
+                    if (clearEnd) data.endTime = null
+                    if (timeChanged || reminderMinutes !== undefined || isImportant !== undefined || notifyDeed !== undefined || endWarnMinutes !== undefined) {
+                        data.reminderNotifiedAt = null
+                        data.startNotifiedAt = null
+                        data.countdownNotifiedAt = null
+                        data.finishNotifiedAt = null
+                        data.endingNotifiedAt = null
+                    }
+                    return prisma.task.update({ where: { id: s.id }, data })
+                }),
+            )
+        }
+
+        // 2. A schedule change (new repeat, new pattern, or repeat turned off)
+        //    reshapes the days AHEAD only: untouched future copies are swapped
+        //    for the new pattern, completed ones and the past stay as they are.
+        const reshape = becameRecurring || ((patternChanged || stoppedRecurring) && scope !== 'single')
+        if (reshape) {
+            const from = new Date(Math.max(tomorrow.getTime(), task.date.getTime() + 86_400_000))
             await prisma.task.deleteMany({
-                where: {
-                    userId,
-                    title: originalTitle,
-                    goalId: originalGoalId,
-                    isHabit: false,
-                    isRecurring: true,
-                    date: { gte: tomorrow },
-                    id: { not: taskId },
-                }
+                where: { ...seriesWhere, completed: false, date: { gte: from } },
             })
 
-            const effectiveEndDate = task.recurrenceEnd || new Date(Date.UTC(new Date().getFullYear(), 11, 31, 23, 59, 59, 999))
-            const taskDate = task.date
-            const instances: Prisma.TaskCreateManyInput[] = []
-            const currentDate = new Date(taskDate)
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1)
-
-            while (currentDate <= effectiveEndDate) {
-                let shouldCreate = false
-                const day = currentDate.getUTCDay()
-
-                // Only days at/after `tomorrow` were cleared above. Regenerating
-                // earlier days (between the master's date and today) would stack
-                // a fresh copy on top of the surviving ones on every save.
-                if (currentDate < tomorrow) {
-                    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
-                    continue
-                }
-
-                switch (finalRecurrencePattern) {
-                    case 'daily': shouldCreate = true; break
-                    case 'weekly': shouldCreate = day === taskDate.getUTCDay(); break
-                    case 'biweekly': shouldCreate = day === taskDate.getUTCDay() && Math.floor((currentDate.getTime() - taskDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) % 2 === 0; break
-                    case 'monthly': shouldCreate = currentDate.getUTCDate() === taskDate.getUTCDate(); break
-                    case 'yearly': shouldCreate = currentDate.getUTCMonth() === taskDate.getUTCMonth() && currentDate.getUTCDate() === taskDate.getUTCDate(); break
-                    case 'weekdays': shouldCreate = day >= 1 && day <= 5; break
-                }
-
-                if (shouldCreate) {
-                    const finalStartTime = startTime !== undefined ? startTime : task.startTime;
-                    const finalEndTime = endTime !== undefined ? endTime : task.endTime;
-                    const startOffset = finalStartTime ? new Date(finalStartTime as string).getTime() - taskDate.getTime() : null;
-                    const endOffset = finalEndTime ? new Date(finalEndTime as string).getTime() - taskDate.getTime() : null;
-
-                    const instanceStartTime = startOffset !== null ? new Date(currentDate.getTime() + startOffset) : null;
-                    const instanceEndTime = endOffset !== null ? new Date(currentDate.getTime() + endOffset) : null;
-
-                    instances.push({
-                        userId,
-                        goalId: goalId !== undefined ? goalId : task.goalId,
-                        categoryId: categoryId !== undefined ? categoryId : task.categoryId,
-                        title: title !== undefined ? title : task.title,
-                        weight: weight !== undefined ? weight : task.weight,
-                        progress: 0,
-                        completed: false,
-                        date: new Date(currentDate),
-                        startTime: instanceStartTime,
-                        endTime: instanceEndTime,
-                        color: color !== undefined ? color : task.color,
-                        isRecurring: true,
-                        recurrencePattern: finalRecurrencePattern,
-                        recurrenceEnd: effectiveEndDate,
-                        isFrog: isFrog !== undefined ? isFrog : task.isFrog,
-                        isHabit: isHabit !== undefined ? isHabit : task.isHabit,
-                        isImportant: isImportant !== undefined ? isImportant : task.isImportant,
-                        reminderMinutes: reminderMinutes !== undefined ? reminderMinutes : task.reminderMinutes,
-                        notifyDeed: notifyDeed !== undefined ? notifyDeed : task.notifyDeed,
-                        endWarnMinutes: endWarnMinutes !== undefined ? endWarnMinutes : task.endWarnMinutes,
-                    })
-                }
+            if (finalIsRecurring && finalRecurrencePattern) {
+                const keptDates = new Set(
+                    (await prisma.task.findMany({ where: { ...seriesWhere, date: { gte: from } }, select: { date: true } }))
+                        .map(r => r.date.getTime()),
+                )
+                const fresh = await prisma.task.findUniqueOrThrow({ where: { id: taskId } })
+                const effectiveEndDate = fresh.recurrenceEnd || new Date(Date.UTC(new Date().getFullYear(), 11, 31, 23, 59, 59, 999))
+                const taskDate = fresh.date
+                const startOff = fresh.startTime ? fresh.startTime.getTime() - taskDate.getTime() : null
+                const endOff = fresh.endTime ? fresh.endTime.getTime() - taskDate.getTime() : null
+                const instances: Prisma.TaskCreateManyInput[] = []
+                const currentDate = new Date(taskDate)
                 currentDate.setUTCDate(currentDate.getUTCDate() + 1)
-            }
 
-            if (instances.length > 0) {
-                await prisma.task.createMany({ data: instances })
+                while (currentDate <= effectiveEndDate) {
+                    const day = currentDate.getUTCDay()
+                    let shouldCreate = false
+                    switch (finalRecurrencePattern) {
+                        case 'daily': shouldCreate = true; break
+                        case 'weekly': shouldCreate = day === taskDate.getUTCDay(); break
+                        case 'biweekly': shouldCreate = day === taskDate.getUTCDay() && Math.floor((currentDate.getTime() - taskDate.getTime()) / (7 * 86_400_000)) % 2 === 0; break
+                        case 'monthly': shouldCreate = currentDate.getUTCDate() === taskDate.getUTCDate(); break
+                        case 'yearly': shouldCreate = currentDate.getUTCMonth() === taskDate.getUTCMonth() && currentDate.getUTCDate() === taskDate.getUTCDate(); break
+                        case 'weekdays': shouldCreate = day >= 1 && day <= 5; break
+                    }
+                    if (shouldCreate && currentDate >= from && !keptDates.has(currentDate.getTime())) {
+                        instances.push({
+                            userId,
+                            goalId: fresh.goalId,
+                            categoryId: fresh.categoryId,
+                            title: fresh.title,
+                            weight: fresh.weight,
+                            progress: 0,
+                            completed: false,
+                            date: new Date(currentDate),
+                            startTime: startOff !== null ? new Date(currentDate.getTime() + startOff) : null,
+                            endTime: endOff !== null ? new Date(currentDate.getTime() + endOff) : null,
+                            color: fresh.color,
+                            isRecurring: true,
+                            recurrencePattern: finalRecurrencePattern,
+                            recurrenceEnd: effectiveEndDate,
+                            isFrog: fresh.isFrog,
+                            isHabit: fresh.isHabit,
+                            isImportant: fresh.isImportant,
+                            reminderMinutes: fresh.reminderMinutes,
+                            notifyDeed: fresh.notifyDeed,
+                            endWarnMinutes: fresh.endWarnMinutes,
+                        })
+                    }
+                    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+                }
+                if (instances.length > 0) await prisma.task.createMany({ data: instances })
             }
         }
 

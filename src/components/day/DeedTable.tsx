@@ -15,6 +15,7 @@ export function DeedTable({
   onToggle,
   onDelete,
   onWeightChange,
+  totalPoints,
 }: {
   allTasks: Task[]
   googleEvents: GoogleEventView[]
@@ -24,6 +25,7 @@ export function DeedTable({
   onToggle: (task: Task) => void
   onDelete: (e: React.MouseEvent, taskId: string) => void
   onWeightChange: (task: Task, weight: number) => void
+  totalPoints: number
 }) {
   return (
             <div className="glass rounded-[8px] overflow-hidden border border-white/10 animate-fadeIn">
@@ -33,7 +35,7 @@ export function DeedTable({
                   <tr className="border-b border-white/10 bg-black/20">
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Time</th>
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Deed</th>
-                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Weight</th>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Points</th>
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Status</th>
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50">Reflection</th>
                     <th className="text-left p-3 text-xs font-bold uppercase text-ink/50 w-10"></th>
@@ -67,13 +69,13 @@ export function DeedTable({
                         <td className="p-3" onClick={e => e.stopPropagation()}>
                           <div className="space-y-1">
                             <div className="flex items-center">
-                              <span className="text-[9px] text-ink/40 mr-1">Wt</span>
+                              
                               <input
-                                type="number" min="1" max="100" value={t.weight}
+                                type="number" min="1" step="any" value={t.weight}
                                 onChange={e => onWeightChange(t, parseFloat(e.target.value) || 1)}
-                                className="w-10 px-1 py-0.5 text-[10px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none font-mono"
+                                className="w-14 px-1 py-0.5 text-[10px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none font-mono"
                               />
-                              <span className="text-[10px] text-ink/40 ml-0.5">%</span>
+                              <span className="text-[10px] text-ink/40 ml-1">pts · {totalPoints > 0 ? Math.round((t.weight / totalPoints) * 100) : 0}%</span>
                             </div>
                           </div>
                         </td>

@@ -15,6 +15,7 @@ export function AddDeedForm({
   initialStart,
   initialEnd,
   initialWeight,
+  dayTotalPoints,
   categories,
   saving,
   onCancel,
@@ -23,6 +24,8 @@ export function AddDeedForm({
   initialStart: string
   initialEnd: string
   initialWeight: string
+  /** Points already on the day, to preview this deed's share. */
+  dayTotalPoints: number
   categories: Item[]
   saving: boolean
   onCancel: () => void
@@ -69,6 +72,7 @@ export function AddDeedForm({
       notify: newDeedNotify,
       endWarn: newDeedEndWarn,
       color: deedColor,
+      points: newDeedWeight,
     })
   }
 
@@ -110,12 +114,12 @@ export function AddDeedForm({
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Weight</label>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Points</label>
                     <div className="flex items-center gap-2">
                       <input type="number" value={newDeedWeight} onChange={e => setNewDeedWeight(e.target.value)}
-                        min="1" max="100" placeholder="Wt"
+                        min="1" step="any" placeholder="pts"
                         className="w-20 px-3 py-2.5 text-sm font-mono bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80" />
-                      <span className="text-xs text-ink/40">% of the day</span>
+                      <span className="text-xs text-ink/40">{(() => { const p = parseFloat(newDeedWeight) || 0; const t = dayTotalPoints + p; return `pts · ${t > 0 ? Math.round((p / t) * 100) : 0}% of today's ${Math.round(t * 10) / 10} pts`})()}</span>
                     </div>
                   </div>
                 </div>
