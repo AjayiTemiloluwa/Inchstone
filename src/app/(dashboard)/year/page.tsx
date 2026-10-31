@@ -1,11 +1,11 @@
 ﻿'use client'
 
 import { useRouter } from 'next/navigation'
-import { Database } from 'lucide-react'
 import { useHierarchyStore } from '@/stores/hierarchyStore'
 import { useToast } from '@/components/ui/ToastProvider'
 import { YearFilm } from '@/components/ui/YearFilm'
 import { Reveal } from '@/components/ui/motion'
+import { Button, EmptyState, Page } from '@/components/ds'
 import { Loader } from '@/components/ui/Loader'
 import { useActiveYear } from '@/lib/useActiveYear'
 import { useItemTree } from '@/components/hierarchy/useItemTree'
@@ -59,40 +59,35 @@ export default function YearPage() {
   if (loading) return <Loader label="Painting your year…" routeKey="year" />
 
   if (!yearItem) return (
-    <div className="flex flex-col items-center justify-center h-full p-6 space-y-4">
-      <div className="w-20 h-20 rounded-full bg-gold/10 flex items-center justify-center animate-pulseGlow">
-        <Database className="w-10 h-10 text-gold" />
-      </div>
-      <div className="text-center space-y-2">
-        <h2 className="text-xl font-bold text-ink">Framework Not Initialized</h2>
-        <p className="text-sm text-ink/60 max-w-sm">Please seed the framework first from the dashboard to get started.</p>
-      </div>
-      <button type="button" onClick={() => router.push('/dashboard')}
-        className="px-6 py-3 bg-gold text-surface font-semibold rounded-xl hover:bg-gold-glow active:opacity-70 transition-all min-h-[44px]">
-        Go to Dashboard
-      </button>
-    </div>
+    <Page width="narrow" className="pt-8">
+      <EmptyState title="Framework not initialized"
+        body="Please seed the framework first from the dashboard to get started."
+        action={<Button variant="primary" onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>} />
+    </Page>
   )
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 sm:space-y-8 pb-24 lg:pb-12 stagger-children" id="report-content">
-      <YearHero yearItem={yearItem} activeYear={activeYear} score={completionMap[yearItem.id] || 0} onDownloadReport={handleDownloadReport} />
+    <div id="report-content">
+      <Page width="wide">
+        <YearHero yearItem={yearItem} activeYear={activeYear} score={completionMap[yearItem.id] || 0} onDownloadReport={handleDownloadReport} />
 
-      <Reveal>
-        <YearFilm year={new Date(yearItem.startDate || new Date()).getFullYear()} />
-      </Reveal>
+        <YearQuarters quarters={quarters} completionMap={completionMap} />
 
-      {/* key: switching year resets the weight-balancer and accordion state */}
-      <YearCategories key={yearItem.id} yearItem={yearItem} categories={orderedCategories} yearlyGoals={yearlyGoals}
-        completionMap={completionMap} fetchItems={fetchItems} />
+        {/* key: switching year resets the weight-balancer and accordion state */}
+        <YearCategories key={yearItem.id} yearItem={yearItem} categories={orderedCategories} yearlyGoals={yearlyGoals}
+          completionMap={completionMap} fetchItems={fetchItems} />
 
-      <PeriodReflection key={yearItem.id} label="Year" timePeriod="year" itemId={yearItem.id} initialText={yearItem.reflection}
-        periodKey={String(yearItem.id || activeYear)}
-        placeholder="Reflect on your year so far... What's working? What needs to change?" />
+        <YearHabits />
 
-      <YearHabits />
+        {/* YearFilm carries its own header row, so it sits outside a titled Section. */}
+        <Reveal>
+          <YearFilm year={new Date(yearItem.startDate || new Date()).getFullYear()} />
+        </Reveal>
 
-      <YearQuarters quarters={quarters} completionMap={completionMap} />
+        <PeriodReflection key={yearItem.id} label="Year" timePeriod="year" itemId={yearItem.id} initialText={yearItem.reflection}
+          periodKey={String(yearItem.id || activeYear)}
+          placeholder="Reflect on your year so far... What's working? What needs to change?" />
+      </Page>
     </div>
   )
 }

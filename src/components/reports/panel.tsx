@@ -1,7 +1,9 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { format, parseISO } from 'date-fns'
 import type { TaskFilters } from '@/lib/reports/selectors'
+import { Panel, cx } from '@/components/ds'
 
 /** Shared filters for the reports page. */
 export const PERIOD_OPTIONS: { value: string; label: string }[] = [
@@ -25,23 +27,30 @@ export function fmtDuration(minutes: number): string {
     return `${m}m`
 }
 
-export function Stat({ label, value, sub, accent, title }: {
-    label: string
-    value: string
-    sub?: string
-    accent?: 'gold' | 'moss' | 'ember'
-    title?: string
+/** Mono label used for small headings and control labels on the reports page. */
+export const monoLabel = 'font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/45'
+
+/** Compact select styling shared by the filter and sort controls. */
+export const selectClass =
+    'min-h-11 rounded-lg border border-gold/20 bg-ink/40 px-3 text-sm text-parchment focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20 pointer-fine:min-h-9'
+
+/** A titled chart surface: mono heading, optional trailing read, then the chart. */
+export function ChartPanel({ title, aside, children, footer, className }: {
+    title: ReactNode
+    aside?: ReactNode
+    children: ReactNode
+    footer?: ReactNode
+    className?: string
 }) {
-    const color = accent === 'gold' ? 'text-gold'
-        : accent === 'moss' ? 'text-moss'
-        : accent === 'ember' ? 'text-ember'
-        : 'text-parchment'
     return (
-        <div className="rounded-[6px] border hairline p-3 text-center" title={title}>
-            <p className={`font-mono text-xl font-bold tabular-nums ${color}`}>{value}</p>
-            <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-parchment/45">{label}</p>
-            {sub && <p className="mt-0.5 font-mono text-[9px] text-parchment/40 tabular-nums">{sub}</p>}
-        </div>
+        <Panel className={cx('flex flex-col', className)}>
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h3 className={monoLabel}>{title}</h3>
+                {aside && <span className="shrink-0 font-mono text-mono tabular-nums text-parchment/50">{aside}</span>}
+            </div>
+            <div className="min-w-0 flex-1">{children}</div>
+            {footer && <div className="mt-4 border-t border-gold/10 pt-3">{footer}</div>}
+        </Panel>
     )
 }
 
@@ -51,12 +60,12 @@ export function DayHeader({ date, score, count }: {
     count: number
 }) {
     return (
-        <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <span className="text-sm font-semibold text-parchment">{format(parseISO(date), 'EEEE, MMM d, yyyy')}</span>
-                <span className="font-mono text-[10px] text-parchment/40 tabular-nums">{count} items</span>
+                <h3 className="text-body font-medium text-parchment">{format(parseISO(date), 'EEEE, MMM d, yyyy')}</h3>
+                <span className="font-mono text-mono text-parchment/40 tabular-nums">{count} items</span>
             </div>
-            <span className={`shrink-0 font-mono text-xs tabular-nums ${score >= 40 ? 'text-parchment/70' : 'text-ember'}`}>{score}%</span>
+            <span className={cx('shrink-0 font-mono text-mono tabular-nums', score >= 40 ? 'text-parchment/70' : 'text-ember')}>{score}%</span>
         </div>
     )
 }
@@ -67,26 +76,27 @@ export function FilterPanel({ filters, onChange, categories }: {
     categories: { id: string | null; title: string }[]
 }) {
     const set = (patch: Partial<TaskFilters>) => onChange({ ...filters, ...patch })
-    const chip = (active: boolean) =>
-        `rounded-full border px-3.5 py-2 text-xs sm:px-3 sm:py-1 transition-colors ${
-            active ? 'border-gold text-gold' : 'border-parchment/15 text-parchment/55 hover:text-parchment/75'
-        }`
+    const chip = (active: boolean) => cx(
+        'inline-flex min-h-11 items-center rounded-full border px-4 text-sm transition-colors pointer-fine:min-h-8 pointer-fine:px-3 pointer-fine:text-xs',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40',
+        active ? 'border-gold/60 bg-gold/[0.08] text-gold' : 'border-parchment/15 text-parchment/55 hover:border-gold/30 hover:text-parchment/80',
+    )
     return (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] uppercase tracking-wider text-parchment/40">Status</span>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div role="group" aria-label="Status" className="flex flex-wrap items-center gap-2">
+                <span className={monoLabel}>Status</span>
                 {(['all', 'completed', 'incomplete'] as const).map(s => (
-                    <button key={s} type="button" onClick={() => set({ status: s })} className={chip(filters.status === s)}>
+                    <button key={s} type="button" aria-pressed={filters.status === s} onClick={() => set({ status: s })} className={chip(filters.status === s)}>
                         {s === 'all' ? 'All' : s === 'completed' ? 'Done' : 'Open'}
                     </button>
                 ))}
             </div>
-            <label className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-parchment/40">
-                Category
+            <label className="flex items-center gap-2">
+                <span className={monoLabel}>Category</span>
                 <select
                     value={filters.category}
                     onChange={e => set({ category: e.target.value })}
-                    className="rounded-[6px] border border-gold-dim/25 bg-ink px-2 py-2 sm:py-1 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none"
+                    className={selectClass}
                 >
                     <option value="all">All</option>
                     {categories.map(c => (
@@ -94,10 +104,10 @@ export function FilterPanel({ filters, onChange, categories }: {
                     ))}
                 </select>
             </label>
-            <label className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-parchment/40">
-                Priority
+            <label className="flex items-center gap-2">
+                <span className={monoLabel}>Priority</span>
                 <select value={filters.priority} onChange={e => set({ priority: e.target.value })}
-                    className="rounded-[6px] border border-hairline bg-ink px-2 py-2 sm:py-1 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none">
+                    className={selectClass}>
                     <option value="all">All</option>
                     <option value="high">High</option>
                     <option value="medium">Medium</option>
@@ -105,12 +115,14 @@ export function FilterPanel({ filters, onChange, categories }: {
                     <option value="Unassigned">Unassigned</option>
                 </select>
             </label>
-            <button type="button" onClick={() => set({ frogsOnly: !filters.frogsOnly })} className={chip(filters.frogsOnly)}>
-                Frogs only
-            </button>
-            <button type="button" onClick={() => set({ habitsOnly: !filters.habitsOnly })} className={chip(filters.habitsOnly)}>
-                Habits only
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+                <button type="button" aria-pressed={filters.frogsOnly} onClick={() => set({ frogsOnly: !filters.frogsOnly })} className={chip(filters.frogsOnly)}>
+                    Frogs only
+                </button>
+                <button type="button" aria-pressed={filters.habitsOnly} onClick={() => set({ habitsOnly: !filters.habitsOnly })} className={chip(filters.habitsOnly)}>
+                    Habits only
+                </button>
+            </div>
         </div>
     )
 }

@@ -2,8 +2,8 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Button, Page, Panel } from '@/components/ds'
 
 /**
  * /partners/accept — the landing page for the accountability-partner invite
@@ -44,25 +44,25 @@ function AcceptInner() {
   }, [code])
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-      <div className="w-full max-w-sm rounded-2xl border border-gold/25 bg-surface-solid p-6 sm:p-8">
-        {state === 'working' && <Loader2 className="mx-auto h-10 w-10 animate-spin text-gold" />}
-        {state === 'done' && <CheckCircle2 className="mx-auto h-10 w-10 text-moss" />}
-        {state === 'error' && <XCircle className="mx-auto h-10 w-10 text-ember" />}
-        <h1 className="mt-4 font-display text-2xl font-bold text-parchment">
-          {state === 'done' ? 'Accountability, activated' : state === 'error' ? 'Invitation issue' : 'One moment…'}
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-parchment/60">{message}</p>
+    <Page width="narrow" className="flex min-h-[60vh] flex-col items-center justify-center">
+      <Panel className="w-full max-w-sm text-center sm:p-8">
+        <div aria-live="polite" className="flex flex-col items-center gap-3">
+          {state === 'working' && <Loader2 className="h-10 w-10 animate-spin text-gold" strokeWidth={1.5} aria-hidden="true" />}
+          {state === 'done' && <CheckCircle2 className="h-10 w-10 text-moss" strokeWidth={1.5} aria-hidden="true" />}
+          {state === 'error' && <XCircle className="h-10 w-10 text-ember" strokeWidth={1.5} aria-hidden="true" />}
+          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold-dim">Partner invitation</p>
+          <h1 className="text-h1 text-parchment">
+            {state === 'done' ? 'Accountability, activated' : state === 'error' ? 'Invitation issue' : 'One moment…'}
+          </h1>
+          <p className="text-body text-parchment/60">{message}</p>
+        </div>
         {state === 'done' && (
-          <Link
-            href="/partners"
-            className="mt-6 inline-flex min-h-[44px] items-center rounded-xl bg-gold px-6 py-3 text-sm font-bold text-ink transition-colors hover:bg-gold-glow"
-          >
+          <Button href="/partners" variant="primary" className="mt-6">
             Open Partners
-          </Link>
+          </Button>
         )}
-      </div>
-    </div>
+      </Panel>
+    </Page>
   )
 }
 

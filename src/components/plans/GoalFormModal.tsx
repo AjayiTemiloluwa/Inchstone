@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
-import { useDialog } from '@/components/ui/useDialog'
+import { Button, Field, inputClass } from '@/components/ds'
 import { usePlansStore } from '@/stores/plansStore'
 import { GOAL_STATUSES, type GoalStatus, type PlanGoalRecord } from '@/lib/plans/types'
 import { STATUS_META } from '@/lib/plans/status'
 import { isValidMonthRange } from '@/lib/plans/duration'
 import { errMsg } from '@/lib/plans/errors'
+import { DATE_SCHEME, FormNotice, Optional, PlanSheet, TEXTAREA } from './PlanSheet'
 
 type Props = {
   sectionId: string
@@ -17,10 +17,6 @@ type Props = {
   initial?: PlanGoalRecord | null
   onClose: () => void
 }
-
-const INPUT =
-  'w-full px-3.5 py-2.5 text-sm bg-black/20 border border-parchment/15 rounded-md text-parchment placeholder:text-parchment/25 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30 [color-scheme:dark]'
-const LABEL = 'text-[10px] font-bold uppercase tracking-wider text-parchment/50'
 
 /** The six PDP prompts, in fixed order (§1) */
 export const PDP_FIELDS = [
@@ -62,7 +58,6 @@ type TextKey = (typeof PDP_FIELDS)[number]['key']
  * Mounted only while visible — the six PDP answers initialize from `initial`.
  */
 export function GoalFormModal({ sectionId, planStartMonth, planEndMonth, initial, onClose }: Props) {
-  const dialogRef = useDialog<HTMLDivElement>(true, onClose)
   const { addGoal, updateGoal, fetchTrackerItems } = usePlansStore()
   const trackerMap = usePlansStore(s => s.trackerItems)
   const trackerItems = useMemo(() => Object.values(trackerMap), [trackerMap])
@@ -132,131 +127,103 @@ export function GoalFormModal({ sectionId, planStartMonth, planEndMonth, initial
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="max-h-[92dvh] w-full max-w-xl space-y-5 overflow-y-auto rounded-t-2xl sm:rounded-[8px] border hairline bg-ink p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-6" data-lenis-prevent
-        onClick={e => e.stopPropagation()}
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        tabIndex={-1}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl text-parchment">{initial ? 'Edit Goal' : 'New Goal'}</h2>
-          <button onClick={onClose} aria-label="Close" className="rounded-md p-1.5 text-parchment/50 transition-colors hover:bg-mist hover:text-parchment">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {!complete && (
-          <p className="rounded-md border border-dashed border-parchment/25 px-3 py-2 text-xs text-parchment/55">
-            Fill all six fields to mark this goal <span className="text-gold">active</span> — anything less saves as a{' '}
-            <span className="italic">draft flagged “incomplete”</span>.
-          </p>
-        )}
-        {/* Six PDP fields — placeholders are the prompts themselves */}
-        {PDP_FIELDS.map(f => (
-          <div key={f.key} className="space-y-1.5">
-            <label htmlFor={`goal-${f.key}`} className={LABEL}>{f.label}</label>
-            <textarea
-              id={`goal-${f.key}`}
-              rows={f.rows}
-              value={texts[f.key]}
-              onChange={e => setTexts(t => ({ ...t, [f.key]: e.target.value }))}
-              placeholder={f.prompt}
-              className={`${INPUT} resize-none`}
-            />
-          </div>
-        ))}
-
-        {/* Dates + status */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label htmlFor="goal-start" className={LABEL}>Start date <span className="font-normal normal-case text-parchment/35">(defaults to plan start)</span></label>
-            <input
-              id="goal-start"
-              type="date"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className={INPUT}
-            />
-          </div>
-          <div className="space-y-1.5">
-            {/* Sixth PDP field */}
-            <label htmlFor="goal-target" className={LABEL}>Target date for completion</label>
-            <input
-              id="goal-target"
-              type="date"
-              value={targetDate}
-              onChange={e => setTargetDate(e.target.value)}
-              placeholder="What is the date you want to complete this by?"
-              className={INPUT}
-            />
-          </div>
-        </div>
-
-        {outOfRange.length > 0 && (
-          <p className="rounded-md border border-ember/40 bg-ember/10 px-3 py-2 text-xs text-[#CD8B70]">
-            Heads-up: the {outOfRange.join(' and ')} fall outside this plan’s range ({planStartMonth} → {planEndMonth}). You can still save it.
-          </p>
-        )}
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label htmlFor="goal-status" className={LABEL}>Status</label>
-            <select id="goal-status" value={status} onChange={e => setStatus(e.target.value as GoalStatus)} className={INPUT}>
-              {GOAL_STATUSES.map(s => (
-                <option key={s} value={s}>{STATUS_META[s].label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="goal-link" className={LABEL}>
-              Link to year tracker <span className="font-normal normal-case text-parchment/35">(optional)</span>
-            </label>
-            <select
-              id="goal-link"
-              value={linkedItemId}
-              onChange={e => setLinkedItemId(e.target.value)}
-              className={INPUT}
-            >
-              <option value="">Not linked</option>
-              {trackerItems.map(i => (
-                <option key={i.id} value={i.id}>
-                  {i.title} · {Math.round(i.progress)}%
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {error && (
-          <p className="rounded-md border border-ember/40 bg-ember/10 px-3 py-2 text-xs text-[#CD8B70]">{error}</p>
-        )}
-
-        <div className="flex flex-wrap justify-end gap-2 pt-1">
-          <button onClick={onClose} className="min-h-11 rounded-md px-4 text-sm text-parchment/60 transition-colors hover:bg-mist hover:text-parchment">
-            Cancel
-          </button>
+    <PlanSheet
+      title={initial ? 'Edit goal' : 'New goal'}
+      eyebrow="Personal development plan"
+      onClose={onClose}
+      size="lg"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
           {!complete && (
-            <button
-              onClick={() => handleSave(true)}
-              disabled={saving}
-              className="min-h-11 rounded-md border border-parchment/25 px-4 text-sm text-parchment/75 transition-colors hover:border-gold/40 hover:text-parchment disabled:opacity-50"
-            >
+            <Button variant="secondary" onClick={() => handleSave(true)} disabled={saving}>
               Save as draft
-            </button>
+            </Button>
           )}
-          <button
-            onClick={() => handleSave(false)}
-            disabled={saving}
-            className="min-h-11 rounded-md bg-gold px-5 text-sm font-semibold text-ink transition-colors hover:bg-gold-glow disabled:opacity-50"
-          >
+          <Button variant="primary" onClick={() => handleSave(false)} disabled={saving}>
             {saving ? 'Saving…' : initial ? 'Save changes' : complete ? 'Save goal' : 'Save goal'}
-          </button>
-        </div>
+          </Button>
+        </>
+      }
+    >
+      {!complete && (
+        <FormNotice tone="neutral">
+          Fill all six fields to mark this goal <span className="text-gold">active</span> — anything less saves as a{' '}
+          <span className="italic">draft flagged “incomplete”</span>.
+        </FormNotice>
+      )}
+
+      {/* Six PDP fields — placeholders are the prompts themselves */}
+      {PDP_FIELDS.map(f => (
+        <Field key={f.key} label={f.label}>
+          <textarea
+            id={`goal-${f.key}`}
+            rows={f.rows}
+            value={texts[f.key]}
+            onChange={e => setTexts(t => ({ ...t, [f.key]: e.target.value }))}
+            placeholder={f.prompt}
+            className={`${inputClass} ${TEXTAREA}`}
+          />
+        </Field>
+      ))}
+
+      {/* Dates + status */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label={<>Start date<span className="normal-case tracking-normal text-parchment/35"> (defaults to plan start)</span></>}>
+          <input
+            id="goal-start"
+            type="date"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+            className={`${inputClass} ${DATE_SCHEME}`}
+          />
+        </Field>
+        {/* Sixth PDP field */}
+        <Field label="Target date for completion">
+          <input
+            id="goal-target"
+            type="date"
+            value={targetDate}
+            onChange={e => setTargetDate(e.target.value)}
+            placeholder="What is the date you want to complete this by?"
+            className={`${inputClass} ${DATE_SCHEME}`}
+          />
+        </Field>
       </div>
-    </div>
+
+      {outOfRange.length > 0 && (
+        <FormNotice>
+          Heads-up: the {outOfRange.join(' and ')} fall outside this plan’s range ({planStartMonth} → {planEndMonth}). You can still save it.
+        </FormNotice>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Status">
+          <select id="goal-status" value={status} onChange={e => setStatus(e.target.value as GoalStatus)} className={inputClass}>
+            {GOAL_STATUSES.map(s => (
+              <option key={s} value={s}>{STATUS_META[s].label}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label={<>Link to year tracker<Optional /></>}>
+          <select
+            id="goal-link"
+            value={linkedItemId}
+            onChange={e => setLinkedItemId(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">Not linked</option>
+            {trackerItems.map(i => (
+              <option key={i.id} value={i.id}>
+                {i.title} · {Math.round(i.progress)}%
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      {error && <FormNotice>{error}</FormNotice>}
+    </PlanSheet>
   )
 }
 

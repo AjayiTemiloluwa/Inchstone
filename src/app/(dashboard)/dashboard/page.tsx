@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
 import { useRouter } from 'next/navigation'
 import { format, startOfYear, differenceInDays } from 'date-fns'
@@ -12,6 +12,7 @@ import { Loader } from '@/components/ui/Loader'
 import { WorkClock } from '@/components/ui/WorkClock'
 import { useAmbient, type TimeOfDay, type Weather } from '@/components/effects/atmosphere'
 import { Float } from '@/components/effects/fluid'
+import { Badge, Button, EmptyState, IconButton, Page, PageHeader, Panel, Section, Stat, StatGrid, cx } from '@/components/ds'
 
 interface Nudge {
   id: string
@@ -20,66 +21,31 @@ interface Nudge {
   createdAt: string
 }
 
-/* Time-of-day / weather ornament for the hero's live clock chip. */
+/* Time-of-day / weather ornament for the header's live clock read. */
 function TodGlyph({ timeOfDay, weather, className }: { timeOfDay: TimeOfDay; weather: Weather; className?: string }) {
-  if (weather === 'storm') return <Zap className={className} strokeWidth={1.5} />
-  if (weather === 'snow') return <CloudSnow className={className} strokeWidth={1.5} />
-  if (weather === 'rain') return <CloudRain className={className} strokeWidth={1.5} />
-  if (weather === 'haze') return <CloudFog className={className} strokeWidth={1.5} />
-  if (weather === 'clouds') return <Cloud className={className} strokeWidth={1.5} />
-  if (timeOfDay === 'dawn') return <Sunrise className={className} strokeWidth={1.5} />
-  if (timeOfDay === 'dusk') return <Sunset className={className} strokeWidth={1.5} />
-  if (timeOfDay === 'night') return <Moon className={className} strokeWidth={1.5} />
-  return <Sun className={className} strokeWidth={1.5} />
+  if (weather === 'storm') return <Zap className={className} strokeWidth={1.5} aria-hidden="true" />
+  if (weather === 'snow') return <CloudSnow className={className} strokeWidth={1.5} aria-hidden="true" />
+  if (weather === 'rain') return <CloudRain className={className} strokeWidth={1.5} aria-hidden="true" />
+  if (weather === 'haze') return <CloudFog className={className} strokeWidth={1.5} aria-hidden="true" />
+  if (weather === 'clouds') return <Cloud className={className} strokeWidth={1.5} aria-hidden="true" />
+  if (timeOfDay === 'dawn') return <Sunrise className={className} strokeWidth={1.5} aria-hidden="true" />
+  if (timeOfDay === 'dusk') return <Sunset className={className} strokeWidth={1.5} aria-hidden="true" />
+  if (timeOfDay === 'night') return <Moon className={className} strokeWidth={1.5} aria-hidden="true" />
+  return <Sun className={className} strokeWidth={1.5} aria-hidden="true" />
 }
 
-/* A 3px hairline meter under a ledger figure — the quiet instrument read. */
-function MiniBar({ pct, tone = 'gold', className = '' }: { pct: number; tone?: 'gold' | 'moss'; className?: string }) {
+/* A 3px hairline meter under a figure: the quiet instrument read. */
+function Meter({ pct, tone = 'gold', className }: { pct: number; tone?: 'gold' | 'moss'; className?: string }) {
   const clamped = Math.min(100, Math.max(0, pct))
   return (
-    <div className={`mt-3 h-[3px] w-full overflow-hidden rounded-full bg-white/[0.06] ${className}`}>
-      <div
-        className={`h-full rounded-full transition-[width] duration-700 ease-out ${tone === 'moss' ? 'bg-moss/80' : 'bg-gold/80'}`}
+    <span aria-hidden="true" className={cx('block h-[3px] w-full overflow-hidden rounded-full bg-parchment/10', className)}>
+      <span
+        className={cx('block h-full rounded-full transition-[width] duration-700 ease-out', tone === 'moss' ? 'bg-moss/80' : 'bg-gold/80')}
         style={{ width: `${clamped}%` }}
       />
-    </div>
+    </span>
   )
 }
-
-/* One instrument reading in the ledger strip — a mono display figure with an
-   optional hairline meter and a quiet caption. Figures count up on entry. */
-function LedgerCell({
-  label,
-  value,
-  suffix = '',
-  bar,
-  caption,
-}: {
-  label: string
-  value?: number
-  suffix?: string
-  bar?: ReactNode
-  caption?: string
-}) {
-  return (
-    <div className="flex min-w-0 flex-col px-4 first:pl-0 last:pr-0 sm:px-7">
-      <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-parchment/35 sm:tracking-[0.26em]">{label}</p>
-      <div className="mt-3 flex min-h-[3.25rem] items-center">
-        <p className="font-display text-[2rem] leading-none text-parchment tabular-nums sm:text-[2.6rem]">
-          <CountUp value={value ?? 0} duration={1100} format={n => `${Math.round(n)}${suffix}`} />
-        </p>
-      </div>
-      {bar}
-      {caption && <p className="mt-2.5 text-caption text-parchment/40">{caption}</p>}
-    </div>
-  )
-}
-
-/* Section chrome — a labeled hairline header plus a quiet card body. This
-   gives every block on the home page a visible boundary so the layout reads
-   as organized sections (especially on mobile, where spacing alone doesn't
-   read as structure). */
-const CARD = 'rounded-xl border hairline bg-surface-solid p-4 sm:p-6'
 
 /* Greeting from the local clock — an external value that changes outside
    React, so it's read with useSyncExternalStore: server snapshot renders
@@ -92,25 +58,7 @@ function greetingForHour(hour: number): string {
   return 'Good evening'
 }
 
-function SectionHeader({
-  id,
-  label,
-  action,
-}: {
-  id?: string
-  label: string
-  action?: ReactNode
-}) {
-  return (
-    <div className="mb-3 flex items-center gap-3">
-      <h2 id={id} className="shrink-0 font-mono text-[11px] uppercase tracking-[0.26em] text-parchment/40">
-        {label}
-      </h2>
-      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-white/[0.06]" />
-      {action}
-    </div>
-  )
-}
+const EYEBROW = 'font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/45'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -256,24 +204,27 @@ export default function DashboardPage() {
   /* ── First-run: no Why yet ── */
   if (items.length === 0) {
     return (
-      <div className="mx-auto flex min-h-[70vh] max-w-[880px] flex-col justify-center px-1" data-noreveal>
-        <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-parchment/40">Inchstone</p>
-        <h1 className="mt-4 font-display text-[clamp(2.6rem,7vw,4.75rem)] leading-[1.03] text-parchment">
-          <RevealLines delay={120} lines={['Begin with', 'your Why.']} />
-        </h1>
-        <p className="mt-6 max-w-md text-body leading-relaxed text-parchment/60">
-          One sentence for what this year is really about — every quarter, month,
-          week and deed hangs from it.
-        </p>
-        <button
-          onClick={() => router.push('/year')}
-          data-cursor="Start with why"
-          className="btn-shine mt-9 inline-flex w-fit items-center gap-2 rounded-md bg-gold px-7 py-3 text-sm font-semibold text-ink transition-colors hover:bg-gold-glow"
-        >
-          Build your Why
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
+      <Page width="narrow">
+        <div className="flex min-h-[70vh] flex-col justify-center gap-6" data-noreveal>
+          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold-dim">Inchstone</p>
+          <h1 className="text-display text-parchment">
+            <RevealLines delay={120} lines={['Begin with', 'your Why.']} />
+          </h1>
+          <p className="max-w-md text-body text-parchment/60">
+            One sentence for what this year is really about — every quarter, month,
+            week and deed hangs from it.
+          </p>
+          <Button
+            variant="primary"
+            onClick={() => router.push('/year')}
+            data-cursor="Start with why"
+            className="btn-shine mt-2 w-fit px-6"
+          >
+            Build your Why
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+      </Page>
     )
   }
 
@@ -289,310 +240,294 @@ export default function DashboardPage() {
             ? 'Night'
             : todWord
 
+  const dayHref = `/day/${format(today, 'yyyy-MM-dd')}`
+  const nudgeShowing = !nudgeDismissed && !!latestNudge
+
   return (
-    <div className="mx-auto max-w-[880px] space-y-8 px-1 pb-28 lg:max-w-[960px] pt-2 sm:space-y-10 sm:pt-4">
-      {/* ── Meta strip + greeting hero (single card, instrument at rest) ── */}
-      <div className={CARD}>
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b hairline-bottom pb-3.5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">
-            {format(today, 'EEEE')} · {format(today, 'd MMM yyyy')}
-          </p>
-          <p
-            title={todPhrase}
-            className="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40"
-          >
-            <TodGlyph timeOfDay={amb.timeOfDay} weather={amb.weather} className="h-3.5 w-3.5 text-gold-dim" />
-            <span
-              suppressHydrationWarning
-              className="rounded-full border border-gold/25 bg-gold/10 px-2.5 py-0.5 font-bold tabular-nums normal-case tracking-[0.08em] text-gold"
-            >
-              {clockReady ? format(countdownNow, 'HH:mm:ss') : '--:--:--'}
+    <Page className="pt-2 sm:pt-4">
+      {/* ── 1. Header: date + live time, greeting, the two ways out ── */}
+      <div data-noreveal>
+        <PageHeader
+          eyebrow={
+            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>{format(today, 'EEEE')} · {format(today, 'd MMM yyyy')}</span>
+              <span title={todPhrase} className="inline-flex items-center gap-2">
+                <TodGlyph timeOfDay={amb.timeOfDay} weather={amb.weather} className="h-3.5 w-3.5 text-gold-dim" />
+                <span suppressHydrationWarning className="tabular-nums tracking-[0.08em] text-gold">
+                  {clockReady ? format(countdownNow, 'HH:mm:ss') : '--:--:--'}
+                </span>
+              </span>
             </span>
-          </p>
-        </div>
+          }
+          title={
+            <RevealLines
+              delay={80}
+              fluid
+              lines={[
+                `${greeting},`,
+                firstName ? `${firstName}.` : 'friend.',
+              ]}
+            />
+          }
+          description={
+            <span className="font-mono text-mono uppercase tracking-[0.18em] text-parchment/50">
+              Build{' '}
+              <WordRotator
+                className="font-semibold normal-case tracking-normal text-gold"
+                words={[
+                  'discipline', 'momentum', 'clarity', 'faith', 'streaks',
+                  'consistency', 'purpose', 'courage', 'focus', 'gratitude',
+                  'patience', 'strength',
+                ]}
+              />{' '}
+              one day at a time
+            </span>
+          }
+          actions={
+            <>
+              <Button variant="ghost" onClick={() => router.push('/year')} data-cursor="See the whole year">
+                Open the full year
+                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
+              <Button variant="primary" onClick={() => router.push(dayHref)} data-cursor="Sketch the day">
+                Plan today
+              </Button>
+            </>
+          }
+        />
+      </div>
 
-        <div className="mt-6 flex flex-col items-center gap-8 sm:mt-7 lg:mt-2 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
-          {/* Hero: masked line reveal, dion-style */}
-          <Float delay={0.3} duration={9} amp={5} className="min-w-0 flex-1">
-            <header data-noreveal>
-              <h1 className="font-display text-[clamp(2.7rem,7vw,4.9rem)] leading-[1.04] text-parchment">
-                <RevealLines
-                  delay={80}
-                  fluid
-                  lines={[
-                    `${greeting},`,
-                    firstName ? `${firstName}.` : 'friend.',
-                  ]}
-                />
-              </h1>
-              <div className="mt-6 flex items-center gap-4">
-                <span aria-hidden="true" className="h-px w-12 shrink-0 bg-gold/60" />
-                <p className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/50">
-                  Build{' '}
-                  <WordRotator
-                    className="font-semibold normal-case tracking-normal text-gold"
-                    words={[
-                      'discipline', 'momentum', 'clarity', 'faith', 'streaks',
-                      'consistency', 'purpose', 'courage', 'focus', 'gratitude',
-                      'patience', 'strength',
-                    ]}
-                  />{' '}
-                  one day at a time
-                </p>
-              </div>
-            </header>
-          </Float>
-
+      {/* ── 2. The instrument: work clock + today's progress + next up ── */}
+      <Section id="today" title="Today">
+        <Panel className="grid items-center gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-8 lg:gap-12">
           {/* The signature instrument — a live work clock: today's ring around
               the dial, the real local time on the hands, and the day number +
               alignment as watch complications. A tap opens the full year. */}
-          <div data-cursor="Open the full year" className="shrink-0 self-center lg:pr-2">
-            <div className="hidden lg:block">
-              <WorkClock
-                size={200}
-                progress={deedsPct}
-                dayLabel={String(dayOfYear).padStart(3, '0')}
-                primary={String(Math.round(alignment))}
-                ringLabel="TODAY"
-                onClick={() => router.push('/year')}
-              />
-            </div>
-            <div className="lg:hidden">
-              <WorkClock
-                size={148}
-                progress={deedsPct}
-                dayLabel={String(dayOfYear).padStart(3, '0')}
-                primary={String(Math.round(alignment))}
-                ringLabel="TODAY"
-                onClick={() => router.push('/year')}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Next up — the next scheduled deed with a live countdown ── */}
-      {nextScheduled && (
-        <section aria-labelledby="nextup-heading">
-          <SectionHeader id="nextup-heading" label="Next up" />
-          <button
-            onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
-            className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors animate-fadeIn ${
-              nextScheduled.parts.state === 'live'
-                ? 'border-moss/25 bg-moss/[0.06] hover:border-moss/45'
-                : nextScheduled.parts.soon
-                  ? 'border-ember/25 bg-ember/[0.06] hover:border-ember/45'
-                  : 'border-gold-dim/20 bg-white/[0.02] hover:border-gold/40'
-            }`}
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.04]">
-              {nextScheduled.parts.state === 'live'
-                ? <Activity className="h-3.5 w-3.5 text-sage" />
-                : <Clock className="h-3.5 w-3.5 text-gold-dim" />}
-            </span>
-            <span className="min-w-0 flex-1 break-words text-sm leading-snug">
-              {nextScheduled.isImportant && (
-                <Star aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5 fill-gold text-gold" />
-              )}
-              <span className={nextScheduled.parts.state === 'live' ? 'text-sage' : 'text-parchment/85'}>
-                {nextScheduled.title}
-              </span>
-            </span>
-            <span className={`shrink-0 font-mono text-xs tabular-nums ${
-              nextScheduled.parts.state === 'live' ? 'text-sage' : nextScheduled.parts.soon ? 'text-[#e0a093]' : 'text-gold'
-            }`}>
-              {nextScheduled.parts.state === 'live'
-                ? `● ${compactCountdownLabel(nextScheduled.parts)}`
-                : `in ${compactCountdownLabel(nextScheduled.parts)}`}
-            </span>
-          </button>
-        </section>
-      )}
-
-      {/* ── Readings: the day's numbers as small instruments ── */}
-      <Float delay={0.7} duration={10} amp={6}>
-      <section aria-labelledby="progress-heading">
-        <SectionHeader id="progress-heading" label="Readings" />
-        <div className={CARD}>
-          <div className="grid grid-cols-3 divide-x divide-white/[0.06] py-1">
-            <LedgerCell
-              label="Alignment"
-              value={Math.round(alignment)}
-              suffix="%"
-              bar={<MiniBar pct={alignment} tone="gold" />}
-              caption="with your Why today"
-            />
-            <LedgerCell
-              label="Deeds"
-              value={doneToday}
-              suffix={`/${todayDeeds.length}`}
-              bar={<MiniBar pct={deedsPct} tone="moss" />}
-              caption={`${todayDeeds.length} set for today`}
-            />
-            <LedgerCell
-              label="The year"
-              value={dayOfYear}
-              suffix="/365"
-              bar={<MiniBar pct={yearPct} tone="gold" />}
-              caption={`${yearPct}% of the year gone`}
-            />
-          </div>
-        </div>
-      </section>
-      </Float>
-
-      <Float delay={1.2} duration={11} amp={5}>
-      {/* ── Today's deeds: numbered index ── */}
-      <section aria-labelledby="deeds-heading">
-        <SectionHeader
-          id="deeds-heading"
-          label="Today's deeds"
-          action={
-            <button
-              onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
-              data-cursor="Open today"
-              className="flex shrink-0 items-center gap-1 py-2 font-mono text-xs uppercase tracking-[0.18em] text-parchment/45 transition-colors hover:text-parchment"
-            >
-              Open day
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          }
-        />
-        <div className={CARD}>
-          {todayDeeds.length > 0 ? (
-          <>
-            <div className="mb-4 flex items-center gap-3">
-              <span className="shrink-0 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-gold tabular-nums">
-                {doneToday}/{todayDeeds.length} done
-              </span>
-              <div className="h-[3px] min-w-4 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
-                <div
-                  className="h-full rounded-full bg-moss/80 transition-[width] duration-700 ease-out"
-                  style={{ width: `${deedsPct}%` }}
+          <Float delay={0.3} duration={9} amp={4} className="justify-self-center">
+            <div data-cursor="Open the full year">
+              <div className="hidden lg:block">
+                <WorkClock
+                  size={200}
+                  progress={deedsPct}
+                  dayLabel={String(dayOfYear).padStart(3, '0')}
+                  primary={String(Math.round(alignment))}
+                  ringLabel="TODAY"
+                  onClick={() => router.push('/year')}
+                />
+              </div>
+              <div className="lg:hidden">
+                <WorkClock
+                  size={148}
+                  progress={deedsPct}
+                  dayLabel={String(dayOfYear).padStart(3, '0')}
+                  primary={String(Math.round(alignment))}
+                  ringLabel="TODAY"
+                  onClick={() => router.push('/year')}
                 />
               </div>
             </div>
-            <ul className="-mx-2">
-            {todayDeeds.slice(0, 6).map((deed, i) => {
-              const pct = completionMap[deed.id] || 0
-              const done = pct >= 100
-              return (
-                <li key={deed.id}>
-                  <div
-                    className="group -mx-2 flex cursor-pointer items-center gap-3 rounded-md border-b border-white/[0.04] px-2 py-3 transition-colors last:border-b-0 hover:bg-white/[0.04]"
-                    onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
-                  >
-                    <span aria-hidden="true" className="w-7 shrink-0 font-mono text-xs tabular-nums text-gold-dim/80">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={done}
-                      aria-label={`Mark ${deed.title} ${done ? 'incomplete' : 'complete'}`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleDeed(deed, !done)
-                      }}
-                      className={`flex h-7 w-7 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-200 ${
-                        done ? 'border-moss bg-moss text-ink' : 'border-gold-dim/40 hover:border-gold'
-                      }`}
-                    >
-                      {done && <Check className="h-4 w-4" strokeWidth={2.5} />}
-                    </button>
-                    <span className={`min-w-0 flex-1 break-words text-sm leading-snug ${done ? 'text-parchment/40 line-through' : 'text-parchment'}`}>
-                      {deed.title}
-                    </span>
-                    <span className="hidden shrink-0 font-mono text-xs tabular-nums text-parchment/45 min-[400px]:block">
-                      {Math.round(pct)}%
-                    </span>
-                    <ArrowUpRight
-                      aria-hidden="true"
-                      className="h-4 w-4 shrink-0 text-parchment/25 opacity-0 transition-opacity group-hover:opacity-100"
-                    />
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-            <div aria-hidden="true" className="opacity-40">
-              <WorkClock size={56} progress={0} />
+          </Float>
+
+          <div className="min-w-0 space-y-6">
+            <div className="space-y-3">
+              <p className={EYEBROW}>Today&apos;s progress</p>
+              <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="text-display leading-none text-parchment">
+                  <CountUp value={doneToday} duration={1100} format={n => `${Math.round(n)}/${todayDeeds.length}`} />
+                </span>
+                <span className="text-body text-parchment/55">deeds done</span>
+              </p>
+              <Meter pct={deedsPct} tone="moss" />
+              <p className="text-caption text-parchment/50">
+                {todayDeeds.length > 0
+                  ? <><span className="font-mono tabular-nums">{deedsPct}%</span> of today&apos;s deeds complete</>
+                  : 'Nothing set for today yet.'}
+              </p>
             </div>
-            <p className="text-sm text-parchment/55">No deeds set for today.</p>
-            <button
-              onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
-              data-cursor="Sketch the day"
-              className="py-2 text-sm font-medium text-gold transition-colors hover:text-gold/80"
-            >
-              Plan the day
-            </button>
+
+            {/* Next up — the next scheduled deed with a live countdown */}
+            {nextScheduled && (
+              <button
+                onClick={() => router.push(dayHref)}
+                className={cx(
+                  'flex min-h-11 w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors animate-fadeIn',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40',
+                  nextScheduled.parts.state === 'live'
+                    ? 'border-moss/25 bg-moss/[0.06] hover:border-moss/45'
+                    : nextScheduled.parts.soon
+                      ? 'border-ember/25 bg-ember/[0.06] hover:border-ember/45'
+                      : 'border-gold/15 hover:border-gold/40',
+                )}
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-parchment/[0.05]">
+                  {nextScheduled.parts.state === 'live'
+                    ? <Activity className="h-3.5 w-3.5 text-moss" />
+                    : <Clock className="h-3.5 w-3.5 text-gold-dim" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={cx('block', EYEBROW)}>Next up</span>
+                  <span className="mt-0.5 block break-words text-sm leading-snug">
+                    {nextScheduled.isImportant && (
+                      <Star aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5 fill-gold text-gold" />
+                    )}
+                    <span className={nextScheduled.parts.state === 'live' ? 'text-moss' : 'text-parchment/85'}>
+                      {nextScheduled.title}
+                    </span>
+                  </span>
+                </span>
+                <span className={cx(
+                  'shrink-0 font-mono text-mono tabular-nums',
+                  nextScheduled.parts.state === 'live' ? 'text-moss' : nextScheduled.parts.soon ? 'text-ember' : 'text-gold',
+                )}>
+                  {nextScheduled.parts.state === 'live'
+                    ? `● ${compactCountdownLabel(nextScheduled.parts)}`
+                    : `in ${compactCountdownLabel(nextScheduled.parts)}`}
+                </span>
+              </button>
+            )}
           </div>
+        </Panel>
+      </Section>
+
+      {/* ── 3. Today's deeds: numbered index ── */}
+      <Section
+        id="deeds"
+        title="Today's deeds"
+        action={
+          <>
+            {todayDeeds.length > 0 && (
+              <Badge tone={doneToday === todayDeeds.length ? 'moss' : 'gold'}>{doneToday}/{todayDeeds.length} done</Badge>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => router.push(dayHref)} data-cursor="Open today">
+              Open day
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          </>
+        }
+      >
+        {todayDeeds.length > 0 ? (
+          <Panel padded={false} className="py-1 sm:py-2">
+            <ul>
+              {todayDeeds.slice(0, 6).map((deed, i) => {
+                const pct = completionMap[deed.id] || 0
+                const done = pct >= 100
+                return (
+                  <li key={deed.id} className="border-b border-gold/10 last:border-b-0">
+                    <div
+                      className="group flex min-h-14 cursor-pointer items-center gap-3 px-3 py-1.5 transition-colors hover:bg-gold/[0.04] sm:px-5 pointer-fine:min-h-12"
+                      onClick={() => router.push(dayHref)}
+                    >
+                      <span aria-hidden="true" className="w-6 shrink-0 font-mono text-mono tabular-nums text-gold-dim/80">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={done}
+                        aria-label={`Mark ${deed.title} ${done ? 'incomplete' : 'complete'}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleDeed(deed, !done)
+                        }}
+                        className="-mx-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 pointer-fine:h-9 pointer-fine:w-9"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={cx(
+                            'flex h-6 w-6 items-center justify-center rounded-md border transition-colors duration-200',
+                            done ? 'border-moss bg-moss text-ink' : 'border-gold-dim/40 hover:border-gold',
+                          )}
+                        >
+                          {done && <Check className="h-4 w-4" strokeWidth={2.5} />}
+                        </span>
+                      </button>
+                      <span className={cx('min-w-0 flex-1 break-words text-body', done ? 'text-parchment/40 line-through' : 'text-parchment')}>
+                        {deed.title}
+                      </span>
+                      <span className="hidden shrink-0 font-mono text-mono tabular-nums text-parchment/45 min-[400px]:block">
+                        {Math.round(pct)}%
+                      </span>
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 text-parchment/25 transition-opacity can-hover:opacity-0 can-hover:group-hover:opacity-100"
+                      />
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </Panel>
+        ) : (
+          <EmptyState
+            title="No deeds set for today."
+            action={
+              <Button variant="secondary" onClick={() => router.push(dayHref)} data-cursor="Sketch the day">
+                Plan the day
+              </Button>
+            }
+          />
         )}
-        </div>
-      </section>
-      </Float>
 
-      {/* Ambient deeds ticker */}
-      <Marquee duration={36} className="-mx-4 border-y border-white/5 py-2.5 sm:-mx-6">
-        <span className="mx-6 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.18em] text-parchment/35">
-          {todayDeeds.length > 0
-            ? todayDeeds.slice(0, 8).map(d => `${d.title} ✦`).join('  ')
-            : 'Consistency compounds ✦ Small deeds, every day ✦ Inchstone ✦'}
-        </span>
-      </Marquee>
+        {/* Ambient deeds ticker */}
+        <Marquee duration={36} className="mt-4 py-2">
+          <span className="mx-6 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.18em] text-parchment/35">
+            {todayDeeds.length > 0
+              ? todayDeeds.slice(0, 8).map(d => `${d.title} ✦`).join('  ')
+              : 'Consistency compounds ✦ Small deeds, every day ✦ Inchstone ✦'}
+          </span>
+        </Marquee>
+      </Section>
 
-      {/* ── One quiet strip: nudge or reflect, never both ── */}
-      <section aria-labelledby="touchpoint-heading">
-        <SectionHeader id="touchpoint-heading" label={latestNudge && !nudgeDismissed ? 'From your partner' : 'Reflect'} />
-        {!nudgeDismissed && latestNudge ? (
-        <div className="glass-gold flex items-start gap-3 rounded-xl p-4">
-          <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} />
-          <div className="min-w-0 flex-1">
-            <p className="text-caption text-parchment/45">Nudge from {latestNudge.partner.name}</p>
-            <p className="mt-1 text-sm leading-relaxed text-parchment/85">{latestNudge.message}</p>
+      {/* ── 4. Ledger: the standing figures ── */}
+      <Section id="ledger" title="Ledger">
+        <StatGrid cols={2}>
+          <Stat
+            label="Alignment"
+            tone="gold"
+            value={<CountUp value={Math.round(alignment)} duration={1100} format={n => `${Math.round(n)}%`} />}
+            caption={
+              <span className="block space-y-2.5">
+                <Meter pct={alignment} tone="gold" />
+                <span className="block">with your Why today</span>
+              </span>
+            }
+          />
+          <Stat
+            label="The year"
+            value={<CountUp value={dayOfYear} duration={1100} format={n => `${Math.round(n)}/365`} />}
+            caption={
+              <span className="block space-y-2.5">
+                <Meter pct={yearPct} tone="gold" />
+                <span className="block"><span className="font-mono tabular-nums">{yearPct}%</span> of the year gone</span>
+              </span>
+            }
+          />
+        </StatGrid>
+      </Section>
+
+      {/* ── 5. One quiet strip: nudge or reflect, never both ── */}
+      <Section id="touchpoint" title={nudgeShowing ? 'From your partner' : 'Reflect'}>
+        {nudgeShowing ? (
+          <div className="glass-gold flex items-start gap-3 rounded-xl p-4 sm:px-6">
+            <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="text-caption text-parchment/45">Nudge from {latestNudge.partner.name}</p>
+              <p className="mt-1 text-body text-parchment/85">{latestNudge.message}</p>
+            </div>
+            <IconButton icon={X} label="Dismiss nudge" onClick={() => setNudgeDismissed(true)} className="-my-2 -mr-2" />
           </div>
+        ) : (
           <button
-            onClick={() => setNudgeDismissed(true)}
-            aria-label="Dismiss nudge"
-            className="-m-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-parchment/45 transition-colors hover:text-parchment sm:m-0 sm:h-8 sm:w-8"
+            onClick={() => router.push('/reviews')}
+            data-cursor="Pause & reflect"
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-gold/15 bg-surface-solid p-4 text-left transition-colors hover:border-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 sm:px-6"
           >
-            <X className="h-4 w-4" />
+            <Sun className="h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} aria-hidden="true" />
+            <span className="flex-1 text-body text-parchment/75">Take a quiet moment — reflect on today.</span>
+            <ArrowRight className="h-4 w-4 text-parchment/45" aria-hidden="true" />
           </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => router.push('/reviews')}
-          data-cursor="Pause & reflect"
-          className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-surface-solid p-4 text-left transition-colors hover:border-gold/40"
-        >
-          <Sun className="h-4 w-4 shrink-0 text-gold-dim" strokeWidth={1.5} />
-          <span className="flex-1 text-sm text-parchment/75">Take a quiet moment — reflect on today.</span>
-          <ArrowRight className="h-4 w-4 text-parchment/45" />
-        </button>
         )}
-      </section>
-
-      {/* ── Closing CTA ── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-t hairline-top pt-7">
-        <button
-          onClick={() => router.push('/year')}
-          data-cursor="See the whole year"
-          className="group inline-flex items-center gap-2 font-display text-2xl text-parchment transition-colors hover:text-gold"
-        >
-          Open the full year
-          <ArrowUpRight className="h-5 w-5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-        </button>
-        <button
-          onClick={() => router.push(`/day/${format(today, 'yyyy-MM-dd')}`)}
-          data-cursor="Sketch the day"
-          className="rounded-full border hairline px-5 py-3 sm:py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-parchment/55 transition-colors hover:border-gold/40 hover:text-gold"
-        >
-          Plan today
-        </button>
-      </div>
-    </div>
+      </Section>
+    </Page>
   )
 }

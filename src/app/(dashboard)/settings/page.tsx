@@ -1,19 +1,44 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { Card } from '@/components/ui/Card'
+import type { ReactNode } from 'react'
 import { PushNotificationManager } from '@/components/ui/PushNotificationManager'
 import { AlarmsCard } from '@/components/ui/AlarmsCard'
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
 import { ThemeSwitch } from '@/components/ui/ThemeToggle'
 import { AccentPicker } from '@/components/ui/AccentPicker'
 import { useState, useEffect } from 'react'
-import { Mail, CheckCircle, XCircle, Smartphone, Trash2, Database, ChevronDown, Sun } from 'lucide-react'
+import { CheckCircle, XCircle, Smartphone, Database, ChevronDown, RotateCcw } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
 import { GoogleCalendarCard } from '@/components/ui/GoogleCalendarCard'
 import { WidgetCard } from '@/components/ui/WidgetCard'
 import { Scramble } from '@/components/ui/motion'
 import { useToast } from '@/components/ui/ToastProvider'
+import { Page, PageHeader, Section, Panel, Button, Badge, cx } from '@/components/ds'
+
+/**
+ * One settings row: label + one-line description on the left, the control on
+ * the right (stacked under it on phones). Local to Settings for now.
+ */
+function SettingRow({ label, description, children, className }: {
+  label: ReactNode
+  description?: ReactNode
+  children?: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cx('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6', className)}>
+      <div className="min-w-0">
+        <p className="text-body font-medium text-parchment">{label}</p>
+        {description && <p className="mt-1 text-caption text-parchment/55">{description}</p>}
+      </div>
+      {children && <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div>}
+    </div>
+  )
+}
+
+/** Hairline between rows inside one Panel. */
+const Divider = () => <div aria-hidden="true" className="h-px bg-gold/10" />
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser()
@@ -94,206 +119,197 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-[720px] lg:max-w-3xl mx-auto space-y-8 pb-24">
-      <h1 className="text-h1 text-parchment"><Scramble text="Settings" mono={false} /></h1>
+    <Page width="narrow" className="pb-24">
+      <PageHeader
+        eyebrow="Preferences"
+        title={<Scramble text="Settings" mono={false} />}
+        description="How Inchstone looks, reaches you, and connects to the rest of your day."
+      />
 
       {/* Profile */}
-      <Card className="space-y-4 p-5 border hairline">
-        <h2 className="text-heading text-parchment">Profile</h2>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 shrink-0 rounded-full bg-mist flex items-center justify-center text-2xl font-bold text-parchment/50 overflow-hidden">
-            {user?.imageUrl ? (
-              <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              user?.firstName?.charAt(0) || '?'
-            )}
+      <Section id="settings-profile" title="Profile">
+        <Panel>
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gold/15 bg-mist font-display text-heading text-parchment/50">
+              {user?.imageUrl ? (
+                <img src={user.imageUrl} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                user?.firstName?.charAt(0) || '?'
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="break-words text-heading text-parchment">{user?.fullName || 'User'}</p>
+              <p className="break-all font-mono text-mono text-parchment/60">{user?.primaryEmailAddress?.emailAddress || 'No email'}</p>
+              <p className="mt-1 text-caption text-parchment/40">Account managed via Clerk</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-parchment break-words">{user?.fullName || 'User'}</p>
-            <p className="text-sm text-parchment/60 break-all">{user?.primaryEmailAddress?.emailAddress || 'No email'}</p>
-            <p className="text-xs text-parchment/40 mt-1">Account managed via Clerk</p>
-          </div>
-        </div>
-      </Card>
+        </Panel>
+      </Section>
 
       {/* Appearance — the Light/Dark switch */}
-      <Card className="p-5 border hairline">
-        <h2 className="text-heading text-parchment flex items-center gap-2">
-          <Sun className="w-4 h-4 text-gold-dim" strokeWidth={1.5} />
-          <span>Appearance</span>
-        </h2>
-        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-sm text-parchment/55">
-            Dark is the classic midnight look. Light is warm paper.
-          </p>
-          <ThemeSwitch />
-        </div>
-        <div className="mt-5 border-t border-gold-dim/20 pt-5">
+      <Section id="settings-appearance" title="Appearance">
+        <Panel className="space-y-5">
+          <SettingRow label="Theme" description="Dark is the classic midnight look. Light is warm paper.">
+            <ThemeSwitch />
+          </SettingRow>
+          <Divider />
           <AccentPicker />
+        </Panel>
+      </Section>
+
+      {/* Notifications + alarms */}
+      <Section id="settings-notifications" title="Notifications">
+        <div className="space-y-4">
+          <Panel>
+            <SettingRow label="Push notifications" description="Get notified for nudges and reminders.">
+              <PushNotificationManager />
+            </SettingRow>
+          </Panel>
+          <Panel className="space-y-5">
+            <SettingRow
+              label="Alarms"
+              description="Rings in-app with sound, and pushes to your devices even when the app is closed."
+            />
+            <AlarmsCard />
+          </Panel>
         </div>
-      </Card>
+      </Section>
+
+      {/* Google Calendar — pull / two-way sync (the card carries its own surface) */}
+      <Section id="settings-calendar" title="Calendar">
+        <GoogleCalendarCard />
+      </Section>
 
       {/* Email delivery — partner invites */}
-      <Card className="p-5 border hairline">
-        <h2 className="text-heading text-parchment flex items-center gap-2">
-          <Mail className="w-4 h-4 text-gold-dim" strokeWidth={1.5} />
-          <span>Email delivery</span>
-        </h2>
-        <div className="mt-3 text-sm text-parchment/55">
-          {emailStatus === null ? (
-            <p>Checking…</p>
-          ) : emailStatus.ready ? (
-            <p className="flex items-center gap-2 text-moss">
-              <CheckCircle className="w-4 h-4" strokeWidth={1.5} />
-              Ready — partner invites are being emailed from {emailStatus.from}.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <p className="flex items-center gap-2 text-ember">
-                <XCircle className="w-4 h-4" strokeWidth={1.5} />
-                {!emailStatus.apiKey
-                  ? 'Not set up — invite emails are turned off.'
-                  : 'Almost set up — invite emails can’t deliver to partners yet.'}
-              </p>
-              {emailStatus.apiKey && (
-                <p className="text-xs text-parchment/50">
-                  Resend only lets <span className="font-mono">onboarding@resend.dev</span> send to your own account,
-                  so partner invites are rejected until you verify a domain. Add one at{' '}
-                  <a
-                    href="https://resend.com/domains"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-gold underline decoration-gold/40 underline-offset-2"
-                  >
-                    resend.com/domains
-                  </a>{' '}
-                  and set <span className="font-mono">EMAIL_FROM</span> to an address on it (e.g.{' '}
-                  <span className="font-mono">hi@yourdomain.com</span>).
+      <Section id="settings-email" title="Email delivery">
+        <Panel>
+          <SettingRow label="Partner invites" description="How partner invites reach their inbox.">
+            {emailStatus === null ? (
+              <Badge>Checking…</Badge>
+            ) : emailStatus.ready ? (
+              <Badge tone="moss">Ready</Badge>
+            ) : (
+              <Badge tone="ember">{!emailStatus.apiKey ? 'Off' : 'Needs domain'}</Badge>
+            )}
+          </SettingRow>
+
+          {emailStatus !== null && (
+            <div className="mt-4 space-y-2 border-t border-gold/10 pt-4 text-body text-parchment/55">
+              {emailStatus.ready ? (
+                <p className="flex items-start gap-2 text-moss">
+                  <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+                  <span>Ready — partner invites are being emailed from <span className="break-all font-mono">{emailStatus.from}</span>.</span>
                 </p>
-              )}
-              {!emailStatus.apiKey && (
-                <p className="text-xs text-parchment/50">
-                  Add a <span className="font-mono">RESEND_API_KEY</span> to your environment to start sending invite
-                  emails.
-                </p>
+              ) : (
+                <>
+                  <p className="flex items-start gap-2 text-ember">
+                    <XCircle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+                    <span>
+                      {!emailStatus.apiKey
+                        ? 'Not set up — invite emails are turned off.'
+                        : 'Almost set up — invite emails can’t deliver to partners yet.'}
+                    </span>
+                  </p>
+                  {emailStatus.apiKey && (
+                    <p className="text-caption text-parchment/50">
+                      Resend only lets <span className="font-mono">onboarding@resend.dev</span> send to your own account,
+                      so partner invites are rejected until you verify a domain. Add one at{' '}
+                      <a
+                        href="https://resend.com/domains"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-gold underline decoration-gold/40 underline-offset-2"
+                      >
+                        resend.com/domains
+                      </a>{' '}
+                      and set <span className="font-mono">EMAIL_FROM</span> to an address on it (e.g.{' '}
+                      <span className="font-mono">hi@yourdomain.com</span>).
+                    </p>
+                  )}
+                  {!emailStatus.apiKey && (
+                    <p className="text-caption text-parchment/50">
+                      Add a <span className="font-mono">RESEND_API_KEY</span> to your environment to start sending invite
+                      emails.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}
+        </Panel>
+      </Section>
+
+      {/* Devices — install + home-screen widget */}
+      <Section id="settings-devices" title="Devices">
+        <div className="space-y-4">
+          <Panel className="space-y-4">
+            <SettingRow label="Add to home screen" description="Install Inchstone for quick access.">
+              <Button
+                variant="primary"
+                icon={Smartphone}
+                onClick={promptInstall}
+                data-cursor="Put Inchstone in your pocket"
+                className="w-full sm:w-auto"
+              >
+                Install
+              </Button>
+            </SettingRow>
+            {installHint && (
+              <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-gold/15 bg-gold/[0.04] px-4 py-3 text-body text-parchment/80">
+                <span>{installHint}</span>
+                <Button variant="ghost" size="sm" onClick={dismissInstallHint} className="shrink-0 text-gold">Dismiss</Button>
+              </div>
+            )}
+          </Panel>
+
+          <Panel className="space-y-5">
+            <SettingRow
+              label="Home-screen widget"
+              description="Pair the Android Inchstone Widget app and design what it shows on your phone’s home screen."
+            />
+            <WidgetCard />
+          </Panel>
         </div>
-      </Card>
+      </Section>
 
-      {/* Google Calendar — pull / two-way sync */}
-      <GoogleCalendarCard />
-
-      {/* Notifications */}
-      <Card className="space-y-5 p-5 border hairline">
-        <h2 className="text-heading text-parchment">Notifications</h2>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-medium text-parchment">Push Notifications</p>
-            <p className="text-sm text-parchment/60 mt-1">Get notified for nudges and reminders.</p>
-          </div>
-          <PushNotificationManager />
-        </div>
-      </Card>
-
-      {/* Alarms */}
-      <Card className="space-y-5 p-5 border hairline">
-        <div>
-          <h2 className="text-heading text-parchment">Alarms</h2>
-          <p className="text-sm text-parchment/60 mt-1">
-            Rings in-app with sound, and pushes to your devices even when the app is closed.
-          </p>
-        </div>
-        <AlarmsCard />
-      </Card>
-
-      {/* Home-screen Widget */}
-      <Card className="space-y-5 p-5 border hairline">
-        <div>
-          <h2 className="text-heading text-parchment">Home-Screen Widget</h2>
-          <p className="text-sm text-parchment/60 mt-1">
-            Pair the Android Inchstone Widget app and design what it shows on your phone&apos;s home screen.
-          </p>
-        </div>
-        <WidgetCard />
-      </Card>
-
-      {/* Install App */}
-      <Card className="space-y-5 p-5 border hairline">
-        <h2 className="text-heading text-parchment flex items-center gap-2">
-          <Smartphone className="w-4 h-4 text-gold-dim" strokeWidth={1.5} />
-          <span>Install App</span>
-        </h2>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <p className="font-medium text-parchment">Add to Home Screen</p>
-            <p className="text-sm text-parchment/60 mt-1">Install Inchstone for quick access.</p>
-          </div>
+      {/* Danger zone — collapsed by default, always last */}
+      <Section id="settings-danger" title={<span className="text-ember">Danger zone</span>}>
+        <Panel bordered={false} className="border border-ember/30">
           <button
-            onClick={promptInstall}
-            data-cursor="Put Inchstone in your pocket"
-            className="rounded-md bg-gold px-6 py-3 text-body font-semibold text-ink hover:bg-gold-glow transition-colors w-full sm:w-auto"
+            type="button"
+            onClick={() => setDangerOpen(o => !o)}
+            aria-expanded={dangerOpen}
+            aria-controls="settings-danger-body"
+            className="-m-2 flex min-h-11 w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-lg p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
           >
-            Install
+            <span className="min-w-0">
+              <span className="block text-body font-medium text-ember">Data &amp; reset</span>
+              <span className="mt-1 block text-caption text-parchment/50">Reseed the framework or wipe everything.</span>
+            </span>
+            <ChevronDown
+              className={cx('h-4 w-4 shrink-0 text-parchment/45 transition-transform motion-reduce:transition-none', dangerOpen && 'rotate-180')}
+              strokeWidth={1.5}
+              aria-hidden="true"
+            />
           </button>
-        </div>
-        {installHint && (
-          <div role="status" className="flex items-start justify-between gap-3 rounded-md border hairline bg-parchment/5 px-4 py-3 text-sm text-parchment/80">
-            <span>{installHint}</span>
-            <button onClick={dismissInstallHint} className="shrink-0 text-xs font-bold text-gold hover:text-gold-glow">Dismiss</button>
-          </div>
-        )}
-      </Card>
 
-      {/* Danger zone — collapsed by default */}
-      <Card className="space-y-4 p-5 border hairline">
-        <button
-          type="button"
-          onClick={() => setDangerOpen(o => !o)}
-          aria-expanded={dangerOpen}
-          className="flex w-full items-center justify-between text-left text-heading text-[#cf8f78]"
-        >
-          <span className="flex items-center gap-2">
-            <Trash2 className="w-4 h-4 text-[#cf8f78]" strokeWidth={1.5} />
-            Data & Reset
-          </span>
-          <ChevronDown className={`w-4 h-4 text-parchment/45 transition-transform ${dangerOpen ? 'rotate-180' : ''}`} strokeWidth={1.5} />
-        </button>
-
-        {dangerOpen && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
-              <div>
-                <p className="font-medium text-parchment">Seed default framework</p>
-                <p className="text-sm text-parchment/60 mt-1">Create the default annual hierarchy.</p>
-              </div>
-              <button
-                onClick={handleSeedFramework}
-                disabled={seeding}
-                className="rounded-md border hairline px-4 py-2.5 sm:py-2 text-sm text-parchment hover:border-gold transition-colors flex items-center gap-2 disabled:opacity-50"
-              >
-                <Database className="w-4 h-4" strokeWidth={1.5} />
-                {seeding ? 'Working…' : 'Seed'}
-              </button>
+          {dangerOpen && (
+            <div id="settings-danger-body" className="mt-5 space-y-5 border-t border-ember/20 pt-5">
+              <SettingRow label="Seed default framework" description="Create the default annual hierarchy.">
+                <Button variant="secondary" icon={Database} onClick={handleSeedFramework} disabled={seeding}>
+                  {seeding ? 'Working…' : 'Seed'}
+                </Button>
+              </SettingRow>
+              <Divider />
+              <SettingRow label="Reset all data & reseed" description="Deletes everything. This cannot be undone.">
+                <Button variant="danger" icon={RotateCcw} onClick={handleResetFramework} disabled={seeding}>
+                  {seeding ? 'Working…' : 'Reset & Seed'}
+                </Button>
+              </SettingRow>
             </div>
-
-            <div className="flex flex-col sm:flex-row items-start justify-between gap-3 border-t border-gold-dim/20 pt-3">
-              <div>
-                <p className="font-medium text-parchment">Reset all data & reseed</p>
-                <p className="text-sm text-parchment/60 mt-1">Deletes everything. This cannot be undone.</p>
-              </div>
-              <button
-                onClick={handleResetFramework}
-                disabled={seeding}
-                className="rounded-md border border-ember/40 px-4 py-2.5 sm:py-2 text-sm text-[#cf8f78] hover:bg-ember/15 transition-colors disabled:opacity-50"
-              >
-                {seeding ? 'Working…' : 'Reset & Seed'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Card>
-    </div>
+          )}
+        </Panel>
+      </Section>
+    </Page>
   )
 }

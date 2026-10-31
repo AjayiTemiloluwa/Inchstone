@@ -2,8 +2,11 @@
 
 import React, { useState } from 'react'
 import { BudgetProgress } from './BudgetProgress'
-import { SECTION_CATEGORIES, BudgetCategoryOption, getSectionIcon } from './budgetCategories'
+import { SECTION_CATEGORIES, BudgetCategoryOption } from './budgetCategories'
 import { CategorySelect } from './CategorySelect'
+import { Plus, Trash2, X } from 'lucide-react'
+import { Button, Panel, RowActions, cx, inputClass } from '@/components/ds'
+import { Notice, ProgressBar, RowAction, SECTION_TONE, labelClass } from './ui'
 
 interface Purse {
     id: string
@@ -49,50 +52,12 @@ interface SectionBudgetCardProps {
     onAddTransaction?: (entry: { type: string; amount: number; category: string; description: string; purse: string; priority: string }) => Promise<boolean>
 }
 
-/* v2 editorial palette — one accent per section, gradient reserved for the
-   progress fill and the single primary action button. No currency glyphs:
-   figures stand alone in mono with tabular numerals, labels carry meaning. */
+/* One quiet tag + line per section; color comes from SECTION_TONE tokens. */
 const sectionConfig = {
-    Need: {
-        dot: '#B8935A',
-        barGradient: 'linear-gradient(90deg, #B8935A 0%, #8a6d42 100%)',
-        accentGradient: 'from-[#B8935A] to-[#8a6d42]',
-        lightAccent: 'bg-[#B8935A]/10',
-        text: 'text-[#B8935A]',
-        hoverBorder: 'hover:border-[#B8935A]/45',
-        tag: 'Foundation',
-        description: 'Essentials you cannot skip',
-    },
-    Want: {
-        dot: '#CF8F78',
-        barGradient: 'linear-gradient(90deg, #CF8F78 0%, #7a3b2e 100%)',
-        accentGradient: 'from-[#CF8F78] to-[#7a3b2e]',
-        lightAccent: 'bg-[#CF8F78]/10',
-        text: 'text-[#CF8F78]',
-        hoverBorder: 'hover:border-[#CF8F78]/45',
-        tag: 'Delight',
-        description: 'Lifestyle and small joys',
-    },
-    Offerings: {
-        dot: '#7FA871',
-        barGradient: 'linear-gradient(90deg, #7FA871 0%, #4A5D45 100%)',
-        accentGradient: 'from-[#7FA871] to-[#4A5D45]',
-        lightAccent: 'bg-[#7FA871]/10',
-        text: 'text-[#7FA871]',
-        hoverBorder: 'hover:border-[#7FA871]/45',
-        tag: 'Giving',
-        description: 'Tithes, gifts and charity',
-    },
-    Savings: {
-        dot: '#8FA3BF',
-        barGradient: 'linear-gradient(90deg, #8FA3BF 0%, #5c6b8a 100%)',
-        accentGradient: 'from-[#8FA3BF] to-[#5c6b8a]',
-        lightAccent: 'bg-[#8FA3BF]/10',
-        text: 'text-[#8FA3BF]',
-        hoverBorder: 'hover:border-[#8FA3BF]/45',
-        tag: 'Future',
-        description: 'Reserves and long-term goals',
-    },
+    Need: { tag: 'Foundation', description: 'Essentials you cannot skip' },
+    Want: { tag: 'Delight', description: 'Lifestyle and small joys' },
+    Offerings: { tag: 'Giving', description: 'Tithes, gifts and charity' },
+    Savings: { tag: 'Future', description: 'Reserves and long-term goals' },
 }
 
 const defaultBudgetAmounts: Record<string, number> = {
@@ -125,6 +90,7 @@ export function SectionBudgetCard({
     onAddTransaction,
 }: SectionBudgetCardProps) {
     const config = sectionConfig[section]
+    const tone = SECTION_TONE[section]
     const [showAllocate, setShowAllocate] = useState(false)
     const [allocateAmount, setAllocateAmount] = useState('')
     // Empty means "use the derived default", so the purse list can arrive a beat
@@ -168,11 +134,6 @@ export function SectionBudgetCard({
     const fromPurse = allocateFrom || defaultSource
     const toPurse = allocateTo || defaultDest
     const canMoveMoney = purseNames.length >= 2
-    const getPurseIcon = (name: string) => purses.find(p => p.name === name)?.icon || '👜'
-
-    // Ring gauge geometry
-    const RING_R = 17
-    const RING_C = 2 * Math.PI * RING_R
 
     // Load purses once per mount when none were passed in. All state updates
     // happen in async callbacks (never synchronously inside the effect).
@@ -253,178 +214,111 @@ export function SectionBudgetCard({
         }
     }
 
+    const toggleClass = (active: boolean) => cx('flex-1', active && 'border-gold/50 bg-gold/[0.08]')
+
     return (
-        <div className={`spotlight-card relative rounded-[8px] border border-white/[0.06] bg-surface-solid ${config.hoverBorder} overflow-hidden transition-colors duration-300 flex flex-col h-full`}>
-            {/* Left accent spine — a quiet thread of the section's colour */}
-            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-[2px]" style={{ background: `linear-gradient(180deg, ${config.dot}, transparent)` }} />
-
-            {/* ── Header: identity + usage ring ── */}
-            <div className="pl-5 pr-4 pt-5 pb-4 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <div className="flex items-center gap-2.5">
-                        <span className={`h-8 w-8 grid place-items-center rounded-lg ${config.lightAccent} text-base shrink-0`}>
-                            {getSectionIcon(section)}
-                        </span>
-                        <div className="min-w-0">
-                            <h3 className="font-display text-base font-bold text-parchment leading-tight">{section}</h3>
-                            <p className="text-[11px] text-parchment/45 truncate">{config.description}</p>
-                        </div>
-                    </div>
-                    <p className={`mt-2 inline-block font-mono text-[9px] uppercase tracking-[0.22em] ${config.text} opacity-70`}>
-                        {config.tag}
-                    </p>
+        <Panel className="flex h-full flex-col gap-5">
+            {/* ── Header: identity + share of plan used ── */}
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1">
+                    <p className={cx('font-mono text-[10px] uppercase tracking-[0.2em]', tone.text)}>{config.tag}</p>
+                    <h3 className="font-display text-heading text-parchment">{section}</h3>
+                    <p className="truncate text-caption text-parchment/50">{config.description}</p>
                 </div>
-
-                {/* Usage ring — the one glanceable figure */}
-                <div className="relative shrink-0" title={`${percentage.toFixed(0)}% of allocation used`}>
-                    <svg width="52" height="52" viewBox="0 0 52 52">
-                        <circle cx="26" cy="26" r={RING_R} fill="none" stroke="rgba(243,239,230,0.08)" strokeWidth="3.5" />
-                        <circle
-                            cx="26" cy="26" r={RING_R} fill="none"
-                            stroke={isOver ? '#cf8f78' : config.dot}
-                            strokeWidth="3.5"
-                            strokeLinecap="round"
-                            strokeDasharray={RING_C}
-                            strokeDashoffset={RING_C * (1 - Math.max(percentage / 100, 0.02))}
-                            transform="rotate(-90 26 26)"
-                            style={{ transition: 'stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s ease' }}
-                        />
-                    </svg>
-                    <div className="absolute inset-0 grid place-items-center">
-                        <span className={`font-mono text-[11px] font-bold tabular-nums ${isOver ? 'text-[#e0a093]' : 'text-parchment'}`}>
-                            {Math.round(percentage)}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Figures row: allocated · spent · left/over ── */}
-            <div className="mx-5 grid grid-cols-3 divide-x divide-white/[0.06] rounded-lg border border-white/[0.06] bg-black/20 py-2.5">
-                <div className="px-3 first:pl-3.5">
-                    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-parchment/35">Plan</p>
-                    <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-parchment">{totalAllocated.toFixed(0)}</p>
-                </div>
-                <div className="px-3">
-                    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-parchment/35">Used</p>
-                    <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-parchment">{totalSpent.toFixed(0)}</p>
-                </div>
-                <div className="px-3 last:pr-3.5">
-                    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-parchment/35">{isOver ? 'Over' : 'Left'}</p>
-                    <p className={`mt-0.5 font-mono text-sm font-bold tabular-nums ${isOver ? 'text-[#e0a093]' : 'text-[#a9c79f]'}`}>
-                        {Math.abs(remaining).toFixed(0)}
-                    </p>
-                </div>
-            </div>
-
-            {/* Where this month's plan actually sits — the money has really moved. */}
-            {allocation && allocation.amount > 0 && (
-                <p className="mx-5 mt-2 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-parchment/40"
-                    title={`${allocation.amount.toFixed(2)} moved from ${allocation.sourcePurse} to ${allocation.purse}`}>
-                    {getPurseIcon(allocation.sourcePurse)} {allocation.sourcePurse}
-                    <span className="mx-1 text-parchment/25">→</span>
-                    {getPurseIcon(allocation.purse)} {allocation.purse}
+                <p className="shrink-0 text-right" title={`${percentage.toFixed(0)}% of allocation used`}>
+                    <span className={cx('font-mono text-heading tabular-nums', isOver ? 'text-ember' : 'text-parchment')}>{Math.round(percentage)}</span>
+                    <span className="font-mono text-mono text-parchment/40">%</span>
+                    <span className="block font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/40">used</span>
                 </p>
-            )}
-
-            {/* ── Spend bar with quarter ticks ── */}
-            <div className="mx-5 mt-4">
-                <div className="relative h-1.5 w-full rounded-full bg-white/[0.06] overflow-visible">
-                    <div
-                        className="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
-                        style={{
-                            width: `${Math.max(percentage, totalSpent > 0 ? 2 : 0)}%`,
-                            background: isOver ? 'linear-gradient(90deg, #cf8f78, #7a3b2e)' : config.barGradient,
-                        }}
-                    />
-                    {[25, 50, 75].map(t => (
-                        <span key={t} className="absolute top-[-2px] h-[10px] w-px bg-parchment/15" style={{ left: `${t}%` }} />
-                    ))}
-                </div>
             </div>
 
-            {/* ── Quiet actions: allocate · category · expenses ── */}
-            <div className="px-5 py-4 mt-auto">
-                <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] p-1">
-                    <button
-                        onClick={() => togglePanel('allocate')}
-                        className={`flex-1 rounded-md py-2.5 sm:py-1.5 text-[11px] font-semibold transition-colors active:opacity-70 ${showAllocate ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
-                    >
-                        Allocate
-                    </button>
-                    <button
-                        onClick={() => togglePanel('category')}
-                        className={`flex-1 rounded-md py-2.5 sm:py-1.5 text-[11px] font-semibold transition-colors active:opacity-70 ${showAddCategory ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
-                    >
-                        Category
-                    </button>
-                    <button
-                        onClick={() => togglePanel('expenses')}
-                        className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2.5 sm:px-2.5 sm:py-1.5 text-[11px] font-semibold tabular-nums transition-colors active:opacity-70 ${showExpenses ? 'bg-white/[0.07] text-parchment' : 'text-parchment/55 hover:text-parchment hover:bg-white/[0.03]'}`}
-                    >
-                        {sectionEntries.length}
-                        <span className={config.text}>{showExpenses ? 'Hide' : 'Entries'}</span>
-                    </button>
-                </div>
+            {/* ── Figures: plan · used · left/over, then the bar ── */}
+            <div className="space-y-3">
+                <dl className="grid grid-cols-3 gap-3">
+                    <div className="min-w-0">
+                        <dt className={labelClass}>Plan</dt>
+                        <dd className="mt-1 truncate font-mono text-body tabular-nums text-parchment">{totalAllocated.toFixed(0)}</dd>
+                    </div>
+                    <div className="min-w-0">
+                        <dt className={labelClass}>Used</dt>
+                        <dd className="mt-1 truncate font-mono text-body tabular-nums text-parchment">{totalSpent.toFixed(0)}</dd>
+                    </div>
+                    <div className="min-w-0 text-right">
+                        <dt className={labelClass}>{isOver ? 'Over' : 'Left'}</dt>
+                        <dd className={cx('mt-1 truncate font-mono text-body tabular-nums', isOver ? 'text-ember' : 'text-moss')}>
+                            {Math.abs(remaining).toFixed(0)}
+                        </dd>
+                    </div>
+                </dl>
+                <ProgressBar value={percentage} min={totalSpent > 0 ? 2 : 0} tone={isOver ? 'bg-ember' : tone.bar} label={`${section} plan used`} />
+
+                {/* Where this month's plan actually sits — the money has really moved. */}
+                {allocation && allocation.amount > 0 && (
+                    <p className="truncate font-mono text-[10px] uppercase tracking-[0.16em] text-parchment/45"
+                        title={`${allocation.amount.toFixed(2)} moved from ${allocation.sourcePurse} to ${allocation.purse}`}>
+                        {allocation.sourcePurse}
+                        <span aria-hidden="true" className="mx-1.5 text-parchment/30">→</span>
+                        <span className="sr-only"> to </span>
+                        {allocation.purse}
+                    </p>
+                )}
+            </div>
+
+            {/* ── Quiet actions: allocate · category · entries ── */}
+            <div className="flex gap-2">
+                <Button size="sm" aria-pressed={showAllocate} onClick={() => togglePanel('allocate')} className={toggleClass(showAllocate)}>
+                    Allocate
+                </Button>
+                <Button size="sm" aria-pressed={showAddCategory} onClick={() => togglePanel('category')} className={toggleClass(showAddCategory)}>
+                    Category
+                </Button>
+                <Button size="sm" aria-pressed={showExpenses} onClick={() => togglePanel('expenses')} className={toggleClass(showExpenses)}>
+                    <span className="font-mono tabular-nums">{sectionEntries.length}</span>
+                    {showExpenses ? 'Hide' : 'Entries'}
+                </Button>
             </div>
 
             {/* ── Allocate form — the plan, and which purses fund it ── */}
             {showAllocate && (
-                <div className="mx-5 mb-4 space-y-2 animate-fadeIn">
+                <div className="space-y-3 animate-fadeIn">
                     {!canMoveMoney ? (
-                        <p className="rounded-lg border border-ember/25 bg-ember/10 px-3 py-2 text-[11px] text-[#e0a093]">
-                            Allocating moves money between purses, so you need a second purse first.
-                        </p>
+                        <Notice tone="error">Allocating moves money between purses, so you need a second purse first.</Notice>
                     ) : (
-                        <form onSubmit={handleAllocate} className="space-y-2">
+                        <form onSubmit={handleAllocate} className="space-y-3">
                             <input
                                 type="number" step="0.01" value={allocateAmount}
                                 onChange={(e) => setAllocateAmount(e.target.value)} required autoFocus
-                                className="w-full bg-black/25 border border-white/10 rounded-lg py-2.5 px-3 font-mono text-sm font-semibold tabular-nums placeholder:text-parchment/25 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/40 transition-all"
+                                aria-label="This month's plan"
+                                className={cx(inputClass, 'font-mono tabular-nums')}
                                 placeholder="Set this month's plan…"
                             />
-                            <div className="flex items-center gap-2">
-                                <label className="flex min-w-0 flex-1 items-center gap-1.5">
-                                    <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-parchment/35">From</span>
-                                    <select
-                                        value={fromPurse}
-                                        onChange={(e) => setAllocateFrom(e.target.value)}
-                                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-1.5 py-2 sm:py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
-                                    >
+                            <div className="grid grid-cols-2 gap-2">
+                                <label className="flex min-w-0 flex-col gap-1.5">
+                                    <span className={labelClass}>From</span>
+                                    <select value={fromPurse} onChange={(e) => setAllocateFrom(e.target.value)} className={inputClass}>
                                         {purses.map(p => (
-                                            <option key={p.id} value={p.name}>{p.icon} {p.name}</option>
+                                            <option key={p.id} value={p.name}>{p.name}</option>
                                         ))}
                                     </select>
                                 </label>
-                                <span aria-hidden="true" className="shrink-0 text-xs text-parchment/25">→</span>
-                                <label className="flex min-w-0 flex-1 items-center gap-1.5">
-                                    <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-parchment/35">To</span>
-                                    <select
-                                        value={toPurse}
-                                        onChange={(e) => setAllocateTo(e.target.value)}
-                                        className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/25 px-1.5 py-2 sm:py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
-                                    >
+                                <label className="flex min-w-0 flex-col gap-1.5">
+                                    <span className={labelClass}>To</span>
+                                    <select value={toPurse} onChange={(e) => setAllocateTo(e.target.value)} className={inputClass}>
                                         {purses.map(p => (
-                                            <option key={p.id} value={p.name}>{p.icon} {p.name}</option>
+                                            <option key={p.id} value={p.name}>{p.name}</option>
                                         ))}
                                     </select>
                                 </label>
                             </div>
                             {fromPurse === toPurse && (
-                                <p className="text-[10px] text-[#e0a093]">
-                                    Pick two different purses — money has to actually move.
-                                </p>
+                                <p className="text-caption !text-ember">Pick two different purses — money has to actually move.</p>
                             )}
-                            {allocateError && (
-                                <p className="rounded-lg border border-ember/25 bg-ember/10 px-2.5 py-1.5 text-[10px] leading-relaxed text-[#e0a093]">
-                                    {allocateError}
-                                </p>
-                            )}
-                            <button type="submit"
+                            {allocateError && <Notice tone="error">{allocateError}</Notice>}
+                            <Button type="submit" variant="primary" className="w-full"
                                 disabled={allocateLoading || fromPurse === toPurse}
-                                data-cursor="Set this month's plan"
-                                className={`w-full px-4 py-2.5 rounded-lg text-sm font-bold text-ink bg-gradient-to-r ${config.accentGradient} hover:brightness-110 active:opacity-80 disabled:opacity-45 disabled:cursor-not-allowed transition-all`}>
+                                data-cursor="Set this month's plan">
                                 {allocateLoading ? 'Moving…' : `Move into ${toPurse || 'purse'}`}
-                            </button>
+                            </Button>
                         </form>
                     )}
                 </div>
@@ -432,7 +326,7 @@ export function SectionBudgetCard({
 
             {/* ── Add category form ── */}
             {showAddCategory && (
-                <div className="mx-5 mb-4 animate-fadeIn space-y-3">
+                <div className="space-y-4 animate-fadeIn">
                     <form onSubmit={handleAddBudget} className="space-y-2">
                         <CategorySelect
                             scope={section}
@@ -444,25 +338,24 @@ export function SectionBudgetCard({
                         />
                         <div className="flex gap-2">
                             <input type="number" step="0.01" value={newBudgetAmount} onChange={(e) => setNewBudgetAmount(e.target.value)} required
-                                className="w-full bg-black/25 border border-white/10 rounded-lg py-2.5 px-3 font-mono text-sm font-semibold tabular-nums placeholder:text-parchment/25 focus:outline-none focus:ring-2 focus:ring-gold/30 focus:border-gold/40 transition-all"
+                                aria-label="Monthly limit"
+                                className={cx(inputClass, 'font-mono tabular-nums')}
                                 placeholder="Monthly limit" />
-                            <button type="submit"
-                                data-cursor="Add the category"
-                                className={`shrink-0 px-5 py-2.5 rounded-lg text-sm font-bold text-ink bg-gradient-to-r ${config.accentGradient} hover:brightness-110 active:opacity-80 transition-all`}>
+                            <Button type="submit" variant="secondary" className="shrink-0" data-cursor="Add the category">
                                 Add
-                            </button>
+                            </Button>
                         </div>
                     </form>
                     {suggestedUnused.length > 0 && (
-                        <div>
-                            <p className="mb-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-parchment/35">Common picks</p>
-                            <div className="flex flex-wrap gap-1.5">
+                        <div className="space-y-2">
+                            <p className={labelClass}>Common picks</p>
+                            <div className="flex flex-wrap gap-2">
                                 {suggestedUnused.slice(0, 6).map(cat => (
                                     <button key={cat.label} type="button" onClick={() => handleQuickAdd(cat)}
                                         title={`${cat.label} — ${defaultBudgetAmounts[cat.label] || 100}`}
-                                        className="rounded-md border border-white/10 bg-black/20 px-2.5 py-1.5 sm:px-2 sm:py-1 text-[11px] text-parchment/70 transition-all hover:border-gold/40 hover:text-parchment active:opacity-70 flex items-center gap-1">
-                                        <span>{cat.icon}</span>
-                                        <span className="font-mono font-semibold tabular-nums">{defaultBudgetAmounts[cat.label] || 100}</span>
+                                        className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-gold/20 px-3 text-left text-xs text-parchment/75 transition-colors hover:border-gold/45 hover:text-parchment pointer-fine:min-h-9">
+                                        <span className="truncate">{cat.label}</span>
+                                        <span className="shrink-0 font-mono tabular-nums text-parchment/45">{defaultBudgetAmounts[cat.label] || 100}</span>
                                     </button>
                                 ))}
                             </div>
@@ -472,116 +365,114 @@ export function SectionBudgetCard({
             )}
 
             {/* ── Category budgets ── */}
-            <div className="px-5 pb-5 flex-1">
+            <div className="flex-1">
                 {budgets.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-white/[0.08] py-5 text-center">
-                        <p className="text-xs font-medium text-parchment/45">No categories yet</p>
-                        <p className="mt-0.5 text-[10px] text-parchment/30">Open Category above to split this plan.</p>
+                    <div className="rounded-lg border border-dashed border-gold/15 px-4 py-5 text-center">
+                        <p className="text-body text-parchment/55">No categories yet</p>
+                        <p className="mt-0.5 text-caption text-parchment/40">Open Category above to split this plan.</p>
                     </div>
                 ) : (
-                    <div className="space-y-2">
-                        <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-parchment/35">
-                            Categories · {budgets.length}
+                    <div>
+                        <p className={labelClass}>
+                            Categories · <span className="tabular-nums">{budgets.length}</span>
                         </p>
-                        {budgets.map(budget => (
-                            <div key={budget.id}>
-                                <div className="relative group">
-                                    <BudgetProgress category={budget.category} budgeted={budget.amount} spent={categorySpending[budget.category] || 0} />
-                                    <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                        <button
-                                            onClick={() => {
-                                                setQuickAddCategory(quickAddCategory === budget.category ? null : budget.category)
-                                                setQuickAddAmount('')
-                                                setQuickAddDesc('')
-                                            }}
-                                            className="w-7 h-7 sm:w-5 sm:h-5 bg-gold text-ink rounded-full text-xs leading-none flex items-center justify-center hover:bg-gold-glow transition-all shadow-md"
-                                            title="Log an expense here"
-                                        >
-                                            +
-                                        </button>
-                                        <button onClick={() => onDeleteBudget(budget.id)}
-                                            className="w-5 h-5 bg-ember text-parchment rounded-full text-xs leading-none flex items-center justify-center hover:brightness-125 transition-all shadow-md"
-                                            title="Remove category">
-                                            ×
-                                        </button>
+                        <ul className="divide-y divide-gold/10">
+                            {budgets.map(budget => (
+                                <li key={budget.id}>
+                                    <div className="group flex items-start gap-1">
+                                        <div className="min-w-0 flex-1">
+                                            <BudgetProgress category={budget.category} budgeted={budget.amount} spent={categorySpending[budget.category] || 0} />
+                                        </div>
+                                        <RowActions
+                                            className="mt-2"
+                                            label={`Actions for ${budget.category}`}
+                                            actions={[
+                                                {
+                                                    label: 'Log an expense here',
+                                                    icon: Plus,
+                                                    onSelect: () => {
+                                                        setQuickAddCategory(quickAddCategory === budget.category ? null : budget.category)
+                                                        setQuickAddAmount('')
+                                                        setQuickAddDesc('')
+                                                    },
+                                                },
+                                                { label: 'Remove category', icon: Trash2, destructive: true, onSelect: () => onDeleteBudget(budget.id) },
+                                            ]}
+                                        />
                                     </div>
                                     {onAddTransaction && quickAddCategory === budget.category && (
                                         <form onSubmit={(e) => handleQuickTransaction(e, budget.category)}
-                                            className="mt-1.5 space-y-1.5 rounded-lg border border-gold/20 bg-black/30 p-2 animate-fadeIn">
-                                            <div className="flex gap-1.5">
+                                            className="mb-3 space-y-2 rounded-lg border border-gold/20 p-3 animate-fadeIn">
+                                            <div className="flex gap-2">
                                                 <input
                                                     type="number" step="0.01" value={quickAddAmount}
                                                     onChange={(e) => setQuickAddAmount(e.target.value)}
                                                     required autoFocus
-                                                    className="w-full rounded-md border border-white/10 bg-black/25 py-1.5 pl-2.5 pr-2 font-mono text-xs font-semibold tabular-nums placeholder:text-parchment/25 focus:outline-none focus:ring-1 focus:ring-gold/40"
+                                                    aria-label="Amount"
+                                                    className={cx(inputClass, 'font-mono tabular-nums')}
                                                     placeholder="How much?"
                                                 />
                                                 <select
                                                     value={quickAddPurse}
                                                     onChange={(e) => setQuickAddPurse(e.target.value)}
-                                                    className="rounded-md border border-white/10 bg-black/25 px-1 py-1.5 text-[10px] text-parchment/70 focus:outline-none focus:ring-1 focus:ring-gold/40"
+                                                    aria-label="Purse"
+                                                    className={cx(inputClass, 'w-auto max-w-[45%]')}
                                                 >
                                                     {purses.map(p => (
-                                                        <option key={p.id} value={p.name}>{p.icon} {p.name}</option>
+                                                        <option key={p.id} value={p.name}>{p.name}</option>
                                                     ))}
                                                 </select>
                                             </div>
-                                            <div className="flex gap-1.5">
+                                            <div className="flex gap-2">
                                                 <input
                                                     type="text" value={quickAddDesc}
                                                     onChange={(e) => setQuickAddDesc(e.target.value)}
-                                                    className="flex-1 rounded-md border border-white/10 bg-black/25 py-1.5 px-2 text-[10px] placeholder:text-parchment/25 focus:outline-none focus:ring-1 focus:ring-gold/40"
+                                                    aria-label="Note"
+                                                    className={inputClass}
                                                     placeholder="Note (optional)"
                                                 />
-                                                <button
-                                                    type="submit"
-                                                    disabled={quickAddLoading || !quickAddAmount}
-                                                    className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold text-ink bg-gradient-to-r ${config.accentGradient} hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all`}>
+                                                <Button type="submit" variant="secondary" className="shrink-0" disabled={quickAddLoading || !quickAddAmount}>
                                                     {quickAddLoading ? '···' : 'Log'}
-                                                </button>
+                                                </Button>
                                             </div>
                                         </form>
                                     )}
-                                </div>
-                            </div>
-                        ))}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
             </div>
 
             {/* ── Recent expenses (expandable ledger) ── */}
             {showExpenses && (
-                <div className="border-t border-white/[0.06] bg-black/25">
+                <div className="-mx-4 -mb-4 border-t border-gold/10 sm:-mx-6 sm:-mb-6">
                     {sectionEntries.length === 0 ? (
-                        <p className="px-5 py-4 text-[11px] italic text-parchment/40">No spending logged in this section yet.</p>
+                        <p className="px-4 py-4 text-caption text-parchment/45 sm:px-6">No spending logged in this section yet.</p>
                     ) : (
-                        <div className="max-h-64 overflow-y-auto divide-y divide-white/[0.04]" data-lenis-prevent>
-                            <p className="px-5 pt-3 pb-2 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-parchment/35">
-                                Recent entries
-                            </p>
-                            {sectionEntries.slice(0, 12).map(entry => (
-                                <div key={entry.id} className="group flex items-center gap-3 px-5 py-2 transition-colors hover:bg-white/[0.02]">
-                                    <span className="w-14 shrink-0 font-mono text-[10px] tabular-nums text-parchment/45">
-                                        {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </span>
-                                    <span className="min-w-0 flex-1 truncate text-[11px] text-parchment/70">
-                                        {entry.category}
-                                        {entry.description && <span className="ml-1.5 text-[10px] text-parchment/35">· {entry.description}</span>}
-                                    </span>
-                                    <span className="shrink-0 font-mono text-[11px] font-bold tabular-nums text-[#e0a093]">
-                                        −{Number(entry.amount).toFixed(0)}
-                                    </span>
-                                    <button onClick={() => onDeleteEntry(entry.id)}
-                                        className="shrink-0 text-parchment/30 opacity-0 transition-all hover:text-[#cf8f78] group-hover:opacity-100"
-                                        title="Delete entry">
-                                        ×
-                                    </button>
-                                </div>
-                            ))}
+                        <div className="max-h-64 overflow-y-auto" data-lenis-prevent>
+                            <p className={cx(labelClass, 'px-4 pb-1 pt-3 sm:px-6')}>Recent entries</p>
+                            <ul className="divide-y divide-gold/[0.06]">
+                                {sectionEntries.slice(0, 12).map(entry => (
+                                    <li key={entry.id} className="group flex min-h-11 items-center gap-3 px-4 py-1 sm:px-6">
+                                        <span className="w-14 shrink-0 font-mono text-mono tabular-nums text-parchment/45">
+                                            {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        </span>
+                                        <span className="min-w-0 flex-1 truncate text-caption !text-parchment/75">
+                                            {entry.category}
+                                            {entry.description && <span className="ml-1.5 text-parchment/40">· {entry.description}</span>}
+                                        </span>
+                                        <span className="shrink-0 font-mono text-mono tabular-nums text-ember">
+                                            −{Number(entry.amount).toFixed(0)}
+                                        </span>
+                                        <RowAction icon={X} label="Delete entry" onClick={() => onDeleteEntry(entry.id)} />
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
                 </div>
             )}
-        </div>
+        </Panel>
     )
 }

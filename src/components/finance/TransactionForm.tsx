@@ -1,4 +1,4 @@
-﻿﻿'use client'
+'use client'
 
 import React, { useState, useEffect, useSyncExternalStore } from 'react'
 import { format } from 'date-fns'
@@ -6,6 +6,16 @@ import { SECTION_CATEGORIES, INCOME_CATEGORIES, BudgetCategoryOption } from './b
 import { CategorySelect } from './CategorySelect'
 import type { CustomCategoryScope } from './customCategories'
 import { useCountdown } from '@/lib/useCountdown'
+import { RotateCcw } from 'lucide-react'
+import { Button, Field, Panel, Segmented, cx, inputClass } from '@/components/ds'
+import { Notice, labelClass } from './ui'
+
+const SECTION_OPTIONS: { value: CustomCategoryScope; label: string }[] = [
+  { value: 'Need', label: 'Need' },
+  { value: 'Want', label: 'Want' },
+  { value: 'Offerings', label: 'Offerings' },
+  { value: 'Savings', label: 'Savings' },
+]
 
 interface Purse {
   id: string
@@ -131,207 +141,162 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
     }
   }
 
-  const getPurseIcon = (name: string) => {
-    const p = purses.find(p => p.name === name)
-    return p?.icon || '👜'
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-surface-solid p-4 rounded-xl border border-white/10">
-      {error && (
-        <div className="p-3 bg-ember/10 dark:bg-ember/20 border border-ember/30 dark:border-ember/40 rounded-lg text-xs text-[#cf8f78] dark:text-[#cf8f78]">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="p-3 bg-moss/10 dark:bg-moss/20 border border-moss/30 dark:border-moss/40 rounded-lg text-xs text-[#7fa871] dark:text-[#7fa871]">
-          Transaction added successfully!
-        </div>
-      )}
+    <Panel>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error && <Notice tone="error">{error}</Notice>}
+        {success && <Notice tone="success">Transaction added successfully!</Notice>}
 
-      {/* Type Toggle */}
-      <div className="flex gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => {
-            setType('expense')
-            // Restore the previously selected expense purse if any
-            if (lastExpensePurse) setPurse(lastExpensePurse)
+        {/* Type toggle */}
+        <Segmented
+          ariaLabel="Transaction type"
+          value={type}
+          onChange={(next) => {
+            if (next === 'expense') {
+              setType('expense')
+              // Restore the previously selected expense purse if any
+              if (lastExpensePurse) setPurse(lastExpensePurse)
+            } else {
+              // Remember the current purse before forcing Main
+              if (purse && purse !== 'Main') setLastExpensePurse(purse)
+              setType('income')
+              setPurse('Main')
+            }
           }}
-          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'expense' ? 'bg-ember/15 text-[#cf8f78] ring-2 ring-ember/40' : 'bg-black/20 text-parchment/50'}`}
-        >
-          💸 Expense (Debit)
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            // Remember the current purse before forcing Main
-            if (purse && purse !== 'Main') setLastExpensePurse(purse)
-            setType('income')
-            setPurse('Main')
-          }}
-          className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${type === 'income' ? 'bg-moss/15 text-[#7fa871] ring-2 ring-moss/40' : 'bg-black/20 text-parchment/50'}`}
-        >
-          📥 Income (Credit)
-        </button>
-      </div>
-
-      {/* Date — today by default and follows the calendar as the day rolls
-          over, until you pick a day of your own. */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="block text-xs text-parchment/50">Date</label>
-          {/* Only after hydration — the server has no idea what "today" means
-              for this visitor, so rendering it during SSR would just flash. */}
-          {mounted && (userDate === '' ? (
-            <span className="text-xs text-parchment/30">today</span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setUserDate('')}
-              className="text-xs text-gold transition-colors hover:text-gold-glow"
-            >
-              ↺ Back to today
-            </button>
-          ))}
-        </div>
-        <input
-          type="date"
-          value={entryDate}
-          onChange={(e) => {
-            const next = e.target.value
-            // Choosing today again re-arms "follow the day", so the field keeps
-            // tracking the calendar instead of freezing on a date that merely
-            // happens to be today. Clearing the field falls back to today too.
-            setUserDate(next === today ? '' : next)
-          }}
-          required
-          className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
+          options={[
+            { value: 'expense', label: 'Expense (debit)' },
+            { value: 'income', label: 'Income (credit)' },
+          ]}
+          className="w-full border-b border-gold/15"
         />
-      </div>
 
-      {/* Amount */}
-      <div>
-        <label className="block text-xs text-parchment/50 mb-1">Amount</label>
-        <div className="relative">
-          <span className="absolute left-3 top-2.5 text-parchment/40">₦</span>
-          <input
-            type="number"
-            step="0.01"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            required
-            className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-7 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
-            placeholder="0.00"
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Date — today by default and follows the calendar as the day rolls
+              over, until you pick a day of your own. */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex min-h-[15px] items-center justify-between gap-2">
+              <label htmlFor="tx-date" className={labelClass}>Date</label>
+              {/* Only after hydration — the server has no idea what "today" means
+                  for this visitor, so rendering it during SSR would just flash. */}
+              {mounted && (userDate === '' ? (
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/35">today</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setUserDate('')}
+                  className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-gold transition-colors hover:text-gold-glow"
+                >
+                  <RotateCcw className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" /> Back to today
+                </button>
+              ))}
+            </div>
+            <input
+              id="tx-date"
+              type="date"
+              value={entryDate}
+              onChange={(e) => {
+                const next = e.target.value
+                // Choosing today again re-arms "follow the day", so the field keeps
+                // tracking the calendar instead of freezing on a date that merely
+                // happens to be today. Clearing the field falls back to today too.
+                setUserDate(next === today ? '' : next)
+              }}
+              required
+              className={inputClass}
+            />
+          </div>
+
+          <Field label="Amount">
+            <div className="relative">
+              <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-parchment/40">₦</span>
+              <input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+                className={cx(inputClass, 'pl-7 font-mono tabular-nums')}
+                placeholder="0.00"
+              />
+            </div>
+          </Field>
+        </div>
+
+        {/* Section selector for expenses */}
+        {type === 'expense' && (
+          <div className="flex flex-col gap-1.5">
+            <span className={labelClass}>Section (budget category)</span>
+            <Segmented
+              ariaLabel="Section"
+              value={section}
+              onChange={(next) => setSection(next as CustomCategoryScope)}
+              options={SECTION_OPTIONS}
+              className="w-full border-b border-gold/15"
+            />
+          </div>
+        )}
+
+        {/* Category — the standard dropdown, with "Others…" for custom names */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="tx-category" className={labelClass}>Category</label>
+          <CategorySelect
+            id="tx-category"
+            scope={type === 'expense' ? section : 'Income'}
+            value={category}
+            onChange={setCategory}
+            options={categorySuggestions}
+            placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe…' : 'e.g. Salary, Freelance…'}
           />
         </div>
-      </div>
 
-      {/* Category — the standard dropdown, with "Others…" for custom names */}
-      <div>
-        <label className="block text-xs text-parchment/50 mb-1">Category</label>
-        <CategorySelect
-          scope={type === 'expense' ? section : 'Income'}
-          value={category}
-          onChange={setCategory}
-          options={categorySuggestions}
-          placeholder={type === 'expense' ? 'e.g. Groceries, Rent, Tithe…' : 'e.g. Salary, Freelance…'}
-        />
-      </div>
+        <Field label="Description">
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className={inputClass}
+            placeholder="What was this for?"
+          />
+        </Field>
 
-      {/* Description */}
-      <div>
-        <label className="block text-xs text-parchment/50 mb-1">Description</label>
-        <input
-          type="text"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
-          placeholder="What was this for?"
-        />
-      </div>
+        <Field label="Comments (optional)">
+          <textarea
+            value={comments}
+            onChange={(e) => setComments(e.target.value)}
+            rows={2}
+            className={cx(inputClass, 'resize-none py-2.5')}
+            placeholder="Any notes about this transaction..."
+          />
+        </Field>
 
-      {/* Comments */}
-      <div>
-        <label className="block text-xs text-parchment/50 mb-1">Comments (Optional)</label>
-        <textarea
-          value={comments}
-          onChange={(e) => setComments(e.target.value)}
-          rows={2}
-          className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 resize-none"
-          placeholder="Any notes about this transaction..."
-        />
-      </div>
-
-      {/* Purse selector */}
-      <div>
-        <label className="block text-xs text-parchment/50 mb-1">
-          Purse {type === 'income' && <span className="text-parchment/40">(income always goes to Main)</span>}
-        </label>
-        <select
-          value={effectivePurse}
-          onChange={(e) => setPurse(e.target.value)}
-          disabled={type === 'income'}
-          className={`w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30 ${type === 'income' ? 'opacity-60 cursor-not-allowed' : ''}`}
+        <Field
+          label={<>Purse {type === 'income' && <span className="normal-case tracking-normal text-parchment/40">(income always goes to Main)</span>}</>}
+          hint={type === 'income' ? 'All income is deposited into the Main purse. Use transfers to move funds to other purses.' : undefined}
         >
-          {purses.map(p => (
-            <option key={p.id} value={p.name}>
-              {p.icon} {p.name}
-            </option>
-          ))}
-        </select>
-        {type === 'income' && (
-          <p className="text-xs text-parchment/40 mt-1">
-            All income is deposited into the 👜 Main purse. Use transfers to move funds to other purses.
-          </p>
-        )}
-      </div>
+          <select
+            value={effectivePurse}
+            onChange={(e) => setPurse(e.target.value)}
+            disabled={type === 'income'}
+            className={cx(inputClass, type === 'income' && 'cursor-not-allowed opacity-60')}
+          >
+            {purses.map(p => (
+              <option key={p.id} value={p.name}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </Field>
 
-      {/* Section selector for expenses */}
-      {type === 'expense' && (
-        <div>
-          <label className="block text-xs text-parchment/50 mb-1">Section (Budget Category)</label>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => setSection('Need')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Need' ? 'bg-[#B8935A]/15 text-[#B8935A] ring-2 ring-[#B8935A]/40' : 'bg-black/20 text-parchment/50'}`}
-            >
-              💪 Need
-            </button>
-            <button
-              type="button"
-              onClick={() => setSection('Want')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Want' ? 'bg-[#CF8F78]/15 text-[#CF8F78] ring-2 ring-[#CF8F78]/40' : 'bg-black/20 text-parchment/50'}`}
-            >
-              🌟 Want
-            </button>
-            <button
-              type="button"
-              onClick={() => setSection('Offerings')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Offerings' ? 'bg-[#7FA871]/15 text-[#7FA871] ring-2 ring-[#7FA871]/40' : 'bg-black/20 text-parchment/50'}`}
-            >
-              🙏 Offerings
-            </button>
-            <button
-              type="button"
-              onClick={() => setSection('Savings')}
-              className={`flex-1 py-2 text-sm rounded-lg font-medium transition-colors ${section === 'Savings' ? 'bg-[#8FA3BF]/15 text-[#8FA3BF] ring-2 ring-[#8FA3BF]/40' : 'bg-black/20 text-parchment/50'}`}
-            >
-              🏦 Savings
-            </button>
-          </div>
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={loading}
-        data-cursor="Log it in the purse"
-        className="w-full bg-gold text-ink hover:bg-gold-glow font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
-      >
-        {loading ? 'Adding...' : `Add to ${getPurseIcon(effectivePurse)} ${effectivePurse || 'Purse'}`}
-      </button>
-    </form>
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={loading}
+          data-cursor="Log it in the purse"
+          className="w-full"
+        >
+          {loading ? 'Adding...' : `Add to ${effectivePurse || 'Purse'}`}
+        </Button>
+      </form>
+    </Panel>
   )
 }

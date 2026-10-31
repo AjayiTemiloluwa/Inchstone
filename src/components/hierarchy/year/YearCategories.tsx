@@ -1,19 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, Edit3, Lock, Plus, RotateCcw, Unlock, X } from 'lucide-react'
-import { Card } from '@/components/ui/Card'
-import { ProgressBar } from '@/components/ui/ProgressBar'
-import { Scramble } from '@/components/ui/motion'
+import { ChevronDown, Edit3, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { Badge, Button, EmptyState, IconButton, Panel, RowActions, Section, cx, inputClass } from '@/components/ds'
 import { CategoryEditModal } from '@/components/ui/CategoryEditModal'
 import { useToast } from '@/components/ui/ToastProvider'
 import { useVoiceLine } from '@/lib/voice/use-voice-line'
 import { yearOf } from '@/lib/useActiveYear'
 import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
-import { DeleteItemButton } from '../DeleteItemButton'
+import { useDeleteItem } from '../DeleteItemButton'
 import { createYearlyGoalWithQuarters } from '../createGoal'
 import { equalWeight } from '../itemTree'
+import { LockToggle, Meter, Percent } from '../primitives'
 import { useWeightBalancer } from '../useWeightBalancer'
+import { WeightSlider } from '../WeightScoreInputs'
 import { YearGoalCard } from './YearGoalCard'
 
 interface YearCategoriesProps {
@@ -105,37 +105,30 @@ export function YearCategories({ yearItem, categories, yearlyGoals, completionMa
   }
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-        <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink flex items-center gap-2 sm:gap-3">
-          <Scramble text="Categories & Goals" mono={false} />
-          <span className="text-[10px] sm:text-xs font-mono font-normal bg-white/10 px-2 py-0.5 sm:py-1 rounded-full text-ink/60">{categories.length}</span>
-        </h2>
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          <button type="button" onClick={() => setAddingCategory(!addingCategory)} data-cursor="Add a life category"
-            className="flex items-center space-x-1.5 text-xs sm:text-sm text-ink/50 hover:text-gold active:opacity-70 transition min-h-[40px] px-3 py-2 rounded-lg hover:bg-white/5">
-            {addingCategory ? <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-            <span>{addingCategory ? 'Cancel' : 'Add Category'}</span>
-          </button>
-          <button type="button" onClick={balancer.resetWeights} data-cursor="Spread the weights evenly" aria-label="Reset weights equal"
-            className="flex items-center space-x-1.5 text-xs sm:text-sm text-gold hover:text-gold/80 active:opacity-70 transition min-h-[40px] px-3 py-2 rounded-lg hover:bg-gold/5">
-            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Reset Equal</span>
-          </button>
-        </div>
-      </div>
-
+    <Section title="Categories & goals" id="year-categories"
+      action={
+        <>
+          <Badge>{categories.length}</Badge>
+          <Button size="sm" variant="ghost" icon={RotateCcw} onClick={balancer.resetWeights} data-cursor="Spread the weights evenly" aria-label="Reset weights equal">
+            <span className="hidden sm:inline">Reset equal</span>
+          </Button>
+          <Button size="sm" variant="secondary" icon={addingCategory ? X : Plus} onClick={() => setAddingCategory(!addingCategory)} data-cursor="Add a life category">
+            {addingCategory ? 'Cancel' : 'Add category'}
+          </Button>
+        </>
+      }>
       {addingCategory && (
-        <div className="flex items-stretch space-x-2 mb-4 sm:mb-6 animate-fadeIn">
-          <input type="text" value={newCategoryTitle} onChange={e => setNewCategoryTitle(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAddCategory()} placeholder="New category..." autoFocus
-            className="flex-1 min-w-0 px-4 py-3 text-sm bg-white/[0.04] border border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/40 transition-all placeholder:text-ink/30 min-h-[44px]" />
-          <button type="button" onClick={handleAddCategory}
-            className="py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70 min-h-[44px] px-6">Add</button>
-        </div>
+        <Panel className="mb-4 animate-fadeIn">
+          <div className="flex items-stretch gap-2">
+            <input type="text" value={newCategoryTitle} onChange={e => setNewCategoryTitle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddCategory()} placeholder="New category..." autoFocus aria-label="New category name"
+              className={cx(inputClass, 'flex-1 min-w-0')} />
+            <Button variant="primary" onClick={handleAddCategory}>Add</Button>
+          </div>
+        </Panel>
       )}
 
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-3">
         {categories.map(category => {
           const w = balancer.weightOf(category)
           const isLocked = balancer.locked[category.id] || false
@@ -145,98 +138,97 @@ export function YearCategories({ yearItem, categories, yearlyGoals, completionMa
           const goalWeightSum = categoryGoals.reduce((s, g) => s + (g.weight || 0), 0)
 
           return (
-            <Card key={category.id} className="p-4 sm:p-5 space-y-3 sm:space-y-4 active:opacity-70 transition-transform">
-              <div className="space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <button type="button" aria-expanded={isOpen}
-                    onClick={() => { setOpenCategoryId(isOpen ? null : category.id); setOpenItemId(null) }}
-                    className="flex items-center gap-2.5 min-w-0 flex-1 text-left min-h-[44px] rounded-lg px-1 hover:bg-mist/50 transition">
-                    <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 text-gold' : 'text-ink/40'}`} />
-                    <span className="min-w-0">
-                      <span className="block text-lg font-bold text-ink truncate">{category.title}</span>
-                      {category.description && <span className="block text-xs text-ink/60 truncate">{category.description}</span>}
-                    </span>
-                  </button>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(w)}%</span>
-                    <span className="text-sm font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-ink/80">{Math.round(catScore)}%</span>
-                  </div>
+            <Panel key={category.id} padded={false}>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-4 sm:px-6">
+                <button type="button" aria-expanded={isOpen}
+                  onClick={() => { setOpenCategoryId(isOpen ? null : category.id); setOpenItemId(null) }}
+                  className="-mx-2 flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-gold/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40">
+                  <ChevronDown aria-hidden="true" strokeWidth={1.75}
+                    className={cx('h-4 w-4 shrink-0 transition-transform duration-200', isOpen ? 'rotate-180 text-gold' : 'text-parchment/40')} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-heading text-parchment">{category.title}</span>
+                    {category.description && <span className="block truncate text-caption text-parchment/50">{category.description}</span>}
+                  </span>
+                </button>
+                <div className="flex shrink-0 items-center gap-5">
+                  <span className="flex flex-col items-end">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/40">Weight</span>
+                    <Percent value={w} className="text-sm text-gold" />
+                  </span>
+                  <span className="flex flex-col items-end">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/40">Score</span>
+                    <Percent value={catScore} className="text-sm text-parchment" />
+                  </span>
                 </div>
-                <ProgressBar progress={catScore} colorClass="bg-sage" />
+                <Meter value={catScore} className="basis-full" />
               </div>
 
               {isOpen && (
-                <div className="space-y-3 sm:space-y-4 animate-fadeIn">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center space-x-1">
-                      <button type="button" onClick={() => balancer.toggleLock(category.id)} aria-pressed={isLocked}
-                        className="p-1 hover:bg-mist rounded transition min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0"
-                        title={isLocked ? 'Unlock weight' : 'Lock weight'} aria-label={isLocked ? 'Unlock weight' : 'Lock weight'}>
-                        {isLocked ? <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gold" /> : <Unlock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-ink/30" />}
-                      </button>
-                      <button type="button" onClick={() => setEditingCategoryId(category.id)} title="Edit category" aria-label="Edit category"
-                        className="p-1.5 hover:bg-mist rounded-lg transition text-ink/30 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center shrink-0">
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
+                <div className="space-y-5 border-t border-gold/10 p-4 animate-fadeIn sm:px-6 sm:pb-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-1">
+                      <LockToggle locked={isLocked} onToggle={() => balancer.toggleLock(category.id)} />
+                      <CategoryActions categoryId={category.id} onEdit={() => setEditingCategoryId(category.id)} onDeleted={handleDeleted} />
                     </div>
-                    <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-                      <label className="flex items-center space-x-1">
-                        <span className="text-[10px] font-bold text-ink/50 uppercase tracking-wider">Score:</span>
-                        <input type="number" min="0" max="100" value={Math.round(catScore)}
-                          onChange={e => { void updateItemScoreMode(category.id, 'manual', parseFloat(e.target.value) || 0) }}
-                          className="w-14 px-1 py-1.5 sm:py-0.5 text-[11px] font-mono bg-white/[0.06] rounded border border-transparent hover:border-white/20 focus:bg-white/[0.1] focus:border-gold outline-none transition-colors" />
-                        <span className="text-[9px] text-ink/50">%</span>
-                      </label>
-                      <DeleteItemButton itemId={category.id} title="Delete Category" onDeleted={handleDeleted} variant="inline" />
-                    </div>
+                    <label className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/45">Score</span>
+                      <input type="number" min="0" max="100" value={Math.round(catScore)}
+                        onChange={e => { void updateItemScoreMode(category.id, 'manual', parseFloat(e.target.value) || 0) }}
+                        className="h-9 w-16 rounded-lg border border-gold/20 bg-ink/40 px-2 text-right font-mono text-sm tabular-nums text-parchment focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20" />
+                      <span className="font-mono text-[11px] text-parchment/45">%</span>
+                    </label>
                   </div>
-                  <input type="range" min={0} max={100} step={1} value={w} aria-label={`${category.title} weight`}
-                    onChange={e => balancer.changeWeight(category.id, parseFloat(e.target.value))}
-                    className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold touch-manipulation" />
+                  <WeightSlider label={`${category.title} weight`} value={w} onChange={v => balancer.changeWeight(category.id, v)} />
 
-                  <div className="space-y-3 pt-2 border-t border-mist">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase text-ink/50">Goals</span>
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-[10px] font-mono ${Math.round(goalWeightSum) === 100 ? 'text-sage' : 'text-[#cf8f78]'}`}>
-                          Total: {Math.round(goalWeightSum)}%
-                        </span>
-                        <button type="button" onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} data-cursor="Set an annual goal"
-                          aria-label={addingGoal === category.id ? 'Cancel adding goal' : 'Add goal'}
-                          className="p-2 hover:bg-mist rounded-lg active:opacity-70 transition text-ink/50 hover:text-gold min-w-[36px] min-h-[36px] flex items-center justify-center">
-                          {addingGoal === category.id ? <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                        </button>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">Goals</span>
+                      <div className="flex items-center gap-2">
+                        <Badge tone={Math.round(goalWeightSum) === 100 ? 'moss' : 'ember'}>Total {Math.round(goalWeightSum)}%</Badge>
+                        <IconButton icon={addingGoal === category.id ? X : Plus} data-cursor="Set an annual goal"
+                          label={addingGoal === category.id ? 'Cancel adding goal' : 'Add goal'}
+                          onClick={() => setAddingGoal(addingGoal === category.id ? null : category.id)} />
                       </div>
                     </div>
 
                     {addingGoal === category.id && (
-                      <div className="flex items-stretch space-x-2 animate-fadeIn mb-3">
+                      <div className="flex items-stretch gap-2 animate-fadeIn">
                         <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)} placeholder="New annual goal..." autoFocus
-                          className="flex-1 min-w-0 px-4 py-3 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 transition-all min-h-[44px]" />
-                        <button type="button" onClick={() => handleAddGoal(category.id)}
-                          className="py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70 min-h-[44px] px-6">Add</button>
+                          onKeyDown={e => e.key === 'Enter' && handleAddGoal(category.id)} placeholder="New annual goal..." autoFocus aria-label="New goal title"
+                          className={cx(inputClass, 'flex-1 min-w-0')} />
+                        <Button variant="primary" onClick={() => handleAddGoal(category.id)}>Add</Button>
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {categoryGoals.map(goal => (
                         <YearGoalCard key={goal.id} goal={goal} score={completionMap[goal.id] || 0}
                           open={openItemId === goal.id} onToggle={() => setOpenItemId(openItemId === goal.id ? null : goal.id)}
                           onDeleted={handleDeleted} />
                       ))}
                     </div>
-                    {categoryGoals.length === 0 && !addingGoal && <p className="text-xs text-ink/40 italic">{emptyGoals}</p>}
+                    {categoryGoals.length === 0 && !addingGoal && <p className="text-caption text-parchment/45">{emptyGoals}</p>}
                   </div>
                 </div>
               )}
-            </Card>
+            </Panel>
           )
         })}
-        {categories.length === 0 && <p className="text-sm text-ink/50">No categories. Seed the framework first.</p>}
+        {categories.length === 0 && <EmptyState title="No categories yet" body="Seed the framework first." />}
       </div>
 
       <CategoryEditModal categoryId={editingCategoryId} onClose={() => setEditingCategoryId(null)} />
-    </div>
+    </Section>
+  )
+}
+
+/** Edit / delete for one category, in the spec C row menu (always visible: the row is already open). */
+function CategoryActions({ categoryId, onEdit, onDeleted }: { categoryId: string; onEdit: () => void; onDeleted: (id: string) => void | Promise<void> }) {
+  const remove = useDeleteItem({ itemId: categoryId, onDeleted })
+  return (
+    <RowActions label="Category actions" className="[&>button]:opacity-100" actions={[
+      { label: 'Edit category', icon: Edit3, onSelect: onEdit },
+      { label: 'Delete Category', icon: Trash2, destructive: true, onSelect: () => { void remove() } },
+    ]} />
   )
 }

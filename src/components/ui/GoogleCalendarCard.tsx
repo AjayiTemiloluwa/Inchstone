@@ -291,7 +291,7 @@ export function GoogleCalendarCard() {
               onClick={disconnect}
               disabled={busy}
               data-cursor="Unlink your calendar"
-              className="rounded-md border border-ember/40 px-3 py-1.5 text-sm text-[#cf8f78] hover:bg-ember/15 transition-colors disabled:opacity-50"
+              className="rounded-md border border-ember/40 px-3 py-1.5 text-sm text-ember hover:bg-ember/15 transition-colors disabled:opacity-50"
             >
               Disconnect
             </button>

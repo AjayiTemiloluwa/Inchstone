@@ -4,13 +4,11 @@ import { useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { addMonths } from 'date-fns'
 import { useHierarchyStore } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
-import { ProgressRing } from '@/components/ui/ProgressRing'
+import { EmptyState, Page, Section } from '@/components/ds'
 import { useToast } from '@/components/ui/ToastProvider'
 import { Loader } from '@/components/ui/Loader'
 import { useVoiceLine } from '@/lib/voice/use-voice-line'
 import { useActiveYear } from '@/lib/useActiveYear'
-import { Breadcrumbs } from '@/components/hierarchy/Breadcrumbs'
 import { PeriodHero } from '@/components/hierarchy/PeriodHero'
 import { PeriodReflection } from '@/components/hierarchy/PeriodReflection'
 import { CategoryGoalsList, type CategoryRow } from '@/components/hierarchy/CategoryGoalsList'
@@ -18,6 +16,7 @@ import { useItemTree } from '@/components/hierarchy/useItemTree'
 import { downloadCategoryReport } from '@/components/hierarchy/exportReport'
 import { createYearlyGoalWithQuarters } from '@/components/hierarchy/createGoal'
 import { equalWeight } from '@/components/hierarchy/itemTree'
+import { PeriodGrid, PeriodTile } from '@/components/hierarchy/primitives'
 
 const QUARTER_MONTH_NAMES: Record<string, string[]> = {
   Q1: ['January', 'February', 'March'],
@@ -97,7 +96,9 @@ export default function YearQuarterPage() {
     : 0
 
   if (loading) return <Loader label="Firing up the quarter…" routeKey="year-quarter" />
-  if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
+  if (categories.length === 0) return (
+    <Page width="narrow" className="pt-8"><EmptyState title="No categories found" body="Seed the framework first." /></Page>
+  )
 
   const rows: CategoryRow[] = categories.map(category => {
     const catYearlyGoals = yearlyGoals.filter(g => g.parentId === category.id)
@@ -115,41 +116,30 @@ export default function YearQuarterPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 pb-12 stagger-children" id="report-content">
-      <Breadcrumbs crumbs={[{ label: 'Year', href: '/year' }, { label: quarterLabel }]} />
+    <div id="report-content">
+      <Page width="wide">
+        <PeriodHero crumbs={[{ label: 'Year', href: '/year' }, { label: quarterLabel }]} eyebrow="Quarter"
+          title={`${quarterLabel} Overview`} subtitle={`Showing all goals across your Yearly Categories for ${quarterLabel}`}
+          score={avgScore} scoreCaption={`across ${matchingQuarters.length} goals`} onDownloadReport={handleDownloadReport} />
 
-      <PeriodHero title={`${quarterLabel} Overview`} subtitle={`Showing all goals across your Yearly Categories for ${quarterLabel}`}
-        score={avgScore} onDownloadReport={handleDownloadReport} />
+        <Section title="Months" id="quarter-months">
+          <PeriodGrid cols={3}>
+            {monthGroups.map(({ label, items: mItems, avgScore: mAvg }) => (
+              <PeriodTile key={label} label={label} score={mAvg} caption={`${mItems.length} active goals`}
+                onOpen={() => router.push(`/year/${quarterLabel}/${label}`)} />
+            ))}
+          </PeriodGrid>
+        </Section>
 
-      <CategoryGoalsList rows={rows} completionMap={completionMap} heading="Categories & Goals" goalsLabel="Goals" quarterMode
-        weightLabel="Weight (in Year)" emptyText={emptyGoals} hrefFor={item => `/quarter/${item.id}`}
-        onAddGoal={handleAddGoal} onDeleted={async () => { await fetchItems() }} />
+        <CategoryGoalsList rows={rows} completionMap={completionMap} heading="Categories & goals" goalsLabel="Goals" quarterMode
+          weightLabel="Weight (in Year)" emptyText={emptyGoals} hrefFor={item => `/quarter/${item.id}`}
+          onAddGoal={handleAddGoal} onDeleted={async () => { await fetchItems() }} />
 
-      <PeriodReflection key={matchingQuarters[0]?.id ?? 'none'} label={quarterLabel} timePeriod="quarter"
-        itemId={matchingQuarters[0]?.id || null} initialText={matchingQuarters[0]?.reflection}
-        periodKey={matchingQuarters[0]?.id || quarterLabel}
-        placeholder={`Reflect on ${quarterLabel} so far... What's working? What needs to change?`} />
-
-      <div>
-        <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink mb-6">Months</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {monthGroups.map(({ label, items: mItems, avgScore: mAvg }) => (
-            <Card key={label} className="p-5 transition-colors group hover:border-gold cursor-pointer"
-              onClick={() => router.push(`/year/${quarterLabel}/${label}`)}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{label}</p>
-              </div>
-              <div className="flex items-end justify-between">
-                <ProgressRing progress={mAvg} size={48} />
-                <div className="text-right">
-                  <p className="text-xl font-mono font-bold">{Math.round(mAvg)}%</p>
-                  <p className="text-[10px] text-ink/40">{mItems.length} active goals</p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
+        <PeriodReflection key={matchingQuarters[0]?.id ?? 'none'} label={quarterLabel} timePeriod="quarter"
+          itemId={matchingQuarters[0]?.id || null} initialText={matchingQuarters[0]?.reflection}
+          periodKey={matchingQuarters[0]?.id || quarterLabel}
+          placeholder={`Reflect on ${quarterLabel} so far... What's working? What needs to change?`} />
+      </Page>
     </div>
   )
 }

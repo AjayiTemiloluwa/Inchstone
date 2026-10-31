@@ -1211,7 +1211,7 @@ input[type="number"] {
 .text-h1 { font-family: var(--font-playfair), serif; font-size: var(--text-h1); line-height: 1.1; font-weight: 700; }
 .text-heading { font-size: var(--text-heading); font-weight: 600; line-height: 1.25; }
 .text-body { font-size: var(--text-body); line-height: 1.5; }
-.text-caption { font-size: var(--text-caption); line-height: 1.4; color: rgba(243, 239, 230, 0.6); }
+.text-caption { font-size: var(--text-caption); line-height: 1.4; color: rgb(var(--parchment-rgb) / 0.6); }
 .text-mono { font-size: var(--text-mono); }
 
 /* Text-wrap niceties (standard-but-progressive: older browsers ignore). */

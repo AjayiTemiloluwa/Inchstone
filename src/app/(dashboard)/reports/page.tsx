@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Card } from '@/components/ui/Card'
 import { Loader } from '@/components/ui/Loader'
 import {
     ChevronLeft, ChevronRight, Download, Search,
@@ -10,12 +9,15 @@ import { format, parseISO, addMonths, addWeeks, addQuarters, addYears, addDays }
 import jsPDF from 'jspdf'
 import { Scramble } from '@/components/ui/motion'
 import type { Report, ReportTask, ReportType } from '@/lib/reports/types'
-import { ScoreBarChart, CompletionDonut, BreakdownBars } from '@/components/reports/charts'
+import { ScoreBarChart, CompletionDonut, BreakdownBars, scoreColor } from '@/components/reports/charts'
 import {
     DEFAULT_FILTERS, DEFAULT_SORT, filterDayTasks, dayVisible, sortDays,
     type TaskFilters, type TaskSort,
 } from '@/lib/reports/selectors'
-import { FilterPanel, Stat, DayHeader, PERIOD_OPTIONS } from '@/components/reports/panel'
+import { FilterPanel, DayHeader, ChartPanel, PERIOD_OPTIONS, monoLabel, selectClass } from '@/components/reports/panel'
+import {
+    Page, PageHeader, Section, Panel, StatGrid, Stat, EmptyState, Field, Button, IconButton, Segmented, inputClass, cx,
+} from '@/components/ds'
 
 function fmtDate(iso: string) {
     return format(parseISO(iso), 'MMM d, yyyy')
@@ -251,227 +253,239 @@ export default function ReportsPage() {
 
     const clearFilters = () => setFilters(DEFAULT_FILTERS)
 
+    const legend = [
+        { label: '100%', color: scoreColor(100, true) },
+        { label: '40–99%', color: scoreColor(40, true) },
+        { label: 'under 40%', color: scoreColor(0, true) },
+        { label: 'inactive', color: scoreColor(0, false) },
+    ]
+
     return (
-        <div className="mx-auto max-w-[1100px] space-y-6 pb-24">
-            {/* Header */}
-            <div className="flex flex-wrap items-end justify-between gap-4">
-                <div className="min-w-0">
-                    <h1 className="text-h1 text-parchment"><Scramble text="Reports" mono={false} /></h1>
-                    <p className="mt-1 font-mono text-xs text-parchment/50">Customisable activity reports — charts, filters & time ranges</p>
-                </div>
-                {report && (
-                    <button onClick={downloadPDF}
-                        data-cursor="Save it as a PDF"
-                        className="flex items-center gap-2 rounded-md border hairline px-4 py-3 sm:py-2.5 text-sm text-parchment transition-colors hover:border-gold">
-                        <Download className="h-4 w-4" strokeWidth={1.5} />
-                        <span>Download PDF</span>
-                    </button>
-                )}
-            </div>
+        <Page width="wide" className="pb-24">
+            {/* Header: title + period selector + time navigation, read as one block */}
+            <div className="space-y-6">
+                <PageHeader
+                    eyebrow={report ? `${fmtDate(report.period.start)} → ${fmtDate(report.period.end)}` : 'Activity'}
+                    title={<Scramble text="Reports" mono={false} />}
+                    description="Customisable activity reports: charts, filters and time ranges."
+                    actions={report && (
+                        <Button variant="secondary" icon={Download} onClick={downloadPDF} data-cursor="Save it as a PDF">
+                            Download PDF
+                        </Button>
+                    )}
+                />
 
-            {/* Controls: period + time navigation */}
-            <Card className="p-4 sm:p-5">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                    <div className="inline-flex max-w-full flex-wrap items-center rounded-md border hairline p-0.5">
-                        {PERIOD_OPTIONS.map(opt => (
-                            <button key={opt.value} type="button"
-                                onClick={() => handleTypeChange(opt.value)}
-                                className={`whitespace-nowrap rounded px-3 py-2 sm:py-1.5 text-xs transition-colors ${
-                                    reportType === opt.value ? 'bg-gold/15 text-gold' : 'text-parchment/55 hover:text-parchment'
-                                }`}>
-                                {opt.label}
-                            </button>
-                        ))}
-                    </div>
-
+                <div className="flex flex-col gap-2 border-b border-gold/15 sm:flex-row sm:items-center sm:justify-between">
+                    <Segmented
+                        options={PERIOD_OPTIONS}
+                        value={reportType}
+                        onChange={handleTypeChange}
+                        ariaLabel="Report period"
+                    />
                     {reportType !== 'custom' && (
-                        <div className="flex items-center gap-1 text-parchment/70">
-                            <button onClick={() => go(-1)} aria-label="Previous period"
-                                className="rounded p-2.5 sm:p-1.5 hover:text-parchment"><ChevronLeft className="h-4 w-4" /></button>
-                            <button onClick={goToday}
-                                className="rounded border-hairline px-3 py-2.5 sm:py-1.5 text-xs text-parchment/70 hover:text-parchment">Today</button>
-                            <button onClick={() => go(1)} aria-label="Next period"
-                                className="rounded p-2.5 sm:p-1.5 hover:text-parchment"><ChevronRight className="h-4 w-4" /></button>
+                        <div className="flex items-center gap-1 pb-2 sm:pb-0">
+                            <IconButton icon={ChevronLeft} label="Previous period" onClick={() => go(-1)} />
+                            <Button variant="ghost" size="sm" onClick={goToday} className="min-h-11 pointer-fine:min-h-9">Today</Button>
+                            <IconButton icon={ChevronRight} label="Next period" onClick={() => go(1)} />
                         </div>
                     )}
                 </div>
 
                 {reportType === 'custom' && (
-                    <div className="mt-3 flex flex-wrap items-end gap-3 border-t hairline-top pt-3">
-                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-parchment/45">
-                            Start
-                            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-                                className="rounded-md border border-gold-dim/25 bg-ink px-2 py-2.5 sm:py-1.5 font-mono text-xs text-parchment" />
-                        </label>
-                        <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-parchment/45">
-                            End
-                            <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-                                className="rounded-md border border-gold-dim/25 bg-ink px-2 py-2.5 sm:py-1.5 font-mono text-xs text-parchment" />
-                        </label>
-                        <button onClick={applyCustom}
-                            className="rounded-md bg-gold px-4 py-2.5 sm:py-1.5 text-xs font-semibold text-ink">Apply range</button>
-                    </div>
+                    <Panel>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                            <Field label="Start">
+                                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                                    className={cx(inputClass, 'font-mono tabular-nums')} />
+                            </Field>
+                            <Field label="End">
+                                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                                    className={cx(inputClass, 'font-mono tabular-nums')} />
+                            </Field>
+                            <Button variant="primary" onClick={applyCustom}>Apply range</Button>
+                        </div>
+                    </Panel>
                 )}
+            </div>
 
-                {report && (
-                    <div className="mt-3 border-t hairline-top pt-3 font-mono text-xs text-parchment/60">
-                        {fmtDate(report.period.start)} → {fmtDate(report.period.end)}
-                    </div>
-                )}
-            </Card>
+            {loading && <Panel><Loader compact label="Refreshing…" /></Panel>}
 
-            {loading && <Card><Loader compact label="Refreshing…" /></Card>}
-{report && (
+            {report && (
                 <>
-                    {/* ── Charts row ─────────────────────────────────────── */}
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                        <Card className="lg:col-span-2">
-                            <div className="mb-3 flex items-center justify-between">
-                                <h3 className="text-xs font-semibold uppercase tracking-wider text-parchment/45">Daily Score Trend</h3>
-                                <span className="font-mono text-[10px] text-parchment/40">Avg {report.stats.avgScore}%</span>
-                            </div>
-                            <ScoreBarChart days={report.days} height={220} />
-                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t hairline-top pt-2 text-[10px] text-parchment/40">
-                                <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ background: '#7fa871' }} />100%</span>
-                                <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ background: '#B8935A' }} />40–99%</span>
-                                <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ background: '#cf8a68' }} />under 40%</span>
-                                <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-white/20" />inactive</span>
-                            </div>
-                        </Card>
+                    {/* ── Summary ─────────────────────────────────────── */}
+                    <Section id="reports-summary" title="Summary">
+                        <StatGrid>
+                            <Stat label="Best day" tone="moss"
+                                value={report.stats.bestDay ? fmtDayShort(report.stats.bestDay) : '—'}
+                                caption={report.stats.bestDay ? <span className="font-mono tabular-nums">{report.stats.bestDayScore}%</span> : undefined} />
+                            <Stat label="Worst active" tone="ember"
+                                value={report.stats.worstDay ? fmtDayShort(report.stats.worstDay) : '—'}
+                                caption={report.stats.worstDay ? <span className="font-mono tabular-nums">{report.stats.worstDayScore}%</span> : undefined} />
+                            <Stat label="Best streak" tone="gold"
+                                value={`${report.stats.bestStreak}d`}
+                                caption={<span className="font-mono tabular-nums">Current {report.stats.currentStreak}d</span>} />
+                            <Stat label="Active days"
+                                value={`${report.stats.activeDays}/${report.days.length}`}
+                                caption={<span className="font-mono tabular-nums">{report.stats.avgTasksPerActiveDay} tasks/day</span>} />
+                        </StatGrid>
+                    </Section>
 
-                        <Card>
-                            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-parchment/45">Completion</h3>
-                            <CompletionDonut scored={report.stats.weightedCompleted} max={report.stats.weightedTotal} />
-                            <div className="mt-4 space-y-2 border-t hairline-top pt-3 font-mono text-[11px] text-parchment/50">
-                                <div className="flex justify-between"><span>By task</span><span className="text-parchment">{report.stats.completedTasks}/{report.stats.totalTasks}</span></div>
-                                <div className="flex justify-between"><span>Weighted</span><span className="text-parchment">{report.stats.completion}%</span></div>
-                                <div className="flex justify-between"><span>Frogs</span><span className="text-parchment">{report.stats.frogsCompleted}/{report.stats.frogsTotal}</span></div>
-                                <div className="flex justify-between"><span>Habits</span><span className="text-parchment">{report.stats.habitsCompleted}/{report.stats.habitsTotal}</span></div>
-                                <div className="flex justify-between"><span>Notes written</span><span className="text-parchment">{report.stats.totalNotes}</span></div>
-                            </div>
-                        </Card>
-                    </div>
+                    {/* ── Score trend + completion ───────────────────── */}
+                    <Section id="reports-trend" title="Score and completion">
+                        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+                            <ChartPanel
+                                className="lg:col-span-2"
+                                title="Daily score trend"
+                                aside={`Avg ${report.stats.avgScore}%`}
+                                footer={
+                                    <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-parchment/45">
+                                        {legend.map(l => (
+                                            <li key={l.label} className="flex items-center gap-1.5">
+                                                <i aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: l.color }} />
+                                                {l.label}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                }
+                            >
+                                <ScoreBarChart days={report.days} height={220} />
+                            </ChartPanel>
 
-                    {/* ── Fast + cumulative facts ─────────────────────────── */}
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <Stat label="Best day" value={report.stats.bestDay ? fmtDayShort(report.stats.bestDay) : '—'}
-                            sub={report.stats.bestDay ? `${report.stats.bestDayScore}%` : ''} accent="moss" />
-                        <Stat label="Worst active" value={report.stats.worstDay ? fmtDayShort(report.stats.worstDay) : '—'}
-                            sub={report.stats.worstDay ? `${report.stats.worstDayScore}%` : ''} accent="ember" />
-                        <Stat label="Best streak" value={`${report.stats.bestStreak}d`} sub={`Current ${report.stats.currentStreak}d`} accent="gold" />
-                        <Stat label="Active days" value={`${report.stats.activeDays}/${report.days.length}`}
-                            sub={`${report.stats.avgTasksPerActiveDay} tasks/day`} />
-                    </div>
+                            <ChartPanel
+                                title="Completion"
+                                footer={
+                                    <dl className="space-y-2 font-mono text-mono text-parchment/50 tabular-nums">
+                                        <div className="flex justify-between"><dt>By task</dt><dd className="text-parchment">{report.stats.completedTasks}/{report.stats.totalTasks}</dd></div>
+                                        <div className="flex justify-between"><dt>Weighted</dt><dd className="text-parchment">{report.stats.completion}%</dd></div>
+                                        <div className="flex justify-between"><dt>Frogs</dt><dd className="text-parchment">{report.stats.frogsCompleted}/{report.stats.frogsTotal}</dd></div>
+                                        <div className="flex justify-between"><dt>Habits</dt><dd className="text-parchment">{report.stats.habitsCompleted}/{report.stats.habitsTotal}</dd></div>
+                                        <div className="flex justify-between"><dt>Notes written</dt><dd className="text-parchment">{report.stats.totalNotes}</dd></div>
+                                    </dl>
+                                }
+                            >
+                                <CompletionDonut scored={report.stats.weightedCompleted} max={report.stats.weightedTotal} />
+                            </ChartPanel>
+                        </div>
+                    </Section>
 
                     {/* ── Category & priority breakdown ────────────────────── */}
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                        <Card>
-                            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-parchment/45">By Category</h3>
-                            <BreakdownBars rows={report.categories.map(c => ({ label: c.title, total: c.total, completed: c.completed }))} color="gold" />
-                        </Card>
-                        <Card>
-                            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-parchment/45">By Priority</h3>
-                            <BreakdownBars
-                                rows={report.priorities.map(p => ({
-                                    label: p.priority[0].toUpperCase() + p.priority.slice(1),
-                                    total: p.total,
-                                    completed: p.completed,
-                                }))}
-                                color="moss" />
-                        </Card>
-                    </div>
-                    {/* ── Filter / sort / search ───────────────────────── */}
-                    <Card className="space-y-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <h3 className="text-xs font-semibold uppercase tracking-wider text-parchment/45">Filter & sort </h3>
-                            {hasFilter && (
-                                <button onClick={clearFilters} className="text-[11px] text-gold hover:underline">Reset filters</button>
+                    <Section id="reports-breakdown" title="Breakdown">
+                        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+                            <ChartPanel title="By category">
+                                <BreakdownBars rows={report.categories.map(c => ({ label: c.title, total: c.total, completed: c.completed }))} color="gold" />
+                            </ChartPanel>
+                            <ChartPanel title="By priority">
+                                <BreakdownBars
+                                    rows={report.priorities.map(p => ({
+                                        label: p.priority[0].toUpperCase() + p.priority.slice(1),
+                                        total: p.total,
+                                        completed: p.completed,
+                                    }))}
+                                    color="moss" />
+                            </ChartPanel>
+                        </div>
+                    </Section>
+
+                    {/* ── Daily log: filter / sort / search + day cards ─────── */}
+                    <Section
+                        id="reports-log"
+                        title="Daily log"
+                        action={hasFilter ? <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gold">Reset filters</Button> : undefined}
+                    >
+                        <div className="space-y-4">
+                            <Panel className="space-y-4">
+                                <FilterPanel filters={filters} onChange={setFilters}
+                                    categories={report.categories.map(c => ({ id: c.id, title: c.title }))} />
+
+                                <div className="flex flex-col gap-3 border-t border-gold/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <label className="relative block w-full sm:max-w-xs">
+                                        <span className="sr-only">Search tasks</span>
+                                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-parchment/35" strokeWidth={1.5} aria-hidden="true" />
+                                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks…"
+                                            className={cx(inputClass, 'pl-9')} />
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <span className={monoLabel}>Sort by</span>
+                                        <select value={sort} onChange={e => setSort(e.target.value as TaskSort)}
+                                            className={selectClass}>
+                                            <option value="date-asc">Date ↑</option>
+                                            <option value="date-desc">Date ↓</option>
+                                            <option value="score-desc">Score ↓</option>
+                                            <option value="tasks-desc">Task count ↓</option>
+                                        </select>
+                                    </label>
+                                </div>
+                            </Panel>
+
+                            {/* Filter-scoped completion mini-bars */}
+                            {summaryBar.length > 0 && filtered && filtered.total > 0 && (
+                                <Panel>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+                                        {summaryBar.map(s => (
+                                            <div key={s.label}>
+                                                <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                                                    <span className={monoLabel}>{s.label}</span>
+                                                    <span className="font-mono text-mono text-parchment tabular-nums">{s.value}%</span>
+                                                </div>
+                                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-parchment/[0.06]">
+                                                    <div
+                                                        className={cx('h-full rounded-full', s.accent === 'gold' ? 'bg-gold' : 'bg-moss')}
+                                                        style={{ width: `${Math.min(100, s.value)}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="mt-4 border-t border-gold/10 pt-3 font-mono text-[10px] text-parchment/40 tabular-nums">
+                                        Within current filters · {filtered.completed}/{filtered.total} tasks done · {filtered.completion}% of points
+                                    </p>
+                                </Panel>
+                            )}
+
+                            {breakdownDays.length === 0 ? (
+                                <EmptyState
+                                    title="Nothing to show"
+                                    body="No activity matches these filters in the selected period."
+                                    action={hasFilter ? <Button variant="secondary" onClick={clearFilters}>Reset filters</Button> : undefined}
+                                />
+                            ) : (
+                                <ul className="space-y-3">
+                                    {breakdownDays.map(day => {
+                                        const showNotes = !filters.frogsOnly && !filters.habitsOnly
+                                        return (
+                                            <li key={day.date}>
+                                                <Panel>
+                                                    <DayHeader date={day.date} score={day.score} count={day.tasks.length + (showNotes ? day.notes.length : 0)} />
+                                                    <div className="space-y-1.5">
+                                                        {day.tasks.length === 0 && !showNotes && (
+                                                            <p className="text-caption text-parchment/40">No activity</p>
+                                                        )}
+                                                        {day.tasks.map(t => (
+                                                            <div key={t.id} className="flex items-start gap-2 text-sm sm:items-center">
+                                                                <span aria-hidden="true" className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full sm:mt-0', t.completed ? 'bg-moss' : 'bg-gold')} />
+                                                                <span className={cx('min-w-0 break-words', t.completed ? 'line-through text-parchment/45' : 'text-parchment')}>{t.title}</span>
+                                                                <span className="hidden font-mono text-mono text-parchment/35 sm:inline">{t.categoryTitle ?? t.priority ?? ''}</span>
+                                                                <span className="ml-auto shrink-0 font-mono text-mono text-parchment/40 tabular-nums">{t.weight} pts</span>
+                                                            </div>
+                                                        ))}
+                                                        {showNotes && day.notes.map(n => (
+                                                            <div key={n.id} className="flex items-center gap-2 text-sm">
+                                                                <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-gold-dim" />
+                                                                <span className="min-w-0 break-words text-parchment/55">{n.title}</span>
+                                                                <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.14em] text-parchment/35">note</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </Panel>
+                                            </li>
+                                        )
+                                    })}
+                                </ul>
                             )}
                         </div>
-                        <FilterPanel filters={filters} onChange={setFilters}
-                            categories={report.categories.map(c => ({ id: c.id, title: c.title }))} />
-
-                        <div className="flex flex-wrap items-center gap-3 border-t hairline-top pt-3">
-                            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-gold-dim/25 px-2 py-2.5 sm:py-1.5 sm:flex-none focus-within:border-gold">
-                                <Search className="h-3.5 w-3.5 text-parchment/40" strokeWidth={1.5} />
-                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks…"
-                                    className="w-full min-w-0 sm:w-40 bg-transparent text-xs text-parchment placeholder:text-parchment/30 focus:outline-none" />
-                            </label>
-                            <label className="ml-auto flex items-center gap-2 text-[10px] uppercase tracking-wider text-parchment/40">
-                                Sort by
-                                <select value={sort} onChange={e => setSort(e.target.value as TaskSort)}
-                                    className="rounded-[6px] border border-gold-dim/25 bg-ink px-2 py-2.5 sm:py-1.5 text-xs normal-case tracking-normal text-parchment focus:border-gold focus:outline-none">
-                                    <option value="date-asc">Date ↑</option>
-                                    <option value="date-desc">Date ↓</option>
-                                    <option value="score-desc">Score ↓</option>
-                                    <option value="tasks-desc">Task count ↓</option>
-                                </select>
-                            </label>
-                        </div>
-                    </Card>
-
-                    {/* ── Filter-scoped completion mini-bars ───────────── */}
-                    {summaryBar.length > 0 && filtered && filtered.total > 0 && (
-                        <Card>
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                                {summaryBar.map(s => (
-                                    <div key={s.label}>
-                                        <div className="mb-1 flex items-baseline justify-between gap-2">
-                                            <span className="text-[10px] uppercase tracking-wider text-parchment/45">{s.label}</span>
-                                            <span className="font-mono text-xs text-parchment tabular-nums">{s.value}%</span>
-                                        </div>
-                                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                                            <div
-                                                className={`h-full rounded-full ${s.accent === 'gold' ? 'bg-gold' : 'bg-moss'}`}
-                                                style={{ width: `${Math.min(100, s.value)}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="mt-3 border-t hairline-top pt-2 font-mono text-[10px] text-parchment/35 tabular-nums">
-                                Within current filters · {filtered.completed}/{filtered.total} tasks done · {filtered.completion}% of points
-                            </p>
-                        </Card>
-                    )}
-
-                    {/* ── Daily breakdown ─────────────────────────────────── */}
-                    {breakdownDays.length === 0 ? (
-                        <Card>
-                            <p className="text-sm text-parchment/50">No activity matches these filters in the selected period.</p>
-                        </Card>
-                    ) : (
-                        breakdownDays.map(day => {
-                            const showNotes = !filters.frogsOnly && !filters.habitsOnly
-                            return (
-                                <Card key={day.date}>
-                                    <DayHeader date={day.date} score={day.score} count={day.tasks.length + (showNotes ? day.notes.length : 0)} />
-                                    <div className="space-y-1">
-                                        {day.tasks.length === 0 && !showNotes && (
-                                            <p className="text-xs text-parchment/40">No activity</p>
-                                        )}
-                                        {day.tasks.map(t => (
-                                            <div key={t.id} className="flex items-start gap-2 text-xs sm:items-center">
-                                                <span className={`mt-1 h-2 w-2 shrink-0 rounded-full sm:mt-0 ${t.completed ? 'bg-moss' : 'bg-gold'}`} />
-                                                <span className={`min-w-0 break-words ${t.completed ? 'line-through text-parchment/45' : 'text-parchment'}`}>{t.title}</span>
-                                                <span className="hidden font-mono text-parchment/35 sm:inline">{t.categoryTitle ?? t.priority ?? ''}</span>
-                                                <span className="ml-auto shrink-0 font-mono text-parchment/40 tabular-nums">{t.weight} pts</span>
-                                            </div>
-                                        ))}
-                                        {showNotes && day.notes.map(n => (
-                                            <div key={n.id} className="flex items-center gap-2 text-xs">
-                                                <span className="h-2 w-2 shrink-0 rounded-full bg-gold-dim" />
-                                                <span className="min-w-0 break-words text-parchment/55">{n.title}</span>
-                                                <span className="ml-auto font-mono text-[9px] uppercase text-parchment/35">note</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </Card>
-                            )
-                        })
-                    )}
-                    </>
-                )}
-        </div>
+                    </Section>
+                </>
+            )}
+        </Page>
     )
 }

@@ -1,11 +1,11 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Pencil, Plus, X } from 'lucide-react'
 import type { BudgetCategoryOption } from './budgetCategories'
+import { Button, IconButton, cx, inputClass } from '@/components/ds'
 import {
     addCustomCategory,
-    CUSTOM_CATEGORY_ICON,
     isKnownCategory,
     useCustomCategories,
     type CustomCategoryScope,
@@ -15,7 +15,7 @@ import {
  * CategorySelect — the one standard finance category dropdown.
  *
  * A proper select-style control: a trigger button, a scrolling menu with
- * icon + label rows and a check on the active one, click-outside/Escape to
+ * label rows and a check on the active one, click-outside/Escape to
  * close — and, pinned at the bottom, an "Others…" row. Picking Others opens
  * a small inline field: type anything ("Barbing", "Data top-up", …), hit
  * Enter/Add and it is saved to your custom categories, so it shows up in
@@ -121,26 +121,20 @@ export function CategorySelect({
                 onClick={() => setOpen(o => !o)}
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                className={`flex w-full items-center gap-2 rounded-lg border py-2.5 pl-3 pr-2.5 text-left text-sm transition-all focus:outline-none focus:ring-2 focus:ring-gold/30 ${
-                    open
-                        ? 'border-gold/40 bg-black/25'
-                        : value
-                            ? 'border-white/10 bg-black/25 text-parchment hover:border-white/20'
-                            : 'border-white/10 bg-black/25 text-parchment/40 hover:border-white/20'
-                }`}
+                className={cx(
+                    inputClass,
+                    'flex items-center gap-2 pr-2.5 text-left transition-colors',
+                    open ? 'border-gold/50' : 'hover:border-gold/35',
+                    !value && 'text-parchment/40',
+                )}
             >
                 <span className="min-w-0 flex-1 truncate">
-                    {selected ? (
-                        <>
-                            <span className="mr-1.5">{selected.icon}</span>
-                            {selected.label}
-                        </>
-                    ) : (
-                        placeholder
-                    )}
+                    {selected ? selected.label : placeholder}
                 </span>
                 <ChevronDown
-                    className={`h-4 w-4 shrink-0 text-parchment/40 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                    className={cx('h-4 w-4 shrink-0 text-parchment/40 transition-transform duration-200 motion-reduce:transition-none', open && 'rotate-180')}
+                    strokeWidth={1.75}
+                    aria-hidden="true"
                 />
             </button>
 
@@ -148,12 +142,12 @@ export function CategorySelect({
                 <div
                     role="listbox"
                     aria-label="Category"
-                    className="absolute z-40 mt-1.5 w-full overflow-hidden rounded-xl border border-white/10 bg-[#16120f] shadow-[0_18px_50px_rgba(0,0,0,0.55)] animate-fadeIn"
+                    className="absolute z-40 mt-1.5 w-full overflow-hidden rounded-xl border border-gold/20 bg-surface-solid shadow-xl animate-fadeIn"
                 >
                     {othersMode ? (
                         /* ── Others: type your own, saved for next time ── */
                         <div className="p-2.5">
-                            <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.22em] text-parchment/35">
+                            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/45">
                                 Your own category
                             </p>
                             <div className="flex gap-1.5">
@@ -170,33 +164,21 @@ export function CategorySelect({
                                     }}
                                     maxLength={48}
                                     placeholder="e.g. Data top-up, Barbing…"
-                                    className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/25 px-2.5 py-2 text-sm text-parchment placeholder:text-parchment/25 focus:border-gold/40 focus:outline-none focus:ring-2 focus:ring-gold/30"
+                                    className={cx(inputClass, 'min-w-0 flex-1')}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={saveOthers}
-                                    disabled={!draft.trim()}
-                                    className="flex shrink-0 items-center gap-1 rounded-lg bg-gold px-3 py-2 text-xs font-bold text-ink transition hover:bg-gold-glow disabled:opacity-40"
-                                >
-                                    <Plus className="h-3.5 w-3.5" /> Save
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => { setOthersMode(false); setDraft('') }}
-                                    aria-label="Cancel"
-                                    className="flex shrink-0 items-center rounded-lg border border-white/10 px-2 text-parchment/50 transition hover:text-parchment"
-                                >
-                                    <X className="h-3.5 w-3.5" />
-                                </button>
+                                <Button variant="secondary" icon={Plus} onClick={saveOthers} disabled={!draft.trim()} className="shrink-0">
+                                    Save
+                                </Button>
+                                <IconButton icon={X} label="Cancel" onClick={() => { setOthersMode(false); setDraft('') }} className="pointer-fine:h-11 pointer-fine:w-11" />
                             </div>
-                            <p className="mt-2 text-[11px] leading-relaxed text-parchment/40">
+                            <p className="mt-2 text-caption text-parchment/45">
                                 Saved to this dropdown, so it&apos;s here next time.
                             </p>
                         </div>
                     ) : (
                         <div className="max-h-[min(16rem,50dvh)] overflow-y-auto" data-lenis-prevent>
                             {builtIns.length === 0 && customs.length === 0 && (
-                                <p className="px-3.5 py-4 text-sm text-parchment/40">
+                                <p className="px-3.5 py-4 text-body text-parchment/45">
                                     Nothing here yet — add your own below.
                                 </p>
                             )}
@@ -208,21 +190,20 @@ export function CategorySelect({
                                     role="option"
                                     aria-selected={o.label === value}
                                     onClick={() => pick(o.label)}
-                                    className={`flex min-h-[40px] w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm transition-colors ${
+                                    className={`flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm transition-colors pointer-fine:min-h-10 ${
                                         o.label === value
                                             ? 'bg-gold/[0.08] text-parchment'
-                                            : 'text-parchment/80 hover:bg-white/[0.06] hover:text-parchment'
+                                            : 'text-parchment/80 hover:bg-gold/[0.06] hover:text-parchment'
                                     }`}
                                 >
-                                    <span className="w-5 shrink-0 text-center">{o.icon}</span>
                                     <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                                    {o.label === value && <Check className="h-4 w-4 shrink-0 text-gold" />}
+                                    {o.label === value && <Check className="h-4 w-4 shrink-0 text-gold" strokeWidth={1.75} aria-hidden="true" />}
                                 </button>
                             ))}
 
                             {customs.length > 0 && (
                                 <>
-                                    <p className="border-t border-white/[0.06] px-3.5 pb-1 pt-2.5 font-mono text-[9px] uppercase tracking-[0.22em] text-parchment/35">
+                                    <p className="border-t border-gold/10 px-3.5 pb-1 pt-2.5 font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/45">
                                         Your categories
                                     </p>
                                     {customs.map(o => (
@@ -232,15 +213,14 @@ export function CategorySelect({
                                             role="option"
                                             aria-selected={o.label === value}
                                             onClick={() => pick(o.label)}
-                                            className={`flex min-h-[40px] w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm transition-colors ${
+                                            className={`flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm transition-colors pointer-fine:min-h-10 ${
                                                 o.label === value
                                                     ? 'bg-gold/[0.08] text-parchment'
-                                                    : 'text-parchment/80 hover:bg-white/[0.06] hover:text-parchment'
+                                                    : 'text-parchment/80 hover:bg-gold/[0.06] hover:text-parchment'
                                             }`}
                                         >
-                                            <span className="w-5 shrink-0 text-center">{o.icon}</span>
                                             <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                                            {o.label === value && <Check className="h-4 w-4 shrink-0 text-gold" />}
+                                            {o.label === value && <Check className="h-4 w-4 shrink-0 text-gold" strokeWidth={1.75} aria-hidden="true" />}
                                         </button>
                                     ))}
                                 </>
@@ -252,17 +232,17 @@ export function CategorySelect({
                                 role="option"
                                 aria-selected={false}
                                 onClick={() => setOthersMode(true)}
-                                className="flex min-h-[44px] w-full items-center gap-2.5 border-t border-white/[0.07] px-3.5 py-2.5 text-left text-sm font-semibold text-gold transition-colors hover:bg-gold/[0.08]"
+                                className="flex min-h-11 w-full items-center gap-2.5 border-t border-gold/10 px-3.5 py-2.5 text-left text-sm font-medium text-gold transition-colors hover:bg-gold/[0.08]"
                             >
                                 <span className="flex w-5 shrink-0 justify-center">
-                                    <Pencil className="h-4 w-4" />
+                                    <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    Others… <span className="font-normal text-parchment/45">— type anything</span>
+                                    Others… <span className="font-normal text-parchment/45">type anything</span>
                                 </span>
                                 {value && !selected && (
-                                    <span className="max-w-[45%] truncate font-mono text-[10px] text-parchment/35">
-                                        {CUSTOM_CATEGORY_ICON} {value}
+                                    <span className="max-w-[45%] truncate font-mono text-[10px] text-parchment/45">
+                                        {value}
                                     </span>
                                 )}
                             </button>

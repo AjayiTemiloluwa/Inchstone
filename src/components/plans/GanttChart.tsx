@@ -9,9 +9,11 @@
  */
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { addDays, addMonths, endOfMonth, startOfWeek } from 'date-fns'
-import type { LongTermPlanRecord, PlanGoalRecord } from '@/lib/plans/types'
-import { STATUS_META, isOverdue } from '@/lib/plans/status'
+import type { GoalStatus, LongTermPlanRecord, PlanGoalRecord } from '@/lib/plans/types'
+import { STATUS_META, isGoalStatus, isOverdue } from '@/lib/plans/status'
 import { axisGranularity, parseMonthKey } from '@/lib/plans/duration'
+import { cx } from '@/components/ds'
+import { STATUS_FILL } from './StatusBadge'
 
 const ROW_H = 40
 const BAR_H = 20
@@ -96,8 +98,14 @@ interface GanttRow {
   goal?: PlanGoalRecord
 }
 
+// Same geometry as the ds Button (44px on touch, 36px on precise pointers)
 const ctrlBtn =
-  'inline-flex min-h-10 min-w-10 items-center justify-center rounded-[6px] border border-parchment/15 px-3 text-xs text-parchment/75 transition-colors hover:border-gold/50 hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-8 sm:min-w-8'
+  'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gold/20 px-3 text-xs text-parchment/75 transition-colors hover:border-gold/50 hover:text-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 disabled:cursor-not-allowed disabled:opacity-25 pointer-fine:min-h-9 pointer-fine:min-w-9'
+
+const LEGEND: Array<{ key: GoalStatus; label: string }> = (Object.keys(STATUS_META) as GoalStatus[]).map(k => ({
+  key: k,
+  label: STATUS_META[k].label,
+}))
 
 export function GanttChart({
   plan,
@@ -173,16 +181,19 @@ export function GanttChart({
 
   return (
     <div data-testid="gantt-chart">
-      {/* Controls */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Timeline scale" className="flex flex-wrap items-center gap-1.5">
+      {/* Controls: scale as a joined segment group, zoom as a pair, today on the right */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Timeline scale" className="inline-flex items-center rounded-lg border border-gold/20 p-0.5">
           {SCALES.map(s => (
             <button
               key={s.key}
               type="button"
               aria-pressed={activeScale === s.key}
               onClick={() => changeZoom(s.ppd)}
-              className={`${ctrlBtn} ${activeScale === s.key ? 'border-gold/60 bg-gold/10 text-gold' : ''}`}
+              className={cx(
+                'inline-flex min-h-10 items-center rounded-md px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 pointer-fine:min-h-8',
+                activeScale === s.key ? 'bg-gold/15 text-gold' : 'text-parchment/65 hover:text-parchment',
+              )}
             >
               {s.label}
             </button>
@@ -202,20 +213,20 @@ export function GanttChart({
       </div>
 
       {/* Legend */}
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-        {(Object.keys(STATUS_META) as Array<keyof typeof STATUS_META>).map(k => (
-          <span key={k} className="inline-flex items-center gap-1.5 text-[11px] text-parchment/55">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: STATUS_META[k].barColor }} />
-            {STATUS_META[k].label}
+      <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+        {LEGEND.map(({ key, label }) => (
+          <span key={key} className="inline-flex items-center gap-1.5 font-mono text-[11px] text-parchment/55">
+            <span aria-hidden className={cx('inline-block h-2.5 w-2.5 rounded-sm', STATUS_FILL[key])} />
+            {label}
           </span>
         ))}
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-[#CD8B70]">
+        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-ember">
           <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm border border-ember" /> Overdue
         </span>
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-parchment/55">
+        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-parchment/55">
           <span aria-hidden className="inline-block h-2 w-2 rotate-45 bg-gold-dim" /> Milestone
         </span>
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-parchment/55">
+        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-parchment/55">
           <span aria-hidden className="inline-block h-3 w-px bg-gold-glow" /> Today
         </span>
       </div>
@@ -226,29 +237,29 @@ export function GanttChart({
         role="region"
         aria-label="Plan timeline, scrollable"
         data-lenis-prevent
-        className="max-h-[70dvh] overflow-auto overscroll-contain rounded-[8px] border hairline bg-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"
+        className="max-h-[70dvh] overflow-auto overscroll-contain rounded-xl border border-gold/15 bg-surface-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
       >
         <div className="flex w-max min-w-full">
           {/* Sticky labels column */}
           <div
             ref={labelRef}
-            className="sticky left-0 z-20 w-[132px] shrink-0 border-r border-parchment/15 bg-ink sm:w-[200px]"
+            className="sticky left-0 z-20 w-[132px] shrink-0 border-r border-gold/15 bg-surface-solid sm:w-[200px]"
           >
-            <div className="sticky top-0 z-30 flex items-end border-b border-parchment/15 bg-ink px-3 pb-1.5" style={{ height: HEADER_H }}>
+            <div className="sticky top-0 z-30 flex items-end border-b border-gold/15 bg-surface-solid px-3 pb-1.5" style={{ height: HEADER_H }}>
               <span className="font-mono text-[10px] uppercase tracking-wider text-parchment/40">Goals</span>
             </div>
             {rows.map((r, i) => (
               <div
                 key={`${r.kind}-${i}`}
                 className={`flex items-center justify-between gap-2 px-3 ${
-                  r.kind === 'section' ? 'border-b border-parchment/15 bg-parchment/5' : ''
+                  r.kind === 'section' ? 'border-b border-gold/10 bg-gold/[0.04]' : ''
                 }`}
                 style={{ height: ROW_H }}
               >
                 {r.kind === 'section' ? (
                   <>
-                    <span className="truncate text-xs font-semibold uppercase tracking-wider text-gold">{r.label}</span>
-                    <span className="shrink-0 font-mono text-[11px] text-parchment/45">{r.sub}</span>
+                    <span className="truncate font-mono text-[11px] uppercase tracking-[0.2em] text-gold">{r.label}</span>
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-parchment/45">{r.sub}</span>
                   </>
                 ) : (
                   <button
@@ -268,13 +279,13 @@ export function GanttChart({
           {/* Timeline */}
           <div className="relative shrink-0" style={{ width }}>
             {/* Sticky date axis */}
-            <div className="sticky top-0 z-10 border-b border-parchment/15 bg-ink" style={{ height: HEADER_H }}>
+            <div className="sticky top-0 z-10 border-b border-gold/15 bg-surface-solid" style={{ height: HEADER_H }}>
               <div className="relative border-b border-parchment/10" style={{ height: TIER_H }}>
                 {topTicks.map((t, i) => (
                   <span
                     key={i}
                     className={`absolute top-0 flex h-full items-center whitespace-nowrap border-l pl-1.5 font-mono text-[11px] ${
-                      t.major ? 'border-gold/40 text-gold' : 'border-parchment/15 text-parchment/60'
+                      t.major ? 'border-gold/40 text-gold' : 'border-gold/10 text-parchment/60'
                     }`}
                     style={{ left: t.x }}
                   >
@@ -325,7 +336,7 @@ export function GanttChart({
                   <div
                     key={`lane-${i}`}
                     aria-hidden
-                    className="absolute inset-x-0 border-b border-parchment/15 bg-parchment/[0.04]"
+                    className="absolute inset-x-0 border-b border-gold/10 bg-gold/[0.04]"
                     style={{ top: i * ROW_H, height: ROW_H }}
                   />
                 ) : null
@@ -349,13 +360,12 @@ export function GanttChart({
                       onClick={() => onSelectGoal?.(goal.id)}
                       title={`${title} · ${meta.label}`}
                       aria-label={`${title}, ${meta.label}`}
-                      className="h-full w-full rounded-[4px] transition-transform hover:scale-y-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold"
-                      style={{
-                        background: meta.barColor,
-                        outline: overdue ? '1.5px solid #A14E37' : undefined,
-                        outlineOffset: overdue ? '1px' : undefined,
-                        opacity: goal.isDraft ? 0.65 : 1,
-                      }}
+                      className={cx(
+                        'h-full w-full rounded-[4px] transition-transform hover:scale-y-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold',
+                        isGoalStatus(goal.status) ? STATUS_FILL[goal.status] : STATUS_FILL.not_started,
+                        overdue && 'outline outline-[1.5px] outline-offset-1 outline-ember',
+                        goal.isDraft && 'opacity-[0.65]',
+                      )}
                     />
                     {(goal.milestones ?? []).map(m => {
                       const mx = Math.min(w - 2, Math.max(2, xOf(new Date(m.targetDate).getTime()) - left))

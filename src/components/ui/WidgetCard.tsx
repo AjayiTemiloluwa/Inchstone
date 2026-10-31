@@ -226,7 +226,7 @@ export function WidgetCard() {
             </label>
             <button
               onClick={() => void save({ ...cfg, pages: cfg.pages.filter((_, idx) => idx !== i) })}
-              className="ml-auto rounded p-2.5 sm:p-1.5 text-parchment/40 hover:text-[#cf8f78] transition-colors"
+              className="ml-auto rounded p-2.5 sm:p-1.5 text-parchment/40 hover:text-ember transition-colors"
               aria-label={`Remove page ${i + 1}`}
             >
               <Trash2 className="w-4 h-4" strokeWidth={1.5} />

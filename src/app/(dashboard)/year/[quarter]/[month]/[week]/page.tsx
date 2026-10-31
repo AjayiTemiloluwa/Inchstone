@@ -4,13 +4,11 @@ import { useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { format, addDays } from 'date-fns'
 import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
-import { ProgressRing } from '@/components/ui/ProgressRing'
+import { Badge, EmptyState, Page, Section } from '@/components/ds'
 import { useToast } from '@/components/ui/ToastProvider'
 import { Loader } from '@/components/ui/Loader'
 import { useVoiceLine } from '@/lib/voice/use-voice-line'
 import { useActiveYear } from '@/lib/useActiveYear'
-import { Breadcrumbs } from '@/components/hierarchy/Breadcrumbs'
 import { PeriodHero } from '@/components/hierarchy/PeriodHero'
 import { PeriodReflection } from '@/components/hierarchy/PeriodReflection'
 import { CategoryGoalsList, type CategoryRow } from '@/components/hierarchy/CategoryGoalsList'
@@ -18,6 +16,7 @@ import { useItemTree } from '@/components/hierarchy/useItemTree'
 import { downloadCategoryReport } from '@/components/hierarchy/exportReport'
 import { createYearlyGoalWithQuarters } from '@/components/hierarchy/createGoal'
 import { equalWeight } from '@/components/hierarchy/itemTree'
+import { PeriodGrid, PeriodTile } from '@/components/hierarchy/primitives'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -106,7 +105,9 @@ export default function YearQuarterMonthWeekPage() {
     : 0
 
   if (loading) return <Loader label="Unlocking the week…" routeKey="year-quarter-month-week" />
-  if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
+  if (categories.length === 0) return (
+    <Page width="narrow" className="pt-8"><EmptyState title="No categories found" body="Seed the framework first." /></Page>
+  )
 
   const rows: CategoryRow[] = categories.map(category => {
     const catYearlyGoals = yearlyGoals.filter(g => g.parentId === category.id)
@@ -154,58 +155,49 @@ export default function YearQuarterMonthWeekPage() {
     : ''
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 pb-12 stagger-children" id="report-content">
-      <Breadcrumbs crumbs={[
-        { label: 'Year', href: '/year' },
-        { label: quarterLabel, href: `/year/${quarterLabel}` },
-        { label: monthLabel, href: `/year/${quarterLabel}/${monthLabel}` },
-        { label: weekTitle },
-      ]} />
+    <div id="report-content">
+      <Page width="wide">
+        <PeriodHero crumbs={[
+          { label: 'Year', href: '/year' },
+          { label: quarterLabel, href: `/year/${quarterLabel}` },
+          { label: monthLabel, href: `/year/${quarterLabel}/${monthLabel}` },
+          { label: weekTitle },
+        ]}
+          eyebrow={`Week · ${monthLabel}`} title={weekTitle}
+          subtitle={`${monthLabel} · ${quarterLabel}${weekDateRange ? ` · ${weekDateRange}` : ''}`}
+          score={avgScore} scoreCaption={`across ${matchingWeeks.length} goals`} onDownloadReport={handleDownloadReport} />
 
-      <PeriodHero title={weekTitle} subtitle={`${monthLabel} · ${quarterLabel}${weekDateRange ? ` · ${weekDateRange}` : ''}`}
-        score={avgScore} onDownloadReport={handleDownloadReport} />
-
-      <CategoryGoalsList rows={rows} completionMap={completionMap} heading="Categories & Goals" goalsLabel="Weekly Goals"
-        weightLabel="Weight" emptyText={emptyGoals} hrefFor={item => `/week/${item.id}`}
-        onAddGoal={handleAddGoal} onDeleted={async () => { await fetchItems() }} />
-
-      <PeriodReflection key={firstWeek?.id ?? 'none'} label={weekTitle} timePeriod="week"
-        itemId={firstWeek?.id || null} initialText={firstWeek?.reflection}
-        periodKey={firstWeek?.id || weekTitle}
-        placeholder={`Reflect on ${weekTitle}... What went well? What will you improve?`} />
-
-      <div>
-        <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink mb-6">Days</h2>
-        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-          {dayGroups.map(({ title, items: dItems, avgScore: dAvg, dateLabel, categories: dayCategories }) => {
-            const firstDate = dItems[0]?.startDate ? format(new Date(dItems[0].startDate), 'yyyy-MM-dd') : null
-            return (
-              <Card key={title} className={`p-4 transition-colors group hover:border-gold ${firstDate ? 'cursor-pointer' : ''}`}
-                onClick={() => { if (firstDate) router.push(`/day/${firstDate}`) }}>
-                <div className="text-center mb-4">
-                  <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{title}</p>
-                  {dateLabel && <p className="text-[10px] text-ink/50 mt-1">{dateLabel}</p>}
-                </div>
-                {dayCategories.length > 0 && (
-                  <div className="flex flex-wrap gap-1 justify-center mb-2">
-                    {dayCategories.slice(0, 3).map(cat => (
-                      <span key={cat} className="text-[8px] px-1.5 py-0.5 bg-gold/20 text-gold rounded font-bold uppercase">{cat}</span>
-                    ))}
-                  </div>
-                )}
-                <div className="flex flex-col items-center">
-                  <ProgressRing progress={dAvg} size={44} />
-                  <p className="text-lg font-mono font-bold mt-2">{Math.round(dAvg)}%</p>
-                  <p className="text-[10px] text-ink/40">{dItems.length} goals</p>
-                </div>
-              </Card>
-            )
-          })}
-          {dayGroups.length === 0 && (
-            <p className="text-sm text-ink/50 italic col-span-full">Days will appear once goals are created.</p>
+        <Section title="Days" id="week-days">
+          {dayGroups.length === 0 ? (
+            <EmptyState title="No days yet" body="Days will appear once goals are created." />
+          ) : (
+            <PeriodGrid cols={7}>
+              {dayGroups.map(({ title, items: dItems, avgScore: dAvg, dateLabel, categories: dayCategories }) => {
+                const firstDate = dItems[0]?.startDate ? format(new Date(dItems[0].startDate), 'yyyy-MM-dd') : null
+                return (
+                  <PeriodTile key={title} label={title} sublabel={dateLabel || undefined} score={dAvg} caption={`${dItems.length} goals`}
+                    onOpen={firstDate ? () => router.push(`/day/${firstDate}`) : undefined}>
+                    {dayCategories.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {dayCategories.slice(0, 3).map(cat => <Badge key={cat} tone="gold" className="max-w-full truncate">{cat}</Badge>)}
+                      </div>
+                    )}
+                  </PeriodTile>
+                )
+              })}
+            </PeriodGrid>
           )}
-        </div>
-      </div>
+        </Section>
+
+        <CategoryGoalsList rows={rows} completionMap={completionMap} heading="Categories & goals" goalsLabel="Weekly Goals"
+          weightLabel="Weight" emptyText={emptyGoals} hrefFor={item => `/week/${item.id}`}
+          onAddGoal={handleAddGoal} onDeleted={async () => { await fetchItems() }} />
+
+        <PeriodReflection key={firstWeek?.id ?? 'none'} label={weekTitle} timePeriod="week"
+          itemId={firstWeek?.id || null} initialText={firstWeek?.reflection}
+          periodKey={firstWeek?.id || weekTitle}
+          placeholder={`Reflect on ${weekTitle}... What went well? What will you improve?`} />
+      </Page>
     </div>
   )
 }

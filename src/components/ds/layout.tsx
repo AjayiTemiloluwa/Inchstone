@@ -120,7 +120,8 @@ export function Panel({ children, className, bordered = true, padded = true, int
       data-fx=""
       onClick={onClick}
       tabIndex={onClick && Tag === 'div' ? 0 : undefined}
-      onKeyDown={onClick && Tag === 'div' ? (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
+      // Only the panel's own focus activates it, so Space/Enter inside a nested input or button keeps working.
+      onKeyDown={onClick && Tag === 'div' ? (e: React.KeyboardEvent) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
       className={cx(
         'min-w-0 rounded-xl bg-surface-solid',
         bordered && 'border border-gold/15',
@@ -189,6 +190,24 @@ export function EmptyState({ title, body, action, className }: { title: ReactNod
 
 export function Skeleton({ className }: { className?: string }) {
   return <div aria-hidden="true" className={cx('rounded-xl border border-gold-dim/10 bg-gold-dim/[0.08]', className)} />
+}
+
+/** Thin progress bar in token colours (replaces the legacy glow ProgressBar). */
+export function Meter({ value, tone = 'gold', label, className }: { value: number; tone?: Tone; label?: string; className?: string }) {
+  const pct = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0))
+  const fill = tone === 'moss' ? 'bg-moss' : tone === 'ember' ? 'bg-ember' : tone === 'neutral' ? 'bg-parchment/60' : 'bg-gold'
+  return (
+    <div
+      role={label ? 'progressbar' : undefined}
+      aria-label={label}
+      aria-valuenow={label ? Math.round(pct) : undefined}
+      aria-valuemin={label ? 0 : undefined}
+      aria-valuemax={label ? 100 : undefined}
+      className={cx('h-[3px] w-full overflow-hidden rounded-full bg-gold/10', className)}
+    >
+      <div className={cx('h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none', fill)} style={{ width: pct + '%' }} />
+    </div>
+  )
 }
 
 /** Label + control pair for forms and settings rows. */

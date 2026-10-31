@@ -2,10 +2,11 @@
 
 import { AlertTriangle, ArrowDown, ArrowUp, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
+import { RowActions, cx, type RowAction } from '@/components/ds'
 import { usePlansStore } from '@/stores/plansStore'
 import type { PlanGoalRecord } from '@/lib/plans/types'
-import { isOverdue } from '@/lib/plans/status'
-import { StatusBadge, DraftBadge, LinkedItemBadge } from './StatusBadge'
+import { isGoalStatus, isOverdue } from '@/lib/plans/status'
+import { StatusBadge, DraftBadge, LinkedItemBadge, STATUS_FILL } from './StatusBadge'
 
 type Props = {
   goal: PlanGoalRecord
@@ -24,25 +25,45 @@ export function GoalRow({ goal, onOpenDetail, onEdit, onDelete, onArchiveToggle,
   const overdue = isOverdue(goal.targetDate, goal.status)
   const excerpt = (goal.overallGoal ?? '').trim() || 'Untitled draft'
 
+  // Archived rows cannot be reordered, so the menu only offers moves that do something.
+  const actions: RowAction[] = [
+    ...(!goal.archived && !moveDisabledUp ? [{ label: 'Move goal up', icon: ArrowUp, onSelect: () => onMove(-1) }] : []),
+    ...(!goal.archived && !moveDisabledDown ? [{ label: 'Move goal down', icon: ArrowDown, onSelect: () => onMove(1) }] : []),
+    { label: 'Edit goal', icon: Pencil, onSelect: onEdit },
+    goal.archived
+      ? { label: 'Unarchive goal', icon: ArchiveRestore, onSelect: onArchiveToggle }
+      : { label: 'Archive goal', icon: Archive, onSelect: onArchiveToggle },
+    { label: 'Delete goal', icon: Trash2, onSelect: onDelete, destructive: true },
+  ]
+
   return (
-    <div
-      className={`group rounded-md border px-3 py-2.5 transition-colors ${
-        overdue ? 'border-ember/40 hover:border-ember/60' : 'border-parchment/12 hover:border-gold/35'
-      }`}
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div className="group relative py-3">
+      {/* Status rail: the goal's status as a thin colour mark on the left edge */}
+      <span
+        aria-hidden="true"
+        className={cx(
+          'absolute bottom-3 left-0 top-3 w-0.5 rounded-full',
+          overdue ? 'bg-ember' : isGoalStatus(goal.status) ? STATUS_FILL[goal.status] : STATUS_FILL.not_started,
+        )}
+      />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-4">
         {/* Clickable main area */}
-        <button onClick={onOpenDetail} className="min-w-0 basis-full text-left sm:flex-1 sm:basis-0">
-          <p className={`truncate text-sm ${goal.isDraft ? 'text-parchment/70 italic' : 'text-parchment'}`}>{excerpt}</p>
-          <p className="mt-0.5 font-mono text-[11px] text-parchment/40">
+        <button
+          onClick={onOpenDetail}
+          className="min-h-11 min-w-0 basis-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 sm:flex-1 sm:basis-0"
+        >
+          <p className={cx('truncate text-body transition-colors group-hover:text-gold', goal.isDraft ? 'italic text-parchment/70' : 'text-parchment')}>
+            {excerpt}
+          </p>
+          <p className="mt-0.5 font-mono text-[11px] tabular-nums text-parchment/45">
             {format(new Date(goal.startDate), 'MMM yyyy')} → {format(new Date(goal.targetDate), 'MMM yyyy')}
           </p>
         </button>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1.5">
           {overdue && (
-            <span title="Target date passed" className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-[#CD8B70]">
-              <AlertTriangle className="h-3 w-3" /> Overdue
+            <span title="Target date passed" className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ember">
+              <AlertTriangle className="h-3 w-3" aria-hidden="true" /> Overdue
             </span>
           )}
           {goal.isDraft && <DraftBadge />}
@@ -50,43 +71,16 @@ export function GoalRow({ goal, onOpenDetail, onEdit, onDelete, onArchiveToggle,
           <StatusBadge status={goal.status} />
         </div>
 
-        {/* Row actions */}
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-lg:opacity-100">
-          <button
-            onClick={() => onMove(-1)}
-            disabled={moveDisabledUp}
-            aria-label="Move goal up"
-            className="rounded p-1.5 max-lg:p-2.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment disabled:opacity-25"
-          >
-            <ArrowUp className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => onMove(1)}
-            disabled={moveDisabledDown}
-            aria-label="Move goal down"
-            className="rounded p-1.5 max-lg:p-2.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment disabled:opacity-25"
-          >
-            <ArrowDown className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={onEdit} aria-label="Edit goal" className="rounded p-1.5 max-lg:p-2.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment">
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={onArchiveToggle} aria-label={goal.archived ? 'Unarchive goal' : 'Archive goal'} className="rounded p-1.5 max-lg:p-2.5 text-parchment/40 transition-colors hover:bg-mist hover:text-parchment">
-            {goal.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-          </button>
-          <button onClick={onDelete} aria-label="Delete goal" className="rounded p-1.5 max-lg:p-2.5 text-ember/70 transition-colors hover:bg-ember/20 hover:text-[#CD8B70]">
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <RowActions actions={actions} label={`Actions for ${excerpt}`} className="ml-auto sm:ml-0" />
       </div>
 
       {(goal.milestones?.length ?? 0) > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-parchment/10 pt-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 pl-4">
           {goal.milestones!.map(m => (
             <span key={m.id} className="inline-flex items-center gap-1.5 font-mono text-[11px] text-parchment/50" title={m.notes || m.title}>
-              <span aria-hidden className={`inline-block h-2 w-2 rotate-45 ${m.status === 'achieved' ? 'bg-moss' : 'bg-gold-dim'}`} />
+              <span aria-hidden className={`inline-block h-1.5 w-1.5 rotate-45 ${m.status === 'achieved' ? 'bg-moss' : 'bg-gold-dim'}`} />
               {m.title}
-              <span className="text-parchment/35">{format(new Date(m.targetDate), 'MMM yyyy')}</span>
+              <span className="tabular-nums text-parchment/35">{format(new Date(m.targetDate), 'MMM yyyy')}</span>
             </span>
           ))}
         </div>

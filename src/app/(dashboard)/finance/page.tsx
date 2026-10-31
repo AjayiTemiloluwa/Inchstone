@@ -1,17 +1,31 @@
-﻿'use client'
+'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { TransactionForm } from '@/components/finance/TransactionForm'
 import { BudgetProgress } from '@/components/finance/BudgetProgress'
 import { SectionBudgetCard } from '@/components/finance/SectionBudgetCard'
-import { CountUp, SectionHeading, Scramble, Reveal, RevealLines } from '@/components/ui/motion'
+import { ProgressBar, PurseMark, RowAction, labelClass } from '@/components/finance/ui'
+import { CountUp } from '@/components/ui/motion'
 import { Loader } from '@/components/ui/Loader'
-import { Float } from '@/components/effects/fluid'
 import { useToast } from '@/components/ui/ToastProvider'
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Field,
+  IconButton,
+  Page,
+  PageHeader,
+  Panel,
+  Section as PageSection,
+  Stat,
+  StatGrid,
+  cx,
+  inputClass,
+} from '@/components/ds'
 
 const SECTION_KEYS = ['Need', 'Want', 'Offerings', 'Savings'] as const
-const SECTION_TINT: Record<string, string> = { Need: '#B8935A', Want: '#CF8F78', Offerings: '#7FA871', Savings: '#8FA3BF' }
 type Section = typeof SECTION_KEYS[number]
 
 interface Entry {
@@ -52,6 +66,8 @@ interface Purse {
   color: string
 }
 
+// Stored with each purse (the API keeps an icon and a color). The page shows
+// purses neutrally; these stay as the user's opt-in choices in the add form.
 const PURSE_ICONS = ['👜', '🏦', '💰', '💳', '🐷', '🏪', '📦', '🎯', '⭐', '💎', '🌴', '🚗', '🏠', '📚', '✈️', '🎓']
 
 const PURSE_COLORS = [
@@ -63,22 +79,15 @@ const PURSE_COLORS = [
 
 function SectionTag({ priority }: { priority: string | null }) {
   if (!priority || !(SECTION_KEYS as readonly string[]).includes(priority)) return null
-  return (
-    <span className="px-1 py-px rounded text-[9px] font-bold shrink-0"
-      style={{ backgroundColor: `${SECTION_TINT[priority]}22`, color: SECTION_TINT[priority] }}>
-      {priority}
-    </span>
-  )
+  return <Badge>{priority}</Badge>
 }
 
-function PurseTag({ name, icon, color }: { name: string; icon: string; color: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap"
-      style={{ backgroundColor: `${color}22`, color }}>
-      {icon} {name}
-    </span>
-  )
+/** Ledger figures: mono, sized to hold long naira amounts inside a 2x2 phone grid. */
+function Figure({ children }: { children: React.ReactNode }) {
+  return <span className="block break-all font-mono text-heading">{children}</span>
 }
+
+const formatNaira = (n: number) => `₦${n.toFixed(2)}`
 
 export default function FinancePage() {
   const { showToast, confirm } = useToast()
@@ -401,249 +410,264 @@ export default function FinancePage() {
     .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
     .slice(0, 30)
 
-  const getPurseIcon = (name: string) => {
-    const purse = purses.find(p => p.name === name)
-    return purse?.icon || '👜'
-  }
-
-  const getPurseColor = (name: string) => {
-    const purse = purses.find(p => p.name === name)
-    return purse?.color || '#8a6d42'
-  }
-
   if (loading) {
     return <Loader label="Counting your coins…" routeKey="finance" />
   }
 
+  const totalSectionSpent = Object.values(sectionSpending).reduce((s: number, v: number) => s + v, 0)
+
+  const monthStepper = (
+    <div className="flex items-center gap-1">
+      <IconButton icon={ChevronLeft} label="Previous month" onClick={() => shiftMonth(-1)} />
+      <span className="min-w-[8.5rem] text-center font-mono text-mono tabular-nums text-parchment/80">
+        {viewMonthLabel}
+      </span>
+      <IconButton icon={ChevronRight} label="Next month" onClick={() => shiftMonth(1)} disabled={isCurrentMonth} />
+      {!isCurrentMonth && (
+        <Button size="sm" variant="ghost" onClick={() => setViewMonth(nowKey)} data-cursor="Back to now" className="text-gold">
+          Today
+        </Button>
+      )}
+    </div>
+  )
+
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 pb-24">
-      {/* ── Meta strip ── */}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-white/5 pb-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">Ledger · {entries.length} entries</p>
-        <div className="flex items-center gap-1.5 rounded-lg bg-black/20 border border-white/10 px-1.5 py-1">
-          <button onClick={() => shiftMonth(-1)} aria-label="Previous month"
-            className="w-9 h-9 sm:w-7 sm:h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="min-w-[7.5rem] sm:min-w-[8.5rem] text-center text-xs font-mono text-parchment/80 tabular-nums">
-            {viewMonthLabel}
-          </span>
-          <button onClick={() => shiftMonth(1)} aria-label="Next month" disabled={isCurrentMonth}
-            className="w-9 h-9 sm:w-7 sm:h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors disabled:opacity-25 disabled:hover:bg-transparent">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          {!isCurrentMonth && (
-            <button onClick={() => setViewMonth(nowKey)}
-              data-cursor="Back to now"
-              className="ml-1 px-3 py-2 sm:px-2 sm:py-1 rounded-md bg-gold/15 border border-gold/30 text-[10px] font-bold uppercase tracking-wider text-gold hover:bg-gold/25 transition-colors">
-              Today
-            </button>
-          )}
-        </div>
-      </div>
+    <Page width="wide">
+      <PageHeader
+        eyebrow={<>Ledger · <span className="tabular-nums">{entries.length}</span> entries</>}
+        title="Every sum, accounted for."
+        description={`Income, expenses & savings — ${viewMonthLabel}`}
+        actions={monthStepper}
+      />
 
-      {/* ── Hero: masked-line reveal, dion-style ── */}
-      <header data-noreveal>
-        <h1 className="font-display text-[clamp(2.6rem,6.5vw,4.6rem)] leading-[1.04] text-parchment">
-          <RevealLines
-            delay={80}
-            fluid
-            lines={[
-              'Every sum,',
-              'accounted for.',
-            ]}
-          />
-        </h1>
-        <div className="mt-5 flex items-center gap-4">
-          <span aria-hidden="true" className="h-px w-12 shrink-0 bg-gold/60" />
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/50">
-            Income, expenses & savings — {viewMonthLabel}
-          </p>
-        </div>
-      </header>
+      {/* ── Summary: Income / Expenses / Net / Offerings, then the savings goal ── */}
+      <PageSection id="finance-summary" title="Summary">
+        <div className="space-y-3 sm:space-y-4">
+          <StatGrid>
+            <Stat label="Income" tone="moss" value={<Figure><CountUp value={totalIncome} format={formatNaira} /></Figure>} />
+            <Stat label="Expenses" tone="ember" value={<Figure><CountUp value={totalExpense} format={formatNaira} /></Figure>} />
+            <Stat label="Net" tone={currentSavings >= 0 ? 'gold' : 'ember'} value={<Figure><CountUp value={currentSavings} format={formatNaira} /></Figure>} />
+            <Stat label="Offerings" value={<Figure><CountUp value={sectionSpending.Offerings || 0} format={formatNaira} /></Figure>} caption={`Given in ${viewMonthLabel}`} />
+          </StatGrid>
 
-      {/* ── Figures strip ── */}
-      <Float delay={0.5} duration={10} amp={6}>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4">
-          <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>📥</span> Income</p>
-          <p className="mt-1 text-xl font-bold font-mono text-[#7fa871]"><CountUp value={totalIncome} format={n => `₦${n.toFixed(2)}`} /></p>
-        </div>
-        <div className="spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4">
-          <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>💸</span> Expenses</p>
-          <p className="mt-1 text-xl font-bold font-mono text-[#cf8f78]"><CountUp value={totalExpense} format={n => `₦${n.toFixed(2)}`} /></p>
-        </div>
-        <div className="spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4">
-          <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold flex items-center gap-1.5"><span>⚖️</span> Net</p>
-          <p className={`mt-1 text-xl font-bold font-mono ${currentSavings >= 0 ? 'text-parchment' : 'text-[#cf8f78]'}`}><CountUp value={currentSavings} format={n => `₦${n.toFixed(2)}`} /></p>
-        </div>
-        <div className={`spotlight-card rounded-xl border border-white/10 bg-surface-solid p-4 ${savingsProgress >= 100 ? 'border-beam' : ''}`}>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] uppercase tracking-wider text-parchment/50 font-bold truncate">🎯 Savings Goal</p>
-            <button onClick={() => { setEditSavings(!editSavings); setSavingsInput(savingsTarget.toString()) }} className="text-[10px] font-bold text-gold hover:text-gold-glow transition-colors shrink-0">
-              {editSavings ? 'Cancel' : savingsTarget > 0 ? 'Edit' : 'Set'}
-            </button>
-          </div>
-          {editSavings ? (
-            <div className="mt-2 flex items-center gap-1.5">
-              <div className="relative flex-1 min-w-0">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-parchment/40 text-xs">₦</span>
-                <input type="number" step="0.01" value={savingsInput} onChange={(e) => setSavingsInput(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-lg py-1.5 pl-6 pr-2 text-xs focus:outline-none focus:ring-2 focus:ring-gold/30" placeholder="500" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleSaveSavingsTarget()} />
-              </div>
-              <button onClick={handleSaveSavingsTarget} className="px-2.5 py-1.5 rounded-lg bg-gold text-ink text-xs font-bold hover:bg-gold-glow transition-colors shrink-0">Save</button>
+          <Panel className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className={labelClass}>Monthly savings goal</p>
+              <Button size="sm" variant="ghost" className="text-gold" onClick={() => { setEditSavings(!editSavings); setSavingsInput(savingsTarget.toString()) }}>
+                {editSavings ? 'Cancel' : savingsTarget > 0 ? 'Edit' : 'Set'}
+              </Button>
             </div>
-          ) : savingsTarget > 0 ? (
-            <>
-              <p className="mt-1 text-lg font-bold font-mono tabular-nums text-parchment truncate">
-                ₦{Math.max(currentSavings, 0).toFixed(0)} <span className="text-xs text-parchment/40 font-sans">/ ₦{savingsTarget.toFixed(0)}</span>
-              </p>
-              <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-700 ${savingsProgress >= 100 ? 'bg-moss' : 'bg-gold'}`} style={{ width: `${Math.max(savingsProgress, 2)}%` }} />
-              </div>
-              {savingsProgress >= 100 && <p className="mt-1 text-[10px] font-bold text-[#7fa871]">Goal reached ✓</p>}
-            </>
-          ) : (
-            <p className="mt-1 text-xs text-parchment/40">Tap Set to add a monthly target.</p>
-          )}
-        </div>
-      </div>
-      </Float>
-
-      {/* Balance Sheet Overview */}
-      <div>
-        <SectionHeading
-          icon="👛"
-          text="Purses"
-          className="mb-4"
-          right={
-            <button
-              onClick={() => setShowAddPurse(!showAddPurse)}
-              data-cursor="Make a new purse"
-              className="link-slide text-xs font-bold text-gold hover:text-gold-glow transition-colors"
-            >
-              {showAddPurse ? 'Cancel' : '+ Add Purse'}
-            </button>
-          }
-        />
-
-        {/* Add Purse Form */}
-        {showAddPurse && (
-          <form onSubmit={handleAddPurse} className="mb-4 p-4 bg-surface-solid border-hairline rounded-xl border border-gold-dim/20 space-y-3">
-            <div>
-              <label className="block text-xs text-parchment/50 mb-1">Purse Name</label>
-              <input
-                type="text"
-                value={newPurseName}
-                onChange={(e) => setNewPurseName(e.target.value)}
-                required
-                className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold/30"
-                placeholder="e.g. Emergency Fund, Travel, Business..."
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-parchment/50 mb-1">Icon</label>
-              <div className="flex flex-wrap gap-1.5">
-                {PURSE_ICONS.map(icon => (
-                  <button
-                    key={icon}
-                    type="button"
-                    onClick={() => setNewPurseIcon(icon)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-lg transition-all ${newPurseIcon === icon ? 'ring-2 ring-gold bg-gold/15 scale-110' : 'bg-black/20 border border-white/10 hover:border-white/25'}`}
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-parchment/50 mb-1">Color</label>
-              <div className="flex flex-wrap gap-1.5">
-                {PURSE_COLORS.map(color => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setNewPurseColor(color)}
-                    className={`w-8 h-8 rounded-lg transition-all ${newPurseColor === color ? 'ring-2 ring-offset-2 ring-ink ring-parchment/60 scale-110' : ''}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={addPurseLoading}
-              className="w-full bg-gold text-ink hover:bg-gold-glow font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
-            >
-              {addPurseLoading ? 'Creating...' : 'Create Purse'}
-            </button>
-          </form>
-        )}
-
-        {/* Purse Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {purses.map((purse, i) => {
-            const balance = purseBalances[purse.name] || 0
-            return (
-              <Reveal key={purse.id} delay={i * 70}>
-              <div
-                className="tilt-card spotlight-card relative group rounded-xl p-4 text-white transition-all shadow-lg shadow-black/20"
-                style={{ backgroundColor: purse.color }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-2xl">{purse.icon}</span>
-                  {purses.length > 1 && (
-                    <button
-                      onClick={() => setDeleteConfirm(deleteConfirm === purse.id ? null : purse.id)}
-                      className="text-white/70 hover:text-white text-base leading-none transition-opacity"
-                    >
-                      ✕
-                    </button>
-                  )}
+            {editSavings ? (
+              <div className="flex items-center gap-2">
+                <div className="relative min-w-0 flex-1 sm:max-w-xs">
+                  <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-parchment/40">₦</span>
+                  <input type="number" step="0.01" value={savingsInput} onChange={(e) => setSavingsInput(e.target.value)}
+                    aria-label="Monthly savings target"
+                    className={cx(inputClass, 'pl-7 font-mono tabular-nums')} placeholder="500" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleSaveSavingsTarget()} />
                 </div>
-                <div className="text-[10px] uppercase tracking-wider font-bold text-white/85 mb-1">{purse.name}</div>
-                <div className="text-xl font-bold font-mono tabular-nums">₦{balance.toFixed(2)}</div>
-
-                {/* Delete confirmation */}
-                {deleteConfirm === purse.id && (
-                  <div className="absolute inset-0 rounded-xl bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 z-10">
-                    <div className="text-center">
-                      <p className="text-xs text-white/90 mb-2">Delete &quot;{purse.name}&quot;?<br />Entries will move to another purse.</p>
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => handleDeletePurse(purse.id)}
-                          className="px-3 py-1 bg-ember text-white text-xs rounded-lg hover:bg-ember"
-                        >
-                          Delete
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm(null)}
-                          className="px-3 py-1 bg-white/20 text-white text-xs rounded-lg hover:bg-white/30"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <Button variant="secondary" onClick={handleSaveSavingsTarget} className="shrink-0">Save</Button>
               </div>
-              </Reveal>
-            )
-          })}
+            ) : savingsTarget > 0 ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <p className="font-mono text-heading tabular-nums text-parchment">
+                    ₦{Math.max(currentSavings, 0).toFixed(0)} <span className="text-mono text-parchment/45">/ ₦{savingsTarget.toFixed(0)}</span>
+                  </p>
+                  {savingsProgress >= 100 && <Badge tone="moss">Goal reached</Badge>}
+                </div>
+                <ProgressBar value={savingsProgress} min={2} tone={savingsProgress >= 100 ? 'bg-moss' : 'bg-gold'} label="Savings goal progress" />
+              </div>
+            ) : (
+              <p className="text-caption text-parchment/50">Tap Set to add a monthly target.</p>
+            )}
+          </Panel>
         </div>
-      </div>
+      </PageSection>
 
-      {/* Section Budgets (Need, Want, Offerings, Savings) */}
-      <div>
-        <div className="flex items-end justify-between gap-3 flex-wrap mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span>📊</span> <Scramble text="Budget by Sections" />
-          </h2>
-          <p className="text-xs text-parchment/40 font-mono tabular-nums">
-            Allocated {totalAllocated.toFixed(0)} · Spent {Object.values(sectionSpending).reduce((s: number, v: number) => s + v, 0).toFixed(0)}
-          </p>
+      {/* ── Purses + transfers between them ── */}
+      <PageSection
+        id="finance-purses"
+        title="Purses"
+        action={
+          <>
+            <Button size="sm" variant="ghost" icon={ArrowLeftRight} onClick={() => setShowTransfer(!showTransfer)} data-cursor="Move money between purses" aria-expanded={showTransfer}>
+              {showTransfer ? 'Cancel' : 'Transfer'}
+            </Button>
+            <Button size="sm" variant="ghost" icon={showAddPurse ? undefined : Plus} onClick={() => setShowAddPurse(!showAddPurse)} data-cursor="Make a new purse" aria-expanded={showAddPurse}>
+              {showAddPurse ? 'Cancel' : 'Add purse'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {/* Add purse form */}
+          {showAddPurse && (
+            <Panel className="animate-fadeIn">
+              <form onSubmit={handleAddPurse} className="space-y-5">
+                <Field label="Purse name">
+                  <input
+                    type="text"
+                    value={newPurseName}
+                    onChange={(e) => setNewPurseName(e.target.value)}
+                    required
+                    className={inputClass}
+                    placeholder="e.g. Emergency Fund, Travel, Business..."
+                  />
+                </Field>
+                <fieldset className="space-y-2">
+                  <legend className={labelClass}>Icon</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {PURSE_ICONS.map(icon => (
+                      <button
+                        key={icon}
+                        type="button"
+                        onClick={() => setNewPurseIcon(icon)}
+                        aria-pressed={newPurseIcon === icon}
+                        className={cx(
+                          'grid h-11 w-11 place-items-center rounded-lg border text-lg transition-colors pointer-fine:h-9 pointer-fine:w-9',
+                          newPurseIcon === icon ? 'border-gold/60 bg-gold/[0.1]' : 'border-gold/15 hover:border-gold/35',
+                        )}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+                <fieldset className="space-y-2">
+                  <legend className={labelClass}>Color</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {PURSE_COLORS.map(color => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setNewPurseColor(color)}
+                        aria-label={`Color ${color}`}
+                        aria-pressed={newPurseColor === color}
+                        className={cx(
+                          'h-11 w-11 rounded-full border-2 transition-colors pointer-fine:h-8 pointer-fine:w-8',
+                          newPurseColor === color ? 'border-parchment' : 'border-transparent',
+                        )}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
+                <Button type="submit" variant="primary" disabled={addPurseLoading} className="w-full sm:w-auto">
+                  {addPurseLoading ? 'Creating...' : 'Create purse'}
+                </Button>
+              </form>
+            </Panel>
+          )}
+
+          {/* Transfer form */}
+          {showTransfer && (
+            <Panel className="animate-fadeIn">
+              <form onSubmit={handleTransfer} className="space-y-4">
+                <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                  <Field label="From">
+                    <select value={transferFrom} onChange={(e) => setTransferFrom(e.target.value)} className={inputClass}>
+                      {purses.map(p => (
+                        <option key={p.id} value={p.name}>
+                          {p.name} (₦{(purseBalances[p.name] || 0).toFixed(2)})
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <span aria-hidden="true" className="hidden h-11 items-center text-parchment/40 sm:flex">→</span>
+                  <Field label="To">
+                    <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} className={inputClass}>
+                      {purses.filter(p => p.name !== transferFrom).map(p => (
+                        <option key={p.id} value={p.name}>
+                          {p.name} (₦{(purseBalances[p.name] || 0).toFixed(2)})
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Amount">
+                    <div className="relative">
+                      <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-parchment/40">₦</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={transferAmount}
+                        onChange={(e) => setTransferAmount(e.target.value)}
+                        required
+                        className={cx(inputClass, 'pl-7 font-mono tabular-nums')}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Note (optional)">
+                    <input
+                      type="text"
+                      value={transferDesc}
+                      onChange={(e) => setTransferDesc(e.target.value)}
+                      className={inputClass}
+                      placeholder="e.g. Building savings"
+                    />
+                  </Field>
+                </div>
+                <Button type="submit" variant="primary" disabled={transferLoading || transferFrom === transferTo} className="w-full sm:w-auto">
+                  {transferLoading ? 'Transferring...' : `Transfer ${transferFrom} → ${transferTo}`}
+                </Button>
+              </form>
+            </Panel>
+          )}
+
+          {/* Purse balances */}
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {purses.map(purse => {
+              const balance = purseBalances[purse.name] || 0
+              return (
+                <li key={purse.id} className="min-w-0">
+                  <Panel className="group relative flex h-full flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <PurseMark name={purse.name} color={purse.color} />
+                      {purses.length > 1 && (
+                        <RowAction
+                          icon={Trash2}
+                          label={`Delete ${purse.name}`}
+                          className="-mr-2 -mt-2"
+                          onClick={() => setDeleteConfirm(deleteConfirm === purse.id ? null : purse.id)}
+                        />
+                      )}
+                    </div>
+                    <div className="min-w-0 space-y-1">
+                      <p className={cx(labelClass, 'truncate')}>{purse.name}</p>
+                      <p className="break-all font-mono text-heading tabular-nums text-parchment">₦{balance.toFixed(2)}</p>
+                    </div>
+
+                    {/* Delete confirmation */}
+                    {deleteConfirm === purse.id && (
+                      <div role="alertdialog" aria-label={`Delete ${purse.name}`} className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl border border-ember/40 bg-surface-solid p-3 text-center animate-fadeIn">
+                        <p className="text-caption !text-parchment/80">Delete &quot;{purse.name}&quot;?<br />Entries will move to another purse.</p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <Button size="sm" variant="danger" onClick={() => handleDeletePurse(purse.id)}>Delete</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+                        </div>
+                      </div>
+                    )}
+                  </Panel>
+                </li>
+              )
+            })}
+          </ul>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      </PageSection>
+
+      {/* ── Section budgets (Need, Want, Offerings, Savings) ── */}
+      <PageSection
+        id="finance-sections"
+        title="Budget by sections"
+        action={
+          <span className="font-mono text-mono tabular-nums text-parchment/45">
+            Allocated {totalAllocated.toFixed(0)} · Spent {totalSectionSpent.toFixed(0)}
+          </span>
+        }
+      >
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
           {SECTION_KEYS.map(section => (
             <SectionBudgetCard
               key={section}
@@ -663,211 +687,117 @@ export default function FinancePage() {
             />
           ))}
         </div>
-      </div>
+      </PageSection>
 
-      {/* Transfer Card */}
-      <div className="bg-surface-solid border-hairline p-5 rounded-xl border border-gold-dim/20 ">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold"><span className="mr-2">🔄</span><Scramble text="Transfer Between Purses" /></h2>
-          <button
-            onClick={() => setShowTransfer(!showTransfer)}
-            data-cursor="Move money between purses"
-            className="text-xs font-bold text-gold hover:text-gold-glow transition-colors"
-          >
-            {showTransfer ? 'Cancel' : 'Transfer'}
-          </button>
-        </div>
+      {/* ── Record a transaction + every budget line at a glance ── */}
+      <div className="grid grid-cols-1 items-start gap-8 sm:gap-10 lg:grid-cols-2 lg:gap-6">
+        <PageSection id="finance-add" title="Add transaction">
+          <TransactionForm onSuccess={fetchData} purses={purses} />
+        </PageSection>
 
-        {showTransfer && (
-          <form onSubmit={handleTransfer} className="space-y-3">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <label className="block text-xs text-parchment/50 mb-1">From</label>
-                <select
-                  value={transferFrom}
-                  onChange={(e) => setTransferFrom(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm"
-                >
-                  {purses.map(p => (
-                    <option key={p.id} value={p.name}>
-                      {p.icon} {p.name} (₦{(purseBalances[p.name] || 0).toFixed(2)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="w-8 text-center text-parchment/40 pb-2">→</div>
-              <div className="flex-1">
-                <label className="block text-xs text-parchment/50 mb-1">To</label>
-                <select
-                  value={transferTo}
-                  onChange={(e) => setTransferTo(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm"
-                >
-                  {purses.filter(p => p.name !== transferFrom).map(p => (
-                    <option key={p.id} value={p.name}>
-                      {p.icon} {p.name} (₦{(purseBalances[p.name] || 0).toFixed(2)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="block text-xs text-parchment/50 mb-1">Amount</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-parchment/40">₦</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={transferAmount}
-                    onChange={(e) => setTransferAmount(e.target.value)}
-                    required
-                    className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-7 pr-3 text-sm"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs text-parchment/50 mb-1">Note (Optional)</label>
-                <input
-                  type="text"
-                  value={transferDesc}
-                  onChange={(e) => setTransferDesc(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-sm"
-                  placeholder="e.g. Building savings"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={transferLoading || transferFrom === transferTo}
-              className="w-full bg-gold text-ink hover:bg-gold-glow font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
-            >
-              {transferLoading ? 'Transferring...' : `Transfer ${transferFrom ? getPurseIcon(transferFrom) : ''} → ${transferTo ? getPurseIcon(transferTo) : ''}`}
-            </button>
-          </form>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-<div className="space-y-6">
-          {/* Add Transaction */}
-          <div>
-            <h2 className="text-lg font-semibold mb-3"><Scramble text="Add Transaction" /></h2>
-            <TransactionForm onSuccess={fetchData} purses={purses} />
-          </div>
-
-          {/* Monthly Budget Overview */}
-          <div>
-            <h2 className="text-lg font-semibold mb-3"><Scramble text="All Budgets Overview" /></h2>
-            <div className="space-y-3">
-              {budgets.length === 0 ? (
-                <div className="text-sm text-parchment/50 italic p-4 bg-black/20 rounded-xl">
-                  No budgets set for {viewMonthLabel}. Use the section cards above to give each part of your plan a job!
-                </div>
-              ) : (
-                budgets.map(budget => (
-                  <BudgetProgress
-                    key={budget.id}
-                    category={`${budget.section} › ${budget.category}`}
-                    budgeted={budget.amount}
-                    spent={categorySpending[budget.category] || 0}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-{/* Ledger */}
-      <div>
-        <div className="flex items-end justify-between gap-3 flex-wrap mb-3">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span>🧾</span> <Scramble text="Ledger" />
-          </h2>
-          <p className="text-xs text-parchment/40 font-mono">{entries.length} transactions · newest first</p>
-        </div>
-        <div className="bg-surface-solid border border-white/10 rounded-xl overflow-hidden">
-          {entries.length === 0 ? (
-            <div className="p-6 text-sm text-parchment/40 text-center">No transactions yet. Add your first one above.</div>
+        <PageSection id="finance-budgets" title="All budgets">
+          {budgets.length === 0 ? (
+            <EmptyState
+              title={`No budgets set for ${viewMonthLabel}.`}
+              body="Use the section cards above to give each part of your plan a job."
+            />
           ) : (
-            <>
-            {/* Phones: stacked cards */}
-            <ul className="md:hidden divide-y divide-white/5">
+            <Panel className="py-1 sm:py-2">
+              <ul className="divide-y divide-gold/10">
+                {budgets.map(budget => (
+                  <li key={budget.id}>
+                    <BudgetProgress
+                      category={`${budget.section} › ${budget.category}`}
+                      budgeted={budget.amount}
+                      spent={categorySpending[budget.category] || 0}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+        </PageSection>
+      </div>
+
+      {/* ── Ledger ── */}
+      <PageSection
+        id="finance-ledger"
+        title="Ledger"
+        action={<span className="font-mono text-mono tabular-nums text-parchment/45">{entries.length} transactions · newest first</span>}
+      >
+        {entries.length === 0 ? (
+          <EmptyState title="No transactions yet." body="Add your first one above." />
+        ) : (
+          <Panel padded={false}>
+            {/* Phones and tablets: two-line row cards */}
+            <ul className="divide-y divide-gold/10 lg:hidden">
               {recentEntries.map(entry => {
                 const credit = entry.type === 'income' || entry.type === 'transfer_in'
                 return (
-                  <li key={entry.id} className="p-4 flex items-start gap-3">
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-medium text-parchment break-words">{entry.description || entry.category}</div>
-                          <div className="text-[11px] text-parchment/40 font-mono">
-                            {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {entry.category}
-                          </div>
-                        </div>
-                        <div className={`text-base font-mono tabular-nums whitespace-nowrap font-semibold ${credit ? 'text-moss' : 'text-ember'}`}>
+                  <li key={entry.id} className="group flex items-center gap-2 py-3 pl-4 pr-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="min-w-0 truncate text-body text-parchment">{entry.description || entry.category}</p>
+                        <p className={cx('shrink-0 font-mono text-body tabular-nums', credit ? 'text-moss' : 'text-ember')}>
                           {credit ? '+' : '−'}₦{entry.amount.toFixed(2)}
-                        </div>
+                        </p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <PurseTag name={entry.purse} icon={getPurseIcon(entry.purse)} color={getPurseColor(entry.purse)} />
-                        <SectionTag priority={entry.priority} />
-                        <span className="ml-auto text-[11px] font-mono tabular-nums text-parchment/50">
-                          Bal ₦{(balanceById.get(entry.id) ?? 0).toFixed(2)}
-                        </span>
+                      <div className="flex items-baseline justify-between gap-3 font-mono text-[11px] tabular-nums text-parchment/45">
+                        <p className="min-w-0 truncate">
+                          {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {entry.category} · {entry.purse}
+                          {entry.priority && (SECTION_KEYS as readonly string[]).includes(entry.priority) && <> · {entry.priority}</>}
+                        </p>
+                        <p className="shrink-0">Bal ₦{(balanceById.get(entry.id) ?? 0).toFixed(2)}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleDeleteEntry(entry.id)} aria-label="Delete transaction"
-                      className="w-10 h-10 shrink-0 rounded-lg text-parchment/50 hover:text-ember hover:bg-ember/10 transition-colors text-xl leading-none">×</button>
+                    <RowAction icon={Trash2} label="Delete transaction" onClick={() => handleDeleteEntry(entry.id)} />
                   </li>
                 )
               })}
             </ul>
 
-            {/* md and up: table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm min-w-[600px]">
+            {/* lg and up: table */}
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 bg-black/20">
-                    <th className="text-left p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Date</th>
-                    <th className="text-left p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Transaction</th>
-                    <th className="text-left p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Purse</th>
-                    <th className="text-right p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Amount</th>
-                    <th className="text-right p-3 font-semibold text-parchment/50 text-[10px] uppercase tracking-wider">Balance</th>
-                    <th className="p-3 w-10"></th>
+                  <tr className="border-b border-gold/15">
+                    <th scope="col" className={cx(labelClass, 'px-4 py-3 text-left font-normal')}>Date</th>
+                    <th scope="col" className={cx(labelClass, 'px-4 py-3 text-left font-normal')}>Transaction</th>
+                    <th scope="col" className={cx(labelClass, 'px-4 py-3 text-left font-normal')}>Purse</th>
+                    <th scope="col" className={cx(labelClass, 'px-4 py-3 text-right font-normal')}>Amount</th>
+                    <th scope="col" className={cx(labelClass, 'px-4 py-3 text-right font-normal')}>Balance</th>
+                    <th scope="col" className="w-12 px-2 py-3"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-gold/10">
                   {recentEntries.map(entry => {
                     const isCredit = entry.type === 'income' || entry.type === 'transfer_in'
                     return (
-                      <tr key={entry.id} className="hover:bg-white/[0.03] transition-colors group">
-                        <td className="p-3 whitespace-nowrap text-xs text-parchment/40 font-mono">
+                      <tr key={entry.id} className="group transition-colors hover:bg-gold/[0.03]">
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-mono tabular-nums text-parchment/45">
                           {new Date(entry.entryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </td>
-                        <td className="p-3">
-                          <div className="font-medium text-parchment truncate max-w-[200px] md:max-w-[280px]">{entry.description || entry.category}</div>
-                          <div className="text-[11px] text-parchment/40 flex items-center gap-1.5 mt-0.5 min-w-0">
+                        <td className="px-4 py-3">
+                          <div className="max-w-[16rem] truncate text-parchment xl:max-w-[20rem]">{entry.description || entry.category}</div>
+                          <div className="mt-1 flex min-w-0 items-center gap-2 text-caption text-parchment/45">
                             <span className="truncate">{entry.category}</span>
                             <SectionTag priority={entry.priority} />
                           </div>
                         </td>
-                        <td className="p-3">
-                          <PurseTag name={entry.purse} icon={getPurseIcon(entry.purse)} color={getPurseColor(entry.purse)} />
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-2 whitespace-nowrap text-parchment/70">
+                            <PurseMark name={entry.purse} size="sm" />
+                            {entry.purse}
+                          </span>
                         </td>
-                        <td className={`p-3 text-right font-mono tabular-nums whitespace-nowrap font-medium ${isCredit ? 'text-[#7fa871]' : 'text-[#cf8f78]'}`}>
+                        <td className={cx('whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums', isCredit ? 'text-moss' : 'text-ember')}>
                           {isCredit ? '+' : '−'}₦{entry.amount.toFixed(2)}
                         </td>
-                        <td className="p-3 text-right font-mono tabular-nums text-parchment/80 whitespace-nowrap">
+                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-parchment/75">
                           ₦{(balanceById.get(entry.id) ?? 0).toFixed(2)}
                         </td>
-                        <td className="p-3 text-right">
-                          <button onClick={() => handleDeleteEntry(entry.id)} aria-label="Delete transaction"
-                            className="w-9 h-9 sm:w-7 sm:h-7 rounded-lg text-parchment/30 hover:text-[#cf8f78] hover:bg-ember/10 transition-colors leading-none opacity-100 lg:opacity-0 lg:group-hover:opacity-100">×</button>
+                        <td className="px-2 py-1 text-right">
+                          <RowAction icon={Trash2} label="Delete transaction" onClick={() => handleDeleteEntry(entry.id)} />
                         </td>
                       </tr>
                     )
@@ -875,15 +805,14 @@ export default function FinancePage() {
                 </tbody>
               </table>
             </div>
-            </>
-          )}
-        </div>
+          </Panel>
+        )}
         {recentEntries.length >= 30 && (
-          <p className="text-xs text-parchment/40 mt-2 text-center">
+          <p className="mt-3 text-center text-caption text-parchment/45">
             Showing latest 30 of {entriesInMonth.length} transactions in {viewMonthLabel}.
           </p>
         )}
-      </div>
-    </div>
+      </PageSection>
+    </Page>
   )
 }

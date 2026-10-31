@@ -1,9 +1,11 @@
 'use client'
 
 import { format } from 'date-fns'
-import { ProgressRing } from '@/components/ui/ProgressRing'
+import { Panel, PageHeader } from '@/components/ds'
 import { InlineEdit } from '@/components/ui/InlineEdit'
+import { Breadcrumbs, type Crumb } from './Breadcrumbs'
 import { DeleteItemButton } from './DeleteItemButton'
+import { ScoreInstrument } from './primitives'
 import type { Item } from '@/stores/hierarchyStore'
 
 interface ItemHeaderCardProps {
@@ -15,37 +17,46 @@ interface ItemHeaderCardProps {
   deleteLabel: string
   /** Show the editable theme quote and date range (goal / quarter). */
   showTheme?: boolean
+  /** Mono kicker, e.g. "Quarter"; the date range is appended when showTheme. */
+  eyebrow?: string
+  /** Path back up the hierarchy, shown above the header. */
+  crumbs?: Crumb[]
   onRename: (title: string) => void
   onTheme?: (theme: string) => void
   onDeleted: (id: string) => void | Promise<void>
 }
 
+const editInput = 'w-full min-w-0 rounded-lg border border-gold/40 bg-ink/40 px-2 py-1 text-parchment outline-none focus:ring-2 focus:ring-gold/30'
+
+/** Header for a single item (goal / quarter / month): crumbs, editable title + theme, delete, work-clock read. */
 export function ItemHeaderCard({
-  item, score, fallbackTitle, renameLabel, deleteLabel, showTheme = false, onRename, onTheme, onDeleted,
+  item, score, fallbackTitle, renameLabel, deleteLabel, showTheme = false, eyebrow, crumbs, onRename, onTheme, onDeleted,
 }: ItemHeaderCardProps) {
+  const range = showTheme && (item.startDate || item.endDate)
+    ? `${item.startDate ? format(new Date(item.startDate), 'MMM d') : ''} – ${item.endDate ? format(new Date(item.endDate), 'MMM d, yyyy') : ''}`
+    : null
+  const kicker = [eyebrow, range].filter(Boolean).join(' · ') || undefined
+
   return (
-    <div className="bg-surface border border-mist rounded-[8px] p-4 pr-14 sm:p-8 relative">
-      <DeleteItemButton itemId={item.id} title={deleteLabel} variant="header" onDeleted={onDeleted} />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-ink">
-            <InlineEdit value={item.title || fallbackTitle || ''} onSave={onRename} title={renameLabel}
-              inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-3xl font-display font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
-          </h1>
-          {showTheme && (
-            <>
-              <p className="text-gold font-serif italic mt-1">
-                <InlineEdit value={item.theme || ''} onSave={t => onTheme?.(t)} placeholder="Add a theme quote..." title="Edit theme quote"
-                  inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-base font-serif italic text-gold outline-none focus:ring-2 focus:ring-gold/30" />
-              </p>
-              <p className="text-sm text-ink/50 mt-2 font-mono">
-                {item.startDate && format(new Date(item.startDate), 'MMM d')} – {item.endDate && format(new Date(item.endDate), 'MMM d, yyyy')}
-              </p>
-            </>
-          )}
-        </div>
-        <ProgressRing progress={score} size={72} />
-      </div>
+    <div className="space-y-5 sm:space-y-6">
+      {crumbs && <Breadcrumbs crumbs={crumbs} />}
+      <PageHeader
+        eyebrow={kicker}
+        title={
+          <InlineEdit value={item.title || fallbackTitle || ''} onSave={onRename} title={renameLabel}
+            inputClassName={`${editInput} text-h1`} />
+        }
+        description={showTheme ? (
+          <span className="font-display italic text-gold">
+            <InlineEdit value={item.theme || ''} onSave={t => onTheme?.(t)} placeholder="Add a theme quote..." title="Edit theme quote"
+              inputClassName={`${editInput} text-body font-display italic`} />
+          </span>
+        ) : undefined}
+        actions={<DeleteItemButton itemId={item.id} title={deleteLabel} onDeleted={onDeleted} />}
+      />
+      <Panel>
+        <ScoreInstrument score={score} label="Progress" />
+      </Panel>
     </div>
   )
 }

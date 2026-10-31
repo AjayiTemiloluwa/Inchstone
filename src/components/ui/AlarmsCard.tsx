@@ -121,7 +121,7 @@ export function AlarmsCard() {
               key={i}
               onClick={() => setDays(on ? days.filter(x => x !== i) : [...days, i])}
               className={`h-9 w-9 rounded-full text-xs font-bold transition active:opacity-70 ${
-                on ? 'bg-gold text-ink' : 'bg-white/5 text-parchment/40 border border-white/10'
+                on ? 'bg-gold text-ink' : 'bg-gold/[0.05] text-parchment/40 border border-gold/15'
               }`}
             >
               {d}
@@ -151,11 +151,11 @@ export function AlarmsCard() {
               </div>
               <button
                 onClick={() => toggle(a)}
-                className={`relative h-6 w-11 rounded-full transition ${a.enabled ? 'bg-gold' : 'bg-white/15'}`}
+                className={`relative h-6 w-11 rounded-full transition ${a.enabled ? 'bg-gold' : 'bg-parchment/15'}`}
                 aria-label={a.enabled ? 'Disable alarm' : 'Enable alarm'}
               >
                 <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-parchment shadow transition-all ${
                     a.enabled ? 'left-[22px]' : 'left-0.5'
                   }`}
                 />

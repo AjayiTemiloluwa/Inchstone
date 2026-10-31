@@ -210,10 +210,10 @@ export function YearFilm({ year }: { year: number }) {
   const current = frames[Math.min(idx, frames.length - 1)]
 
   return (
-    <div className="spotlight-card rounded-xl border border-white/10 bg-surface-solid overflow-hidden" data-lenis-prevent>
-      <div className="flex items-center justify-between gap-3 flex-wrap px-4 pt-4 pb-3 border-b border-white/10">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <span>✨</span> <Scramble text={`${year} at a Glance`} className="text-parchment" />
+    <div className="rounded-xl border border-gold/15 bg-surface-solid overflow-hidden" data-lenis-prevent>
+      <div className="flex items-center justify-between gap-3 flex-wrap px-4 pt-4 pb-3 border-b border-gold/10 sm:px-6">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.24em] text-parchment/50">
+          <Scramble text={`${year} at a glance`} className="text-parchment/70" />
         </h2>
         <p className="text-xs text-parchment/40 font-mono">Your {year}, one day at a time</p>
       </div>
@@ -241,7 +241,7 @@ export function YearFilm({ year }: { year: number }) {
           value={idx}
           onChange={e => setIdx(Number(e.target.value))}
           aria-label="Scrub through the year"
-          className="min-w-0 flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-gold"
+          className="min-w-0 flex-1 h-1 bg-gold/15 rounded-full appearance-none cursor-pointer accent-gold"
         />
         <span className="font-mono text-[11px] text-parchment/40 whitespace-nowrap tabular-nums">
           {current ? format(current.date, 'MMM d') : '—'}

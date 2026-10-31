@@ -1,20 +1,33 @@
 'use client'
 
+import { cx } from '@/components/ds'
+
 interface SliderProps {
   label: string
   value: number
-  accent: 'gold' | 'sage'
+  accent: 'gold' | 'moss'
   onChange: (value: number) => void
 }
 
-function Slider({ label, value, accent, onChange }: SliderProps) {
+/**
+ * Labelled range slider. Spec D4: on phones the label and mono value sit on
+ * their own line above the track (so the track never shrinks to 40px); from
+ * `sm` up the label sits left and the value right of the track.
+ */
+export function Slider({ label, value, accent, onChange }: SliderProps) {
   return (
-    <div className="flex-1 min-w-0">
-      <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">{label}</span>
-      <input type="range" min="0" max="100" step={1} value={value} aria-label={label}
-        onChange={e => onChange(parseFloat(e.target.value) || 0)}
-        className={`w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer ${accent === 'gold' ? 'accent-gold' : 'accent-sage'}`} />
-      <span className="text-[9px] font-mono text-ink/50">{Math.round(value)}%</span>
+    <div className="min-w-0 flex-1">
+      <div className="mb-1 flex items-center justify-between gap-2 sm:hidden">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/45">{label}</span>
+        <span className="font-mono text-[11px] tabular-nums text-parchment/70">{Math.round(value)}%</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <span title={label} className="hidden w-24 shrink-0 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/45 sm:block">{label}</span>
+        <input type="range" min="0" max="100" step={1} value={value} aria-label={label}
+          onChange={e => onChange(parseFloat(e.target.value) || 0)}
+          className={cx('h-6 min-w-0 flex-1 cursor-pointer touch-manipulation', accent === 'gold' ? 'accent-gold' : 'accent-moss')} />
+        <span className="hidden w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-parchment/70 sm:block">{Math.round(value)}%</span>
+      </div>
     </div>
   )
 }
@@ -31,12 +44,12 @@ interface WeightScoreInputsProps {
   onScoreChange: (value: number) => void
 }
 
-/** Side-by-side weight and score range sliders. Clicks never bubble to the card. */
+/** Weight and score range sliders, stacked. Clicks never bubble to the card. */
 export function WeightScoreInputs({ weight, score, weightLabel = 'Weight', onWeightChange, onScoreChange }: WeightScoreInputsProps) {
   return (
-    <div className="flex items-center gap-4 animate-fadeIn" onClick={e => e.stopPropagation()}>
+    <div className="flex flex-col gap-3 animate-fadeIn" onClick={e => e.stopPropagation()}>
       <Slider label={weightLabel} value={weight} accent="gold" onChange={onWeightChange} />
-      <Slider label="Score" value={Math.round(score)} accent="sage" onChange={onScoreChange} />
+      <Slider label="Score" value={Math.round(score)} accent="moss" onChange={onScoreChange} />
     </div>
   )
 }

@@ -1,27 +1,21 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
   eachDayOfInterval, isSameMonth, isSameDay, isToday, addDays
 } from 'date-fns'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
 import { DayPanel } from '@/components/ui/DayPanel'
-import { CountUp, RevealLines } from '@/components/ui/motion'
+import { CountUp } from '@/components/ui/motion'
 import { Loader } from '@/components/ui/Loader'
-import { Float } from '@/components/effects/fluid'
+import { Page, PageHeader, Section, Panel, StatGrid, Stat, EmptyState, IconButton, Badge, cx } from '@/components/ds'
+import { PeriodNav, Meter } from './_components/PeriodNav'
 
-/* One editorial figure in the stat strip. */
-function Stat({ label, value, suffix = '' }: { label: string; value: number; suffix?: string }) {
-  return (
-    <div className="min-w-0 px-4 first:pl-0 last:pr-0 sm:px-7">
-      <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-parchment/35">{label}</p>
-      <p className="mt-2.5 font-display text-[2rem] leading-none text-parchment tabular-nums sm:text-[2.6rem]">
-        <CountUp value={value} duration={1100} format={n => `${Math.round(n)}${suffix}`} />
-      </p>
-    </div>
-  )
+/* Ledger figure that counts up from its previous value (spec E). */
+function Figure({ value, suffix = '' }: { value: number; suffix?: string }) {
+  return <CountUp value={value} duration={1100} format={n => `${Math.round(n)}${suffix}`} />
 }
 
 export default function CalendarPage() {
@@ -33,6 +27,7 @@ export default function CalendarPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [pullDistance, setPullDistance] = useState(0)
   const calendarRef = useRef<HTMLDivElement>(null)
+  const detailRef = useRef<HTMLDivElement>(null)
 
   // Calendar grid
   const monthStart = startOfMonth(currentMonth)
@@ -168,6 +163,15 @@ export default function CalendarPage() {
     setPullDistance(0)
   }
 
+  /* Select a day. Below the desktop split the detail sits under the grid, so
+     bring it into view (instantly when the user prefers reduced motion). */
+  const openDay = (date: Date) => {
+    setSelectedDay(date)
+    if (typeof window === 'undefined' || !window.matchMedia('(max-width: 1023px)').matches) return
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }))
+  }
+
   if (loading) return <Loader label="Spawning the calendar grid…" routeKey="calendar" />
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -179,256 +183,259 @@ export default function CalendarPage() {
     if (isSameMonth(d, currentMonth) && getDeedsForDay(d).length > 0) activeDays++
   })
 
+  const closeDay = () => {
+    setSelectedDay(null)
+  }
+
   return (
-    <div className="mx-auto max-w-[1100px] space-y-8 px-1 pb-28 pt-2 sm:pt-4">
+    <Page width="wide" className="pb-28">
       {/* Pull to refresh indicator */}
       {pullDistance > 0 && (
-        <div className="flex items-center justify-center py-1 transition-all">
-          <Sparkles className={`h-5 w-5 ${pullDistance > 80 ? 'text-gold' : 'text-parchment/30'} ${isRefreshing ? 'animate-spin' : ''}`} />
+        <div className="flex items-center justify-center py-1" aria-hidden="true">
+          <Sparkles className={cx('h-5 w-5 transition-colors', pullDistance > 80 ? 'text-gold' : 'text-parchment/30', isRefreshing && 'animate-spin motion-reduce:animate-none')} strokeWidth={1.5} />
         </div>
       )}
 
-      {/* ── Meta strip ── */}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-white/5 pb-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/40">
-          {monthLabel} · {totalDeedCount} deeds · {completedDeedCount} done
-          {notCurrentMonth && <span className="text-gold"> · off-month</span>}
-        </p>
-        <div className="flex items-center gap-1.5 rounded-lg bg-black/20 border border-white/10 px-1.5 py-1">
-          <button onClick={() => navigate('prev')} aria-label="Previous month"
-            className="w-9 h-9 sm:w-7 sm:h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button onClick={goToToday} title="Jump to today"
-            className="min-w-[7rem] sm:min-w-[8.5rem] py-2 text-center text-xs font-mono text-parchment/80 tabular-nums transition-colors hover:text-parchment">
-            {monthLabel}
-          </button>
-          <button onClick={() => navigate('next')} aria-label="Next month"
-            className="w-9 h-9 sm:w-7 sm:h-7 grid place-items-center rounded-md text-parchment/50 hover:text-parchment hover:bg-white/5 transition-colors">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          {notCurrentMonth && (
-            <button onClick={goToToday}
-              data-cursor="Back to now"
-              className="ml-1 px-2 py-1 rounded-md bg-gold/15 border border-gold/30 text-[10px] font-bold uppercase tracking-wider text-gold hover:bg-gold/25 transition-colors">
-              Today
-            </button>
+      <PageHeader
+        eyebrow={<>Calendar{notCurrentMonth && <span className="text-gold"> · off-month</span>}</>}
+        title={monthLabel}
+        meta={`${completionPct}% complete`}
+        description="Select a day to open its deeds. On touch, swipe the grid to change months."
+        actions={
+          <PeriodNav
+            label={format(currentMonth, 'MMM yyyy')}
+            labelTitle="Jump to today"
+            prevLabel="Previous month"
+            nextLabel="Next month"
+            onPrev={() => navigate('prev')}
+            onNext={() => navigate('next')}
+            onToday={goToToday}
+            showToday={notCurrentMonth}
+          />
+        }
+      />
+
+      <Section title="This month" id="calendar-figures">
+        <StatGrid cols={4}>
+          <Stat label="Deeds" value={<Figure value={totalDeedCount} />} />
+          <Stat label="Completed" tone="moss" value={<Figure value={completedDeedCount} suffix={`/${totalDeedCount}`} />} />
+          <Stat label="Active days" value={<Figure value={activeDays} suffix={`/${calendarDays.length}`} />} />
+          <Stat
+            label="Complete"
+            tone="gold"
+            value={<Figure value={completionPct} suffix="%" />}
+            caption={<Meter value={completionPct} tone="gold" className="mt-1" />}
+          />
+        </StatGrid>
+      </Section>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:gap-6">
+        {/* ── The grid ── */}
+        <Section title="Month" id="calendar-grid">
+          <Panel padded={false} className="overflow-hidden">
+            <div
+              ref={calendarRef}
+              className="overflow-auto"
+              data-lenis-prevent
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              {/* Weekday header */}
+              <div className="grid grid-cols-7 border-b border-gold/10" aria-hidden="true">
+                {weekDays.map(d => (
+                  <div key={d} className="py-3 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/40">
+                    <span className="sm:hidden">{d[0]}</span>
+                    <span className="hidden sm:inline">{d}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Cells */}
+              <div key={format(currentMonth, 'yyyy-MM')} className="grid grid-cols-7" role="group" aria-label={`${monthLabel} days`}>
+                {monthDates.map((date, i) => {
+                  const inMonth = isSameMonth(date, currentMonth)
+                  const isSelected = !!(selectedDay && isSameDay(date, selectedDay))
+                  const today = isToday(date)
+                  const dayDeeds = getDeedsForDay(date)
+                  const dayGoogle = getGoogleForDay(date)
+                  const dayCompleted = dayDeeds.filter(d => (completionMap[d.id] || 0) >= 100).length
+                  const dayScore = dayDeeds.length > 0
+                    ? Math.round(dayDeeds.reduce((sum, d) => sum + (completionMap[d.id] || 0), 0) / dayDeeds.length)
+                    : 0
+                  const lastRow = i >= 35
+
+                  return (
+                    <div
+                      key={i}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      aria-current={today ? 'date' : undefined}
+                      aria-label={`${format(date, 'EEEE, MMMM d')}${dayDeeds.length > 0 ? `, ${dayCompleted} of ${dayDeeds.length} deeds done` : ', no deeds'}`}
+                      style={{ animationDelay: `${Math.min(i * 12, 380)}ms` }}
+                      className={cx(
+                        'cal-pop group relative min-h-14 cursor-pointer p-1.5 text-left transition-colors duration-150 sm:min-h-[88px] sm:p-2 xl:min-h-[108px]',
+                        'focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold/60',
+                        i % 7 !== 6 && 'border-r border-gold/[0.07]',
+                        !lastRow && 'border-b border-gold/[0.07]',
+                        !inMonth && 'opacity-35',
+                        isSelected ? 'bg-gold/[0.08]' : 'hover:bg-gold/[0.04]',
+                      )}
+                      onClick={() => openDay(date)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDay(date) }
+                      }}
+                    >
+                      {isSelected && <span aria-hidden="true" className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-gold" />}
+
+                      <div className="flex items-start justify-between gap-1">
+                        <span className={cx(
+                          'grid h-7 w-7 place-items-center rounded-full font-mono text-mono tabular-nums',
+                          today ? 'bg-gold font-semibold text-ink' : isSelected ? 'text-gold' : 'text-parchment/75',
+                        )}>
+                          {format(date, 'd')}
+                        </span>
+                        {dayDeeds.length > 0 && (
+                          <span className="hidden pt-1 font-mono text-[10px] tabular-nums text-parchment/40 sm:block">
+                            {dayCompleted}/{dayDeeds.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Phone: quiet dots */}
+                      {dayDeeds.length > 0 && (
+                        <div className="mt-1 flex min-h-1.5 flex-wrap items-center gap-1 sm:hidden" aria-hidden="true">
+                          {dayDeeds.slice(0, 4).map(deed => {
+                            const pct = completionMap[deed.id] || 0
+                            return <span key={deed.id} className={cx('h-1.5 w-1.5 rounded-full', pct >= 100 ? 'bg-moss' : pct > 0 ? 'bg-gold' : 'bg-parchment/25')} />
+                          })}
+                          {dayDeeds.length > 4 && (
+                            <span className="font-mono text-[8px] leading-none text-parchment/40">+{dayDeeds.length - 4}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Wider screens: hairline chips */}
+                      <div className="mt-1.5 hidden space-y-1 sm:block" aria-hidden="true">
+                        {dayDeeds.slice(0, 3).map(deed => {
+                          const pct = completionMap[deed.id] || 0
+                          const done = pct >= 100
+                          return (
+                            <div key={deed.id} title={deed.title}
+                              className={cx(
+                                'truncate border-l-2 pl-1.5 text-caption leading-tight',
+                                done ? 'border-moss text-parchment/45 line-through' : pct > 0 ? 'border-gold text-parchment/90' : 'border-parchment/15 text-parchment/60',
+                              )}>
+                              {deed.title}
+                            </div>
+                          )
+                        })}
+                        {dayDeeds.length > 3 && (
+                          <div className="pl-2 font-mono text-[10px] text-parchment/40">+{dayDeeds.length - 3} more</div>
+                        )}
+                      </div>
+
+                      {/* Google events — gold-dim chips (non-checkable) */}
+                      {dayGoogle.length > 0 && (
+                        <div className="mt-1 hidden space-y-1 sm:block" aria-hidden="true">
+                          {dayGoogle.slice(0, 2).map((title, idx) => (
+                            <div key={idx} title={title}
+                              className="truncate rounded-sm border-l-2 border-gold-dim/60 bg-gold/[0.05] pl-1.5 text-caption leading-tight text-gold-dim">
+                              {title}
+                            </div>
+                          ))}
+                          {dayGoogle.length > 2 && (
+                            <div className="pl-2 font-mono text-[10px] text-parchment/40">+{dayGoogle.length - 2} more</div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Progress hairline */}
+                      {dayDeeds.length > 0 && (
+                        <div className="absolute inset-x-2 bottom-1.5 hidden h-px overflow-hidden bg-parchment/10 sm:block" aria-hidden="true">
+                          <div
+                            className={cx('h-full transition-[width] duration-500 motion-reduce:transition-none', dayScore >= 80 ? 'bg-moss' : dayScore >= 50 ? 'bg-gold' : 'bg-ember')}
+                            style={{ width: `${dayScore}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </Panel>
+        </Section>
+
+        {/* ── Day detail + milestones: beside the grid on desktop, below it on phones ── */}
+        <div className="min-w-0 space-y-8 lg:space-y-6">
+          <div ref={detailRef} className="scroll-mt-20">
+            <Section
+              title={selectedDay ? format(selectedDay, 'EEE, MMM d') : 'Day'}
+              id="calendar-day"
+              action={selectedDay ? <IconButton icon={X} label="Close day" onClick={closeDay} /> : undefined}
+            >
+              {selectedDay ? (
+                <Panel>
+                  <DayPanel
+                    date={selectedDay}
+                    deeds={getDeedsForDay(selectedDay)}
+                    onClose={() => {
+                      setSelectedDay(null)
+                    }}
+                    onRefresh={() => {
+                      fetch('/api/items').then(r => r.json()).then(data => {
+                        if (data.items) {
+                          const itemMap = new Map()
+                          data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
+                          const tree: any[] = []
+                          data.items.forEach((item: any) => {
+                            if (item.parentId) {
+                              const parent = itemMap.get(item.parentId)
+                              if (parent) parent.children.push(itemMap.get(item.id))
+                            } else {
+                              tree.push(itemMap.get(item.id))
+                            }
+                          })
+                          setItems(tree)
+                        }
+                      })
+                    }}
+                  />
+                </Panel>
+              ) : (
+                <EmptyState title="No day selected" body="Pick a date on the grid to see its deeds and add new ones." />
+              )}
+            </Section>
+          </div>
+
+          {/* ── Monthly milestones ── */}
+          {monthlyMilestones.length > 0 && (
+            <Section title="Milestones" id="calendar-milestones" action={<Badge>{monthlyMilestones.length}</Badge>}>
+              <Panel padded={false}>
+                <ul className="divide-y divide-gold/[0.07]">
+                  {monthlyMilestones.slice(0, 4).map((ms, i) => {
+                    const pct = Math.round(completionMap[ms.id] || 0)
+                    return (
+                      <li key={ms.id} className="flex min-h-11 items-center gap-3 px-4 py-3">
+                        <span aria-hidden="true" className="w-6 shrink-0 font-mono text-mono tabular-nums text-gold-dim">
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <p className="truncate text-body text-parchment/85">{ms.title}</p>
+                          <Meter value={pct} tone="moss" label={`${ms.title} progress`} />
+                        </div>
+                        <span className="w-10 shrink-0 text-right font-mono text-mono tabular-nums text-parchment/50">{pct}%</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </Panel>
+            </Section>
           )}
         </div>
       </div>
-
-      {/* ── Hero: the month, set in type ── */}
-      <header data-noreveal>
-        <h1 className="font-display text-[clamp(2.7rem,7vw,4.9rem)] leading-[1.02] text-parchment">
-          <RevealLines
-            delay={80}
-            fluid
-            lines={[
-              `${format(currentMonth, 'MMMM')}.`,
-              format(currentMonth, 'yyyy'),
-            ]}
-          />
-        </h1>
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span aria-hidden="true" className="h-px w-12 shrink-0 bg-gold/60" />
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/50">
-            {completionPct}% complete{notCurrentMonth ? ' — viewing another month' : ''}
-          </p>
-        </div>
-      </header>
-
-      {/* ── Figures strip ── */}
-      <Float delay={0.5} duration={10} amp={6}>
-        <section aria-label="Month figures" className="grid grid-cols-3 divide-x divide-white/[0.06] border-y border-white/[0.06] py-6">
-          <Stat label="Deeds" value={totalDeedCount} />
-          <Stat label="Completed" value={completedDeedCount} suffix={`/${totalDeedCount}`} />
-          <Stat label="Active days" value={activeDays} suffix={`/${calendarDays.length}`} />
-        </section>
-      </Float>
-
-      {/* ── Monthly milestones ── */}
-      {monthlyMilestones.length > 0 && (
-        <Float delay={1} duration={11} amp={5}>
-          <section aria-label="Monthly milestones">
-            <h2 className="pb-3 font-mono text-[11px] uppercase tracking-[0.26em] text-parchment/40">
-              Milestones
-            </h2>
-            <ul className="-mx-2">
-              {monthlyMilestones.slice(0, 4).map((ms, i) => {
-                const pct = Math.round(completionMap[ms.id] || 0)
-                return (
-                  <li key={ms.id}
-                    className="flex items-center gap-3 border-b border-white/[0.04] px-2 py-2.5 last:border-b-0">
-                    <span aria-hidden="true" className="w-7 shrink-0 font-mono text-xs tabular-nums text-gold-dim/80">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-parchment/85">{ms.title}</span>
-                    <span className="h-1 w-24 shrink-0 overflow-hidden rounded-full bg-white/10">
-                      <span className="block h-full rounded-full bg-moss transition-all duration-700" style={{ width: `${pct}%` }} />
-                    </span>
-                    <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums text-parchment/45">{pct}%</span>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-        </Float>
-      )}
-
-      {/* ── The grid ── */}
-      <Float delay={1.4} duration={12} amp={5}>
-        <section aria-label="Calendar grid"
-          ref={calendarRef}
-          className="overflow-auto rounded-[10px] border border-white/[0.06]"
-          data-lenis-prevent
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Weekday header */}
-          <div className="grid grid-cols-7 border-b border-white/[0.06]">
-            {weekDays.map(d => (
-              <div key={d} className="py-2.5 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/35">
-                <span className="sm:hidden">{d[0]}</span>
-                <span className="hidden sm:inline">{d}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Cells */}
-          <div key={format(currentMonth, 'yyyy-MM')} className="grid grid-cols-7">
-            {monthDates.map((date, i) => {
-              const inMonth = isSameMonth(date, currentMonth)
-              const isSelected = selectedDay && isSameDay(date, selectedDay)
-              const today = isToday(date)
-              const dayDeeds = getDeedsForDay(date)
-              const dayCompleted = dayDeeds.filter(d => (completionMap[d.id] || 0) >= 100).length
-              const dayScore = dayDeeds.length > 0
-                ? Math.round(dayDeeds.reduce((sum, d) => sum + (completionMap[d.id] || 0), 0) / dayDeeds.length)
-                : 0
-
-              return (
-                <div
-                  key={i}
-                  style={{ animationDelay: `${Math.min(i * 12, 380)}ms` }}
-                  className={`cal-pop group relative min-h-[56px] border-b border-r border-white/[0.04] bg-black/10 p-1.5 transition-colors sm:min-h-[84px] sm:p-2 lg:min-h-[112px] ${i % 7 === 6 ? 'border-r-0' : ''
-                    } cursor-pointer hover:bg-white/[0.05] ${!inMonth ? 'opacity-35' : ''} ${isSelected ? 'bg-gold/[0.08]' : ''}`}
-                  onClick={() => setSelectedDay(date)}
-                >
-                  {isSelected && <span aria-hidden="true" className="pointer-events-none absolute inset-0 ring-2 ring-inset ring-gold" />}
-
-                  <div className="flex items-start justify-between">
-                    <span className={`grid h-6 w-6 place-items-center rounded-full font-mono text-[11px] tabular-nums sm:h-7 sm:w-7 sm:text-xs ${today ? 'bg-gold font-bold text-ink' : isSelected ? 'text-gold' : 'text-parchment/75'
-                      }`}>
-                      {format(date, 'd')}
-                    </span>
-                    {dayDeeds.length > 0 && (
-                      <span className="hidden font-mono text-[10px] tabular-nums text-parchment/40 sm:block">
-                        {dayCompleted}/{dayDeeds.length}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Mobile dots */}
-                  {dayDeeds.length > 0 && (
-                    <div className="mt-1 flex min-h-[6px] flex-wrap items-center gap-1 sm:hidden">
-                      {dayDeeds.slice(0, 4).map(deed => {
-                        const pct = completionMap[deed.id] || 0
-                        return <span key={deed.id} className={`h-1.5 w-1.5 rounded-full ${pct >= 100 ? 'bg-moss' : pct > 0 ? 'bg-gold' : 'bg-white/20'}`} />
-                      })}
-                      {dayDeeds.length > 4 && (
-                        <span className="font-mono text-[8px] leading-none text-parchment/40">+{dayDeeds.length - 4}</span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Desktop chips — hairline rows */}
-                  <div className="mt-1 hidden space-y-1 sm:block">
-                    {dayDeeds.slice(0, 3).map(deed => {
-                      const pct = completionMap[deed.id] || 0
-                      const done = pct >= 100
-                      return (
-                        <div key={deed.id} title={deed.title}
-                          className={`truncate rounded-[4px] border-l-2 bg-white/[0.03] px-1.5 py-0.5 text-[11px] leading-tight ${done
-                            ? 'border-moss text-parchment/50 line-through'
-                            : pct > 0
-                              ? 'border-gold text-parchment'
-                              : 'border-white/15 text-parchment/55'
-                            }`}>
-                          {deed.title}
-                        </div>
-                      )
-                    })}
-                    {dayDeeds.length > 3 && (
-                      <div className="pl-1 text-[10px] text-parchment/35">+{dayDeeds.length - 3} more</div>
-                    )}
-                    {dayDeeds.length === 0 && inMonth && (
-                      <div className="pl-1 text-[10px] text-parchment/20">—</div>
-                    )}
-                  </div>
-
-                  {/* Google events — thin gold-dim chips (non-checkable) */}
-                  {getGoogleForDay(date).length > 0 && (
-                    <div className="mt-1 hidden space-y-1 sm:block">
-                      {getGoogleForDay(date).slice(0, 2).map((title, idx) => (
-                        <div key={idx} title={title}
-                          className="truncate rounded-[4px] border-l-2 border-gold/40 bg-gold/[0.06] px-1.5 py-0.5 text-[11px] leading-tight text-gold/80">
-                          {title}
-                        </div>
-                      ))}
-                      {getGoogleForDay(date).length > 2 && (
-                        <div className="pl-1 text-[10px] text-parchment/35">+{getGoogleForDay(date).length - 2} more</div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Progress hairline */}
-                  {dayDeeds.length > 0 && (
-                    <div className="absolute inset-x-1.5 bottom-1 hidden h-px overflow-hidden bg-white/10 sm:block">
-                      <div
-                        className={`h-full transition-all duration-500 ${dayScore >= 80 ? 'bg-moss' : dayScore >= 50 ? 'bg-gold' : 'bg-ember'}`}
-                        style={{ width: `${dayScore}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      </Float>
-
-      <p className="text-center font-mono text-[11px] uppercase tracking-[0.18em] text-parchment/30">
-        Select a day to open its deeds · swipe months on touch
-      </p>
-
-      {selectedDay && (
-        <DayPanel
-          date={selectedDay}
-          deeds={getDeedsForDay(selectedDay)}
-          onClose={() => {
-            setSelectedDay(null)
-          }}
-          onRefresh={() => {
-            fetch('/api/items').then(r => r.json()).then(data => {
-              if (data.items) {
-                const itemMap = new Map()
-                data.items.forEach((item: any) => itemMap.set(item.id, { ...item, children: [], tasks: item.tasks || [] }))
-                const tree: any[] = []
-                data.items.forEach((item: any) => {
-                  if (item.parentId) {
-                    const parent = itemMap.get(item.parentId)
-                    if (parent) parent.children.push(itemMap.get(item.id))
-                  } else {
-                    tree.push(itemMap.get(item.id))
-                  }
-                })
-                setItems(tree)
-              }
-            })
-          }}
-        />
-      )}
-    </div>
+    </Page>
   )
 }

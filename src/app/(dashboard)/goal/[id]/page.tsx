@@ -1,20 +1,60 @@
 ﻿'use client'
 
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
-import { useHierarchyStore } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
-import { ProgressRing } from '@/components/ui/ProgressRing'
+import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
+import { Badge, Button, EmptyState, Page, RowActions, Section } from '@/components/ds'
 import { Loader } from '@/components/ui/Loader'
-import { Scramble } from '@/components/ui/motion'
 import { InlineEdit } from '@/components/ui/InlineEdit'
-import { Breadcrumbs, type Crumb } from '@/components/hierarchy/Breadcrumbs'
+import { type Crumb } from '@/components/hierarchy/Breadcrumbs'
 import { ItemHeaderCard } from '@/components/hierarchy/ItemHeaderCard'
-import { DeleteItemButton } from '@/components/hierarchy/DeleteItemButton'
+import { useDeleteItem } from '@/components/hierarchy/DeleteItemButton'
 import { WeightSlider } from '@/components/hierarchy/WeightScoreInputs'
+import { Meter, NavPanel, Percent } from '@/components/hierarchy/primitives'
 import { useItemTree } from '@/components/hierarchy/useItemTree'
 import { findItemById, equalWeight } from '@/components/hierarchy/itemTree'
+
+interface GoalQuarterCardProps {
+  quarter: Item
+  index: number
+  score: number
+  onOpen: () => void
+  onRename: (title: string) => void
+  onWeightChange: (value: number) => void
+  onDeleted: (id: string) => void | Promise<void>
+}
+
+/** One quarter of a yearly goal: rename, weight, delete (row menu), tap to open. */
+function GoalQuarterCard({ quarter, index, score, onOpen, onRename, onWeightChange, onDeleted }: GoalQuarterCardProps) {
+  const remove = useDeleteItem({ itemId: quarter.id, onDeleted })
+  return (
+    <NavPanel onOpen={onOpen} className="space-y-4 sm:p-5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-parchment">
+            <InlineEdit value={quarter.title || ''} onSave={onRename} placeholder={`Q${index + 1}`} title="Rename quarter"
+              inputClassName="w-full min-w-0 rounded-lg border border-gold/40 bg-ink/40 px-2 py-1 text-sm font-semibold text-parchment outline-none focus:ring-2 focus:ring-gold/30" />
+          </p>
+          <p className="mt-0.5 font-mono text-[11px] tabular-nums text-parchment/45">
+            {quarter.startDate && format(new Date(quarter.startDate), 'MMM d')} – {quarter.endDate && format(new Date(quarter.endDate), 'MMM d')}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <RowActions label="Quarter actions" actions={[{ label: 'Delete Quarter', icon: Trash2, destructive: true, onSelect: () => { void remove() } }]} />
+          <ChevronRight aria-hidden="true" className="h-4 w-4 text-parchment/30 transition-colors group-hover:text-gold" strokeWidth={1.75} />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Percent value={score} className="font-display text-[1.75rem] leading-none text-parchment" />
+        <Meter value={score} />
+      </div>
+      <div onClick={e => e.stopPropagation()}>
+        <WeightSlider value={quarter.weight || 0} onChange={onWeightChange} />
+      </div>
+    </NavPanel>
+  )
+}
 
 export default function GoalPage() {
   const router = useRouter()
@@ -40,7 +80,9 @@ export default function GoalPage() {
   }
 
   if (loading) return <Loader label="Leveling up this goal…" routeKey="goal" />
-  if (!goalItem) return <div className="p-6 text-ink/60">Goal not found.</div>
+  if (!goalItem) return (
+    <Page width="narrow" className="pt-8"><EmptyState title="Goal not found" action={<Button href="/year">Back to year</Button>} /></Page>
+  )
 
   const gScore = completionMap[goalItem.id] || 0
   const crumbs: Crumb[] = [{ label: 'Year', href: '/year' }]
@@ -48,56 +90,30 @@ export default function GoalPage() {
   crumbs.push({ label: goalItem.title })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 pb-12">
-      <Breadcrumbs crumbs={crumbs} />
-
+    <Page width="wide">
       <ItemHeaderCard item={goalItem} score={gScore} renameLabel="Rename goal" deleteLabel="Delete Goal" showTheme
+        eyebrow={parentCategory ? `Yearly goal · ${parentCategory.title}` : 'Yearly goal'} crumbs={crumbs}
         onRename={t => updateItem(goalItem.id, { title: t })} onTheme={t => updateItem(goalItem.id, { theme: t })}
         onDeleted={handleDeleted} />
 
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl sm:text-2xl font-display font-bold text-ink"><Scramble text="Quarters" mono={false} /></h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {quarters.map((quarter, idx) => {
-            const qScore = completionMap[quarter.id] || 0
-            return (
-              <Card key={quarter.id} className="p-5 hover:border-gold transition-colors cursor-pointer group relative" onClick={() => router.push(`/quarter/${quarter.id}`)}>
-                <DeleteItemButton itemId={quarter.id} title="Delete Quarter" onDeleted={handleDeleted} />
-                <div className="flex items-center justify-between mb-3 pr-8">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-ink">
-                      <InlineEdit value={quarter.title || ''} onSave={t => updateItem(quarter.id, { title: t })} placeholder={`Q${idx + 1}`} title="Rename quarter"
-                        inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
-                    </p>
-                    <p className="text-[10px] text-ink/40 font-mono mt-0.5">
-                      {quarter.startDate && format(new Date(quarter.startDate), 'MMM d')} – {quarter.endDate && format(new Date(quarter.endDate), 'MMM d')}
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-ink/30 group-hover:text-gold transition shrink-0" />
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                  <ProgressRing progress={qScore} size={40} />
-                  <span className="text-lg font-mono font-bold">{Math.round(qScore)}%</span>
-                </div>
-                <div onClick={e => e.stopPropagation()}>
-                  <WeightSlider value={quarter.weight || 0} onChange={v => updateItem(quarter.id, { weight: v })} />
-                </div>
-              </Card>
-            )
-          })}
-        </div>
-        {quarters.length > 0 && (
-          <div className="flex justify-end mt-2">
-            <span className={`text-[10px] font-mono ${Math.round(quarterWeightSum) === 100 ? 'text-sage' : 'text-[#cf8f78]'}`}>
-              Total: {Math.round(quarterWeightSum)}%
-            </span>
+      <Section title="Quarters" id="goal-quarters"
+        action={quarters.length > 0 ? (
+          <Badge tone={Math.round(quarterWeightSum) === 100 ? 'moss' : 'ember'}>Total {Math.round(quarterWeightSum)}%</Badge>
+        ) : undefined}>
+        {quarters.length === 0 ? (
+          <EmptyState title="No quarters found for this goal." />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+            {quarters.map((quarter, idx) => (
+              <GoalQuarterCard key={quarter.id} quarter={quarter} index={idx} score={completionMap[quarter.id] || 0}
+                onOpen={() => router.push(`/quarter/${quarter.id}`)}
+                onRename={t => updateItem(quarter.id, { title: t })}
+                onWeightChange={v => updateItem(quarter.id, { weight: v })}
+                onDeleted={handleDeleted} />
+            ))}
           </div>
         )}
-        {quarters.length === 0 && <p className="text-sm text-ink/40 italic">No quarters found for this goal.</p>}
-      </div>
-    </div>
+      </Section>
+    </Page>
   )
 }

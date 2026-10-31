@@ -1,13 +1,12 @@
 'use client'
 
 import { useHierarchyStore } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
-import { ProgressRing } from '@/components/ui/ProgressRing'
-import { ProgressBar } from '@/components/ui/ProgressBar'
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle2, Circle } from 'lucide-react'
 import { useState } from 'react'
 import type { Task } from '@/stores/hierarchyStore'
+import { Page, PageHeader, Section, Panel, StatGrid, Stat, EmptyState, Badge, cx } from '@/components/ds'
+import { PeriodNav, Meter } from '../calendar/_components/PeriodNav'
 
 /** Scheduled length of a deed in minutes (start/end gap, else its estimate). */
 function taskMinutes(t: Task): number {
@@ -53,147 +52,156 @@ export default function WeekPage() {
   const completedCount = weekTasks.filter(t => t.completed).length
   const hasDurations = plannedMinutes > 0
 
+  const weekEnd = addDays(weekStart, 6)
+  const utilisation = hasDurations
+    ? (completedMinutes / plannedMinutes) * 100
+    : weekTasks.length > 0 ? (completedCount / weekTasks.length) * 100 : 0
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-12">
-      <div className="flex flex-wrap justify-between items-center gap-3 border-b border-mist pb-4 mb-6">
-        <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-ink">Week View</h1>
-          <div className="flex flex-wrap items-center gap-1 text-ink/60">
-            <button onClick={() => setWeekOffset(o => o - 1)} aria-label="Previous week" className="p-2 -ml-2 rounded-lg hover:bg-ink/5 min-h-9 min-w-9 flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
-            <p>{format(weekStart, 'MMMM d')} - {format(addDays(weekStart, 6), 'MMMM d, yyyy')}</p>
-            <button onClick={() => setWeekOffset(o => o + 1)} aria-label="Next week" className="p-2 rounded-lg hover:bg-ink/5 min-h-9 min-w-9 flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
-            {weekOffset !== 0 && (
-              <button onClick={() => setWeekOffset(0)} className="ml-1 px-3 py-1.5 text-xs font-bold rounded-lg border border-mist text-ink hover:bg-ink/5">This week</button>
-            )}
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-bold uppercase tracking-widest text-ink/50 mb-1">Weekly Score</p>
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl font-mono">{Math.round(weekProgress)}%</span>
-            <ProgressRing progress={weekProgress} size={48} />
-          </div>
-        </div>
-      </div>
+    <Page width="wide" className="pb-12">
+      <PageHeader
+        eyebrow={`Week · ${format(weekStart, 'MMMM d')} – ${format(weekEnd, 'MMMM d, yyyy')}`}
+        title={weekOffset === 0 ? 'This week' : 'Week view'}
+        meta={`${Math.round(weekProgress)}% weekly score`}
+        actions={
+          <PeriodNav
+            label={`${format(weekStart, 'MMM d')} – ${format(weekEnd, 'MMM d')}`}
+            labelTitle="Jump to this week"
+            prevLabel="Previous week"
+            nextLabel="Next week"
+            onPrev={() => setWeekOffset(o => o - 1)}
+            onNext={() => setWeekOffset(o => o + 1)}
+            onToday={() => setWeekOffset(0)}
+            todayLabel="This week"
+            showToday={weekOffset !== 0}
+          />
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
-        
-        {/* Left column: Weekly Goals & Breakdown */}
-        <div className="lg:col-span-1 space-y-6">
-          <h2 className="text-xl font-bold font-display">Weekly Goals</h2>
-          <Card className="p-4 space-y-4">
-            {weeklyGoals.map(goal => {
-              const score = completionMap[goal.id] || 0
-              return (
-                <div key={goal.id} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-bold text-ink min-w-0 break-words pr-2">{goal.title}</span>
-                    <span className="font-mono text-ink/70">{Math.round(score)}%</span>
+      {/* ── Weekly summary: score + time utilization from real deed data ── */}
+      <Section title="Summary" id="week-summary">
+        <StatGrid cols={4}>
+          <Stat
+            label="Weekly score"
+            tone="gold"
+            value={`${Math.round(weekProgress)}%`}
+            caption={<Meter value={weekProgress} tone="gold" className="mt-1" />}
+          />
+          {hasDurations ? (
+            <>
+              <Stat label="Planned hours" value={formatHours(plannedMinutes)} />
+              <Stat label="Completed hours" tone="moss" value={formatHours(completedMinutes)} />
+            </>
+          ) : (
+            <>
+              <Stat label="Deeds planned" value={weekTasks.length} />
+              <Stat label="Deeds completed" tone="moss" value={completedCount} />
+            </>
+          )}
+          <Stat
+            label={hasDurations ? 'Time used' : 'Deeds done'}
+            value={`${Math.round(utilisation)}%`}
+            caption={<Meter value={utilisation} tone="gold" className="mt-1" />}
+          />
+        </StatGrid>
+      </Section>
+
+      {/* ── The seven days, read as one board ── */}
+      <Section title="Daily schedule" id="week-days">
+        <ol className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7 xl:gap-2">
+          {weekDays.map(date => {
+            const dayGoals = dailyGoals.filter(g =>
+              g.startDate && isSameDay(new Date(g.startDate), date)
+            )
+            const isCurrent = isSameDay(date, today)
+
+            return (
+              <li key={date.toISOString()} className="min-w-0" aria-current={isCurrent ? 'date' : undefined}>
+                <Panel
+                  padded={false}
+                  className={cx('flex h-full min-w-0 flex-col overflow-hidden xl:min-h-[300px]', isCurrent && 'border-gold/60')}
+                >
+                  <div className={cx('flex items-baseline justify-between gap-2 border-b px-4 py-3 xl:flex-col xl:items-center xl:gap-1 xl:px-2 xl:text-center', isCurrent ? 'border-gold/30 bg-gold/[0.06]' : 'border-gold/10')}>
+                    <p className={cx('font-mono text-[11px] uppercase tracking-[0.2em]', isCurrent ? 'text-gold' : 'text-parchment/50')}>{format(date, 'EEE')}</p>
+                    <div className="flex items-baseline gap-2 xl:flex-col xl:items-center xl:gap-1">
+                      <p className={cx('font-display text-heading tabular-nums', isCurrent ? 'text-gold' : 'text-parchment')}>{format(date, 'd')}</p>
+                      {isCurrent && <Badge tone="gold">Today</Badge>}
+                    </div>
                   </div>
-                  <ProgressBar progress={score} colorClass="bg-sage" />
-                  {/* Linked Parent info if any */}
-                  {goal.parentId && (
-                    <p className="text-[10px] text-ink/50 uppercase tracking-wider">
-                      Linked: {flatItems.find(i => i.id === goal.parentId)?.title || 'Unknown'}
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-            {weeklyGoals.length === 0 && (
-              <p className="text-sm text-ink/50">No weekly goals defined.</p>
-            )}
-          </Card>
 
-          {/* Time utilization from real deed data */}
-          <h2 className="text-xl font-bold font-display pt-4">Time Utilization</h2>
-          <Card className="p-4 space-y-3 text-sm">
-            {hasDurations ? (
-              <>
-                <div className="flex justify-between text-ink/70">
-                  <span>Planned Hours</span>
-                  <span className="font-mono font-bold">{formatHours(plannedMinutes)}</span>
-                </div>
-                <div className="flex justify-between text-ink/70">
-                  <span>Completed Hours</span>
-                  <span className="font-mono font-bold text-sage">{formatHours(completedMinutes)}</span>
-                </div>
-                <ProgressBar progress={(completedMinutes / plannedMinutes) * 100} colorClass="bg-gold" />
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between text-ink/70">
-                  <span>Deeds Planned</span>
-                  <span className="font-mono font-bold">{weekTasks.length}</span>
-                </div>
-                <div className="flex justify-between text-ink/70">
-                  <span>Deeds Completed</span>
-                  <span className="font-mono font-bold text-sage">{completedCount}</span>
-                </div>
-                <ProgressBar progress={weekTasks.length > 0 ? (completedCount / weekTasks.length) * 100 : 0} colorClass="bg-gold" />
-              </>
-            )}
-          </Card>
-        </div>
-
-        {/* Right column: 7-Day Calendar View */}
-        <div className="lg:col-span-3">
-          <h2 className="text-xl font-bold font-display mb-4">Daily Schedule</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4">
-            {weekDays.map(date => {
-              const dayGoals = dailyGoals.filter(g => 
-                g.startDate && isSameDay(new Date(g.startDate), date)
-              )
-
-              return (
-                <Card key={date.toISOString()} className={`flex flex-col min-h-[180px] sm:min-h-[300px] min-w-0 overflow-hidden ${isSameDay(date, today) ? 'ring-2 ring-gold' : ''}`}>
-                  <div className={`p-3 text-center border-b border-mist ${isSameDay(date, today) ? 'bg-gold text-surface' : 'bg-surface text-ink'}`}>
-                    <p className="text-xs uppercase font-bold tracking-wider">{format(date, 'EEE')}</p>
-                    <p className="text-xl font-mono">{format(date, 'd')}</p>
-                  </div>
-                  
-                  <div className="p-3 flex-1 overflow-y-auto space-y-4 bg-paper text-sm" data-lenis-prevent>
+                  <div className="flex-1 space-y-4 overflow-y-auto p-4 xl:p-3" data-lenis-prevent>
                     {dayGoals.map(dg => {
                       const tasks = dg.tasks || []
                       return (
                         <div key={dg.id} className="space-y-2">
-                          <div className="font-bold border-b border-mist/30 pb-1 flex justify-between">
-                            <span className="text-ink/80 min-w-0 break-words">{dg.title}</span>
-                            <span className="text-[10px] text-ink/50">{Math.round(completionMap[dg.id] || 0)}%</span>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 break-words text-caption font-semibold text-parchment/85">{dg.title}</span>
+                            <span className="shrink-0 font-mono text-[10px] tabular-nums text-parchment/45">{Math.round(completionMap[dg.id] || 0)}%</span>
                           </div>
-                          
-                          {tasks.map(t => (
-                            <div key={t.id} className="flex items-start space-x-2 text-xs">
-                              {t.completed ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-sage shrink-0 mt-0.5" />
-                              ) : (
-                                <Circle className="w-3.5 h-3.5 text-ink/30 shrink-0 mt-0.5" />
-                              )}
-                              <div className="min-w-0">
-                                <p className={`break-words ${t.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{t.title}</p>
-                                {t.startTime && (
-                                  <p className="text-[9px] font-mono text-gold">{format(new Date(t.startTime), 'HH:mm')}</p>
+
+                          <ul className="space-y-1.5">
+                            {tasks.map(t => (
+                              <li key={t.id} className="flex items-start gap-2 text-caption">
+                                {t.completed ? (
+                                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-moss" strokeWidth={1.5} aria-label="Done" />
+                                ) : (
+                                  <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-parchment/30" strokeWidth={1.5} aria-label="Open" />
                                 )}
-                              </div>
-                            </div>
-                          ))}
+                                <div className="min-w-0">
+                                  <p className={cx('break-words', t.completed ? 'text-parchment/45 line-through' : 'text-parchment/85')}>{t.title}</p>
+                                  {t.startTime && (
+                                    <p className="font-mono text-[10px] tabular-nums text-gold-dim">{format(new Date(t.startTime), 'HH:mm')}</p>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
                           {tasks.length === 0 && (
-                            <p className="text-[10px] italic text-ink/40">No tasks scheduled.</p>
+                            <p className="text-caption text-parchment/35">No tasks scheduled.</p>
                           )}
                         </div>
                       )
                     })}
                     {dayGoals.length === 0 && (
-                      <p className="text-xs italic text-ink/40 text-center mt-4">No daily goals</p>
+                      <p className="text-caption text-parchment/35 xl:pt-4 xl:text-center">No daily goals</p>
                     )}
                   </div>
-                </Card>
-              )
-            })}
-          </div>
-        </div>
+                </Panel>
+              </li>
+            )
+          })}
+        </ol>
+      </Section>
 
-      </div>
-    </div>
+      {/* ── Weekly goals ── */}
+      <Section title="Weekly goals" id="week-goals" action={weeklyGoals.length > 0 ? <Badge>{weeklyGoals.length}</Badge> : undefined}>
+        {weeklyGoals.length > 0 ? (
+          <Panel padded={false}>
+            <ul className="divide-y divide-gold/[0.07]">
+              {weeklyGoals.map(goal => {
+                const score = completionMap[goal.id] || 0
+                return (
+                  <li key={goal.id} className="space-y-2 px-4 py-4 sm:px-6">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 break-words text-body font-medium text-parchment">{goal.title}</span>
+                      <span className="shrink-0 font-mono text-mono tabular-nums text-parchment/60">{Math.round(score)}%</span>
+                    </div>
+                    <Meter value={score} tone="moss" label={`${goal.title} progress`} />
+                    {/* Linked Parent info if any */}
+                    {goal.parentId && (
+                      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-parchment/40">
+                        Linked: {flatItems.find(i => i.id === goal.parentId)?.title || 'Unknown'}
+                      </p>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </Panel>
+        ) : (
+          <EmptyState title="No weekly goals defined." />
+        )}
+      </Section>
+    </Page>
   )
 }

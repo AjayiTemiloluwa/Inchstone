@@ -4,14 +4,12 @@ import { useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { format } from 'date-fns'
 import { useHierarchyStore } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
-import { ProgressRing } from '@/components/ui/ProgressRing'
+import { EmptyState, Page, Section } from '@/components/ds'
 import { useToast } from '@/components/ui/ToastProvider'
 import { getWeeksInMonth } from '@/lib/calendarUtils'
 import { Loader } from '@/components/ui/Loader'
 import { useVoiceLine } from '@/lib/voice/use-voice-line'
 import { useActiveYear } from '@/lib/useActiveYear'
-import { Breadcrumbs } from '@/components/hierarchy/Breadcrumbs'
 import { PeriodHero } from '@/components/hierarchy/PeriodHero'
 import { PeriodReflection } from '@/components/hierarchy/PeriodReflection'
 import { CategoryGoalsList, type CategoryRow } from '@/components/hierarchy/CategoryGoalsList'
@@ -19,6 +17,7 @@ import { useItemTree } from '@/components/hierarchy/useItemTree'
 import { downloadCategoryReport } from '@/components/hierarchy/exportReport'
 import { createYearlyGoalWithQuarters } from '@/components/hierarchy/createGoal'
 import { equalWeight } from '@/components/hierarchy/itemTree'
+import { PeriodGrid, PeriodTile } from '@/components/hierarchy/primitives'
 
 export default function YearQuarterMonthPage() {
   const router = useRouter()
@@ -96,7 +95,9 @@ export default function YearQuarterMonthPage() {
     : 0
 
   if (loading) return <Loader label="Flipping over the month…" routeKey="year-quarter-month" />
-  if (categories.length === 0) return <div className="p-6 text-ink/60">No categories found. Seed the framework first.</div>
+  if (categories.length === 0) return (
+    <Page width="narrow" className="pt-8"><EmptyState title="No categories found" body="Seed the framework first." /></Page>
+  )
 
   const rows: CategoryRow[] = categories.map(category => {
     const catYearlyGoals = yearlyGoals.filter(g => g.parentId === category.id)
@@ -125,46 +126,34 @@ export default function YearQuarterMonthPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 pb-12 stagger-children" id="report-content">
-      <Breadcrumbs crumbs={[{ label: 'Year', href: '/year' }, { label: quarterLabel, href: `/year/${quarterLabel}` }, { label: monthLabel }]} />
+    <div id="report-content">
+      <Page width="wide">
+        <PeriodHero crumbs={[{ label: 'Year', href: '/year' }, { label: quarterLabel, href: `/year/${quarterLabel}` }, { label: monthLabel }]}
+          eyebrow={`Month · ${quarterLabel}`} title={monthLabel} subtitle={quarterLabel}
+          score={avgScore} scoreCaption={`across ${matchingMonths.length} goals`} onDownloadReport={handleDownloadReport} />
 
-      <PeriodHero title={monthLabel} subtitle={quarterLabel} score={avgScore} onDownloadReport={handleDownloadReport} />
-
-      <CategoryGoalsList rows={rows} completionMap={completionMap} heading="Categories & Goals" goalsLabel="Monthly Goals"
-        weightLabel="Weight" emptyText={emptyGoals} hrefFor={item => `/month/${item.id}`}
-        onAddGoal={handleAddGoal} onDeleted={async () => { await fetchItems() }} />
-
-      <PeriodReflection key={matchingMonths[0]?.id ?? 'none'} label={monthLabel} timePeriod="month"
-        itemId={matchingMonths[0]?.id || null} initialText={matchingMonths[0]?.reflection}
-        periodKey={matchingMonths[0]?.id || monthLabel}
-        placeholder={`Reflect on ${monthLabel} so far... What's working? What needs to change?`} />
-
-      <div>
-        <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink mb-6">Weeks</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {weekGroups.map(({ title, items: wItems, avgScore: wAvg, dateLabel }) => (
-            <Card key={title} className="p-5 transition-colors group hover:border-gold cursor-pointer"
-              onClick={() => router.push(`/year/${quarterLabel}/${monthLabel}/${title.replace(/\s+/g, '')}`)}>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-gold to-gold-glow bg-clip-text text-transparent">{title}</p>
-                  {dateLabel && <p className="text-[10px] text-ink/40 mt-0.5">{dateLabel}</p>}
-                </div>
-              </div>
-              <div className="flex items-end justify-between">
-                <ProgressRing progress={wAvg} size={48} />
-                <div className="text-right">
-                  <p className="text-xl font-mono font-bold">{Math.round(wAvg)}%</p>
-                  <p className="text-[10px] text-ink/40">{wItems.length} active goals</p>
-                </div>
-              </div>
-            </Card>
-          ))}
-          {weekGroups.length === 0 && (
-            <p className="text-sm text-ink/50 italic col-span-full">Weeks will appear once goals are created.</p>
+        <Section title="Weeks" id="month-weeks">
+          {weekGroups.length === 0 ? (
+            <EmptyState title="No weeks yet" body="Weeks will appear once goals are created." />
+          ) : (
+            <PeriodGrid cols={4}>
+              {weekGroups.map(({ title, items: wItems, avgScore: wAvg, dateLabel }) => (
+                <PeriodTile key={title} label={title} sublabel={dateLabel || undefined} score={wAvg} caption={`${wItems.length} active goals`}
+                  onOpen={() => router.push(`/year/${quarterLabel}/${monthLabel}/${title.replace(/\s+/g, '')}`)} />
+              ))}
+            </PeriodGrid>
           )}
-        </div>
-      </div>
+        </Section>
+
+        <CategoryGoalsList rows={rows} completionMap={completionMap} heading="Categories & goals" goalsLabel="Monthly Goals"
+          weightLabel="Weight" emptyText={emptyGoals} hrefFor={item => `/month/${item.id}`}
+          onAddGoal={handleAddGoal} onDeleted={async () => { await fetchItems() }} />
+
+        <PeriodReflection key={matchingMonths[0]?.id ?? 'none'} label={monthLabel} timePeriod="month"
+          itemId={matchingMonths[0]?.id || null} initialText={matchingMonths[0]?.reflection}
+          periodKey={matchingMonths[0]?.id || monthLabel}
+          placeholder={`Reflect on ${monthLabel} so far... What's working? What needs to change?`} />
+      </Page>
     </div>
   )
 }

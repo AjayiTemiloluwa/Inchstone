@@ -1,17 +1,17 @@
-﻿﻿'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { useHierarchyStore, Item } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
-import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, Trash2, BookOpen, Lock, Unlock, RotateCcw } from 'lucide-react'
+import { ChevronRight, Trash2, Lock, Unlock, RotateCcw } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { Loader } from '@/components/ui/Loader'
 import { InlineEdit } from '@/components/ui/InlineEdit'
 import { ReflectionPicker } from '@/components/ui/ReflectionPicker'
 import { useToast } from '@/components/ui/ToastProvider'
+import { Page, PageHeader, Section, Panel, EmptyState, Button, IconButton, RowActions, Badge, inputClass, cx } from '@/components/ds'
+import { Meter } from '../../calendar/_components/PeriodNav'
 
 /** Turn the flat /api/items payload into the nested tree the store expects. */
 function buildItemTree(flat: Item[]): Item[] {
@@ -26,6 +26,10 @@ function buildItemTree(flat: Item[]): Item[] {
   })
   return tree
 }
+
+/* Token-styled range input shared by the weight and score sliders. */
+const rangeClass = 'h-1.5 w-full cursor-pointer appearance-none rounded-full bg-parchment/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40'
+const microLabel = 'block font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/45'
 
 export default function WeekPage() {
   const router = useRouter()
@@ -169,8 +173,9 @@ export default function WeekPage() {
     reflectionTimer.current = setTimeout(() => { updateItem(id, { reflection: text }) }, 800)
   }
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation()
+  // `e` is null when the delete comes from a <RowActions> menu (it already stops propagation).
+  const handleDelete = async (e: React.MouseEvent | null, id: string) => {
+    e?.stopPropagation()
     if (!(await confirm('Are you sure you want to delete this? All nested tasks will also be deleted.'))) return
     try {
       const res = await fetch(`/api/items/${id}`, { method: 'DELETE' })
@@ -190,7 +195,13 @@ export default function WeekPage() {
   }
 
   if (loading) return <Loader label="Charting the week ahead…" routeKey="week" />
-  if (!weekItem) return <div className="p-6 text-ink/60">Week not found.</div>
+  if (!weekItem) {
+    return (
+      <Page width="narrow">
+        <EmptyState title="Week not found." action={<Button variant="secondary" href="/year">Back to the year</Button>} />
+      </Page>
+    )
+  }
 
   const wScore = completionMap[weekItem.id] || 0
   const dayWeightSum = dailyGoals.reduce((s, m) => s + (effWeights[m.id] ?? 0), 0)
@@ -205,178 +216,190 @@ export default function WeekPage() {
     return { date, dayGoal }
   })
 
-  return (
-    <div className="space-y-6 sm:space-y-8 max-w-full pb-12 mx-auto 2xl:max-w-[1600px]">
-      {/* Breadcrumb */}
-      <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
-        <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
-        <ChevronRight className="w-3 h-3" />
-        {parentCategory && <><span>{parentCategory.title}</span><ChevronRight className="w-3 h-3" /></>}
-        {parentYearlyGoal && <><span>{parentYearlyGoal.title}</span><ChevronRight className="w-3 h-3" /></>}
-        {parentQuarter && <><button onClick={() => router.push(`/quarter/${parentQuarter.id}`)} className="hover:text-gold transition">{parentQuarter.title}</button><ChevronRight className="w-3 h-3" /></>}
-        {parentMonth && <><button onClick={() => router.push(`/month/${parentMonth.id}`)} className="hover:text-gold transition">{parentMonth.startDate ? format(new Date(parentMonth.startDate), 'MMM') : parentMonth.title}</button><ChevronRight className="w-3 h-3" /></>}
-        <span className="text-ink font-bold">{weekItem.title}</span>
-      </div>
+  const crumbLink = 'rounded transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40'
+  const crumbSep = <ChevronRight className="h-3 w-3 shrink-0 text-parchment/25" aria-hidden="true" />
 
-      {/* Week Header */}
-      <div className="bg-surface border border-mist rounded-[8px] p-4 sm:p-8 relative">
-        <button onClick={(e) => handleDelete(e, weekItem.id)} className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2.5 sm:p-2 text-ink/30 hover:text-[#cf8f78] hover:bg-ember/15 rounded-lg transition" title="Delete Week">
-          <Trash2 className="w-5 h-5" />
-        </button>
-        <div className="flex flex-wrap items-center justify-between gap-4 pr-10 sm:pr-0">
-          <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-ink">
-              <InlineEdit value={weekItem.title} onSave={(t) => updateItem(weekItem.id, { title: t })} title="Rename week"
-                inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-3xl font-display font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
-            </h1>
-            <p className="text-sm text-ink/50 mt-2 font-mono">
-              {format(weekStart, 'EEE, MMM d')} – {format(weekEnd, 'EEE, MMM d, yyyy')}
-            </p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
+  return (
+    <Page width="wide" className="pb-12">
+      {/* Breadcrumb */}
+      <nav aria-label="Breadcrumb" className="-mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-mono text-parchment/45 sm:-mb-6">
+        <button type="button" onClick={() => router.push('/year')} className={crumbLink}>Year</button>
+        {crumbSep}
+        {parentCategory && <><span>{parentCategory.title}</span>{crumbSep}</>}
+        {parentYearlyGoal && <><span>{parentYearlyGoal.title}</span>{crumbSep}</>}
+        {parentQuarter && <><button type="button" onClick={() => router.push(`/quarter/${parentQuarter.id}`)} className={crumbLink}>{parentQuarter.title}</button>{crumbSep}</>}
+        {parentMonth && <><button type="button" onClick={() => router.push(`/month/${parentMonth.id}`)} className={crumbLink}>{parentMonth.startDate ? format(new Date(parentMonth.startDate), 'MMM') : parentMonth.title}</button>{crumbSep}</>}
+        <span aria-current="page" className="text-parchment/80">{weekItem.title}</span>
+      </nav>
+
+      {/* Week header */}
+      <PageHeader
+        eyebrow="Week"
+        title={
+          <InlineEdit value={weekItem.title} onSave={(t) => updateItem(weekItem.id, { title: t })} title="Rename week"
+            inputClassName="w-full min-w-0 rounded-lg border border-gold/40 bg-ink/40 px-2 py-1 font-display text-h1 text-parchment outline-none focus:ring-2 focus:ring-gold/30" />
+        }
+        description={
+          <span className="font-mono text-mono tabular-nums">
+            {format(weekStart, 'EEE, MMM d')} – {format(weekEnd, 'EEE, MMM d, yyyy')}
+          </span>
+        }
+        actions={
+          <>
+            <div className="flex items-center gap-3 pr-1">
+              <ProgressRing progress={wScore} size={56} trackColorClass="text-parchment/10" />
+              <span className="font-mono text-mono tabular-nums text-parchment/70">{Math.round(wScore)}%</span>
+            </div>
+            <Button
+              variant={weekScoreMode === 'manual' ? 'primary' : 'secondary'}
+              size="sm"
+              aria-pressed={weekScoreMode === 'manual'}
+              title="Toggle between automatic and manual week score"
+              className="min-h-11 pointer-fine:min-h-9"
               onClick={() => {
                 const newMode = weekScoreMode === 'manual' ? 'auto' : 'manual'
                 setWeekScoreMode(newMode)
                 updateItemScoreMode(weekItem.id, newMode, newMode === 'manual' ? Math.round(wScore) : undefined)
               }}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold uppercase tracking-wide transition ${weekScoreMode === 'manual' ? 'bg-gold text-surface' : 'bg-mist text-ink/60 hover:bg-mist/80'}`}
             >
               {weekScoreMode === 'manual' ? 'Manual' : 'Auto'}
-            </button>
-            <ProgressRing progress={wScore} size={72} />
-          </div>
-        </div>
-      </div>
+            </Button>
+            <IconButton icon={Trash2} label="Delete week" tone="danger" onClick={(e) => handleDelete(e, weekItem.id)} />
+          </>
+        }
+      />
 
-      {/* Week & Days Section (Exact Features of Categories & Goals) */}
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h2 className="text-xl sm:text-2xl font-display font-bold text-ink">Week & Days</h2>
-          <div className="flex items-center gap-4">
-            <button onClick={resetWeights} className="flex items-center space-x-1.5 text-xs text-gold hover:text-gold/80 transition">
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Equal</span>
-            </button>
-            <button onClick={resetScores} className="text-xs text-sage hover:text-sage/80 transition">Auto Scores</button>
-          </div>
-        </div>
-
+      {/* Week & days */}
+      <Section
+        title="Week & days"
+        id="week-days"
+        action={
+          <>
+            <Button variant="ghost" size="sm" icon={RotateCcw} onClick={resetWeights}>Reset equal</Button>
+            <Button variant="ghost" size="sm" onClick={resetScores}>Auto scores</Button>
+          </>
+        }
+      >
         <div className="space-y-6">
-          <Card className="p-4 sm:p-5 space-y-4 border-gold">
-            {/* "Category" Header (The Week Itself) */}
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center space-x-2 min-w-0">
-                  <h3 className="text-lg font-bold text-ink">
-                    <InlineEdit value={weekItem.title} onSave={(t) => updateItem(weekItem.id, { title: t })} title="Rename week"
-                      inputClassName="w-full min-w-0 rounded-md border border-gold/40 bg-mist/20 px-2 py-1 text-lg font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
-                  </h3>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-1">
-                    <span className="text-[9px] text-ink/50 uppercase tracking-wider">Score:</span>
-                    <input type="number" min="0" max="100" value={Math.round(wScore)}
-                      onChange={e => updateItem(weekItem.id, { progress: parseFloat(e.target.value) || 0 })}
-                      className="w-12 px-1 py-1 text-[10px] bg-mist/30 rounded border border-transparent hover:border-mist focus:bg-paper focus:border-gold outline-none" />
-                    <span className="text-[9px] text-ink/50">%</span>
-                  </div>
-                  <span className="text-sm font-mono font-bold text-gold w-14 text-right">{Math.round(weekItem.weight || 0)}%</span>
-                </div>
+          {/* The week itself */}
+          <Panel className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="min-w-0 text-heading text-parchment">
+                <InlineEdit value={weekItem.title} onSave={(t) => updateItem(weekItem.id, { title: t })} title="Rename week"
+                  inputClassName="w-full min-w-0 rounded-lg border border-gold/40 bg-ink/40 px-2 py-1 text-heading text-parchment outline-none focus:ring-2 focus:ring-gold/30" />
+              </h3>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2">
+                  <span className={microLabel}>Score</span>
+                  <input type="number" min="0" max="100" value={Math.round(wScore)}
+                    onChange={e => updateItem(weekItem.id, { progress: parseFloat(e.target.value) || 0 })}
+                    className={cx(inputClass, 'w-20 px-2 text-right font-mono tabular-nums pointer-fine:min-h-9')} />
+                  <span className="font-mono text-mono text-parchment/45">%</span>
+                </label>
+                <Badge tone="gold">{Math.round(weekItem.weight || 0)}% weight</Badge>
               </div>
-              <div className="flex-1">
-                <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Week Weight (Relative to Month)</span>
-                <input type="range" min={0} max={100} step={1} value={weekItem.weight || 0}
-                  onChange={(e) => updateItem(weekItem.id, { weight: parseFloat(e.target.value) || 0 })}
-                  className="w-full h-2 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
-              </div>
-              <ProgressBar progress={wScore} colorClass="bg-sage" />
+            </div>
+            <label className="block space-y-2">
+              <span className={microLabel}>Week weight (relative to month)</span>
+              <input type="range" min={0} max={100} step={1} value={weekItem.weight || 0}
+                onChange={(e) => updateItem(weekItem.id, { weight: parseFloat(e.target.value) || 0 })}
+                className={cx(rangeClass, 'accent-gold')} />
+            </label>
+            <Meter value={wScore} tone="moss" label="Week score" />
+          </Panel>
+
+          {/* The days */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className={microLabel}>Days</span>
+              <Badge tone={Math.round(dayWeightSum) === 100 ? 'moss' : 'ember'}>Total {Math.round(dayWeightSum)}%</Badge>
             </div>
 
-            {/* "Goals" (The Days) */}
-            <div className="space-y-3 pt-2 border-t border-mist">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase text-ink/50">Days</span>
-                <span className={`text-[10px] font-mono ${Math.round(dayWeightSum) === 100 ? 'text-sage' : 'text-[#cf8f78]'}`}>
-                  Total: {Math.round(dayWeightSum)}%
-                </span>
-              </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7 xl:gap-2">
+              {daySlots.map(({ date, dayGoal }, idx) => {
+                const isToday = new Date().toDateString() === date.toDateString()
+                const dScore = dayGoal ? (completionMap[dayGoal.id] || 0) : 0
+                const w = dayGoal ? (effWeights[dayGoal.id] ?? 0) : 0
+                const isLocked = dayGoal ? (lockedWeights[dayGoal.id] || false) : false
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-                {daySlots.map(({ date, dayGoal }, idx) => {
-                  const isToday = new Date().toDateString() === date.toDateString()
-                  const dScore = dayGoal ? (completionMap[dayGoal.id] || 0) : 0
-                  const w = dayGoal ? (effWeights[dayGoal.id] ?? 0) : 0
-                  const isLocked = dayGoal ? (lockedWeights[dayGoal.id] || false) : false
-
-                  return (
-                    <Card key={idx} className={`p-4 hover:border-gold transition-colors group relative cursor-pointer ${isToday ? 'ring-2 ring-gold' : ''}`} onClick={() => dayGoal ? router.push(`/day/${format(date, 'yyyy-MM-dd')}`) : null}>
+                return (
+                  <Panel
+                    key={idx}
+                    padded={false}
+                    aria-label={dayGoal ? `Open ${format(date, 'EEEE, MMMM d')}` : undefined}
+                    className={cx('group relative flex flex-col p-4 xl:p-3', isToday && 'border-gold/60', !dayGoal && 'border-dashed')}
+                    onClick={dayGoal ? () => router.push(`/day/${format(date, 'yyyy-MM-dd')}`) : undefined}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className={cx('font-mono text-[11px] uppercase tracking-[0.2em]', isToday ? 'text-gold' : 'text-parchment/50')}>{format(date, 'EEE')}</p>
+                        <p className={cx('font-display text-heading tabular-nums', isToday ? 'text-gold' : 'text-parchment')}>{format(date, 'd')}</p>
+                      </div>
                       {dayGoal && (
-                        <button onClick={(e) => handleDelete(e, dayGoal.id)} className="absolute top-2 right-2 p-2 bg-paper/80 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] z-10" title="Delete Day">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <span onKeyDown={e => e.stopPropagation()}><RowActions
+                          label={`${format(date, 'EEEE')} actions`}
+                          className="-mr-2 -mt-2"
+                          actions={[{ label: 'Delete day', icon: Trash2, destructive: true, onSelect: () => handleDelete(null, dayGoal.id) }]}
+                        /></span>
                       )}
+                    </div>
 
-                      <div className="flex flex-col h-full justify-between">
-                        <div>
-                          <div className={`p-2 text-center rounded-lg mb-2 ${isToday ? 'bg-gold/10' : ''}`}>
-                            <p className="text-[10px] uppercase font-bold tracking-wider text-ink/50">{format(date, 'EEE')}</p>
-                            <p className={`text-xl font-mono font-bold ${isToday ? 'text-gold' : 'text-ink'}`}>{format(date, 'd')}</p>
+                    {dayGoal ? (
+                      <>
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <span onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+                            <IconButton
+                              icon={isLocked ? Lock : Unlock}
+                              label={isLocked ? 'Unlock weight' : 'Lock weight'}
+                              aria-pressed={isLocked}
+                              className={cx('-ml-2', isLocked && 'text-gold hover:text-gold')}
+                              onClick={(e) => { e.stopPropagation(); toggleLock(dayGoal.id); }}
+                            />
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <ProgressRing progress={dScore} size={28} trackColorClass="text-parchment/10" />
+                            <span className="font-mono text-mono tabular-nums text-parchment/80">{Math.round(dScore)}%</span>
                           </div>
-
-                          {dayGoal ? (
-                            <div className="flex items-center justify-between mb-2">
-                              <button onClick={(e) => { e.stopPropagation(); toggleLock(dayGoal.id); }} className="p-1 hover:bg-mist rounded transition -ml-1" title={isLocked ? 'Unlock weight' : 'Lock weight'}>
-                                {isLocked ? <Lock className="w-3.5 h-3.5 text-gold" /> : <Unlock className="w-3.5 h-3.5 text-ink/30" />}
-                              </button>
-                              <div className="flex items-center space-x-2">
-                                <ProgressRing progress={dScore} size={28} />
-                                <span className="text-xs font-mono font-bold">{Math.round(dScore)}%</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-[10px] text-ink/20 text-center mt-4">No goal set</p>
-                          )}
                         </div>
 
-                        {dayGoal && (
-                          <div className="space-y-3 mt-4" onClick={e => e.stopPropagation()}>
-                            <div>
-                              <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Weight</span>
-                              <input type="range" min="0" max="100" step={1} value={w}
-                                onChange={e => handleWeightChange(dayGoal.id, parseFloat(e.target.value) || 0)}
-                                className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-gold" />
-                              <span className="text-[9px] font-mono text-ink/50">{Math.round(w)}%</span>
-                            </div>
-                            <div>
-                              <span className="text-[9px] text-ink/50 uppercase tracking-wider block mb-0.5">Score</span>
-                              <input type="range" min="0" max="100" step={1} value={Math.round(dScore)}
-                                onChange={e => handleScoreChange(dayGoal!.id, parseFloat(e.target.value) || 0)}
-                                className="w-full h-1.5 bg-mist rounded-full appearance-none cursor-pointer accent-sage" />
-                              <span className="text-[9px] font-mono text-ink/50">{Math.round(dScore)}%</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  )
-                })}
-              </div>
-              {dailyGoals.length === 0 && (
-                <p className="text-xs text-ink/40 italic">No days yet.</p>
-              )}
+                        <div className="mt-4 space-y-3" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+                          <label className="block space-y-1">
+                            <span className="flex items-baseline justify-between">
+                              <span className={microLabel}>Weight</span>
+                              <span className="font-mono text-[10px] tabular-nums text-parchment/50">{Math.round(w)}%</span>
+                            </span>
+                            <input type="range" min="0" max="100" step={1} value={w}
+                              onChange={e => handleWeightChange(dayGoal.id, parseFloat(e.target.value) || 0)}
+                              className={cx(rangeClass, 'accent-gold')} />
+                          </label>
+                          <label className="block space-y-1">
+                            <span className="flex items-baseline justify-between">
+                              <span className={microLabel}>Score</span>
+                              <span className="font-mono text-[10px] tabular-nums text-parchment/50">{Math.round(dScore)}%</span>
+                            </span>
+                            <input type="range" min="0" max="100" step={1} value={Math.round(dScore)}
+                              onChange={e => handleScoreChange(dayGoal!.id, parseFloat(e.target.value) || 0)}
+                              className={cx(rangeClass, 'accent-moss')} />
+                          </label>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-caption text-parchment/30">No goal set</p>
+                    )}
+                  </Panel>
+                )
+              })}
             </div>
-          </Card>
+            {dailyGoals.length === 0 && (
+              <p className="text-caption text-parchment/40">No days yet.</p>
+            )}
+          </div>
         </div>
-      </div>
+      </Section>
 
-      {/* Reflection Section */}
-      <div>
-        <div className="flex items-center space-x-2 mb-4">
-          <BookOpen className="w-5 h-5 text-gold" />
-          <h2 className="text-2xl font-display font-bold text-ink">Week Reflection</h2>
-        </div>
-        <Card className="p-5 space-y-3">
+      {/* Reflection */}
+      <Section title="Week reflection" id="week-reflection">
+        <Panel className="space-y-3">
           <ReflectionPicker
             timePeriod="week"
             periodKey={weekId}
@@ -385,12 +408,13 @@ export default function WeekPage() {
             className="mb-2"
           />
           <textarea value={reflectionText}
+            aria-label="Week reflection"
             onChange={(e) => { setReflectionDraft(e.target.value); saveReflection(e.target.value) }}
             placeholder="Reflect on this week..."
-            className="w-full h-32 bg-paper border border-mist rounded-lg p-3 text-sm text-ink resize-none focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30" />
-          <p className="text-[10px] text-ink/40 mt-1">Auto-saves as you type — pick a saved template above to quick-fill.</p>
-        </Card>
-      </div>
-    </div>
+            className={cx(inputClass, 'h-32 resize-none py-3 leading-relaxed')} />
+          <p className="text-caption text-parchment/40">Auto-saves as you type — pick a saved template above to quick-fill.</p>
+        </Panel>
+      </Section>
+    </Page>
   )
 }

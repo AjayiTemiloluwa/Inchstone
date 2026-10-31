@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
-import { Card } from '@/components/ui/Card'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { Badge, Button, EmptyState, IconButton, Panel, RowActions, Section, TONE_TEXT, cx, inputClass, type RowAction } from '@/components/ds'
 import { useToast } from '@/components/ui/ToastProvider'
+import { Meter, Percent, healthTone } from '../primitives'
 
 interface HabitSummary {
   title: string
@@ -30,7 +30,6 @@ export function YearHabits() {
   const [habits, setHabits] = useState<HabitSummary[]>([])
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
-  const [deleteMenu, setDeleteMenu] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const renameSubmitted = useRef(false)
@@ -92,12 +91,10 @@ export function YearHabits() {
         showToast(await errorMessage(res, 'Failed to delete habit'), 'error')
       }
     } catch (e) { console.error(e) }
-    setDeleteMenu(null)
   }
 
   const handleDeleteAll = async (title: string) => {
     if (!(await confirm(`Delete ALL instances of "${title}" including past data? This cannot be undone.`))) {
-      setDeleteMenu(null)
       return
     }
     try {
@@ -110,7 +107,6 @@ export function YearHabits() {
         showToast(await errorMessage(res, 'Failed to delete habit'), 'error')
       }
     } catch (e) { console.error(e) }
-    setDeleteMenu(null)
   }
 
   const handleRename = async (oldTitle: string) => {
@@ -126,7 +122,6 @@ export function YearHabits() {
       if (res.ok) {
         showToast('Habit renamed — all instances updated', 'success')
         setRenaming(null)
-        setDeleteMenu(null)
         void fetchHabits()
       } else {
         showToast(await errorMessage(res, 'Failed to rename habit'), 'error')
@@ -139,111 +134,72 @@ export function YearHabits() {
     }
   }
 
-  const iconBtn = 'p-1 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 rounded transition text-ink/30 min-w-[36px] min-h-[36px] flex items-center justify-center'
-
   return (
-    <div>
-      <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
-        <h2 className="text-2xl sm:text-3xl font-display font-bold text-ink flex items-center gap-2 sm:gap-3">
-          🌱 Habits
-          <span className="text-xs font-mono font-normal bg-white/10 px-2 py-0.5 sm:py-1 rounded-full text-ink/60">{habits.length}</span>
-        </h2>
-        <button type="button" onClick={() => { setAdding(true); setNewTitle('') }}
-          className="flex items-center space-x-1.5 px-3 py-2 text-xs sm:text-sm font-medium bg-gold/10 text-gold rounded-lg border border-gold/30 hover:bg-gold/20 active:opacity-70 transition min-h-[40px]">
-          <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span>Add Habit</span>
-        </button>
-      </div>
-
+    <Section title="Habits" id="year-habits"
+      action={
+        <>
+          <Badge>{habits.length}</Badge>
+          <Button size="sm" variant="secondary" icon={Plus} onClick={() => { setAdding(true); setNewTitle('') }}>Add habit</Button>
+        </>
+      }>
       {adding && (
-        <Card className="p-4 mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-            <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)} autoFocus
+        <Panel className="mb-4 space-y-2 animate-fadeIn">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)} autoFocus aria-label="Habit name"
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
               placeholder="Habit name (e.g., 'Morning run', 'Read 30 mins')..."
-              className="flex-1 min-w-0 px-4 py-3 text-sm bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/30 placeholder:text-ink/30 min-h-[44px]" />
-            <div className="flex space-x-2">
-              <button type="button" onClick={handleAdd}
-                className="flex-1 sm:flex-none px-4 py-3 bg-gold text-ink text-sm font-bold rounded-xl hover:bg-gold-glow transition-all active:opacity-70 min-h-[44px]">
-                Create Habit
-              </button>
-              <button type="button" onClick={() => setAdding(false)} aria-label="Cancel"
-                className="px-4 py-3 text-ink/50 hover:text-ink hover:bg-white/5 rounded-xl transition min-h-[44px]">
-                <X className="w-4 h-4" />
-              </button>
+              className={cx(inputClass, 'flex-1 min-w-0')} />
+            <div className="flex gap-2">
+              <Button variant="primary" onClick={handleAdd} className="flex-1 sm:flex-none">Create habit</Button>
+              <IconButton icon={X} label="Cancel" onClick={() => setAdding(false)} />
             </div>
           </div>
-          <p className="text-[10px] text-ink/40 mt-2">This will create daily habit instances for the rest of the year.</p>
-        </Card>
+          <p className="text-caption text-parchment/45">This will create daily habit instances for the rest of the year.</p>
+        </Panel>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {habits.map(ht => {
-          const pct = ht.total > 0 ? Math.round((ht.completed / ht.total) * 100) : 0
-          return (
-            <Card key={ht.title} className="p-4 space-y-3 hover:border-gold/50 active:opacity-70 transition-colors group">
-              <div className="flex items-center justify-between gap-2">
-                {renaming === ht.title ? (
-                  <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') void handleRename(ht.title)
-                      if (e.key === 'Escape') setRenaming(null)
-                    }}
-                    onBlur={() => void handleRename(ht.title)}
-                    className="min-w-0 flex-1 rounded-lg border border-gold/40 bg-white/[0.07] px-2 py-1 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
-                ) : (
-                  <h3 className="min-w-0 flex-1 break-words font-bold text-ink text-sm leading-snug">
-                    {ht.title}
-                    {ht.upcoming === 0 && <span className="ml-2 align-middle text-[9px] font-bold uppercase tracking-wider text-ink/40">Ended</span>}
-                  </h3>
-                )}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button type="button" title="Rename habit" aria-label="Rename habit"
-                    onClick={e => { e.stopPropagation(); setRenaming(ht.title); setRenameValue(ht.title) }}
-                    className={`${iconBtn} hover:bg-gold/15 hover:text-gold`}>
-                    <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </button>
-                  <div className="relative">
-                    <button type="button" aria-label="Delete habit" aria-expanded={deleteMenu === ht.title}
-                      onClick={() => setDeleteMenu(deleteMenu === ht.title ? null : ht.title)}
-                      className={`${iconBtn} hover:bg-ember/15 hover:text-[#cf8f78]`}>
-                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </button>
-                    {deleteMenu === ht.title && (
-                      <div className="absolute right-0 top-9 z-50 bg-paper border border-mist rounded-xl p-2 w-[min(14rem,calc(100vw-3rem))] animate-fadeIn">
-                        <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
-                        {ht.upcoming !== 0 && (
-                          <button type="button" onClick={() => handleDeleteFuture(ht.title)} className="w-full text-left px-3 py-2.5 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
-                            <X className="w-3.5 h-3.5 shrink-0" />
-                            <span>Delete future instances only</span>
-                          </button>
-                        )}
-                        <button type="button" onClick={() => handleDeleteAll(ht.title)} className="w-full text-left px-3 py-2.5 text-xs text-[#cf8f78] hover:bg-ember/15 rounded-lg transition flex items-center space-x-2">
-                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                          <span>Delete completely (including past)</span>
-                        </button>
-                        <button type="button" onClick={() => setDeleteMenu(null)} className="w-full text-left px-3 py-2.5 text-xs text-ink/50 hover:bg-mist rounded-lg transition">
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </div>
+      {habits.length === 0 && !adding ? (
+        <EmptyState title="No habits yet" body="Add daily habits to build consistency." />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          {habits.map(ht => {
+            const pct = ht.total > 0 ? Math.round((ht.completed / ht.total) * 100) : 0
+            const ended = ht.upcoming === 0
+            const actions: RowAction[] = [
+              { label: 'Rename habit', icon: Pencil, onSelect: () => { setRenaming(ht.title); setRenameValue(ht.title) } },
+              // A stopped habit has no future days left, so only "delete completely" applies.
+              ...(!ended ? [{ label: 'Delete future instances only', icon: X, onSelect: () => { void handleDeleteFuture(ht.title) } }] : []),
+              { label: 'Delete completely (including past)', icon: Trash2, destructive: true, onSelect: () => { void handleDeleteAll(ht.title) } },
+            ]
+            return (
+              <Panel key={ht.title} padded={false} className="group space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  {renaming === ht.title ? (
+                    <input autoFocus value={renameValue} onChange={e => setRenameValue(e.target.value)} aria-label="Habit name"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') void handleRename(ht.title)
+                        if (e.key === 'Escape') setRenaming(null)
+                      }}
+                      onBlur={() => void handleRename(ht.title)}
+                      className="h-9 min-w-0 flex-1 rounded-lg border border-gold/40 bg-ink/40 px-2 text-sm font-semibold text-parchment outline-none focus:ring-2 focus:ring-gold/30" />
+                  ) : (
+                    <h3 className="min-w-0 flex-1 break-words pt-2 text-sm font-semibold leading-snug text-parchment pointer-fine:pt-1.5">
+                      {ht.title}
+                      {ended && <Badge className="ml-2 align-middle">Ended</Badge>}
+                    </h3>
+                  )}
+                  <RowActions label={`Actions for ${ht.title}`} actions={actions} />
                 </div>
-              </div>
-              <div className="flex items-center justify-between text-xs text-ink/50">
-                <span>{ht.completed}/{ht.total} days done</span>
-                <span className="font-mono font-bold text-gold">{pct}%</span>
-              </div>
-              <ProgressBar progress={pct} colorClass={pct >= 80 ? 'bg-sage' : pct >= 40 ? 'bg-gold' : 'bg-ember'} />
-            </Card>
-          )
-        })}
-        {habits.length === 0 && !adding && (
-          <Card className="p-6 col-span-full text-center">
-            <p className="text-sm text-ink/50">No habits yet. Add daily habits to build consistency!</p>
-          </Card>
-        )}
-      </div>
-    </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-[11px] tabular-nums text-parchment/50">{ht.completed}/{ht.total} days done</span>
+                  <Percent value={pct} className={cx('text-heading', TONE_TEXT[healthTone(pct)])} />
+                </div>
+                <Meter value={pct} tone={healthTone(pct)} />
+              </Panel>
+            )
+          })}
+        </div>
+      )}
+    </Section>
   )
 }
