@@ -12,7 +12,7 @@ import { Loader } from '@/components/ui/Loader'
 import { WorkClock } from '@/components/ui/WorkClock'
 import { useAmbient, type TimeOfDay, type Weather } from '@/components/effects/atmosphere'
 import { Float } from '@/components/effects/fluid'
-import { Badge, Button, EmptyState, IconButton, Page, PageHeader, Panel, Section, Stat, StatGrid, cx } from '@/components/ds'
+import { Badge, Button, EmptyState, IconButton, Page, Panel, Section, Stat, StatGrid, cx } from '@/components/ds'
 
 interface Nudge {
   id: string
@@ -245,89 +245,95 @@ export default function DashboardPage() {
 
   return (
     <Page className="pt-2 sm:pt-4">
-      {/* ── 1. Header: date + live time, greeting, the two ways out ── */}
-      <div data-noreveal>
-        <PageHeader
-          eyebrow={
-            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span>{format(today, 'EEEE')} · {format(today, 'd MMM yyyy')}</span>
-              <span title={todPhrase} className="inline-flex items-center gap-2">
-                <TodGlyph timeOfDay={amb.timeOfDay} weather={amb.weather} className="h-3.5 w-3.5 text-gold-dim" />
-                <span suppressHydrationWarning className="tabular-nums tracking-[0.08em] text-gold">
-                  {clockReady ? format(countdownNow, 'HH:mm:ss') : '--:--:--'}
-                </span>
-              </span>
+      {/* ── 1. Hero: date strip + live time, the big greeting, the work clock ── */}
+      <div className="rounded-xl border border-gold/15 bg-surface-solid p-5 sm:p-7 lg:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-gold/10 pb-3.5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/45">
+            {format(today, 'EEEE')} · {format(today, 'd MMM yyyy')}
+          </p>
+          <p title={todPhrase} className="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/45">
+            <TodGlyph timeOfDay={amb.timeOfDay} weather={amb.weather} className="h-3.5 w-3.5 text-gold-dim" />
+            <span
+              suppressHydrationWarning
+              className="rounded-full border border-gold/25 bg-gold/10 px-2.5 py-0.5 font-bold tabular-nums normal-case tracking-[0.08em] text-gold"
+            >
+              {clockReady ? format(countdownNow, 'HH:mm:ss') : '--:--:--'}
             </span>
-          }
-          title={
-            <RevealLines
-              delay={80}
-              fluid
-              lines={[
-                `${greeting},`,
-                firstName ? `${firstName}.` : 'friend.',
-              ]}
-            />
-          }
-          description={
-            <span className="font-mono text-mono uppercase tracking-[0.18em] text-parchment/50">
-              Build{' '}
-              <WordRotator
-                className="font-semibold normal-case tracking-normal text-gold"
-                words={[
-                  'discipline', 'momentum', 'clarity', 'faith', 'streaks',
-                  'consistency', 'purpose', 'courage', 'focus', 'gratitude',
-                  'patience', 'strength',
-                ]}
-              />{' '}
-              one day at a time
-            </span>
-          }
-          actions={
-            <>
-              <Button variant="ghost" onClick={() => router.push('/year')} data-cursor="See the whole year">
-                Open the full year
-                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              <Button variant="primary" onClick={() => router.push(dayHref)} data-cursor="Sketch the day">
-                Plan today
-              </Button>
-            </>
-          }
-        />
-      </div>
+          </p>
+        </div>
 
-      {/* ── 2. The instrument: work clock + today's progress + next up ── */}
-      <Section id="today" title="Today">
-        <Panel className="grid items-center gap-6 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-8 lg:gap-12">
-          {/* The signature instrument — a live work clock: today's ring around
-              the dial, the real local time on the hands, and the day number +
-              alignment as watch complications. A tap opens the full year. */}
-          <Float delay={0.3} duration={9} amp={4} className="justify-self-center">
-            <div data-cursor="Open the full year">
-              <div className="hidden lg:block">
-                <WorkClock
-                  size={200}
-                  progress={deedsPct}
-                  dayLabel={String(dayOfYear).padStart(3, '0')}
-                  primary={String(Math.round(alignment))}
-                  ringLabel="TODAY"
-                  onClick={() => router.push('/year')}
+        <div className="mt-6 flex flex-col items-center gap-8 sm:mt-7 lg:mt-4 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+          {/* Hero: masked line reveal, floating gently */}
+          <Float delay={0.3} duration={9} amp={5} className="w-full min-w-0 flex-1">
+            <header data-noreveal>
+              <h1 className="font-display text-[clamp(2.7rem,7vw,4.9rem)] leading-[1.04] text-parchment">
+                <RevealLines
+                  delay={80}
+                  fluid
+                  lines={[
+                    `${greeting},`,
+                    firstName ? `${firstName}.` : 'friend.',
+                  ]}
                 />
+              </h1>
+              <div className="mt-6 flex items-center gap-4">
+                <span aria-hidden="true" className="h-px w-12 shrink-0 bg-gold/60" />
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-parchment/50">
+                  Build{' '}
+                  <WordRotator
+                    className="font-semibold normal-case tracking-normal text-gold"
+                    words={[
+                      'discipline', 'momentum', 'clarity', 'faith', 'streaks',
+                      'consistency', 'purpose', 'courage', 'focus', 'gratitude',
+                      'patience', 'strength',
+                    ]}
+                  />{' '}
+                  one day at a time
+                </p>
               </div>
-              <div className="lg:hidden">
-                <WorkClock
-                  size={148}
-                  progress={deedsPct}
-                  dayLabel={String(dayOfYear).padStart(3, '0')}
-                  primary={String(Math.round(alignment))}
-                  ringLabel="TODAY"
-                  onClick={() => router.push('/year')}
-                />
+              <div className="mt-7 flex flex-wrap items-center gap-2">
+                <Button variant="primary" onClick={() => router.push(dayHref)} data-cursor="Sketch the day">
+                  Plan today
+                </Button>
+                <Button variant="ghost" onClick={() => router.push('/year')} data-cursor="See the whole year">
+                  Open the full year
+                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
               </div>
-            </div>
+            </header>
           </Float>
 
+          {/* The signature instrument: a live work clock. Today's ring around
+              the dial, the real local time on the hands, the day number and
+              alignment as complications. A tap opens the full year. */}
+          <div data-cursor="Open the full year" className="shrink-0 self-center lg:pr-2">
+            <div className="hidden lg:block">
+              <WorkClock
+                size={200}
+                progress={deedsPct}
+                dayLabel={String(dayOfYear).padStart(3, '0')}
+                primary={String(Math.round(alignment))}
+                ringLabel="TODAY"
+                onClick={() => router.push('/year')}
+              />
+            </div>
+            <div className="lg:hidden">
+              <WorkClock
+                size={148}
+                progress={deedsPct}
+                dayLabel={String(dayOfYear).padStart(3, '0')}
+                primary={String(Math.round(alignment))}
+                ringLabel="TODAY"
+                onClick={() => router.push('/year')}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. Today: progress + next up ── */}
+      <Section id="today" title="Today">
+        <Panel>
           <div className="min-w-0 space-y-6">
             <div className="space-y-3">
               <p className={EYEBROW}>Today&apos;s progress</p>
