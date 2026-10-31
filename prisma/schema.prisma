@@ -564,3 +564,81 @@ model WidgetConfig {
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }
+
+// ── Application Tracker (lives under Challenge) ──────────────────────────────
+// One row per thing the user is applying to: a scholarship, job, school,
+// grant, fellowship, visa… Deadline reminders are pushed by the alarm cron at
+// each offset in `reminderOffsets` (minutes before the deadline); every offset
+// that has fired is stamped in `remindersSent` so it never fires twice.
+model Application {
+  id            String    @id @default(uuid())
+  userId        String
+  title         String // "Chevening Scholarship 2027"
+  organization  String?
+  type          String    @default("other") // scholarship | job | school | grant | fellowship | internship | visa | competition | other
+  status        String    @default("researching") // researching | preparing | submitted | interviewing | offer | accepted | rejected | withdrawn
+  priority      String    @default("medium") // low | medium | high
+  url           String? // the application portal
+  location      String?
+  value         String? // what it is worth: "Full tuition + stipend", "₦4.2m/yr"
+  summary       String? // what this application is about
+  whyApply      String? // the user's motivation / fit statement
+  notes         String?
+  details       Json      @default("[]") // custom sections: [{ id, title, body }]
+  contacts      Json      @default("[]") // [{ id, name, role, email, phone }]
+  opensAt       DateTime?
+  deadline      DateTime?
+  decisionDate  DateTime?
+  submittedAt   DateTime?
+  reminderOffsets String  @default("10080,4320,1440,180") // 7d, 3d, 1d, 3h before
+  remindersSent String    @default("")
+  tz            String?
+  archived      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  items ApplicationItem[]
+  files ApplicationFile[]
+
+  @@index([userId, archived])
+  @@index([deadline])
+}
+
+// A line inside an application. `kind` decides which section it sits in:
+//   eligibility — a requirement; status met | partial | unmet | unknown
+//   document    — something to prepare; status todo | drafting | ready
+//   step        — a progress checkpoint; status todo | done
+model ApplicationItem {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  kind          String
+  label         String
+  detail        String?
+  status        String      @default("todo")
+  dueDate       DateTime?
+  fileId        String?
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([applicationId, kind])
+}
+
+// Uploaded files (CV, transcripts, essays, offer letters). Stored in Postgres
+// so the tracker needs no extra storage service; capped at 4 MB each.
+model ApplicationFile {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  name          String
+  mime          String
+  size          Int
+  label         String? // "CV", "Transcript", "Offer letter"
+  data          Bytes
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId])
+}

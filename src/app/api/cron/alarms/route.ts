@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { ALARM_RING_GRACE_MINUTES, computeNextFire, pushAlarmToUser } from '@/lib/alarmScheduler'
+import { DEADLINE_CLOSED, dueReminders, reminderPayload, stampOffsets } from '@/lib/applications'
+import { sendNotification } from '@/lib/pushNotifications'
 import {
   buildTaskPayload,
   dueTaskNotifications,
@@ -90,5 +92,37 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, fired: sent, checked: due.length, skippedStale, taskPushes })
+  // ── Application deadline reminders (Challenge → Applications) ──────────
+  // Each offset (1 week, 3 days, 1 day, 3 hours… before the deadline) fires
+  // once; the stamp is shared with the in-app alarm so neither double-fires.
+  const apps = await prisma.application.findMany({
+    where: {
+      archived: false,
+      status: { notIn: [...DEADLINE_CLOSED] },
+      deadline: { not: null, lte: new Date(now.getTime() + 15 * 86400000) },
+    },
+    select: { id: true, userId: true, title: true, organization: true, status: true, deadline: true, reminderOffsets: true, remindersSent: true },
+  })
+  let applicationPushes = 0
+  for (const a of apps) {
+    const { due: off, silent } = dueReminders(a, now)
+    if (off === null && !silent.length) continue
+    if (off !== null) {
+      const subs = await prisma.pushSubscription.findMany({ where: { userId: a.userId } })
+      for (const s of subs) {
+        try {
+          const ok = await sendNotification({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, reminderPayload(a, off))
+          if (ok) applicationPushes++
+          else await prisma.pushSubscription.delete({ where: { id: s.id } }).catch(() => {})
+        } catch (e) {
+          console.error('Application reminder failed', a.id, e)
+        }
+      }
+    }
+    await prisma.application
+      .update({ where: { id: a.id }, data: { remindersSent: stampOffsets(a.remindersSent, off === null ? silent : [...silent, off]) } })
+      .catch(() => {})
+  }
+
+  return NextResponse.json({ ok: true, fired: sent, checked: due.length, skippedStale, taskPushes, applicationPushes })
 }

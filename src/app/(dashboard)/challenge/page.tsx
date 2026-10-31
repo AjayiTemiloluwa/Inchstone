@@ -5,6 +5,7 @@ import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
 import { AtSign, ChevronDown, Plus, X, Trash2, Check, Eye, Flag, Pencil, Target } from 'lucide-react'
 import { BottleContentsModal } from '@/components/ui/BottleContentsModal'
+import { ChallengeTabs } from '@/components/applications/ChallengeTabs'
 import {
   Badge, Button, EmptyState, Field, IconButton, Page, PageHeader, Panel, RowActions, Section, Stat, StatGrid, cx, inputClass,
 } from '@/components/ds'
@@ -312,6 +313,7 @@ export default function ChallengePage() {
           </Button>
         }
       />
+      <ChallengeTabs />
 
       <StatGrid cols={3}>
         <Stat label="Bottles" value={bottles.length} caption={`${filledCount} filled to target`} />
