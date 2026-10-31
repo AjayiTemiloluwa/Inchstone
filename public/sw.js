@@ -1,6 +1,6 @@
 /* Inchstone service worker — offline shell + data cache + write-queue bridge. */
 
-const VERSION = 'v8'
+const VERSION = 'v9'
 const SHELL_CACHE = `inchstone-shell-${VERSION}`
 const RUNTIME_CACHE = `inchstone-runtime-${VERSION}`
 const API_CACHE = `inchstone-api-${VERSION}`
@@ -9,7 +9,7 @@ const OFFLINE_URL = '/offline.html'
 
 // API GETs kept for offline reads. Writes (POST/PUT/PATCH/DELETE) are never
 // served from cache — the client-side offlineQueue owns those.
-const API_GET_CACHEABLE = /\/api\/(items|tasks|daily-score|nudges|bottles|habits|plans|plan-goals|plan-milestones|plan-sections|notes|budgets|purses|financial|reports|reviews|years|trackers|status-log|allocations|events)/
+const API_GET_CACHEABLE = /\/api\/(items|tasks|daily-score|nudges|bottles|habits|plans|plan-goals|plan-milestones|plan-sections|notes|budgets|purses|financial|reports|reviews|years|trackers|status-log|allocations|events|applications|alarms|reflections|deed-timers|categories|partners|messages|profile|calendar)/
 
 function isStaticAsset(url) {
   return (
@@ -61,6 +61,9 @@ self.addEventListener('install', (event) => {
             await Promise.allSettled([
                 cachePageAndAssets('/'),
                 cachePageAndAssets('/dashboard'),
+                // Every main screen, so each opens offline even before it was visited.
+                ...['/week', '/calendar', '/year', '/plans', '/challenge', '/challenge/applications', '/finance', '/transactions', '/partners', '/notes', '/reports', '/settings']
+                    .map((u) => cachePageAndAssets(u).catch(() => {})),
                 shell.add(new Request(OFFLINE_URL, { cache: 'reload' })).catch(() => {}),
             ])
             const runtime = await caches.open(RUNTIME_CACHE)

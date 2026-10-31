@@ -18,6 +18,7 @@
  */
 import type { ElementType, ReactNode } from 'react'
 import { WorkClock } from '@/components/ui/WorkClock'
+import { RevealLines } from '@/components/ui/motion'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -51,17 +52,32 @@ export function PageHeader({
   meta?: ReactNode
   className?: string
 }) {
+  // The dashboard's hero language on every page: a mono strip over a hairline,
+  // a large Playfair title that reveals line by line, and a gold rule leading
+  // into the subline.
   return (
-    <header className={cx('flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between', className)}>
-      <div className="min-w-0 space-y-2">
-        {eyebrow && <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-gold-dim">{eyebrow}</p>}
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-h1 text-parchment">{title}</h1>
-          {meta && <span className="font-mono text-mono tabular-nums text-parchment/45">{meta}</span>}
+    <header data-noreveal className={cx('relative overflow-hidden rounded-xl border border-gold/15 bg-surface-solid p-5 sm:p-7 lg:p-8', className)}>
+      <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-gold/[0.07] blur-3xl" />
+      {(eyebrow || meta) && (
+        <div className="relative flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-gold/10 pb-3.5">
+          {eyebrow ? <div className="min-w-0 font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/45">{eyebrow}</div> : <span />}
+          {meta && <div className="shrink-0 font-mono text-[11px] tabular-nums text-parchment/50">{meta}</div>}
         </div>
-        {description && <p className="max-w-[60ch] text-body text-parchment/60">{description}</p>}
+      )}
+      <div className={cx('relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between', !!(eyebrow || meta) && 'mt-5 sm:mt-6')}>
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-[clamp(2.25rem,5vw,3.75rem)] font-bold leading-[1.05] text-parchment">
+            {typeof title === 'string' ? <RevealLines key={title} delay={60} fluid lines={[title]} /> : title}
+          </h1>
+          {description && (
+            <div className="mt-5 flex items-start gap-4">
+              <span aria-hidden="true" className="mt-[0.7em] h-px w-10 shrink-0 bg-gold/60 sm:w-12" />
+              <div className="max-w-[60ch] text-body text-parchment/60">{description}</div>
+            </div>
+          )}
+        </div>
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </header>
   )
 }

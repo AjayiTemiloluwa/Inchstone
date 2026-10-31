@@ -34,9 +34,16 @@ const MAX_ATTEMPTS = 5
 
 // Endpoints that are safe to replay blind. Uploads, one-shot emails and cron
 // must not be retried — they pass through untouched.
-const QUEUEABLE = /\/api\/(items|tasks|bottles|habits|plans|plan-goals|plan-milestones|plan-sections|notes|budgets|purses|trackers|reviews|categories|years)/
+const QUEUEABLE = /\/api\/(items|tasks|bottles|habits|plans|plan-goals|plan-milestones|plan-sections|notes|budgets|purses|trackers|reviews|categories|years|financial|allocations|reflections|alarms|events|status-log|deed-timers|applications)/
+// Never queued even when the path matches: file uploads and bulk imports carry
+// bodies that cannot be stored as text, and the due/ack pings are one-shot.
+const NEVER_QUEUE = /\/api\/applications\/(import|due|template)|\/files(\/|$)/
+
+/** Statuses that mean "try again later", not "this change is invalid". */
+const RETRY_LATER = new Set([401, 403, 408, 425, 429])
 
 let listeners: Array<(pending: number) => void> = []
+let rawFetch: typeof fetch | null = null
 let syncing = false
 
 export function subscribeQueue(fn: (pending: number) => void) {
@@ -124,14 +131,15 @@ export async function syncQueue(): Promise<number> {
       let ok = false
       for (let attempt = 0; attempt < MAX_ATTEMPTS && !ok; attempt++) {
         try {
-          const res = await fetch(entry.url, {
+          const res = await (rawFetch ?? fetch)(entry.url, {
             method: entry.method,
             headers: entry.headers,
             body: entry.body,
             credentials: 'include',
           })
           if (res.ok) ok = true
-          else if (res.status >= 400 && res.status < 500) ok = true // stale — drop
+          else if (RETRY_LATER.has(res.status)) break // signed out or throttled: keep it for later
+          else if (res.status >= 400 && res.status < 500) ok = true // invalid now (e.g. already deleted): drop
           else await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
         } catch { await new Promise(r => setTimeout(r, 1500 * (attempt + 1))) }
       }
@@ -157,17 +165,29 @@ export function installOfflineSync(): void {
   w.__inchstoneOfflineInstalled = true
 
   const nativeFetch = window.fetch.bind(window)
+  rawFetch = nativeFetch
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase()
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
     const sameOrigin = url.startsWith('/api/') || url.startsWith(`${location.origin}/api/`)
     const isWrite = method !== 'GET' && method !== 'HEAD'
-    const queueable = sameOrigin && isWrite && QUEUEABLE.test(url)
+    const queueable = sameOrigin && isWrite && QUEUEABLE.test(url) && !NEVER_QUEUE.test(url) &&
+      (init?.body == null || typeof init.body === 'string')
+
+    // Keep order: while older changes are still waiting, a new one waits
+    // behind them instead of overtaking them.
+    if (queueable && (await count()) > 0) {
+      await enqueue(input, init)
+      void syncQueue()
+      return new Response(JSON.stringify({ queued: true }), { status: 202, headers: { 'Content-Type': 'application/json' } })
+    }
 
     try {
       return await nativeFetch(input, init)
     } catch (err) {
-      if (queueable && typeof navigator !== 'undefined' && !navigator.onLine) {
+      // Any network failure, not only a device that reports itself offline:
+      // weak signal and captive Wi-Fi throw here while navigator.onLine is true.
+      if (queueable) {
         await enqueue(input, init)
         return new Response(JSON.stringify({ queued: true }), {
           status: 202,
@@ -179,6 +199,9 @@ export function installOfflineSync(): void {
   }
 
   window.addEventListener('online', () => { void syncQueue() })
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void syncQueue() })
+  // Weak connections may never fire 'online'; keep trying quietly while anything waits.
+  window.setInterval(() => { void count().then(n => { if (n > 0) void syncQueue() }) }, 30_000)
   navigator.serviceWorker?.addEventListener('message', (e) => {
     if ((e.data as { type?: string })?.type === 'inchstone-sync') void syncQueue()
   })

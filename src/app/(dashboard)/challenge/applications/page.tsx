@@ -10,6 +10,7 @@ import {
   Badge, Button, EmptyState, Field, Meter, Page, PageHeader, Panel, Section, Segmented, Stat, StatGrid, cx, inputClass,
 } from '@/components/ds'
 import { ChallengeTabs } from '@/components/applications/ChallengeTabs'
+import { ExcelPanel } from '@/components/applications/ExcelPanel'
 import {
   DeadlineBadge, ReminderPicker, StatusBadge, countdown, formatDeadline, fromLocalInput, selectClass, typeLabel, type Fit,
 } from '@/components/applications/shared'
@@ -222,6 +223,8 @@ export default function ApplicationTrackerPage() {
           </Panel>
         </Section>
       )}
+
+      {!showArchived && <ExcelPanel onImported={() => load(false)} />}
 
       <Section
         title={showArchived ? 'Archived' : 'Applications'}
