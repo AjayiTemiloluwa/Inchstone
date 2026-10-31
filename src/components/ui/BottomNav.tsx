@@ -59,9 +59,16 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Main bottom tab bar — mobile only */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gold/10 bg-ink/95 backdrop-blur-xl pb-safe">
-        <nav className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1">
+      {/* Main tab bar (mobile only): a floating dock above the home indicator.
+          The active tab wears a gold pill that slides between tabs. */}
+      <div
+        className="lg:hidden pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.625rem)' }}
+      >
+        <nav
+          aria-label="Primary"
+          className="pointer-events-auto relative mx-auto flex max-w-md items-stretch gap-1 rounded-2xl border border-gold/20 bg-ink/85 p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.45),inset_0_1px_0_rgb(var(--gold-rgb)/0.12)] backdrop-blur-xl"
+        >
           {mainLinks.map((link) => {
             const Icon = link.icon
             const active = isActive(link.href)
@@ -71,26 +78,24 @@ export function BottomNav() {
                 onClick={() => handleMainClick(link.name, link.href)}
                 data-cursor={link.hint}
                 aria-current={active ? 'page' : undefined}
-                className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg py-1 transition-opacity active:opacity-70"
-                style={{ minHeight: 52 }}
+                aria-label={link.name}
+                className="relative flex min-h-[54px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
               >
-                <span
-                  aria-hidden
-                  className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors duration-200 ${
-                    active ? 'bg-gold/15' : 'bg-transparent'
-                  }`}
-                >
-                  <Icon
-                    className={active ? 'text-gold' : 'text-parchment/45'}
-                    strokeWidth={active ? 2 : 1.5}
-                    style={{ width: 22, height: 22 }}
+                {active && (
+                  <motion.span
+                    layoutId="dock-active"
+                    aria-hidden
+                    className="absolute inset-0 rounded-xl border border-gold/30 bg-gold/[0.13]"
+                    transition={{ type: 'spring', stiffness: 520, damping: 38 }}
                   />
-                </span>
+                )}
+                <Icon
+                  className={`relative h-[21px] w-[21px] transition-colors ${active ? 'text-gold' : 'text-parchment/50'}`}
+                  strokeWidth={active ? 2 : 1.6}
+                  aria-hidden
+                />
                 <span
-                  className={`leading-none ${
-                    active ? 'font-semibold text-gold' : 'font-medium text-parchment/45'
-                  }`}
-                  style={{ fontSize: 10 }}
+                  className={`relative text-[10px] leading-none tracking-wide transition-colors ${active ? 'font-semibold text-gold' : 'font-medium text-parchment/50'}`}
                 >
                   {link.name}
                 </span>

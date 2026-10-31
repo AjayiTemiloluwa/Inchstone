@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { useState } from 'react'
+import { motion } from 'motion/react'
 import { WorkClock } from '@/components/ui/WorkClock'
 import { NAV_GROUPS, SETTINGS_LINK, isNavActive, type NavLink } from '@/components/ds/nav'
 
@@ -30,12 +31,21 @@ export function Sidebar() {
         className={[
           'group relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors',
           collapsed ? 'justify-center' : '',
-          active ? 'bg-gold/[0.09] text-parchment' : 'text-parchment/55 hover:bg-gold/[0.05] hover:text-parchment/90',
+          active ? 'text-parchment' : 'text-parchment/55 hover:bg-gold/[0.05] hover:text-parchment/90',
         ].join(' ')}
       >
-        {active && <span aria-hidden className="absolute inset-y-2 left-0 w-[2px] rounded-full bg-gold" />}
-        <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-gold' : 'text-gold-dim group-hover:text-gold'}`} strokeWidth={1.6} />
-        {!collapsed && <span className="truncate">{link.name}</span>}
+        {active && (
+          <motion.span
+            layoutId="sidebar-active"
+            aria-hidden
+            className="absolute inset-0 rounded-lg border border-gold/20 bg-gold/[0.09]"
+            transition={{ type: 'spring', stiffness: 520, damping: 40 }}
+          >
+            <span className="absolute inset-y-2 left-0 w-[2px] rounded-full bg-gold" />
+          </motion.span>
+        )}
+        <Icon className={`relative h-[18px] w-[18px] shrink-0 ${active ? 'text-gold' : 'text-gold-dim group-hover:text-gold'}`} strokeWidth={1.6} />
+        {!collapsed && <span className="relative truncate">{link.name}</span>}
       </Link>
     )
   }

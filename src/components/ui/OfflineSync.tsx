@@ -40,10 +40,9 @@ export function OfflineSync() {
   return (
     <div
       role="status"
-      className="fixed inset-x-0 bottom-0 z-[70] border-t border-gold-dim/30 bg-ink/95 backdrop-blur-xl px-4 py-2.5 text-center sm:px-6"
-      style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}
+      className="pointer-events-none fixed inset-x-0 z-[55] flex justify-center px-4 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] lg:bottom-5"
     >
-      <p className="text-[13px] text-parchment/80">
+      <p className="max-w-md rounded-full border border-gold-dim/30 bg-ink/90 px-4 py-2 text-center text-[12px] leading-snug text-parchment/80 shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl">
         {pending > 0
           ? `${pending} change${pending === 1 ? '' : 's'} saved on this device — will sync when you're back online.`
           : "You're offline — Inchstone is running from this device. Changes you make are saved and will sync."}
