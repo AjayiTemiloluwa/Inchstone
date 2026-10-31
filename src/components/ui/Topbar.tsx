@@ -6,18 +6,34 @@ import { WorkClock } from "@/components/ui/WorkClock";
 import { YearPickerChip } from "@/components/ui/YearPicker";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { routeMeta } from "@/components/ds/nav";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useLayoutStore } from "@/stores/layoutStore";
 
 export function Topbar() {
   const pathname = usePathname()
 
   const { title, group } = routeMeta(pathname)
+  const { hidden, toggleHidden } = useLayoutStore()
 
   return (
     <header className="topbar-h bg-ink/90 backdrop-blur-xl border-b border-gold/10 flex shrink-0 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
       {/* Left: where you are. Group as a mono eyebrow, page name beneath (v3). */}
+      <div className="flex min-w-0 items-center gap-3">
+        {/* Desktop only: open or close the sidebar. */}
+        <button
+          type="button"
+          onClick={toggleHidden}
+          aria-label={hidden ? 'Open sidebar' : 'Close sidebar'}
+          aria-expanded={!hidden}
+          title={hidden ? 'Open sidebar' : 'Close sidebar'}
+          className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gold/15 text-parchment/60 transition-colors hover:border-gold/40 hover:text-parchment lg:flex"
+        >
+          {hidden ? <PanelLeftOpen className="h-[18px] w-[18px]" strokeWidth={1.6} /> : <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={1.6} />}
+        </button>
       <div className="flex min-w-0 flex-col justify-center">
         {group && <span className="hidden font-mono text-[9px] uppercase tracking-[0.26em] text-gold-dim sm:block">{group}</span>}
         <h2 className="truncate text-[17px] font-semibold leading-tight tracking-tight text-parchment">{title}</h2>
+      </div>
       </div>
 
       {/* Right: year workspace picker + live work clock + theme + Clerk profile.

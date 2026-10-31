@@ -262,11 +262,13 @@ export default function DashboardPage() {
           }
           title={
             // The greeting is the page: oversized, tight-set, the name in gold on its own line.
-            <span className="block text-[clamp(3.1rem,11vw,7rem)] leading-[0.92] tracking-[-0.025em]">
-              <span className="block text-parchment">
+            // Sized from the card's own width (container units), so "Good afternoon,"
+            // always fits on one line whether or not the sidebar is open.
+            <span className="block w-full whitespace-nowrap leading-[1.02] tracking-[-0.025em] [container-type:inline-size]">
+              <span className="block text-parchment text-[clamp(1.9rem,11.5cqi,6.75rem)]">
                 <RevealLines delay={80} fluid lines={[`${greeting},`]} />
               </span>
-              <span className="block italic text-gold">
+              <span className="block italic text-gold text-[clamp(1.9rem,11.5cqi,6.75rem)]">
                 <RevealLines delay={220} fluid lines={[firstName ? `${firstName}.` : 'friend.']} />
               </span>
             </span>

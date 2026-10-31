@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronsLeft, ChevronsRight } from 'lucide-react'
-import { useState } from 'react'
+import { ChevronsLeft, ChevronsRight, PanelLeftClose } from 'lucide-react'
+import { useEffect } from 'react'
+import { useLayoutStore } from '@/stores/layoutStore'
 import { motion } from 'motion/react'
 import { WorkClock } from '@/components/ui/WorkClock'
 import { NAV_GROUPS, SETTINGS_LINK, isNavActive, type NavLink } from '@/components/ds/nav'
@@ -16,7 +17,8 @@ import { NAV_GROUPS, SETTINGS_LINK, isNavActive, type NavLink } from '@/componen
  */
 export function Sidebar() {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const { collapsed, setCollapsed, hidden, toggleHidden } = useLayoutStore()
+  useEffect(() => { void useLayoutStore.persist.rehydrate() }, [])
 
   const row = (link: NavLink) => {
     const Icon = link.icon
@@ -53,10 +55,12 @@ export function Sidebar() {
   return (
     <aside
       aria-label="Primary"
-      className={`hidden h-full shrink-0 flex-col border-r border-gold/10 bg-ink transition-[width] duration-300 lg:flex ${collapsed ? 'w-[72px]' : 'w-64'}`}
+      aria-hidden={hidden || undefined}
+      inert={hidden || undefined}
+      className={`hidden h-full shrink-0 flex-col overflow-hidden bg-ink transition-[width] duration-300 lg:flex ${hidden ? 'w-0 border-r-0' : `border-r border-gold/10 ${collapsed ? 'w-[72px]' : 'w-64'}`}`}
     >
       {/* Wordmark */}
-      <div className={`flex h-16 items-center gap-3 px-4 ${collapsed ? 'justify-center' : ''}`}>
+      <div className={`flex h-16 shrink-0 items-center gap-3 px-4 ${collapsed ? 'justify-center' : 'justify-between'}`}>
         <Link href="/dashboard" aria-label="Inchstone home" className="flex min-w-0 items-center gap-3">
           <WorkClock size={26} progress={100} />
           {!collapsed && (
@@ -66,6 +70,17 @@ export function Sidebar() {
             </span>
           )}
         </Link>
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={toggleHidden}
+            aria-label="Close sidebar"
+            title="Close sidebar"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-parchment/40 transition-colors hover:bg-gold/[0.06] hover:text-parchment"
+          >
+            <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={1.6} />
+          </button>
+        )}
       </div>
 
       {/* Groups */}

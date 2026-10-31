@@ -2124,6 +2124,10 @@ html.lenis body {
 .line-mask {
   display: block;
   overflow: hidden;
+  /* Room below the baseline so descenders (g, y, p) are never clipped by the
+     mask; the negative margin keeps the line spacing unchanged. */
+  padding-bottom: 0.16em;
+  margin-bottom: -0.16em;
 }
 .line-mask > span {
   display: block;
