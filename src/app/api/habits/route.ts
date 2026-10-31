@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
+import { recalculateItemProgress } from '@/lib/score'
 
 export async function GET(req: Request) {
     try {
@@ -59,12 +60,16 @@ export async function GET(req: Request) {
         })
 
         // Get unique habit titles for management
+        const todayUtc = new Date()
+        todayUtc.setUTCHours(0, 0, 0, 0)
         const uniqueTitles = [...new Set(habits.map(h => h.title))].map(title => {
             const instances = habits.filter(h => h.title === title)
             const total = instances.length
             const completed = instances.filter(h => h.completed).length
             const latest = instances[instances.length - 1]
-            return { title, total, completed, latestDate: latest?.date }
+            // Days still to come: 0 means the habit was stopped and only its history is left.
+            const upcoming = instances.filter(h => h.date >= todayUtc).length
+            return { title, total, completed, upcoming, latestDate: latest?.date }
         })
 
         return NextResponse.json({ habits, uniqueTitles })
@@ -87,23 +92,34 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ error: 'title is required' }, { status: 400 })
         }
 
-        const where: any = {
-            userId,
-            isHabit: true,
-            title,
+        const series = { userId, isHabit: true, title }
+        // Habit days are stored at UTC midnight (see POST), so "today" is UTC midnight too.
+        const today = new Date()
+        today.setUTCHours(0, 0, 0, 0)
+
+        const goalIds = (await prisma.task.findMany({ where: series, select: { goalId: true }, distinct: ['goalId'] })).map(t => t.goalId)
+        if (goalIds.length === 0) {
+            return NextResponse.json({ error: 'That habit no longer exists' }, { status: 404 })
         }
 
-        if (!deleteAll) {
-            // Delete only future habit instances (keep past ones for graph data)
-            const now = new Date()
-            now.setHours(0, 0, 0, 0)
-            where.date = { gte: now }
+        let deleted: number
+        let kept = 0
+        if (deleteAll) {
+            // Every day, past and future.
+            deleted = (await prisma.task.deleteMany({ where: series })).count
+        } else {
+            // Today onwards only; earlier days stay for the habit graph. Cap the
+            // survivors so a later edit cannot regenerate the removed days.
+            deleted = (await prisma.task.deleteMany({ where: { ...series, date: { gte: today } } })).count
+            kept = (await prisma.task.updateMany({ where: { ...series, date: { lt: today } }, data: { recurrenceEnd: new Date(today.getTime() - 1) } })).count
         }
-        // If deleteAll is true, delete ALL instances (past and future)
 
-        const result = await prisma.task.deleteMany({ where })
+        // Goal scores follow the removed days; a failure here must not undo the delete.
+        for (const goalId of goalIds) {
+            await recalculateItemProgress(goalId).catch(e => console.error('Habit deleted, but the goal score could not be recalculated', e))
+        }
 
-        return NextResponse.json({ success: true, deleted: result.count })
+        return NextResponse.json({ success: true, deleted, kept })
     } catch (error) {
         console.error('Failed to delete habits', error)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

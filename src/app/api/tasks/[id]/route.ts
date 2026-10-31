@@ -318,16 +318,24 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
             await prisma.task.delete({ where: { id: taskId } })
         }
 
-        // Two-way Google Calendar sync — remove (or clamp) the pushed event.
-        // No-op if the deed was never pushed; never throws.
-        const deleteGoogleSeries = scope === 'all' || (scope === 'future' && !truncatedFrom)
-        await deleteTaskFromGoogle(userId, task, {
-            deleteAll: deleteGoogleSeries,
-            truncateFrom: truncatedFrom,
-        })
-
-        // Recalculate goal score
-        await recalculateItemProgress(goalId)
+        // The rows are gone at this point. The follow-up steps below must never
+        // turn that into a failure, or the screen shows "Failed to delete", skips
+        // its refresh, and the deed looks like it is still there.
+        try {
+            // Two-way Google Calendar sync — remove (or clamp) the pushed event.
+            const deleteGoogleSeries = scope === 'all' || (scope === 'future' && !truncatedFrom)
+            await deleteTaskFromGoogle(userId, task, {
+                deleteAll: deleteGoogleSeries,
+                truncateFrom: truncatedFrom,
+            })
+        } catch (e) {
+            console.error('Deleted, but the Google Calendar cleanup failed', e)
+        }
+        try {
+            await recalculateItemProgress(goalId)
+        } catch (e) {
+            console.error('Deleted, but the goal score could not be recalculated', e)
+        }
 
         return NextResponse.json({ success: true })
     } catch (error) {

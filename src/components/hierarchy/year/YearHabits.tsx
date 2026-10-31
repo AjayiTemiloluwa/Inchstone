@@ -10,6 +10,8 @@ interface HabitSummary {
   title: string
   total: number
   completed: number
+  /** Days still to come; 0 = stopped, only history left. */
+  upcoming?: number
   latestDate?: string
 }
 
@@ -81,7 +83,10 @@ export function YearHabits() {
     try {
       const res = await fetch(`/api/habits?title=${encodeURIComponent(title)}`, { method: 'DELETE' })
       if (res.ok) {
-        showToast('Future instances deleted (past history preserved)', 'success')
+        const data: { kept?: number } = await res.json().catch(() => ({}))
+        showToast(data.kept
+          ? 'Habit stopped. Past days are kept for your history — choose "Delete completely" to remove it.'
+          : 'Habit deleted', 'success')
         void fetchHabits()
       } else {
         showToast(await errorMessage(res, 'Failed to delete habit'), 'error')
@@ -98,6 +103,7 @@ export function YearHabits() {
     try {
       const res = await fetch(`/api/habits?title=${encodeURIComponent(title)}&deleteAll=true`, { method: 'DELETE' })
       if (res.ok) {
+        setHabits(list => list.filter(h => h.title !== title))
         showToast('Habit deleted completely', 'success')
         void fetchHabits()
       } else {
@@ -186,7 +192,10 @@ export function YearHabits() {
                     onBlur={() => void handleRename(ht.title)}
                     className="min-w-0 flex-1 rounded-lg border border-gold/40 bg-white/[0.07] px-2 py-1 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-gold/30" />
                 ) : (
-                  <h3 className="min-w-0 flex-1 break-words font-bold text-ink text-sm leading-snug">{ht.title}</h3>
+                  <h3 className="min-w-0 flex-1 break-words font-bold text-ink text-sm leading-snug">
+                    {ht.title}
+                    {ht.upcoming === 0 && <span className="ml-2 align-middle text-[9px] font-bold uppercase tracking-wider text-ink/40">Ended</span>}
+                  </h3>
                 )}
                 <div className="flex items-center gap-1 shrink-0">
                   <button type="button" title="Rename habit" aria-label="Rename habit"
@@ -203,10 +212,12 @@ export function YearHabits() {
                     {deleteMenu === ht.title && (
                       <div className="absolute right-0 top-9 z-50 bg-paper border border-mist rounded-xl p-2 w-[min(14rem,calc(100vw-3rem))] animate-fadeIn">
                         <p className="text-[10px] text-ink/50 px-3 py-1 font-bold uppercase">Delete options</p>
-                        <button type="button" onClick={() => handleDeleteFuture(ht.title)} className="w-full text-left px-3 py-2.5 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
-                          <X className="w-3.5 h-3.5 shrink-0" />
-                          <span>Delete future instances only</span>
-                        </button>
+                        {ht.upcoming !== 0 && (
+                          <button type="button" onClick={() => handleDeleteFuture(ht.title)} className="w-full text-left px-3 py-2.5 text-xs text-ink hover:bg-mist rounded-lg transition flex items-center space-x-2">
+                            <X className="w-3.5 h-3.5 shrink-0" />
+                            <span>Delete future instances only</span>
+                          </button>
+                        )}
                         <button type="button" onClick={() => handleDeleteAll(ht.title)} className="w-full text-left px-3 py-2.5 text-xs text-[#cf8f78] hover:bg-ember/15 rounded-lg transition flex items-center space-x-2">
                           <Trash2 className="w-3.5 h-3.5 shrink-0" />
                           <span>Delete completely (including past)</span>
