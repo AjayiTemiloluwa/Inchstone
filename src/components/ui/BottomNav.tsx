@@ -1,7 +1,8 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, CalendarDays, Calendar, FileText, MoreHorizontal, Users, BarChart3, Settings, X, DollarSign, Target, FlaskConical, CalendarRange } from 'lucide-react'
+import { MoreHorizontal, X } from 'lucide-react'
+import { ALL_LINKS, MOBILE_TABS, NAV_GROUPS, SETTINGS_LINK, isNavActive } from '@/components/ds/nav'
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useDialog } from '@/components/ui/useDialog'
@@ -21,30 +22,26 @@ export function BottomNav() {
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const sheetRef = useDialog<HTMLDivElement>(showMoreMenu, () => setShowMoreMenu(false))
 
+  // Tabs and More-sheet groups come from the shared nav list (ds/nav.ts).
   const mainLinks = [
-    { name: 'Home', href: '/dashboard', icon: Home, hint: 'Your home base' },
-    { name: 'Finance', href: '/finance', icon: DollarSign, hint: 'Count your coins' },
-    { name: 'Calendar', href: '/calendar', icon: CalendarDays, hint: 'Mark the days' },
-    { name: 'Year', href: '/year', icon: Calendar, hint: 'The long view' },
+    ...MOBILE_TABS.map((href) => {
+      const l = ALL_LINKS.find((x) => x.href === href)!
+      return { name: l.short ?? l.name, href: l.href, icon: l.icon, hint: l.hint }
+    }),
     { name: 'More', href: '#more', icon: MoreHorizontal, hint: 'Even more good stuff' },
   ]
 
-  const moreLinks = [
-    { name: 'This Week', href: '/week', icon: CalendarRange, hint: 'Seven days at a glance', desc: 'Plan and review the current week' },
-    { name: 'Challenge', href: '/challenge', icon: FlaskConical, hint: 'Fill the bottles', desc: 'Challenge bottles filled from reflections' },
-    { name: 'Long-Term Plans', href: '/plans', icon: Target, hint: 'Dream in decades', desc: 'Goals across months, years & decades' },
-    { name: 'Notes', href: '/notes', icon: FileText, hint: 'Write it down', desc: 'Notes & journal entries' },
-    { name: 'Partners', href: '/partners', icon: Users, hint: 'Your people', desc: 'Accountability partners & messaging' },
-    { name: 'Reports', href: '/reports', icon: BarChart3, hint: 'See the patterns', desc: 'Progress reports & analytics' },
-    { name: 'Settings', href: '/settings', icon: Settings, hint: 'Make it yours', desc: 'App settings & preferences' },
-  ]
+  const moreGroups = [
+    ...NAV_GROUPS.map((g) => ({ label: g.label, links: g.links.filter((l) => !MOBILE_TABS.includes(l.href)) })),
+    { label: 'App', links: [SETTINGS_LINK] },
+  ].filter((g) => g.links.length > 0)
+  const moreLinks = moreGroups.flatMap((g) => g.links)
 
-  const isMoreActive = moreLinks.some(l => pathname.startsWith(l.href))
+  const isMoreActive = moreLinks.some(l => isNavActive(pathname, l.href))
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard'
     if (href === '#more') return isMoreActive
-    return pathname.startsWith(href)
+    return isNavActive(pathname, href)
   }
 
   const handleMainClick = (name: string, href: string) => {
@@ -63,7 +60,7 @@ export function BottomNav() {
   return (
     <>
       {/* Main bottom tab bar — mobile only */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-ink hairline-top pb-safe">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gold/10 bg-ink/95 backdrop-blur-xl pb-safe">
         <nav className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1">
           {mainLinks.map((link) => {
             const Icon = link.icon
@@ -143,10 +140,13 @@ export function BottomNav() {
                   </button>
                 </div>
 
-                <div className="space-y-1">
-                  {moreLinks.map((link) => {
+                <div className="space-y-4">
+                  {moreGroups.map((group) => (
+                  <div key={group.label} className="space-y-1">
+                  <p className="px-3 pb-1 font-mono text-[10px] uppercase tracking-[0.24em] text-parchment/35">{group.label}</p>
+                  {group.links.map((link) => {
                     const Icon = link.icon
-                    const active = pathname.startsWith(link.href)
+                    const active = isNavActive(pathname, link.href)
                     return (
                       <button
                         key={link.name}
@@ -167,6 +167,8 @@ export function BottomNav() {
                       </button>
                     )
                   })}
+                  </div>
+                  ))}
                 </div>
               </div>
             </motion.div>

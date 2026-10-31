@@ -5,39 +5,19 @@ import { usePathname } from "next/navigation";
 import { WorkClock } from "@/components/ui/WorkClock";
 import { YearPickerChip } from "@/components/ui/YearPicker";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { routeMeta } from "@/components/ds/nav";
 
 export function Topbar() {
   const pathname = usePathname()
 
-  // Extract page title from path
-  const getPageTitle = () => {
-    const segments = pathname.split('/').filter(Boolean)
-    if (segments.length === 0) return 'Dashboard'
-    const map: Record<string, string> = {
-      dashboard: 'Dashboard',
-      calendar: 'Calendar',
-      year: 'Year View',
-      quarter: 'Quarter',
-      month: 'Month',
-      week: 'Week',
-      day: 'Day',
-      partners: 'Partners',
-      notes: 'Notes',
-      reports: 'Reports',
-      settings: 'Settings',
-    }
-    return map[segments[0]] || segments[0].charAt(0).toUpperCase() + segments[0].slice(1)
-  }
+  const { title, group } = routeMeta(pathname)
 
   return (
-    <header className="topbar-h bg-ink/95 backdrop-blur-xl border-b-2 border-gold-dim/20 flex shrink-0 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-      {/* Left: the current screen. A gold tick + a full-strength title — the
-          app-bar convention (nothing dimmer than what's below it). */}
-      <div className="flex min-w-0 items-center gap-3">
-        <span aria-hidden className="hidden h-5 w-1 shrink-0 rounded-full bg-gold sm:block" />
-        <h2 className="truncate text-[17px] font-semibold leading-none tracking-tight text-parchment sm:text-lg">
-          {getPageTitle()}
-        </h2>
+    <header className="topbar-h bg-ink/90 backdrop-blur-xl border-b border-gold/10 flex shrink-0 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      {/* Left: where you are. Group as a mono eyebrow, page name beneath (v3). */}
+      <div className="flex min-w-0 flex-col justify-center">
+        {group && <span className="hidden font-mono text-[9px] uppercase tracking-[0.26em] text-gold-dim sm:block">{group}</span>}
+        <h2 className="truncate text-[17px] font-semibold leading-tight tracking-tight text-parchment">{title}</h2>
       </div>
 
       {/* Right: year workspace picker + live work clock + theme + Clerk profile.

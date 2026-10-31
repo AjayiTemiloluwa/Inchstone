@@ -30,5 +30,13 @@ module.exports = {
             },
         },
     },
-    plugins: [],
+    plugins: [
+        // Inchstone v3 input-model variants (DESIGN_PLAN_v2 section C):
+        //   can-hover:    pointer devices with real hover (row actions fade in)
+        //   pointer-fine: precise pointers, where hit areas may shrink below 44px
+        function ({ addVariant }) {
+            addVariant('can-hover', '@media (hover: hover)')
+            addVariant('pointer-fine', '@media (pointer: fine)')
+        },
+    ],
 }
