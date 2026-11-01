@@ -741,3 +741,48 @@ model CheckIn {
   @@unique([userId, day])
   @@index([userId, day])
 }
+
+// ── Opportunity Scout ────────────────────────────────────────────────────────
+// What the daily scout looks for, and where. One row per user.
+model ScoutProfile {
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  interests    String    @default("") // free text: "fintech, data science, MBA, women in tech"
+  homeCountry  String    @default("Nigeria") // decides local vs global
+  types        String    @default("scholarship,fellowship,job,internship,grant,competition")
+  sources      Json      @default("[]") // ["https://site.com", ...] the user's own sites
+  builtIn      Boolean   @default(true) // also read the built-in opportunity feeds
+  emailDigest  Boolean   @default(true) // morning preview email
+  lastRunAt    DateTime?
+  lastRunNote  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// Something the scout found. "new" waits for review; approving copies it into
+// the Application Tracker (applicationId) and dismissing hides it.
+model Opportunity {
+  id            String    @id @default(uuid())
+  userId        String
+  title         String
+  organization  String?
+  url           String
+  type          String    @default("other") // same values as Application.type
+  scope         String    @default("global") // local | global
+  location      String?
+  deadline      DateTime?
+  value         String?
+  summary       String?
+  eligibility   String?
+  source        String? // where it was found: a site name or "web search"
+  match         Int       @default(50) // 0-100 fit with the user's interests
+  matchReason   String?
+  status        String    @default("new") // new | approved | dismissed
+  applicationId String?
+  emailedAt     DateTime?
+  foundAt       DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, url])
+  @@index([userId, status])
+}

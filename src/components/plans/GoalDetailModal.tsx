@@ -158,7 +158,7 @@ export function GoalDetailModal({ goalId, onClose, onEdit }: Props) {
           <div key={String(b.key)} className={b.key === 'overallGoal' ? 'sm:col-span-2' : ''}>
             <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/45">{b.label}</dt>
             <dd className="mt-1.5 whitespace-pre-wrap text-body text-parchment/85">
-              {(goal[b.key] as string | null)?.trim() || <span className="text-parchment/35">— not filled (draft)</span>}
+              {(goal[b.key] as string | null)?.trim() || <span className="text-parchment/35">— not filled</span>}
             </dd>
           </div>
         ))}

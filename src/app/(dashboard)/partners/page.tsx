@@ -26,6 +26,7 @@ import {
 import { format, isSameDay, isToday, isYesterday } from 'date-fns'
 import { CheckInCard, DayDots, type CheckInData } from '@/components/partners/CheckInCard'
 import { Loader } from '@/components/ui/Loader'
+import { UNREAD_CHANGED, markNudgesSeen } from '@/lib/useUnread'
 import { useToast } from '@/components/ui/ToastProvider'
 import {
   Badge,
@@ -479,6 +480,7 @@ export default function PartnersPage() {
         body: JSON.stringify({ nudgeId, read: true })
       })
       setIncomingNudges(prev => prev.filter(n => n.id !== nudgeId))
+      window.dispatchEvent(new Event(UNREAD_CHANGED))
     } catch (e) {
       console.error(e)
     }
@@ -633,7 +635,12 @@ export default function PartnersPage() {
               {/* Incoming nudges bell */}
               {incomingNudges.length > 0 && (
                 <button
-                  onClick={() => setShowNudges(!showNudges)}
+                  onClick={() => {
+                    // Opening the panel is reading them: mark seen. Closing clears the list.
+                    if (!showNudges) void markNudgesSeen(incomingNudges.map(n => n.id))
+                    else setIncomingNudges([])
+                    setShowNudges(!showNudges)
+                  }}
                   aria-label="Incoming nudges"
                   aria-expanded={showNudges}
                   className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gold/25 text-parchment/70 transition-colors hover:border-gold/50 hover:text-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"

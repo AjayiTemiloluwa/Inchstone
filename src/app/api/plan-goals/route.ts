@@ -16,7 +16,7 @@ const TEXT_FIELDS = [
 
 /**
  * Add a Goal to a Section (§3).
- * - targetDate defaults to the parent Plan's end month when omitted → forces draft
+ * - targetDate defaults to the parent Plan's end month when omitted
  * - startDate defaults to the parent Plan's start month (Gantt bar origin)
  * - Dates outside the plan range produce warnings, not blocks
  */
@@ -47,15 +47,13 @@ export async function POST(req: Request) {
 
     // Target date defaults to plan's end month → such a goal can never be complete
     const [py1, pm1] = plan.endMonth.split('-').map(Number)
-    const explicitTarget = Boolean(body.targetDate)
     const targetDate = body.targetDate ? new Date(body.targetDate) : new Date(py1, pm1, 0)
     if (Number.isNaN(targetDate.getTime())) {
       return NextResponse.json({ error: 'invalid targetDate' }, { status: 400 })
     }
 
-    const complete =
-      explicitTarget &&
-      Object.values(texts).every(v => Boolean(v))
+    // A goal is active once it says what the goal is; the other prompts are optional.
+    const complete = Boolean(texts.overallGoal)
     const isDraft = body.isDraft !== undefined ? Boolean(body.isDraft) : !complete
 
     let status = 'not_started'

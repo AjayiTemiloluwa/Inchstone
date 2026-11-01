@@ -3,7 +3,9 @@
 import { chat, type ChatMessage } from './llm'
 import { toolsFor, type AssistantContext, type ToolCtx } from './tools'
 
-const MAX_STEPS = 6
+const MAX_STEPS = 8
+/** Past this, stop calling tools and answer with what was found (the route has 60s). */
+const ANSWER_BY_MS = 38_000
 
 const APP_GUIDE = [
   'How Inchstone is laid out (link with markdown like [Finance](/finance)):',
@@ -44,6 +46,7 @@ function systemPrompt(context: AssistantContext, now: Date, tzOffset: number, pa
     page ? `The user is looking at this application right now: ${page}. "This application" or "it" means this one.` : '',
     APP_GUIDE,
     'For reports use get_report; for account questions use my_account.',
+    'You can BROWSE THE WEB: web_search finds pages, read_webpage opens any public page (follow its links to go deeper). For opportunities, requirements, deadlines or anything current, search, then open the official page before answering, and give the links you used. Never present a search snippet as confirmed fact. find_opportunities runs the Opportunity Scout; list_opportunities shows what it found (the user approves them on the Opportunity Scout page).',
     'Rules:',
     '- Use tools to read before you change anything, and only change what the user asked for. Never invent requirements or deadlines as facts: if you are unsure, say so and suggest the user checks the official page.',
     '- When the user pastes an advert or call for applications, extract the name, organisation, deadline, requirements, documents and steps, then create or update the application.',
@@ -84,8 +87,11 @@ export async function runAgent(opts: {
   let changed = false
   let model = ''
 
+  const started = Date.now()
   for (let step = 0; step < MAX_STEPS; step++) {
-    const res = await chat(messages, tools.map((t) => t.spec))
+    const late = Date.now() - started > ANSWER_BY_MS || step === MAX_STEPS - 1
+    if (late) messages.push({ role: 'system', content: 'Time is nearly up. Answer the user now with what you have found so far, and say what is left to check.' })
+    const res = await chat(messages, late ? undefined : tools.map((t) => t.spec))
     model = res.model
     const msg = res.message
     const calls = msg.tool_calls ?? []

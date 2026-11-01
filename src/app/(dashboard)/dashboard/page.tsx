@@ -10,6 +10,7 @@ import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useC
 import { useUser } from '@clerk/nextjs'
 import { Loader } from '@/components/ui/Loader'
 import { WorkClock } from '@/components/ui/WorkClock'
+import { markNudgesSeen } from '@/lib/useUnread'
 import { useAmbient, type TimeOfDay, type Weather } from '@/components/effects/atmosphere'
 import { Float } from '@/components/effects/fluid'
 import { Badge, Button, EmptyState, IconButton, Page, PageHeader, Panel, Section, Stat, StatGrid, cx } from '@/components/ds'
@@ -98,7 +99,12 @@ export default function DashboardPage() {
 
     fetch('/api/nudges')
       .then(r => r.json())
-      .then(data => { if (data.nudges) setNudges(data.nudges) })
+      .then(data => {
+        if (!data.nudges) return
+        setNudges(data.nudges)
+        // The newest nudge is shown in full on this page, so it counts as seen.
+        if (data.nudges[0]) void markNudgesSeen([data.nudges[0].id])
+      })
       .catch(() => {})
   }, [refreshDailyScore])
 

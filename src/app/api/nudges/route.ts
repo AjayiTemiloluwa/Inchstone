@@ -54,7 +54,16 @@ export async function PATCH(req: Request) {
         const { userId } = await auth()
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        const { nudgeId, read } = await req.json()
+        const { nudgeId, ids, read } = await req.json()
+
+        // Seen in bulk: everything the user just opened (the incoming panel, the dashboard strip).
+        if (Array.isArray(ids)) {
+            const res = await prisma.nudge.updateMany({
+                where: { id: { in: ids.map(String).slice(0, 200) }, receiverId: userId },
+                data: { read: read !== false },
+            })
+            return NextResponse.json({ success: true, updated: res.count })
+        }
 
         if (!nudgeId) {
             return NextResponse.json({ error: 'nudgeId is required' }, { status: 400 })

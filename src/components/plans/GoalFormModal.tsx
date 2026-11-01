@@ -85,7 +85,9 @@ export function GoalFormModal({ sectionId, planStartMonth, planEndMonth, initial
     fetchTrackerItems()
   }, [fetchTrackerItems])
 
-  const complete = Object.values(texts).every(v => v.trim()) && Boolean(targetDate)
+  // Only the goal itself is required; every other prompt is optional, and the
+  // target date falls back to the plan's end.
+  const complete = Boolean(texts.overallGoal.trim())
 
   // Soft warning when dates fall outside the plan range (§3 — warn, not block)
   const outOfRange = useMemo(() => {
@@ -97,14 +99,8 @@ export function GoalFormModal({ sectionId, planStartMonth, planEndMonth, initial
     return msgs
   }, [startDate, targetDate, planStartMonth, planEndMonth])
 
-  const missing: string[] = PDP_FIELDS.filter(f => !texts[f.key].trim()).map(f => f.label)
-
   const handleSave = async (asDraft: boolean) => {
-    if (!asDraft && !complete) {
-      const needs = [...missing]
-      if (!targetDate) needs.push('Target date')
-      return setError(`To mark this goal active, fill: ${needs.join(', ')}. Or save it as a draft.`)
-    }
+    if (!asDraft && !complete) return setError('Write the overall goal first, or save it as a draft.')
     setSaving(true)
     setError(null)
     try {
@@ -146,16 +142,9 @@ export function GoalFormModal({ sectionId, planStartMonth, planEndMonth, initial
         </>
       }
     >
-      {!complete && (
-        <FormNotice tone="neutral">
-          Fill all six fields to mark this goal <span className="text-gold">active</span> — anything less saves as a{' '}
-          <span className="italic">draft flagged “incomplete”</span>.
-        </FormNotice>
-      )}
-
       {/* Six PDP fields — placeholders are the prompts themselves */}
       {PDP_FIELDS.map(f => (
-        <Field key={f.key} label={f.label}>
+        <Field key={f.key} label={f.key === 'overallGoal' ? f.label : <>{f.label}<span className="normal-case tracking-normal text-parchment/35"> (optional)</span></>}>
           <textarea
             id={`goal-${f.key}`}
             rows={f.rows}
@@ -179,7 +168,7 @@ export function GoalFormModal({ sectionId, planStartMonth, planEndMonth, initial
           />
         </Field>
         {/* Sixth PDP field */}
-        <Field label="Target date for completion">
+        <Field label={<>Target date for completion<span className="normal-case tracking-normal text-parchment/35"> (defaults to plan end)</span></>}>
           <input
             id="goal-target"
             type="date"

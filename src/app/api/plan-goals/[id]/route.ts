@@ -49,13 +49,8 @@ export async function PATCH(req: Request, { params }: Ctx) {
     // Draft flag recomputes whenever any PDP text changes
     if (Object.keys(data).some(k => (TEXT_FIELDS as readonly string[]).includes(k))) {
       const merged = { ...existing, ...data }
-      const complete =
-        merged.overallGoal &&
-        merged.developmentOpportunity &&
-        merged.actionsPlanned &&
-        merged.resourcesAndSupport &&
-        merged.successCriteria
-      data.isDraft = !complete
+      // Active once it says what the goal is; the other prompts are optional.
+      data.isDraft = !merged.overallGoal
     }
 
     if (body.status !== undefined) {
