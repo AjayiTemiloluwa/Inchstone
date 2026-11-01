@@ -752,7 +752,18 @@ model ScoutProfile {
   types        String    @default("scholarship,fellowship,job,internship,grant,competition")
   sources      Json      @default("[]") // ["https://site.com", ...] the user's own sites
   builtIn      Boolean   @default(true) // also read the built-in opportunity feeds
-  emailDigest  Boolean   @default(true) // morning preview email
+  emailDigest  Boolean   @default(true) // the email digest is on
+  // Digest schedule and contents (the user picks these on the tracker / scout pages)
+  digestFrequency String  @default("daily") // daily | weekdays | weekly
+  digestHour      Int     @default(6) // local hour, 0-23
+  digestDay       Int     @default(1) // weekday for weekly, 0 = Sunday
+  digestMinMatch  Int     @default(0) // only send fits at or above this %
+  digestScope     String  @default("all") // all | local | global
+  digestTypes     String  @default("") // comma list; empty = every type
+  digestMax       Int     @default(20)
+  digestOnlyNew   Boolean @default(true) // skip ones already emailed
+  tz              String  @default("Africa/Lagos")
+  digestSentAt    DateTime?
   lastRunAt    DateTime?
   lastRunNote  String?
   createdAt    DateTime  @default(now())
@@ -780,6 +791,7 @@ model Opportunity {
   status        String    @default("new") // new | approved | dismissed
   applicationId String?
   emailedAt     DateTime?
+  emailSkip     Boolean   @default(false) // the user took it out of the email list
   foundAt       DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

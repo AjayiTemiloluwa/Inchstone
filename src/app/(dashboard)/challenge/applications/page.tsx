@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Archive, Bell, CalendarClock, FileText, Plus, Search, X } from 'lucide-react'
+import { Archive, Bell, CalendarClock, FileText, Mail, Plus, Search, X } from 'lucide-react'
+import { EmailDigestSettings } from '@/components/applications/EmailDigestSettings'
 import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
 import {
@@ -57,6 +58,7 @@ export default function ApplicationTrackerPage() {
   const [now, setNow] = useState(() => Date.now())
 
   const [showCreate, setShowCreate] = useState(false)
+  const [showDigest, setShowDigest] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     title: '', organization: '', type: 'scholarship', priority: 'medium', deadline: '', url: '', summary: '',
@@ -166,6 +168,7 @@ export default function ApplicationTrackerPage() {
         description="Every scholarship, job, school and grant you are going for: what it needs, whether you qualify, how far along you are, and when it is due."
         actions={
           <>
+            <Button variant="ghost" icon={Mail} onClick={() => setShowDigest((v) => !v)} aria-expanded={showDigest}>Email digest</Button>
             <Button variant="ghost" icon={Archive} onClick={() => { setLoading(true); setShowArchived((v) => !v) }}>
               {showArchived ? 'Back to active' : 'Archived'}
             </Button>
@@ -176,6 +179,7 @@ export default function ApplicationTrackerPage() {
         }
       />
       <ChallengeTabs />
+      {showDigest && <EmailDigestSettings onClose={() => setShowDigest(false)} />}
 
       {!showArchived && (
         <StatGrid>

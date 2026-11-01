@@ -9,6 +9,7 @@ import { parseJson } from '@/lib/learning'
 import { APPLICATION_TYPES, DEFAULT_ITEM_STATUS, starterItemsFor } from '@/lib/applications'
 import { readFeed, readPage, webSearch } from '@/lib/web'
 import { sendEmail } from '@/lib/email'
+import { describeSchedule, digestSelection } from '@/lib/digest'
 
 /** Opportunity sites with reliable RSS feeds, read when "built-in sources" is on. */
 export const BUILT_IN_SOURCES = [
@@ -175,18 +176,19 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const appUrl = () => process.env.APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000')
 
 /**
- * Email the user the opportunities waiting for review that they have not been
- * emailed about yet, grouped Local and Global, best match first.
+ * Email the user their digest: the opportunities waiting for review that pass
+ * their digest settings (match, local/global, types, how many), grouped Local
+ * and Global, best match first. The settings preview uses the same selection.
  */
-export async function sendDigest(userId: string, opts: { includeSent?: boolean } = {}) {
-  const profile = await prisma.profile.findUnique({ where: { userId }, select: { email: true, name: true } })
+export async function sendDigest(userId: string) {
+  const [profile, settings] = await Promise.all([
+    prisma.profile.findUnique({ where: { userId }, select: { email: true, name: true } }),
+    scoutProfile(userId),
+  ])
   if (!profile?.email) return { ok: false, reason: 'No email address on this account' }
-  const opps = await prisma.opportunity.findMany({
-    where: { userId, status: 'new', ...(opts.includeSent ? {} : { emailedAt: null }) },
-    orderBy: [{ match: 'desc' }, { deadline: 'asc' }],
-    take: 40,
-  })
-  if (!opps.length) return { ok: false, reason: 'Nothing new to send' }
+  const all = await prisma.opportunity.findMany({ where: { userId, status: 'new', emailSkip: false } })
+  const opps = digestSelection(settings, all)
+  if (!opps.length) return { ok: false, reason: 'Nothing matches your digest settings right now' }
   const review = `${appUrl()}/challenge/opportunities`
   const row = (o: (typeof opps)[number]) => `
     <tr><td style="padding:12px 0;border-bottom:1px solid #e7decb">
@@ -204,7 +206,7 @@ export async function sendDigest(userId: string, opts: { includeSent?: boolean }
       <p style="font-size:14px;color:#4b4030;margin:0 0 6px">Review them and choose which go into your Application Tracker: approve all, one by one, or just the ones you pick.</p>
       <p style="margin:18px 0"><a href="${review}" style="background:#96762f;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px;font-weight:bold;display:inline-block">Review and approve</a></p>
       ${group('Local', local)}${group('Global', global)}
-      <p style="font-size:12px;color:#8a7a5c;margin-top:24px">You get this each morning while the scout finds something new. Turn it off in Opportunity Scout settings.</p>
+      <p style="font-size:12px;color:#8a7a5c;margin-top:24px">Schedule: ${esc(describeSchedule(settings))}. Change what is sent and when on the Application Tracker or Opportunity Scout page.</p>
     </div>`
   const res = await sendEmail({ to: profile.email, subject: `${opps.length} new opportunities to review`, html })
   if (res.ok) await prisma.opportunity.updateMany({ where: { id: { in: opps.map((o) => o.id) } }, data: { emailedAt: new Date() } })

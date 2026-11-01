@@ -6,6 +6,7 @@ import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
 import { Badge, Button, EmptyState, Field, IconButton, Meter, Page, PageHeader, Panel, Segmented, cx, inputClass } from '@/components/ds'
 import { ChallengeTabs } from '@/components/applications/ChallengeTabs'
+import { EmailDigestSettings } from '@/components/applications/EmailDigestSettings'
 import { APPLICATION_TYPES } from '@/lib/applications'
 
 interface Opp {
@@ -33,6 +34,7 @@ export default function OpportunitiesPage() {
   const [scouting, setScouting] = useState(false)
   const [busy, setBusy] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [digest, setDigest] = useState(false)
   const [draft, setDraft] = useState<Profile | null>(null)
   const [site, setSite] = useState('')
   const [view, setView] = useState<View>('new')
@@ -122,15 +124,17 @@ export default function OpportunitiesPage() {
       <PageHeader
         eyebrow="Challenge"
         title="Opportunity Scout"
-        description="Every morning it searches the web, opportunity sites and the sites you choose for scholarships, jobs, fellowships and grants that fit you. Nothing reaches your tracker until you approve it."
+        description="Every day it searches the web, opportunity sites and the sites you choose for scholarships, jobs, fellowships and grants that fit you, and emails you a digest on your schedule. Nothing reaches your tracker until you approve it."
         actions={
           <>
+            <Button variant="ghost" icon={Mail} onClick={() => setDigest((v) => !v)} aria-expanded={digest}>Email digest</Button>
             <Button variant="ghost" icon={SlidersHorizontal} onClick={() => { setDraft(profile); setSettings((v) => !v) }}>Settings</Button>
             <Button variant="primary" icon={Radar} disabled={scouting} onClick={scout}>{scouting ? 'Scouting… (up to a minute)' : 'Scout now'}</Button>
           </>
         }
       />
       <ChallengeTabs />
+      {digest && <EmailDigestSettings onClose={() => { setDigest(false); void load() }} />}
 
       {/* Settings: what to look for and where */}
       {settings && draft && (
@@ -178,10 +182,6 @@ export default function OpportunitiesPage() {
               <input type="checkbox" checked={draft.builtIn} onChange={(e) => set('builtIn', e.target.checked)} className="mt-1 accent-[rgb(var(--gold-rgb))]" />
               <span>Also check well-known opportunity sites <span className="text-parchment/45">({builtIns.map((b) => b.name).join(', ')})</span></span>
             </label>
-            <label className="flex items-start gap-2 text-sm text-parchment/75">
-              <input type="checkbox" checked={draft.emailDigest} onChange={(e) => set('emailDigest', e.target.checked)} className="mt-1 accent-[rgb(var(--gold-rgb))]" />
-              <span>Email me a preview every morning at 6:00 when there is something new</span>
-            </label>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setSettings(false)}>Cancel</Button>
@@ -195,8 +195,8 @@ export default function OpportunitiesPage() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-parchment/55">
           <span>{profile.lastRunAt ? <>Last scouted {ago(profile.lastRunAt)}{profile.lastRunNote ? ` · ${profile.lastRunNote}` : ''}</> : 'Not scouted yet. Press Scout now, or wait for tomorrow morning.'}</span>
           {counts.new > 0 && (
-            <button type="button" onClick={async () => { const r = await call({ action: 'digest' }); if (r) showToast(`Preview sent to ${r.to}`, 'success') }}
-              className="inline-flex items-center gap-1.5 text-gold-dim hover:text-gold"><Mail className="h-3.5 w-3.5" /> Email me the preview now</button>
+            <button type="button" onClick={() => setDigest(true)}
+              className="inline-flex items-center gap-1.5 text-gold-dim hover:text-gold"><Mail className="h-3.5 w-3.5" /> Choose what the email sends</button>
           )}
         </div>
       )}
