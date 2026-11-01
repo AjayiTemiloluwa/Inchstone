@@ -17,11 +17,14 @@ import {
 } from '@/lib/applications'
 import type { ToolSpec } from './llm'
 import { DATA_TOOLS } from './dataTools'
+import { ACTION_TOOLS } from './actionTools'
 
 export interface ToolCtx {
   userId: string
   /** The viewer's getTimezoneOffset(), to read "2027-01-15T14:00" as their wall clock. */
   tzOffset: number
+  /** The viewer's IANA timezone, e.g. Africa/Lagos. */
+  timeZone?: string
 }
 
 export interface Tool {
@@ -300,6 +303,6 @@ export type AssistantContext = 'applications' | 'general'
 
 export function toolsFor(context: AssistantContext): Tool[] {
   return context === 'applications'
-    ? [...APPLICATION_TOOLS, ...NOTE_TOOLS, ...DATA_TOOLS]
-    : [...DATA_TOOLS, ...NOTE_TOOLS, ...APPLICATION_TOOLS]
+    ? [...APPLICATION_TOOLS, ...NOTE_TOOLS, ...DATA_TOOLS, ...ACTION_TOOLS]
+    : [...DATA_TOOLS, ...ACTION_TOOLS, ...NOTE_TOOLS, ...APPLICATION_TOOLS]
 }

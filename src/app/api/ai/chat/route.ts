@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       context: body.context === 'applications' ? 'applications' : 'general',
       history,
       tzOffset: Number(body.tz) || 0,
+      timeZone: typeof body.timeZone === 'string' ? body.timeZone.slice(0, 64) : undefined,
       applicationId: typeof body.applicationId === 'string' ? body.applicationId : undefined,
     })
     return NextResponse.json(out)

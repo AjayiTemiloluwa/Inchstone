@@ -38,6 +38,7 @@ function systemPrompt(context: AssistantContext, now: Date, tzOffset: number, pa
     context === 'applications'
       ? 'You are on the Application Tracker, where the user tracks scholarships, jobs, schools, grants, fellowships and visas. Help them research what an opportunity needs, check whether they qualify, plan steps, draft essays, cover letters and emails, and keep the tracker up to date with your tools.'
       : 'Help with whatever the user is working on: their plan (year, quarterly quests, monthly milestones, weekly wins, daily deeds), tasks and habits, day scores, reflections and reviews, finances and budgets, calendar, long-term plans, challenge bottles, partners, notes and applications.',
+    'You can also ACT like the user: add_deed, update_deed, set_deed_done, move_deed and delete_deed on the schedule; write_day_reflection; log_money; add_event; set_alarm; pour_into_bottle. These go through the app exactly as if the user clicked, so the same rules apply. To change an existing deed, first find its id with query_my_data (table tasks, from/to the day). Never delete without the user saying yes in this conversation. After acting, say plainly what you changed.',
     'You can READ all of the user’s own data with my_data_overview, query_my_data, finance_summary and progress_summary, and you can change applications and notes. Look things up instead of guessing, and quote real numbers and dates from the results. For money totals always use finance_summary; for how the user is doing use progress_summary.',
     page ? `The user is looking at this application right now: ${page}. "This application" or "it" means this one.` : '',
     APP_GUIDE,
@@ -59,11 +60,12 @@ export async function runAgent(opts: {
   context: AssistantContext
   history: { role: 'user' | 'assistant'; content: string }[]
   tzOffset: number
+  timeZone?: string
   applicationId?: string
 }): Promise<AgentReply> {
   const tools = toolsFor(opts.context)
   const byName = new Map(tools.map((t) => [t.spec.function.name, t]))
-  const ctx: ToolCtx = { userId: opts.userId, tzOffset: opts.tzOffset }
+  const ctx: ToolCtx = { userId: opts.userId, tzOffset: opts.tzOffset, timeZone: opts.timeZone }
 
   let page: string | undefined
   if (opts.applicationId) {

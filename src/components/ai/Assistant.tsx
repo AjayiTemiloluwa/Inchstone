@@ -139,6 +139,7 @@ export function Assistant() {
           context: ctx.context,
           applicationId: 'applicationId' in ctx ? ctx.applicationId : undefined,
           tz: new Date().getTimezoneOffset(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           messages: history.filter((m) => !m.error).map(({ role, content }) => ({ role, content })),
         }),
       })
