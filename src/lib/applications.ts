@@ -228,7 +228,7 @@ export function reminderPayload(app: Pick<ReminderApp, 'id' | 'title' | 'organiz
   return {
     title: offset <= 180 ? 'Application deadline' : 'Application reminder',
     body: `${who} ${humanLead(offset)}.`,
-    icon: '/api/icon?sizes=192x192',
+    icon: '/icon-192.png',
     url: `/challenge/applications/${app.id}`,
     tag: `application-${app.id}`,
     requireInteraction: offset <= 1440,

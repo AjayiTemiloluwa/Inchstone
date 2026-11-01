@@ -110,7 +110,8 @@ export function DeedCountdown() {
                 body: `You wrapped this deed. Great work.`,
                 tag: finishTag(t.taskId),
                 silent: true,
-                icon: '/api/icon?sizes=192x192',
+                icon: '/icon-192.png',
+                badge: '/notify-badge.png',
                 data: { url: `/day/${new Date(t.startTime).toISOString().substring(0, 10)}` },
               } as NotificationOptions)
               reg.getNotifications({ tag: tag(t.taskId) }).then(list => list.forEach(n => n.close()))
@@ -153,7 +154,8 @@ export function DeedCountdown() {
             body,
             tag: tag(t.taskId),
             silent: true, // replace in place — no re-buzz every tick
-            icon: '/api/icon?sizes=192x192',
+            icon: '/icon-192.png',
+                badge: '/notify-badge.png',
             data: { url: `/day/${new Date(t.startTime).toISOString().substring(0, 10)}` },
           } as NotificationOptions)
         }

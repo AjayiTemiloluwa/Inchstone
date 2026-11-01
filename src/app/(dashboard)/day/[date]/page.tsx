@@ -2,32 +2,30 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useHierarchyStore, Item, Task } from '@/stores/hierarchyStore'
-import { Card } from '@/components/ui/Card'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronRight, Plus, X, Clock, Target, Activity, Calendar } from 'lucide-react'
+import { Plus, X, Clock, Target, Activity, Calendar, SlidersHorizontal } from 'lucide-react'
 import { format, parseISO, addDays } from 'date-fns'
 import { AnimatePresence } from 'motion/react'
-import { Scramble } from '@/components/ui/motion'
 import dynamic from 'next/dynamic'
 import { useCountdown, formatCountdown, compactCountdownLabel } from '@/lib/useCountdown'
 import { useToast } from '@/components/ui/ToastProvider'
 import { DoneView } from '@/components/ui/DoneView'
 import { Loader } from '@/components/ui/Loader'
 import { AddDeedForm } from '@/components/day/AddDeedForm'
-import { DayHeader } from '@/components/day/DayHeader'
 import { DayNotesCard } from '@/components/day/DayNotesCard'
-import { DeedAgenda } from '@/components/day/DeedAgenda'
 import { DeedDetailModal } from '@/components/day/DeedDetailModal'
 import { DeedTable } from '@/components/day/DeedTable'
-import { DeedTimeline } from '@/components/day/DeedTimeline'
 import { DeleteScopeDialog, type DeleteScopeTarget } from '@/components/day/DeleteScopeDialog'
 import { EditScopeDialog, type EditScopeTarget } from '@/components/day/EditScopeDialog'
 import { FrogCard } from '@/components/day/FrogCard'
 import { GoalCards } from '@/components/day/GoalCards'
 import { HabitTracker } from '@/components/day/HabitTracker'
 import { ReflectionCard } from '@/components/day/ReflectionCard'
-import { UnscheduledDeeds } from '@/components/day/UnscheduledDeeds'
 import { useHabitData } from '@/components/day/useHabitData'
+import { DaySchedule, type ScheduleEvent } from '@/components/day/schedule/DaySchedule'
+import { DayHero, EventCard, MagicAdd, QuickCreate, TasksLane, type QuickCreateValues } from '@/components/day/schedule/ScheduleParts'
+import { autoPlan, freeGaps, hhmm } from '@/lib/schedule/layout'
+import type { QuickAdd } from '@/lib/schedule/quickAdd'
 import { dedupeGoogleEvents, dedupeTasks, withoutDeedMirrors } from '@/components/day/dedupe'
 import type { DayNote, DeedModalData, DeleteScope, GoogleEventView, NewDeedValues } from '@/components/day/types'
 
@@ -70,6 +68,13 @@ export default function DayPage() {
   const [deleteScopeTarget, setDeleteScopeTarget] = useState<DeleteScopeTarget | null>(null)
   const [pendingEdit, setPendingEdit] = useState<{ taskId: string; changes: Record<string, unknown>; becameRecurring: boolean; target: EditScopeTarget } | null>(null)
   const savingEditRef = useRef(false)
+  // Schedule v2: Inchstone calendar events, the quick-create range, an open
+  // event card, drag results shown before the server confirms, and planning.
+  const [localEvents, setLocalEvents] = useState<ScheduleEvent[]>([])
+  const [quick, setQuick] = useState<{ start: number; end: number } | null>(null)
+  const [openEvent, setOpenEvent] = useState<ScheduleEvent | null>(null)
+  const [retimed, setRetimed] = useState<Record<string, { startTime: string; endTime: string }>>({})
+  const [planning, setPlanning] = useState(false)
 
   const {
     todayHabits,
@@ -114,6 +119,23 @@ export default function DayPage() {
     })()
     return () => { cancelled = true }
   }, [dateStr])
+
+  const loadLocalEvents = useCallback(async () => {
+    try {
+      const dayStart = new Date(`${dateStr}T00:00:00`)
+      const dayEnd = new Date(dayStart.getTime() + 86_400_000)
+      const res = await fetch(`/api/events?startDate=${dayStart.toISOString()}&endDate=${dayEnd.toISOString()}`)
+      if (!res.ok) return
+      const data = await res.json()
+      setLocalEvents(((data.events || []) as { id: string; title: string; startTime: string; endTime: string; type?: string }[])
+        .filter(e => e.type !== 'google')
+        .map(e => ({ id: e.id, title: e.title, startTime: e.startTime, endTime: e.endTime, source: 'inchstone' as const })))
+    } catch { /* events are optional */ }
+  }, [dateStr])
+  useEffect(() => {
+    const t = setTimeout(() => { void loadLocalEvents() }, 0)
+    return () => clearTimeout(t)
+  }, [loadLocalEvents])
 
   // Remember the Google-events visibility preference per device.
   const toggleGoogle = () => {
@@ -231,9 +253,32 @@ export default function DayPage() {
       })
     }
     searchTasks(items)
-    return dedupeTasks(tasks)
-  }, [items, dateStr])
+    return dedupeTasks(tasks).map(t => (retimed[t.id] ? { ...t, ...retimed[t.id] } : t))
+  }, [items, dateStr, retimed])
+
+  // Progress for each day of the week strip (from the loaded hierarchy).
+  const weekProgress = useMemo(() => {
+    const map: Record<string, { done: number; total: number }> = {}
+    const seen = new Set<string>()
+    const walk = (nodes: Item[]) => nodes.forEach(n => {
+      n.tasks?.forEach(t => {
+        if (seen.has(t.id)) return
+        seen.add(t.id)
+        const k = new Date(t.date).toISOString().substring(0, 10)
+        const e = (map[k] ??= { done: 0, total: 0 })
+        e.total++
+        if (t.completed) e.done++
+      })
+      if (n.children) walk(n.children)
+    })
+    walk(items)
+    return map
+  }, [items])
   const visibleGoogleEvents = useMemo(() => withoutDeedMirrors(googleEvents, allTasks), [googleEvents, allTasks])
+  const scheduleEvents: ScheduleEvent[] = useMemo(() => [
+    ...(showGoogle ? visibleGoogleEvents.map(e => ({ id: e.id, title: e.title, startTime: e.startTime, endTime: e.endTime, source: 'google' as const })) : []),
+    ...localEvents,
+  ], [showGoogle, visibleGoogleEvents, localEvents])
   const scheduledTasks = useMemo(() => allTasks.filter(t => t.startTime && t.endTime), [allTasks])
   const unscheduledTasks = allTasks.filter(t => !t.startTime && !t.isHabit)
   const frogTasks = allTasks.filter(t => t.isFrog).sort((a, b) => {
@@ -283,10 +328,6 @@ export default function DayPage() {
     }
     prevScoreRef.current = dayScore
   }, [dayScore, deedTasks.length, dateStr])
-
-  const goToDay = (offset: number) => {
-    router.push(`/day/${format(addDays(currentDate, offset), 'yyyy-MM-dd')}`)
-  }
 
   // ── Deed actions (shared by the hour grid, agenda, table and cards) ────
   const handleToggleTask = (task: Task) => {
@@ -478,7 +519,6 @@ export default function DayPage() {
     }
   }
   const handleWeightChange = (task: Task, weight: number) => { void handleUpdateTaskField(task, 'weight', weight) }
-  const handleProgressChange = (task: Task, progress: number) => { void handleUpdateTaskField(task, 'progress', progress) }
 
   // ── Add deed ──────────────────────────────────────────────────────────
   const openAddDeed = (start = '', end = '') => {
@@ -488,13 +528,16 @@ export default function DayPage() {
 
   const suggestedWeight = (): string => String(DEFAULT_POINTS)
 
-  const handleAddDeed = async (v: NewDeedValues): Promise<boolean> => {
+  /** Add a deed on any day: the same flow the form uses (find or create that day, then the task). */
+  const addDeedOn = async (target: string, v: NewDeedValues): Promise<boolean> => {
     if (!v.title.trim() || savingDeed) return false
+    const targetDate = parseISO(target)
+    const goalsForTarget = target === dateStr ? dailyGoals : getFlatItems().filter(i => i.layer === 6 && i.startDate && (typeof i.startDate === 'string' ? i.startDate.substring(0, 10) : new Date(i.startDate).toISOString().substring(0, 10)) === target)
     setSavingDeed(true)
     try {
       let goalId: string
-      if (dailyGoals.length > 0) {
-        goalId = dailyGoals[0].id
+      if (goalsForTarget.length > 0) {
+        goalId = goalsForTarget[0].id
       } else {
         let parentWeekId: string | undefined
         const searchForWeek = (nodes: Item[]) => {
@@ -502,7 +545,7 @@ export default function DayPage() {
             if (n.layer === 5 && n.startDate && n.endDate) {
               const ws = new Date(n.startDate).getTime()
               const we = new Date(n.endDate).getTime()
-              const cd = currentDate.getTime()
+              const cd = targetDate.getTime()
               if (cd >= ws && cd <= we) {
                 parentWeekId = n.id
                 return
@@ -518,10 +561,10 @@ export default function DayPage() {
           body: JSON.stringify({
             layer: 6,
             parentId: parentWeekId || null,
-            title: format(currentDate, 'EEEE'),
+            title: format(targetDate, 'EEEE'),
             weight: 14.3,
-            startDate: dateStr,
-            endDate: dateStr,
+            startDate: target,
+            endDate: target,
           })
         })
         const createData = await createRes.json()
@@ -533,8 +576,8 @@ export default function DayPage() {
         await fetchItems()
       }
 
-      const startTimeISO = v.start ? new Date(`${dateStr}T${v.start}:00`).toISOString() : null
-      const endTimeISO = v.end ? new Date(`${dateStr}T${v.end}:00`).toISOString() : null
+      const startTimeISO = v.start ? new Date(`${target}T${v.start}:00`).toISOString() : null
+      const endTimeISO = v.end ? new Date(`${target}T${v.end}:00`).toISOString() : null
       const parsedPoints = parseFloat(v.points)
       const finalWeight = parsedPoints > 0 ? parsedPoints : DEFAULT_POINTS
 
@@ -544,7 +587,7 @@ export default function DayPage() {
         body: JSON.stringify({
           goalId,
           title: v.title.trim(),
-          date: dateStr,
+          date: target,
           startTime: startTimeISO,
           endTime: endTimeISO,
           weight: finalWeight,
@@ -579,6 +622,133 @@ export default function DayPage() {
       setSavingDeed(false)
     }
   }
+
+  const handleAddDeed = (v: NewDeedValues) => addDeedOn(dateStr, v)
+
+  // ── Schedule v2 actions ───────────────────────────────────────────────
+  const isTodayPage = dateStr === format(new Date(), 'yyyy-MM-dd')
+  const toIso = (m: number) => new Date(`${dateStr}T${hhmm(m)}:00`).toISOString()
+  const blankDeed = (title: string, start: string, end: string): NewDeedValues => ({
+    title, start, end, categoryId: '', isRecurring: false, recurrencePattern: 'daily', recurrenceEnd: '',
+    isFrog: false, isHabit: false, isImportant: false, reminder: '10', notify: true, endWarn: '10',
+    points: String(DEFAULT_POINTS), color: '',
+  })
+
+  /** Drag/resize or a planner placed a deed: save its new times for this day only. */
+  const retimeTask = async (task: Task, start: number, end: number, quiet = false) => {
+    const startTime = toIso(start), endTime = toIso(Math.min(end, 24 * 60 - 1))
+    setRetimed(r => ({ ...r, [task.id]: { startTime, endTime } }))
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startTime, endTime, scope: 'single' }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not move it')
+      await fetchItems()
+      if (!quiet) showToast(`"${task.title}" now ${format(new Date(startTime), 'h:mm a')}${task.isRecurring || task.isHabit ? ' (this day only)' : ''}`, 'success')
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not move it', 'error')
+    } finally {
+      setRetimed(r => { const n = { ...r }; delete n[task.id]; return n })
+    }
+  }
+
+  const busySpans = () => [
+    ...allTasks.filter(t => t.startTime && t.endTime).map(t => {
+      const s = new Date(t.startTime!), e = new Date(t.endTime!)
+      return { start: s.getHours() * 60 + s.getMinutes(), end: e.getHours() * 60 + e.getMinutes() }
+    }),
+    ...scheduleEvents.map(ev => {
+      const s = new Date(ev.startTime), e = new Date(ev.endTime)
+      return { start: s.getHours() * 60 + s.getMinutes(), end: e.getHours() * 60 + e.getMinutes() }
+    }),
+  ]
+  const planFrom = () => {
+    const now = new Date()
+    const nowMin = now.getHours() * 60 + now.getMinutes()
+    return isTodayPage ? Math.max(6 * 60, Math.ceil((nowMin + 10) / 15) * 15) : 8 * 60
+  }
+
+  const findSlot = async (task: Task) => {
+    const len = task.estimatedDuration || 60
+    const gap = freeGaps(busySpans(), planFrom(), 22 * 60, len, 5)[0]
+    if (!gap) { showToast('No free slot left today for that', 'error'); return }
+    const start = Math.ceil(gap.start / 15) * 15
+    await retimeTask(task, start, start + len)
+  }
+
+  const autoPlanDay = async () => {
+    const todo = unscheduledTasks.filter(t => !t.completed).map(t => ({
+      id: t.id, minutes: t.estimatedDuration || 60,
+      rank: (t.isFrog ? 0 : 10) + (t.priority === 'high' ? 0 : t.priority === 'low' ? 3 : 1),
+    }))
+    const placed = autoPlan(todo, busySpans(), planFrom(), 22 * 60)
+    if (!placed.length) { showToast('No free time left to plan into today', 'error'); return }
+    setPlanning(true)
+    for (const p of placed) {
+      const t = allTasks.find(x => x.id === p.id)
+      if (t) await retimeTask(t, p.start, p.end, true)
+    }
+    setPlanning(false)
+    const left = todo.length - placed.length
+    showToast(`Planned ${placed.length} task${placed.length === 1 ? '' : 's'} into your free time${left ? `; ${left} did not fit` : ''}`, 'success')
+  }
+
+  const createEvent = async (title: string, start: string, end: string, onDate = dateStr) => {
+    const res = await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, startTime: new Date(`${onDate}T${start}:00`).toISOString(), endTime: new Date(`${onDate}T${end}:00`).toISOString(), type: 'event' }),
+    })
+    if (!res.ok) { showToast('Could not add the event', 'error'); return false }
+    showToast(`Event "${title}" added`, 'success')
+    await loadLocalEvents()
+    return true
+  }
+
+  const deleteEvent = async (ev: ScheduleEvent) => {
+    if (!(await confirm(`Delete the event "${ev.title}"?`))) return
+    const res = await fetch('/api/events', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ev.id }) })
+    if (!res.ok) { showToast('Could not delete the event', 'error'); return }
+    setOpenEvent(null)
+    await loadLocalEvents()
+  }
+
+  const submitQuick = async (v: QuickCreateValues) => {
+    const ok = v.kind === 'event'
+      ? await createEvent(v.title, hhmm(v.start), hhmm(v.end))
+      : await handleAddDeed({ ...blankDeed(v.title, hhmm(v.start), hhmm(v.end)), isFrog: v.frog, isImportant: v.important })
+    if (ok) setQuick(null)
+  }
+
+  const submitMagic = async (q: QuickAdd): Promise<boolean> => {
+    const target = q.dayOffset ? format(addDays(currentDate, q.dayOffset), 'yyyy-MM-dd') : dateStr
+    if (q.kind === 'event') {
+      if (!q.start || !q.end) { showToast('Give the event a time, e.g. "Lunch 1-2pm #event"', 'error'); return false }
+      return createEvent(q.title, q.start, q.end, target)
+    }
+    const ok = await addDeedOn(target, {
+      ...blankDeed(q.title, q.start ?? '', q.end ?? ''),
+      isFrog: q.frog, isImportant: q.important, isHabit: q.habit,
+      isRecurring: !!q.repeat && !q.habit, recurrencePattern: q.repeat ?? 'daily',
+    })
+    if (ok && target !== dateStr) showToast(`Added to ${format(parseISO(target), 'EEEE d MMM')}`, 'success')
+    return ok
+  }
+
+  // Keyboard: ← → move a day, T jumps to today (N focuses magic add, in MagicAdd).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement
+      if (e.metaKey || e.ctrlKey || e.altKey || el.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return
+      if (e.key === 'ArrowLeft') router.push(`/day/${format(addDays(currentDate, -1), 'yyyy-MM-dd')}`)
+      else if (e.key === 'ArrowRight') router.push(`/day/${format(addDays(currentDate, 1), 'yyyy-MM-dd')}`)
+      else if (e.key === 't' || e.key === 'T') router.push(`/day/${format(new Date(), 'yyyy-MM-dd')}`)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [currentDate, router])
 
   // ── Habit actions ─────────────────────────────────────────────────────
   // Dedicated quick-add for habits — bypasses the complex handleAddDeed flow
@@ -639,90 +809,71 @@ export default function DayPage() {
   if (loading) return <Loader label="Spinning the day slots…" routeKey="day" />
 
   const tabBtn = (active: boolean) =>
-    `px-3.5 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${active ? 'bg-gold text-ink shadow-md' : 'text-ink/60 hover:text-gold hover:bg-white/5'}`
+    `px-3.5 py-2 sm:py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${active ? 'bg-gold text-ink shadow-md' : 'text-parchment/60 hover:text-gold hover:bg-gold/[0.06]'}`
   const pillBtn = 'flex items-center gap-1.5 rounded-xl border px-3 py-2 sm:py-1.5 text-xs font-bold transition'
 
   return (
     <div className="space-y-5 sm:space-y-6 max-w-full pb-12 stagger-children mx-auto 2xl:max-w-[1600px]">
-      <div className="flex items-center space-x-2 text-sm text-ink/50 flex-wrap">
-        <button onClick={() => router.push('/year')} className="hover:text-gold transition">Year</button>
-        <ChevronRight className="w-3 h-3" />
-        <span className="text-ink font-bold">{format(currentDate, 'EEEE, MMMM d, yyyy')}</span>
-      </div>
-
-      <DayHeader
-        currentDate={currentDate}
-        completed={completedTasks.length}
-        earnedPoints={earnedPoints}
-        totalPoints={totalWeight}
+      <DayHero
+        date={currentDate}
+        score={dayScore}
+        done={completedTasks.length}
         total={deedTasks.length}
-        dayScore={dayScore}
-        onPrev={() => goToDay(-1)}
-        onNext={() => goToDay(1)}
+        points={earnedPoints}
+        totalPoints={totalWeight}
+        week={weekProgress}
+        onGo={d => router.push(`/day/${format(d, 'yyyy-MM-dd')}`)}
         onToday={() => router.push(`/day/${format(new Date(), 'yyyy-MM-dd')}`)}
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
         <div className="xl:col-span-2 space-y-6">
-          <Card className="p-4 sm:p-5 space-y-4 rounded-2xl">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-gold" />
-                <h2 className="text-lg sm:text-xl font-display font-bold text-ink"><Scramble text="Deeds" mono={false} /></h2>
-                <span className="text-xs font-mono text-ink/40">{completedTasks.length}/{deedTasks.length}</span>
-                {nextScheduledDeed && (
-                  <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-gold tabular-nums animate-fadeIn">
-                    <Activity className="w-3 h-3" />
-                    next up · {compactCountdownLabel(nextScheduledDeed.parts)}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex rounded-2xl border border-white/10 bg-black/20 p-1 backdrop-blur">
-                  <button onClick={() => setViewMode('timeline')} className={tabBtn(viewMode === 'timeline')}>
-                    <Clock className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Timeline
-                  </button>
-                  <button onClick={() => setViewMode('table')} className={tabBtn(viewMode === 'table')}>
-                    <Target className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Table
-                  </button>
-                </div>
-                {googleConnected ? (
-                  <button
-                    onClick={toggleGoogle}
-                    aria-pressed={showGoogle}
-                    title={showGoogle ? 'Hide Google Calendar events' : 'Show Google Calendar events'}
-                    className={`${pillBtn} ${showGoogle ? 'border-gold/25 bg-gold/10 text-gold hover:bg-gold/20' : 'border-white/10 bg-white/5 text-ink/40 hover:border-gold/25 hover:text-gold'}`}
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Google</span>
-                    <span className="sm:hidden">Gcal</span>
-                    {showGoogle && visibleGoogleEvents.length > 0 && (
-                      <span className="rounded-full bg-gold/20 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums leading-none">{visibleGoogleEvents.length}</span>
-                    )}
-                  </button>
-                ) : (
-                  <a
-                    href="/settings"
-                    title="Connect Google Calendar to see your events here"
-                    className={`${pillBtn} border-white/10 bg-white/5 text-ink/50 hover:border-gold/25 hover:text-gold`}
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Google</span>
-                    <span className="sm:hidden">Gcal</span>
-                    <Plus className="w-3 h-3" />
-                  </a>
-                )}
-                <button
-                  onClick={() => (addingDeed ? setAddingDeed(false) : openAddDeed())}
-                  className={`px-3 py-2 sm:py-1.5 text-xs font-bold rounded-xl transition flex items-center gap-1 ${addingDeed ? 'bg-ember/20 text-[#cf8f78] border border-ember/30' : 'bg-gold text-ink hover:bg-gold-glow'}`}
-                >
-                  {addingDeed ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                  <span>{addingDeed ? 'Close' : 'Add Deed'}</span>
+          <MagicAdd onSubmit={submitMagic} busy={savingDeed} />
+
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-xl border border-gold/15 bg-surface-solid p-1">
+                <button onClick={() => setViewMode('timeline')} aria-pressed={viewMode === 'timeline'} className={tabBtn(viewMode === 'timeline')}>
+                  <Clock className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />Schedule
+                </button>
+                <button onClick={() => setViewMode('table')} aria-pressed={viewMode === 'table'} className={tabBtn(viewMode === 'table')}>
+                  <Target className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />List
                 </button>
               </div>
+              {nextScheduledDeed && (
+                <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-gold tabular-nums animate-fadeIn">
+                  <Activity className="w-3 h-3" />
+                  next · {nextScheduledDeed.task.title.slice(0, 22)} · {compactCountdownLabel(nextScheduledDeed.parts)}
+                </span>
+              )}
             </div>
+            <div className="flex items-center gap-2">
+              {googleConnected ? (
+                <button onClick={toggleGoogle} aria-pressed={showGoogle}
+                  title={showGoogle ? 'Hide Google Calendar events' : 'Show Google Calendar events'}
+                  className={`${pillBtn} ${showGoogle ? 'border-gold/25 bg-gold/10 text-gold hover:bg-gold/20' : 'border-gold/15 text-parchment/45 hover:text-gold'}`}>
+                  <Calendar className="w-3.5 h-3.5" /> Google
+                  {showGoogle && visibleGoogleEvents.length > 0 && (
+                    <span className="rounded-full bg-gold/20 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums leading-none">{visibleGoogleEvents.length}</span>
+                  )}
+                </button>
+              ) : (
+                <a href="/settings" title="Connect Google Calendar to see your events here"
+                  className={`${pillBtn} border-gold/15 text-parchment/50 hover:text-gold`}>
+                  <Calendar className="w-3.5 h-3.5" /> Google <Plus className="w-3 h-3" />
+                </a>
+              )}
+              <button onClick={() => (addingDeed ? setAddingDeed(false) : openAddDeed())}
+                className={`${pillBtn} ${addingDeed ? 'border-ember/30 text-ember' : 'border-gold/15 text-parchment/60 hover:text-gold'}`}>
+                {addingDeed ? <X className="w-3.5 h-3.5" /> : <SlidersHorizontal className="w-3.5 h-3.5" />}
+                {addingDeed ? 'Close' : 'Full form'}
+              </button>
+            </div>
+          </div>
 
-            {addingDeed && (
+          {addingDeed && (
+            <div className="rounded-2xl border border-gold/15 bg-surface-solid p-4 sm:p-5">
               <AddDeedForm
                 initialStart={addPrefill.start}
                 initialEnd={addPrefill.end}
@@ -733,33 +884,50 @@ export default function DayPage() {
                 onCancel={() => setAddingDeed(false)}
                 onSubmit={handleAddDeed}
               />
-            )}
-          </Card>
+            </div>
+          )}
+
+          {quick && (
+            <QuickCreate
+              start={quick.start}
+              end={quick.end}
+              busy={savingDeed}
+              onChange={(a, b) => setQuick({ start: a, end: b })}
+              onSubmit={submitQuick}
+              onMore={() => { openAddDeed(hhmm(quick.start), hhmm(quick.end)); setQuick(null) }}
+              onClose={() => setQuick(null)}
+            />
+          )}
+          {openEvent && (
+            <EventCard ev={openEvent} onClose={() => setOpenEvent(null)}
+              onDelete={openEvent.source === 'inchstone' ? () => { void deleteEvent(openEvent) } : undefined} />
+          )}
 
           {viewMode === 'timeline' ? (
             <>
-              <DeedAgenda
-                tasks={allTasks}
-                googleEvents={visibleGoogleEvents}
-                showGoogle={showGoogle}
-                countdownNow={countdownNow}
+              <TasksLane
+                tasks={unscheduledTasks}
+                busy={planning}
+                onToggle={handleToggleTask}
                 onOpen={handleOpenDeed}
+                onSchedule={t => { void findSlot(t) }}
+                onAutoPlan={() => { void autoPlanDay() }}
+              />
+              <DaySchedule
+                tasks={allTasks.filter(t => !t.isHabit || t.startTime)}
+                events={scheduleEvents}
+                isToday={isTodayPage}
+                nowMs={countdownNow.getTime()}
+                pending={quick}
+                onCreate={(a, b) => { setOpenEvent(null); setQuick({ start: a, end: b }) }}
+                onRetime={(t, a, b) => { void retimeTask(t, a, b) }}
+                onOpenTask={handleOpenDeed}
+                onOpenEvent={ev => { setQuick(null); setOpenEvent(ev) }}
                 onToggle={handleToggleTask}
               />
-              <DeedTimeline
-                dateStr={dateStr}
-                tasks={allTasks}
-                googleEvents={visibleGoogleEvents}
-                showGoogle={showGoogle}
-                categories={activeCategories}
-                countdownNow={countdownNow}
-                onOpen={handleOpenDeed}
-                onToggle={handleToggleTask}
-                onDelete={handleDeleteTask}
-                onWeightChange={handleWeightChange}
-                onProgressChange={handleProgressChange}
-                onCreateAt={openAddDeed}
-              />
+              <p className="px-1 text-caption text-parchment/40">
+                Click or drag on empty time to add · drag a deed to move it, its bottom edge to resize · ← → change day · N to type
+              </p>
             </>
           ) : (
             <DeedTable
@@ -768,15 +936,6 @@ export default function DayPage() {
               googleEvents={visibleGoogleEvents}
               showGoogle={showGoogle}
               countdownNow={countdownNow}
-              onOpen={handleOpenDeed}
-              onToggle={handleToggleTask}
-              onDelete={handleDeleteTask}
-              onWeightChange={handleWeightChange}
-            />
-          )}
-          {viewMode === 'timeline' && (
-            <UnscheduledDeeds
-              tasks={unscheduledTasks}
               onOpen={handleOpenDeed}
               onToggle={handleToggleTask}
               onDelete={handleDeleteTask}

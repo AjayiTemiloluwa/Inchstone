@@ -144,6 +144,22 @@ function dayUrl(v: Date | string): string {
 
 /** Web-push payload for a task notification (consumed by public/sw.js). */
 export function buildTaskPayload(t: SchedulableTask, kind: TaskNotificationKind) {
+  return { ...buildTaskPayloadCore(t, kind), ...taskExtras(t, kind) }
+}
+
+/** Android extras: the deed's own time, its id, and Done / Open buttons. */
+function taskExtras(t: SchedulableTask, kind: TaskNotificationKind) {
+  const at = kind === 'ending' || kind === 'finish' ? t.endTime ?? t.startTime : t.startTime
+  return {
+    taskId: t.id,
+    timestamp: at ? new Date(at).getTime() : undefined,
+    actions: kind === 'finish'
+      ? [{ action: 'open', title: 'Open day' }]
+      : [{ action: 'done', title: 'Mark done' }, { action: 'open', title: 'Open day' }],
+  }
+}
+
+function buildTaskPayloadCore(t: SchedulableTask, kind: TaskNotificationKind) {
   if (!t.startTime) throw new Error('buildTaskPayload requires a startTime')
   const start = fmtTime(t.startTime)
   const end = t.endTime ? fmtTime(t.endTime) : null

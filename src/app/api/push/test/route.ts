@@ -24,7 +24,7 @@ export async function POST(req: Request) {
                 {
                     title: '✅ Push Notification Test',
                     body: 'This is a test notification from Inchstone! Your device notifications are working.',
-                    icon: '/api/icon?sizes=192x192',
+                    icon: '/icon-192.png',
                     url: '/dashboard',
                 }
             )

@@ -38,6 +38,12 @@ export async function sendNotification(
         tag?: string // replaces a previous notification with the same tag (renotify)
         requireInteraction?: boolean
         vibrate?: number[]
+        /** Epoch ms the notification is about (shown as its time on Android). */
+        timestamp?: number
+        /** Buttons under the notification: "done" and "open" are handled by the service worker. */
+        actions?: { action: string; title: string }[]
+        /** The deed a "done" action ticks off. */
+        taskId?: string
     }
 ) {
     ensureVapidConfigured()
@@ -55,10 +61,14 @@ export async function sendNotification(
             JSON.stringify({
                 title: payload.title,
                 body: payload.body,
-                icon: payload.icon || '/icon.png',
+                icon: payload.icon || '/icon-192.png',
+                badge: '/notify-badge.png',
                 data: {
                     url: payload.url || '/dashboard',
+                    ...(payload.taskId ? { taskId: payload.taskId } : {}),
                 },
+                ...(payload.timestamp ? { timestamp: payload.timestamp } : {}),
+                ...(payload.actions?.length ? { actions: payload.actions.slice(0, 2) } : {}),
                 // Pass-through options the service worker applies to
                 // showNotification (see public/sw.js).
                 ...(payload.tag ? { tag: payload.tag, renotify: true } : {}),

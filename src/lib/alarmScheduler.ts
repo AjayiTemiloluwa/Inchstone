@@ -83,7 +83,7 @@ export async function pushAlarmToUser(userId: string, alarm: { id: string; title
   for (const s of subs) {
     const ok = await sendNotification(
       { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
-      { title: '⏰ Alarm', body, icon: '/api/icon?sizes=192x192', url: '/dashboard' }
+      { title: '⏰ Alarm', body, icon: '/icon-192.png', url: '/dashboard' }
     )
     if (!ok) await prisma.pushSubscription.delete({ where: { id: s.id } }).catch(() => {})
   }

@@ -1,6 +1,6 @@
 /* Inchstone service worker — offline shell + data cache + write-queue bridge. */
 
-const VERSION = 'v9'
+const VERSION = 'v10'
 const SHELL_CACHE = `inchstone-shell-${VERSION}`
 const RUNTIME_CACHE = `inchstone-runtime-${VERSION}`
 const API_CACHE = `inchstone-api-${VERSION}`
@@ -70,6 +70,7 @@ self.addEventListener('install', (event) => {
             await Promise.allSettled([
                 runtime.add(new Request('/manifest.json', { cache: 'reload' })).catch(() => {}),
                 runtime.add(new Request('/icon-192.png', { cache: 'reload' })).catch(() => {}),
+                runtime.add(new Request('/notify-badge.png', { cache: 'reload' })).catch(() => {}),
                 runtime.add(new Request('/icon-512.png', { cache: 'reload' })).catch(() => {}),
             ])
         })()
@@ -238,14 +239,21 @@ self.addEventListener('push', function (event) {
     try {
         const data = event.data.json()
 
+        // Android: `badge` is the small status-bar / left-hand icon and must
+        // be a white shape on transparency (a solid image shows as a white
+        // square). `icon` is the large picture on the right.
         const options = {
             body: data.body,
-            icon: data.icon || '/api/icon?sizes=192x192',
-            badge: '/api/icon?sizes=192x192',
+            icon: data.icon && !data.icon.startsWith('/api/icon') ? data.icon : '/icon-192.png',
+            badge: data.badge || '/notify-badge.png',
             data: {
                 url: data.data?.url || '/dashboard',
+                taskId: data.data?.taskId,
             },
+            timestamp: data.timestamp || Date.now(),
+            vibrate: data.vibrate || [180, 80, 180],
         }
+        if (Array.isArray(data.actions) && data.actions.length) options.actions = data.actions.slice(0, 2)
         // Countdown/reminder pushes arrive with a tag so an updated
         // notification replaces the previous one instead of stacking up.
         if (data.tag) {
@@ -253,7 +261,6 @@ self.addEventListener('push', function (event) {
             options.renotify = true
         }
         if (data.requireInteraction) options.requireInteraction = true
-        if (data.vibrate) options.vibrate = data.vibrate
 
         event.waitUntil(
             self.registration.showNotification(data.title, options)
@@ -267,6 +274,32 @@ self.addEventListener('notificationclick', function (event) {
     event.notification.close()
 
     const url = event.notification.data?.url || '/dashboard'
+    const taskId = event.notification.data?.taskId
+
+    // "Mark done" ticks the deed off without opening the app (the request
+    // carries the user's session cookie like any in-app save).
+    if (event.action === 'done' && taskId) {
+        event.waitUntil(
+            fetch('/api/tasks/' + encodeURIComponent(taskId), {
+                method: 'PUT',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ completed: true, progress: 100 }),
+            })
+                .then(function (res) {
+                    return self.registration.showNotification(res.ok ? 'Done ✓' : 'Could not mark it done', {
+                        body: res.ok ? event.notification.title.replace(/^[^:]*:\s*/, '') : 'Open Inchstone to tick it off.',
+                        icon: '/icon-192.png',
+                        badge: '/notify-badge.png',
+                        tag: 'task-done-' + taskId,
+                        silent: true,
+                        data: { url: url },
+                    })
+                })
+                .catch(function () {})
+        )
+        return
+    }
 
     event.waitUntil(
         clients
