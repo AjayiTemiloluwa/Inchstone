@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
     const state = await getSyncState(userId)
     if (!state.connected) {
-      return NextResponse.json({ needsAuth: true, events: [] })
+      return NextResponse.json({ needsAuth: true, needsReconnect: !!state.needsReconnect, events: [] })
     }
 
     const url = new URL(req.url)
@@ -28,14 +28,16 @@ export async function GET(req: Request) {
 
     const start = new Date(timeMin)
     const end = new Date(timeMax)
-    await syncGoogleEvents(userId, start, end)
+    // A failed sync (Google slow, rate-limited) still shows what we already have.
+    let syncError: unknown = null
+    try { await syncGoogleEvents(userId, start, end) } catch (e) { syncError = e; console.error('[gcal] sync failed, serving stored events', e) }
 
     const events = await prisma.event.findMany({
       where: {
         userId,
         type: 'google',
-        startTime: { gte: start },
-        endTime: { lte: end },
+        startTime: { lt: end },
+        endTime: { gt: start },
       },
       orderBy: { startTime: 'asc' },
     })
@@ -71,7 +73,14 @@ export async function GET(req: Request) {
               !(e.recurringEventId && pushedRecurring.has(e.recurringEventId)),
           )
 
-    return NextResponse.json({ events: visibleEvents, mode: state.mode, lastSyncedAt: state.lastSyncedAt })
+    const after = await getSyncState(userId)
+    return NextResponse.json({
+      events: visibleEvents,
+      mode: state.mode,
+      lastSyncedAt: after.lastSyncedAt,
+      ...(after.needsReconnect ? { needsAuth: true, needsReconnect: true } : {}),
+      ...(syncError ? { stale: true } : {}),
+    })
   } catch (error) {
     console.error('Failed to sync calendar events', error)
 
@@ -83,7 +92,8 @@ export async function GET(req: Request) {
       anyErr?.response?.status ??
       (typeof anyErr?.code === 'number' ? anyErr.code : Number(anyErr?.code) || undefined)
     const msg = String(anyErr?.message || '')
-    if (status === 401 || status === 403 || /invalid_grant|invalid credentials|unauthorized|expired/i.test(msg)) {
+    // 403 is usually a rate limit, not lost access: only real auth failures ask to reconnect.
+    if (status === 401 || /invalid_grant|invalid credentials|unauthorized/i.test(msg)) {
       return NextResponse.json({ needsAuth: true, events: [] })
     }
 

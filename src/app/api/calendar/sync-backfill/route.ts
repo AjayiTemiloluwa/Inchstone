@@ -30,8 +30,10 @@ export async function POST(req: Request) {
       where: {
         userId,
         isHabit: false,
-        startTime: { gte: now },
+        startTime: { not: null },
         endTime: { not: null },
+        // Repeating series whatever their start; one-offs from now to the horizon.
+        OR: [{ isRecurring: true }, { startTime: { gte: now, lte: horizon } }],
         // Not yet pushed: neither Google id set.
         AND: [{ googleEventId: null }, { googleRecurringEventId: null }],
       },
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
     for (const t of candidates) {
       if (t.isRecurring) {
         const earliest = await prisma.task.findFirst({
-          where: { userId, title: t.title, isRecurring: true, isHabit: false },
+          where: { userId, title: t.title, goalId: t.goalId, isRecurring: true, isHabit: false },
           orderBy: { date: 'asc' },
           select: { id: true },
         })

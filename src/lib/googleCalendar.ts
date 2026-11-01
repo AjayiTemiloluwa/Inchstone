@@ -25,13 +25,38 @@ export function googleConfigured(): boolean {
   )
 }
 
+/** Each user's own main calendar. (A shared GOOGLE_CALENDAR_ID would point every user at one person's calendar.) */
 function calendarId(): string {
-  return process.env.GOOGLE_CALENDAR_ID || 'primary'
+  return 'primary'
 }
+
+/** The timezone deeds are written in. Repeating events need a named zone. */
+export const TZ = process.env.APP_TIMEZONE || 'Africa/Lagos'
+
+/** Weekday / day / month of an instant as seen in TZ (not the server's UTC). */
+function zonedParts(d: Date) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'numeric' })
+      .formatToParts(d).map((p) => [p.type, p.value]),
+  )
+  return { weekday: String(parts.weekday).slice(0, 2).toUpperCase(), day: Number(parts.day), month: Number(parts.month) }
+}
+
+/** Midnight of a calendar date (yyyy-MM-dd) in TZ, as an instant. */
+function zonedMidnight(date: string): Date {
+  const probe = new Date(`${date}T12:00:00Z`)
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'longOffset' }).formatToParts(probe).find((p) => p.type === 'timeZoneName')?.value || 'GMT'
+  const m = name.match(/GMT([+-])(\d{2}):?(\d{2})?/)
+  const offsetMin = m ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] || 0)) : 0
+  return new Date(new Date(`${date}T00:00:00Z`).getTime() - offsetMin * 60_000)
+}
+
+const statusOf = (e: unknown) => Number((e as { code?: number; status?: number; response?: { status?: number } })?.response?.status ?? (e as { code?: number }).code ?? (e as { status?: number }).status ?? 0)
+const isGone = (e: unknown) => [404, 410].includes(statusOf(e))
 
 /** Absolute base of the app, derived from the incoming request (works on Vercel + local dev). */
 export function getRequestOrigin(req: Request): string {
-  const proto = req.headers.get('x-forwarded-proto') || 'http'
+  const proto = (req.headers.get('x-forwarded-proto') || 'http').split(',')[0].trim()
   const host =
     req.headers.get('x-forwarded-host')?.split(',')[0].trim() ||
     req.headers.get('host') ||
@@ -45,9 +70,16 @@ export function getRedirectUri(req: Request): string {
   // running server; non-local origins (production) honour an explicit
   // GOOGLE_REDIRECT_URI override when provided.
   const isLocal = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
-  const configured = process.env.GOOGLE_REDIRECT_URI?.trim()
-  if (!isLocal && configured) return configured
-  return `${origin}/api/calendar/callback`
+  const configured = process.env.GOOGLE_REDIRECT_URI?.trim().replace(/\/+$/, '')
+  // A localhost value copied from a dev .env must never be used on the live
+  // site: Google would send the user back to their own machine.
+  const configuredIsLocal = !!configured && /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(configured)
+  if (!isLocal && configured && !configuredIsLocal) return configured
+  if (isLocal) return `${origin}/api/calendar/callback`
+  // Public site: always the one production address (registered in Google
+  // Cloud), even from a preview deployment.
+  const fixed = (process.env.APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '')).replace(/\/+$/, '')
+  return `${fixed || origin.replace(/^http:\/\//i, 'https://')}/api/calendar/callback`
 }
 
 function getOAuthClient(redirectUri?: string) {
@@ -115,11 +147,14 @@ export async function mintTokens({
 
 export async function getSyncState(
   userId: string,
-): Promise<{ connected: boolean; mode: GoogleSyncMode | null; lastSyncedAt: Date | null }> {
+): Promise<{ connected: boolean; mode: GoogleSyncMode | null; lastSyncedAt: Date | null; needsReconnect?: boolean }> {
   const row = await prisma.userToken.findUnique({
     where: { userId_provider: { userId, provider: 'google' } },
   })
   if (!row) return { connected: false, mode: null, lastSyncedAt: null }
+  // Google revoked or expired the grant (e.g. an OAuth app in Testing mode
+  // expires refresh tokens after 7 days): show "reconnect", not "connected".
+  if (!row.accessToken) return { connected: false, needsReconnect: true, mode: row.syncMode === 'two' ? 'two' : 'pull', lastSyncedAt: row.lastSyncedAt }
   return {
     connected: true,
     mode: row.syncMode === 'two' ? 'two' : 'pull',
@@ -157,14 +192,33 @@ async function getAuthedCalendar(userId: string) {
         row.expiryDate = credentials.expiry_date ? new Date(credentials.expiry_date) : null
         row.refreshToken = credentials.refresh_token ?? row.refreshToken
       }
-    } catch {
-      /* the API call will surface the real auth error */
+    } catch (e) {
+      const msg = String((e as { response?: { data?: { error?: string } } })?.response?.data?.error || (e as Error)?.message || '')
+      if (/invalid_grant|unauthorized_client/i.test(msg)) {
+        // The refresh token is dead: mark the connection so the user is asked to reconnect.
+        await prisma.userToken.update({ where: { id: row.id }, data: { accessToken: '' } }).catch(() => {})
+        console.warn('[gcal] Google grant expired or revoked for', userId)
+        return null
+      }
     }
   }
 
   client.setCredentials({
     access_token: row.accessToken,
     refresh_token: row.refreshToken ?? undefined,
+    expiry_date: row.expiryDate?.getTime(),
+  })
+  // The library refreshes on its own when a call hits an expired token; keep what it gets.
+  client.on('tokens', (t) => {
+    if (!t.access_token) return
+    void prisma.userToken.update({
+      where: { id: row.id },
+      data: {
+        accessToken: t.access_token,
+        expiryDate: t.expiry_date ? new Date(t.expiry_date) : null,
+        ...(t.refresh_token ? { refreshToken: t.refresh_token } : {}),
+      },
+    }).catch(() => {})
   })
 
   const calendar = google.calendar({ version: 'v3', auth: client })
@@ -235,15 +289,25 @@ export async function syncGoogleEvents(
       if (!ev.start?.dateTime && !ev.start?.date) continue
 
       const allDay = !!ev.start.date
-      const rawStart = allDay ? new Date(`${ev.start.date}T00:00:00`) : new Date(ev.start.dateTime!)
+      const rawStart = allDay ? zonedMidnight(ev.start.date!) : new Date(ev.start.dateTime!)
       let rawEnd: Date
       if (allDay) {
-        const e = ev.end?.date ? new Date(`${ev.end.date}T00:00:00`) : rawStart
+        // All-day end dates are exclusive; stop a minute before the next midnight.
+        const e = ev.end?.date ? new Date(zonedMidnight(ev.end.date).getTime() - 60_000) : rawStart
         rawEnd = new Date(Math.max(e.getTime(), rawStart.getTime() + 30 * 60_000))
       } else {
         rawEnd = ev.end?.dateTime ? new Date(ev.end.dateTime) : new Date(rawStart.getTime() + 60 * 60_000)
       }
 
+      const data = {
+        title: ev.summary || '(Untitled)',
+        startTime: rawStart,
+        endTime: rawEnd,
+        type: 'google',
+        recurringEventId: ev.recurringEventId || null,
+      }
+      // Two syncs can run at once (Day page + settings card): if both try to
+      // create the row, the loser updates instead of failing the request.
       await prisma.event.upsert({
         where: { userId_googleEventId: { userId, googleEventId: ev.id } },
         create: {
@@ -255,13 +319,10 @@ export async function syncGoogleEvents(
           googleEventId: ev.id,
           recurringEventId: ev.recurringEventId || null,
         },
-        update: {
-          title: ev.summary || '(Untitled)',
-          startTime: rawStart,
-          endTime: rawEnd,
-          type: 'google',
-          recurringEventId: ev.recurringEventId || null,
-        },
+        update: data,
+      }).catch(async (e: { code?: string }) => {
+        if (e?.code !== 'P2002') throw e
+        await prisma.event.update({ where: { userId_googleEventId: { userId, googleEventId: ev.id! } }, data })
       })
       liveCount++
     }
@@ -278,8 +339,9 @@ export async function syncGoogleEvents(
     where: {
       userId,
       type: 'google',
-      startTime: { gte: timeMin },
-      endTime: { lte: timeMax },
+      // Everything overlapping the window: Google returned all of those.
+      startTime: { lt: timeMax },
+      endTime: { gt: timeMin },
       ...(fetchedIds.size > 0
         ? { googleEventId: { notIn: [...fetchedIds] } }
         : { googleEventId: { not: null } }),
@@ -308,6 +370,7 @@ export interface GoogleSyncableTask {
   recurrenceEnd?: Date | string | null
   googleEventId?: string | null
   googleRecurringEventId?: string | null
+  goalId?: string | null
 }
 
 function asDate(d: Date | string): Date {
@@ -318,7 +381,8 @@ function asDate(d: Date | string): Date {
 export function taskToRRule(task: GoogleSyncableTask): string | null {
   if (!task.isRecurring || !task.recurrencePattern) return null
   const anchor = task.startTime ? asDate(task.startTime) : asDate(task.date)
-  const weekday = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][anchor.getDay()]
+  const z = zonedParts(anchor)
+  const weekday = z.weekday
   let rule = ''
   switch (task.recurrencePattern) {
     case 'daily':
@@ -331,10 +395,10 @@ export function taskToRRule(task: GoogleSyncableTask): string | null {
       rule = `FREQ=WEEKLY;INTERVAL=2;BYDAY=${weekday}`
       break
     case 'monthly':
-      rule = `FREQ=MONTHLY;BYMONTHDAY=${anchor.getDate()}`
+      rule = `FREQ=MONTHLY;BYMONTHDAY=${z.day}`
       break
     case 'yearly':
-      rule = `FREQ=YEARLY;BYMONTH=${anchor.getMonth() + 1};BYMONTHDAY=${anchor.getDate()}`
+      rule = `FREQ=YEARLY;BYMONTH=${z.month};BYMONTHDAY=${z.day}`
       break
     case 'weekdays':
       rule = 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'
@@ -355,33 +419,48 @@ function buildEventPayload(task: GoogleSyncableTask): Record<string, unknown> {
   const rrule = taskToRRule(task)
   const payload: Record<string, unknown> = {
     summary: task.title,
-    start: { dateTime: start.toISOString() },
-    end: { dateTime: end.toISOString() },
+    start: { dateTime: start.toISOString(), timeZone: TZ },
+    end: { dateTime: end.toISOString(), timeZone: TZ },
     reminders: { useDefault: true },
+    status: 'confirmed', // brings back an event that was deleted in Google
+    source: { title: 'Inchstone', url: 'https://myinchstone.vercel.app' },
   }
   if (rrule) payload.recurrence = [rrule]
   return payload
 }
-async function createGoogleEvent(userId: string, task: GoogleSyncableTask): Promise<string | null> {
+/** A fixed Google id per deed (base32hex), so a repeated create can never duplicate it. */
+const eventIdFor = (task: GoogleSyncableTask, kind: 'one' | 'series') => `ins${kind === 'series' ? 'r' : 'o'}${task.id.replace(/-/g, '').toLowerCase()}`
+
+async function createGoogleEvent(userId: string, task: GoogleSyncableTask, kind: 'one' | 'series'): Promise<string | null> {
   const authed = await getAuthedCalendar(userId)
   if (!authed) return null
   const { calendar, calendarId } = authed
-  const res = await calendar.events.insert({
-    calendarId,
-    requestBody: buildEventPayload(task),
-  })
-  return res.data.id || null
+  const id = eventIdFor(task, kind)
+  try {
+    const res = await calendar.events.insert({ calendarId, requestBody: { id, ...buildEventPayload(task) } })
+    return res.data.id || id
+  } catch (e) {
+    // Already created (a racing save, or re-creating after a delete): update it instead.
+    if (statusOf(e) === 409) {
+      await calendar.events.update({ calendarId, eventId: id, requestBody: buildEventPayload(task) })
+      return id
+    }
+    throw e
+  }
 }
 
-async function updateGoogleEvent(userId: string, eventId: string, task: GoogleSyncableTask): Promise<void> {
+/** Patch the pushed event; if it was deleted in Google, create it again. Returns the live id. */
+async function updateGoogleEvent(userId: string, eventId: string, task: GoogleSyncableTask, kind: 'one' | 'series'): Promise<string | null> {
   const authed = await getAuthedCalendar(userId)
-  if (!authed) return
+  if (!authed) return eventId
   const { calendar, calendarId } = authed
-  await calendar.events.patch({
-    calendarId,
-    eventId,
-    requestBody: buildEventPayload(task),
-  })
+  try {
+    await calendar.events.patch({ calendarId, eventId, requestBody: buildEventPayload(task) })
+    return eventId
+  } catch (e) {
+    if (isGone(e)) return createGoogleEvent(userId, task, kind)
+    throw e
+  }
 }
 
 async function deleteGoogleEvent(userId: string, eventId: string): Promise<void> {
@@ -389,7 +468,7 @@ async function deleteGoogleEvent(userId: string, eventId: string): Promise<void>
   const authed = await getAuthedCalendar(userId)
   if (!authed) return
   const { calendar, calendarId } = authed
-  await calendar.events.delete({ calendarId, eventId }).catch(() => {})
+  await calendar.events.delete({ calendarId, eventId }).catch((e) => { if (!isGone(e)) throw e })
 }
 
 async function deleteRecurringOccurrence(
@@ -415,7 +494,7 @@ async function deleteRecurringOccurrence(
       return !!st && new Date(st).getTime() === occurrenceStart.getTime()
     })
     if (instance?.id) {
-      await calendar.events.delete({ calendarId, eventId: instance.id }).catch(() => {})
+      await calendar.events.delete({ calendarId, eventId: instance.id }).catch((e) => { if (!isGone(e)) throw e })
     }
   } catch {
     /* series already gone — nothing to cancel */
@@ -508,44 +587,33 @@ export async function pushTaskToGoogle(
     }
 
     if (task.isRecurring) {
-      // Only the origin (earliest instance of the series) owns the master
-      // RRULE event — materialized instances must not create their own.
-      const earliest = await prisma.task.findFirst({
-        where: { userId, title: task.title, isRecurring: true, isHabit: false },
+      // It became a series: its old one-off event goes.
+      if (singleId) {
+        await deleteGoogleEvent(userId, singleId)
+        await prisma.task.update({ where: { id: task.id }, data: { googleEventId: null } }).catch(() => {})
+      }
+      // Only the origin (earliest occurrence) owns the master RRULE event. An
+      // edit made from a later occurrence pushes the origin instead.
+      const origin = await prisma.task.findFirst({
+        where: { userId, title: task.title, isRecurring: true, isHabit: false, ...(task.goalId ? { goalId: task.goalId } : {}) },
         orderBy: { date: 'asc' },
-        select: { id: true },
       })
-      if (earliest?.id !== task.id) return
-
-      if (masterId) {
-
-        await updateGoogleEvent(userId, masterId, task)
-      } else {
-
-        const created = await createGoogleEvent(userId, task)
-        if (created) {
-
-          await prisma.task.update({
-            where: { id: task.id },
-            data: { googleRecurringEventId: created },
-          })
-        }
+      if (!origin) return
+      const series = origin.id === task.id ? task : (origin as unknown as GoogleSyncableTask)
+      const seriesMaster = origin.googleRecurringEventId
+      const live = seriesMaster ? await updateGoogleEvent(userId, seriesMaster, series, 'series') : await createGoogleEvent(userId, series, 'series')
+      if (live && live !== seriesMaster) {
+        await prisma.task.update({ where: { id: origin.id }, data: { googleRecurringEventId: live } })
       }
     } else {
-
-      if (singleId) {
-
-        await updateGoogleEvent(userId, singleId, task)
-      } else {
-
-        const created = await createGoogleEvent(userId, task)
-        if (created) {
-
-          await prisma.task.update({
-            where: { id: task.id },
-            data: { googleEventId: created },
-          })
-        }
+      // It stopped repeating: its old series master goes.
+      if (masterId) {
+        await deleteGoogleEvent(userId, masterId)
+        await prisma.task.update({ where: { id: task.id }, data: { googleRecurringEventId: null } }).catch(() => {})
+      }
+      const live = singleId ? await updateGoogleEvent(userId, singleId, task, 'one') : await createGoogleEvent(userId, task, 'one')
+      if (live && live !== singleId) {
+        await prisma.task.update({ where: { id: task.id }, data: { googleEventId: live } })
       }
     }
   } catch (e) {
@@ -569,9 +637,12 @@ export async function pushTaskToGoogle(
 export async function deleteTaskFromGoogle(
   userId: string,
   task: GoogleSyncableTask,
-  opts: { deleteAll?: boolean; truncateFrom?: Date | null } = {},
+  opts: { deleteAll?: boolean; truncateFrom?: Date | null; masterId?: string | null } = {},
 ): Promise<void> {
   try {
+    // The caller looked the series id up before deleting rows locally (the
+    // origin that holds it may already be gone).
+    if (opts.masterId && !task.googleRecurringEventId) task = { ...task, googleRecurringEventId: opts.masterId }
     // One-shot deed → remove its single pushed event.
     if (task.googleEventId && !task.googleRecurringEventId) {
       await deleteGoogleEvent(userId, task.googleEventId)
@@ -605,12 +676,15 @@ export async function deleteTaskFromGoogle(
           isRecurring: true,
           isHabit: false,
           title: task.title,
+          ...(task.goalId ? { goalId: task.goalId } : {}),
           googleRecurringEventId: { not: null },
         },
         orderBy: { date: 'asc' },
       })
       if (origin?.googleRecurringEventId) {
-        if (opts.truncateFrom) {
+        if (opts.deleteAll) {
+          await deleteGoogleEvent(userId, origin.googleRecurringEventId)
+        } else if (opts.truncateFrom) {
           await truncateRecurringSeries(userId, origin.googleRecurringEventId, opts.truncateFrom)
         } else {
           await deleteRecurringOccurrence(userId, origin.googleRecurringEventId, new Date(task.startTime))

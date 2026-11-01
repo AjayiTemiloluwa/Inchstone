@@ -11,6 +11,8 @@ interface CalendarStatus {
   connected: boolean
   mode: SyncMode | null
   lastSyncedAt: string | null
+  /** Google expired or revoked access: the user must connect again. */
+  needsReconnect?: boolean
 }
 
 const MODES: { value: SyncMode; label: string; hint: string }[] = [
@@ -256,6 +258,11 @@ export function GoogleCalendarCard() {
             {fmtLast(status.lastSyncedAt) && (
               <span className="text-parchment/35">· synced {fmtLast(status.lastSyncedAt)}</span>
             )}
+          </span>
+        ) : status.needsReconnect ? (
+          <span className="flex items-center gap-1.5 font-mono text-sm text-ember">
+            <XCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+            Google access expired. Choose a mode above to reconnect.
           </span>
         ) : (
           <span className="flex items-center gap-1.5 font-mono text-sm text-parchment/45">

@@ -105,7 +105,8 @@ export async function POST(req: Request) {
                 reflection: reflection || null,
                 isRecurring: isRecurring || false,
                 recurrencePattern: isRecurring ? recurrencePattern : null,
-                recurrenceEnd: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
+                // Store the end on the first occurrence too, so Google's series stops where ours does.
+                recurrenceEnd: isRecurring ? (recurrenceEndDate ?? new Date(Date.UTC(new Date().getFullYear(), 11, 31, 23, 59, 59, 999))) : null,
                 color: color || null,
                 isFrog: isFrog || false,
                 isHabit: isHabit || false,

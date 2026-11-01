@@ -291,6 +291,15 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         const cutFrom = new Date(task.date)
         let truncatedFrom: Date | null = null
 
+        // The Google series id lives on the series' first occurrence, which the
+        // deletes below may remove: look it up while it still exists.
+        const seriesMaster = task.googleRecurringEventId ?? (isSeries && !task.isHabit
+          ? (await prisma.task.findFirst({
+              where: { ...seriesWhere, googleRecurringEventId: { not: null } },
+              select: { googleRecurringEventId: true },
+            }))?.googleRecurringEventId ?? null
+          : null)
+
         if (!scopeParam && deleteAll && task.isHabit) {
             // Legacy habit-menu flag (kept for older callers): everything from
             // today onwards, so past completions stay for the habit graph.
@@ -314,7 +323,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
             // Google to drop the master event rather than clamp its RRULE.
             truncatedFrom = survivors.count > 0 ? cutFrom : null
         } else {
-            // Just the clicked occurrence.
+            // Just the clicked occurrence. If it holds the Google series id,
+            // hand that to the next occurrence so the series keeps an owner.
+            if (task.googleRecurringEventId) {
+                const next = await prisma.task.findFirst({
+                    where: { ...seriesWhere, id: { not: taskId } },
+                    orderBy: { date: 'asc' },
+                    select: { id: true },
+                })
+                if (next) await prisma.task.update({ where: { id: next.id }, data: { googleRecurringEventId: task.googleRecurringEventId } })
+            }
             await prisma.task.delete({ where: { id: taskId } })
         }
 
@@ -327,6 +345,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
             await deleteTaskFromGoogle(userId, task, {
                 deleteAll: deleteGoogleSeries,
                 truncateFrom: truncatedFrom,
+                masterId: seriesMaster,
             })
         } catch (e) {
             console.error('Deleted, but the Google Calendar cleanup failed', e)

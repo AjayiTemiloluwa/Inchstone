@@ -14,8 +14,9 @@ export async function GET(req: Request) {
     const where: any = { userId }
 
     if (startDate && endDate) {
-      where.startTime = { gte: new Date(startDate) }
-      where.endTime = { lte: new Date(endDate) }
+      // Overlap, not containment: all-day and past-midnight events count too.
+      where.startTime = { lt: new Date(endDate) }
+      where.endTime = { gt: new Date(startDate) }
     }
 
     const events = await prisma.event.findMany({
