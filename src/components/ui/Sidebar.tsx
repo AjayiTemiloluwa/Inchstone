@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronsLeft, ChevronsRight, PanelLeftClose, X } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLayoutStore } from '@/stores/layoutStore'
@@ -155,7 +155,8 @@ function SidebarBody({
             </span>
           )}
         </Link>
-        {!collapsed && (
+        {/* Only the drawer needs its own close; on desktop the top-bar toggle does it. */}
+        {drawer && (
           <button
             type="button"
             onClick={onClose}
@@ -163,7 +164,7 @@ function SidebarBody({
             title="Close sidebar"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-parchment/40 transition-colors hover:bg-gold/[0.06] hover:text-parchment"
           >
-            {drawer ? <X className="h-[18px] w-[18px]" strokeWidth={1.6} /> : <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={1.6} />}
+            <X className="h-[18px] w-[18px]" strokeWidth={1.6} />
           </button>
         )}
       </div>
