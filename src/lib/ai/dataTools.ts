@@ -7,6 +7,8 @@
 // may return; secrets (OAuth tokens, push keys, widget secret, invite codes,
 // file bytes) are never selectable, and tables holding them are not listed.
 import prisma from '@/lib/prisma'
+import { buildReport } from '@/lib/reports/build'
+import { endOfMonth, endOfQuarter, endOfWeek, endOfYear, startOfMonth, startOfQuarter, startOfWeek, startOfYear } from 'date-fns'
 import type { Tool, ToolCtx } from './tools'
 
 type Delegate = { findMany: (a: unknown) => Promise<Record<string, unknown>[]>; count: (a: unknown) => Promise<number> }
@@ -384,3 +386,93 @@ export const DATA_TOOLS: Tool[] = [
     run: async (a, c) => ({ result: await progressSummary(a, c) }),
   },
 ]
+
+// ── Reports and account ─────────────────────────────────────────────────────
+
+
+async function report(a: Record<string, unknown>, { userId, tzOffset }: ToolCtx) {
+  const period = String(a.period || 'weekly')
+  const at = parseDay(a.date, false, tzOffset) ?? new Date()
+  let start: Date, end: Date
+  if (period === 'custom') {
+    const s = parseDay(a.from, false, tzOffset), e = parseDay(a.to, true, tzOffset)
+    if (!s || !e) return { error: 'custom needs from and to (YYYY-MM-DD)' }
+    start = s; end = e
+  } else {
+    const ranges: Record<string, [(d: Date) => Date, (d: Date) => Date]> = {
+      weekly: [(d) => startOfWeek(d, { weekStartsOn: 1 }), (d) => endOfWeek(d, { weekStartsOn: 1 })],
+      monthly: [startOfMonth, endOfMonth],
+      quarterly: [startOfQuarter, endOfQuarter],
+      yearly: [startOfYear, endOfYear],
+    }
+    const r = ranges[period]
+    if (!r) return { error: 'period must be weekly, monthly, quarterly, yearly or custom' }
+    start = r[0](at); end = r[1](at)
+  }
+  const rep = await buildReport(userId, period as 'weekly', start, end)
+  // Keep it compact for the model: stats, categories, priorities, and per-day scores.
+  return {
+    period: rep.period,
+    stats: rep.stats,
+    categories: rep.categories,
+    priorities: rep.priorities,
+    days: rep.days.filter((d) => d.active).map((d) => ({ date: d.date, score: Math.round(d.score), tasks: d.total, completed: d.completed })),
+    open_in_app: '/reports',
+  }
+}
+
+async function account(_a: Record<string, unknown>, { userId }: ToolCtx) {
+  const [profile, google, devices, widget, counts] = await Promise.all([
+    prisma.profile.findUnique({ where: { userId }, select: { email: true, name: true, createdAt: true } }),
+    prisma.userToken.findMany({ where: { userId }, select: { provider: true, syncMode: true, lastSyncedAt: true, expiryDate: true } }),
+    prisma.pushSubscription.count({ where: { userId } }),
+    prisma.widgetConfig.findUnique({ where: { userId }, select: { rotateSeconds: true, updatedAt: true } }),
+    overview({}, { userId, tzOffset: 0 }),
+  ])
+  return {
+    email: profile?.email ?? null,
+    name: profile?.name ?? null,
+    member_since: profile?.createdAt ?? null,
+    connected_calendars: google.map((g) => ({ provider: g.provider, sync: g.syncMode, last_synced: g.lastSyncedAt })),
+    notification_devices: devices,
+    home_screen_widget: widget ? { set_up: true, rotate_seconds: widget.rotateSeconds } : { set_up: false },
+    data: Object.fromEntries(Object.entries(counts.tables).map(([k, v]) => [k, v.rows])),
+  }
+}
+
+DATA_TOOLS.push(
+  {
+    mutates: false,
+    spec: {
+      type: 'function',
+      function: {
+        name: 'get_report',
+        description: 'The user\'s progress report (same as the Reports page): completion, average day score, best/worst day, streaks, frogs, habits, time spent, by category and priority, and daily scores.',
+        parameters: {
+          type: 'object',
+          properties: {
+            period: { type: 'string', enum: ['weekly', 'monthly', 'quarterly', 'yearly', 'custom'], description: 'Report length' },
+            date: dateArg('Any day inside the period, YYYY-MM-DD (default today)'),
+            from: dateArg('custom only: start YYYY-MM-DD'),
+            to: dateArg('custom only: end YYYY-MM-DD'),
+          },
+          required: ['period'],
+          additionalProperties: false,
+        },
+      },
+    },
+    run: async (a, c) => ({ result: await report(a, c) }),
+  },
+  {
+    mutates: false,
+    spec: {
+      type: 'function',
+      function: {
+        name: 'my_account',
+        description: 'The signed-in user\'s account: email, name, member since, connected Google Calendar, notification devices, widget, and how much data they have.',
+        parameters: { type: 'object', properties: {}, additionalProperties: false },
+      },
+    },
+    run: async (a, c) => ({ result: await account(a, c) }),
+  },
+)

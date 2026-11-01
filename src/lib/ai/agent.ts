@@ -5,6 +5,24 @@ import { toolsFor, type AssistantContext, type ToolCtx } from './tools'
 
 const MAX_STEPS = 6
 
+const APP_GUIDE = [
+  'How Inchstone is laid out (link with markdown like [Finance](/finance)):',
+  '- [Dashboard](/dashboard): greeting, today’s progress, work clock, next scheduled deed, partner nudges.',
+  '- [This Week](/week) and a [Day](/day/YYYY-MM-DD): plan and tick off daily deeds (tasks), habits, frogs, times and reminders.',
+  '- [Calendar](/calendar): every day month by month, Google Calendar sync.',
+  '- [Year View](/year): the year, its quarterly quests, monthly milestones and habits; drill into /quarter, /month, /week pages.',
+  '- [Long-Term](/plans): plans over months or years with sections, goals, milestones and review sessions.',
+  '- [Challenge](/challenge): bottles filled by typing @Bottle amount in reflections; [Application Tracker](/challenge/applications) for scholarships, jobs, schools, grants and visas, with Excel import and deadline alarms.',
+  '- [Finance](/finance) and [Transactions](/transactions): purses, budgets, allocations, income and expenses.',
+  '- [Partners](/partners): accountability partners, shared progress and messages.',
+  '- [Notes](/notes): notes and journal entries.',
+  '- [Reports](/reports): weekly, monthly, quarterly, yearly or custom reports with PDF download.',
+  '- [Settings](/settings): profile, theme, notifications and alarms, Google Calendar, widget.',
+  'Application Tracker details: "New application" button; an Excel section with Template (empty sheet), Export mine (sheet with every application) and Upload filled sheet (shows a preview marking rows New / Update / Skip, then Import). Matching names update instead of duplicating; dates day-first like 15/01/2027 14:00; one requirement, document or step per line. Each application page has Stage, About, Requirements (do I meet them?), What I need (documents, upload a file to mark ready), Progress steps, Files, Deadline alarm, Contacts, Other details and Notes.',
+  'Navigation: sidebar on desktop (can be collapsed or closed from the top-bar button), floating tab bar on phones with More for the rest; Ctrl/Cmd+K opens quick search.',
+  'Answer how-to questions from this guide and link the page. Never invent buttons or settings that are not described here; if unsure, say where to look.',
+].join('\n')
+
 export interface AgentReply {
   reply: string
   actions: string[]
@@ -22,6 +40,8 @@ function systemPrompt(context: AssistantContext, now: Date, tzOffset: number, pa
       : 'Help with whatever the user is working on: their plan (year, quarterly quests, monthly milestones, weekly wins, daily deeds), tasks and habits, day scores, reflections and reviews, finances and budgets, calendar, long-term plans, challenge bottles, partners, notes and applications.',
     'You can READ all of the user’s own data with my_data_overview, query_my_data, finance_summary and progress_summary, and you can change applications and notes. Look things up instead of guessing, and quote real numbers and dates from the results. For money totals always use finance_summary; for how the user is doing use progress_summary.',
     page ? `The user is looking at this application right now: ${page}. "This application" or "it" means this one.` : '',
+    APP_GUIDE,
+    'For reports use get_report; for account questions use my_account.',
     'Rules:',
     '- Use tools to read before you change anything, and only change what the user asked for. Never invent requirements or deadlines as facts: if you are unsure, say so and suggest the user checks the official page.',
     '- When the user pastes an advert or call for applications, extract the name, organisation, deadline, requirements, documents and steps, then create or update the application.',

@@ -70,7 +70,8 @@ export const SETTINGS_LINK: NavLink = { name: 'Settings', href: '/settings', ico
 export const ALL_LINKS: NavLink[] = [...NAV_GROUPS.flatMap((g) => g.links), SETTINGS_LINK]
 
 /** Tabs on the mobile bar; everything else lives in the More sheet. */
-export const MOBILE_TABS = ['/dashboard', '/finance', '/calendar', '/year']
+// Two either side of the assistant button: Home, Calendar | Assistant | Finance, More.
+export const MOBILE_TABS = ['/dashboard', '/calendar', '/finance']
 
 /** Pages reached by drilling down, which are not in the nav. */
 const DRILL_TITLES: Record<string, { title: string; group: string }> = {

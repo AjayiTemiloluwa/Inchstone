@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowUp, Check, Eraser, Sparkles, X } from 'lucide-react'
 import { cx } from '@/components/ds'
+import { OPEN_ASSISTANT } from '@/lib/uiEvents'
 
 /**
  * The Inchstone assistant: a floating chat on every page, running on free
@@ -43,18 +44,28 @@ const SUGGESTIONS: Record<string, string[]> = {
     'Which application should I focus on first?',
   ],
   general: [
+    'How did I do this week?',
     'What applications are due soon?',
-    'Save a note with my goals for this week',
+    'Give me my report for this month',
+    'How much did I spend this month, by category?',
     'Find my notes about scholarships',
   ],
 }
 
-/** Minimal formatting: **bold** and line breaks, nothing else is interpreted. */
-function Rich({ text }: { text: string }) {
+/** Minimal formatting: **bold**, line breaks and in-app links [label](/path). External links are shown as text. */
+function Rich({ text, onNavigate }: { text: string; onNavigate: (href: string) => void }) {
   const parts: ReactNode[] = []
-  text.split(/(\*\*[^*]+\*\*)/g).forEach((p, i) => {
+  text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\(\/[^)\s]*\))/g).forEach((p, i) => {
     if (p.startsWith('**') && p.endsWith('**')) parts.push(<strong key={i} className="font-semibold text-parchment">{p.slice(2, -2)}</strong>)
-    else parts.push(p)
+    else {
+      const m = p.match(/^\[([^\]]+)\]\((\/[^)\s]*)\)$/)
+      if (m) parts.push(
+        <button key={i} type="button" onClick={() => onNavigate(m[2])} className="font-medium text-gold underline decoration-gold/40 underline-offset-2 hover:decoration-gold">
+          {m[1]}
+        </button>,
+      )
+      else parts.push(p)
+    }
   })
   return <p className="whitespace-pre-wrap break-words">{parts}</p>
 }
@@ -70,6 +81,7 @@ const store = {
 
 export function Assistant() {
   const pathname = usePathname()
+  const router = useRouter()
   const ctx = useMemo(() => contextFor(pathname), [pathname])
   const [open, setOpen] = useState(false)
   const [threads, setThreads] = useState<Record<string, Msg[]>>({})
@@ -86,6 +98,13 @@ export function Assistant() {
     const t = setTimeout(() => setThreads((s) => (s[ctx.key] ? s : { ...s, [ctx.key]: store.read(ctx.key) })), 0)
     return () => clearTimeout(t)
   }, [ctx.key, threads])
+
+  // Open from the nav buttons (sidebar, phone dock, More sheet).
+  useEffect(() => {
+    const onOpen = () => setOpen(true)
+    window.addEventListener(OPEN_ASSISTANT, onOpen)
+    return () => window.removeEventListener(OPEN_ASSISTANT, onOpen)
+  }, [])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -154,7 +173,7 @@ export function Assistant() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.6, opacity: 0 }}
             whileTap={{ scale: 0.92 }}
-            className="fixed right-4 z-[58] flex h-14 w-14 items-center justify-center rounded-2xl border border-gold/40 bg-gold text-ink shadow-[0_12px_36px_rgb(var(--gold-rgb)/0.35)] bottom-[calc(env(safe-area-inset-bottom,0px)+6rem)] lg:bottom-6 lg:right-6"
+            className="fixed bottom-6 right-6 z-[58] hidden h-14 w-14 items-center justify-center rounded-2xl border border-gold/40 bg-gold text-ink shadow-[0_12px_36px_rgb(var(--gold-rgb)/0.35)] lg:flex"
           >
             <Sparkles className="h-6 w-6" strokeWidth={1.8} aria-hidden="true" />
           </motion.button>
@@ -225,7 +244,7 @@ export function Assistant() {
                           : 'rounded-bl-md border border-gold/10 bg-ink/40 text-parchment/85',
                     )}
                   >
-                    <Rich text={m.content} />
+                    <Rich text={m.content} onNavigate={(href) => { router.push(href); if (window.innerWidth < 640) setOpen(false) }} />
                     {m.actions && m.actions.length > 0 && (
                       <ul className="mt-2 space-y-1 border-t border-gold/10 pt-2">
                         {m.actions.map((a, j) => (

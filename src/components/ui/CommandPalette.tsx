@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { useDialog } from '@/components/ui/useDialog'
+import { OPEN_ASSISTANT, OPEN_COMMAND } from '@/lib/uiEvents'
 
 interface Command {
   id: string
@@ -19,6 +20,12 @@ const NAV: Array<Omit<Command, 'action'>> = [
   { id: 'year', label: 'Year view', icon: '🗓️', keywords: 'annual quarters months' },
   { id: 'calendar', label: 'Calendar', icon: '📅', keywords: 'month weeks schedule' },
   { id: 'day-today', label: 'Open today', hint: format(new Date(), 'EEE, MMM d'), icon: '☀️', keywords: 'day deeds habits now' },
+  { id: 'week', label: 'This week', icon: '🗒️', keywords: 'seven days plan' },
+  { id: 'plans', label: 'Long-term plans', icon: '🎯', keywords: 'goals decades milestones' },
+  { id: 'challenge', label: 'Challenge bottles', icon: '🧪', keywords: 'bottles pour challenge' },
+  { id: 'challenge/applications', label: 'Application Tracker', icon: '📋', keywords: 'scholarship job school grant visa deadline excel' },
+  { id: 'transactions', label: 'Transactions', icon: '🧾', keywords: 'money income expense ledger' },
+  { id: 'assistant', label: 'Ask the assistant', icon: '✨', keywords: 'ai chat help question report' },
   { id: 'finance', label: 'Finance & Budgeting', icon: '💰', keywords: 'money purses budget ledger transactions' },
   { id: 'notes', label: 'Notes', icon: '📝', keywords: 'journal writing' },
   { id: 'reviews', label: 'Periodic Reviews', icon: '🔁', keywords: 'weekly monthly reflection mood' },
@@ -38,6 +45,7 @@ export function CommandPalette() {
     ...c,
     action: (r) => {
       if (c.id === 'day-today') r.push(`/day/${format(new Date(), 'yyyy-MM-dd')}`)
+      else if (c.id === 'assistant') window.dispatchEvent(new Event(OPEN_ASSISTANT))
       else r.push(`/${c.id}`)
     },
   }))
@@ -70,8 +78,13 @@ export function CommandPalette() {
         setActive(0)
       }
     }
+    const onOpen = () => { setOpen(true); setQuery(''); setActive(0) }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener(OPEN_COMMAND, onOpen)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener(OPEN_COMMAND, onOpen)
+    }
   }, [])
 
   // Escape, focus trap, focus-in on open and focus restore on close
