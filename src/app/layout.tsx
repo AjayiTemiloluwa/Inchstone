@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
+import { Geist_Mono, Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs'
 import Script from 'next/script'
 import { InstallPrompt } from '@/components/ui/InstallPrompt'
@@ -7,19 +7,26 @@ import { OfflineSync } from '@/components/ui/OfflineSync'
 import { CursorGlow } from '@/components/ui/CursorGlow'
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+// Type system: Playfair Display for titles (with its real italic, not a
+// slanted fake), Plus Jakarta Sans for the interface, Geist Mono for the
+// small-caps labels and every figure.
+const sans = Plus_Jakarta_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
+const mono = Geist_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -49,7 +56,7 @@ export default function RootLayout({
     >
       <html
         lang="en"
-        className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} dark h-full antialiased`}
+        className={`${sans.variable} ${mono.variable} ${playfair.variable} dark h-full antialiased`}
         suppressHydrationWarning
       >
         <head>

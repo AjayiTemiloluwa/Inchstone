@@ -80,20 +80,23 @@ export function YearFilm({ year }: { year: number }) {
     }
     const ctx = canvas.getContext('2d')!
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    const css = getComputedStyle(document.documentElement)
+    const MONO = (css.getPropertyValue('--font-mono').trim() || 'ui-monospace') + ', monospace'
+    const SERIF = (css.getPropertyValue('--font-playfair').trim() || 'Georgia') + ', Georgia, serif'
 
     ctx.fillStyle = '#0a0908'
     ctx.fillRect(0, 0, W, H)
 
     ctx.textAlign = 'left'
     ctx.fillStyle = 'rgba(243,239,230,0.4)'
-    ctx.font = '600 11px "JetBrains Mono", monospace'
+    ctx.font = `600 11px ${MONO}`
     ctx.fillText(`${year} · DAY ${i + 1}/${frames.length}`, 20, 30)
 
     ctx.fillStyle = '#f3efe6'
-    ctx.font = '700 44px "Playfair Display", Georgia, serif'
+    ctx.font = `700 44px ${SERIF}`
     ctx.fillText(frame.weekday, 18, 92)
     ctx.fillStyle = 'rgba(243,239,230,0.55)'
-    ctx.font = '500 16px "JetBrains Mono", monospace'
+    ctx.font = `500 16px ${MONO}`
     ctx.fillText(frame.label.toUpperCase(), 20, 118)
 
     // Completion ring
@@ -116,12 +119,12 @@ export function YearFilm({ year }: { year: number }) {
     }
     ctx.textAlign = 'center'
     ctx.fillStyle = '#f3efe6'
-    ctx.font = '700 22px "JetBrains Mono", monospace'
+    ctx.font = `700 22px ${MONO}`
     ctx.fillText(`${Math.round(frame.pct)}%`, cx, cy + 8)
 
     ctx.textAlign = 'left'
     ctx.fillStyle = 'rgba(243,239,230,0.5)'
-    ctx.font = '500 12px "JetBrains Mono", monospace'
+    ctx.font = `500 12px ${MONO}`
     ctx.fillText(
       frame.total > 0 ? `${frame.done}/${frame.total} deeds completed` : 'No deeds planned',
       20,
@@ -147,7 +150,7 @@ export function YearFilm({ year }: { year: number }) {
     ctx.fillRect(pad + i * tickW - (tickW > 3 ? 1 : 0), stripY - 6, Math.max(tickW, 2), 40)
 
     ctx.fillStyle = 'rgba(243,239,230,0.3)'
-    ctx.font = '600 10px "JetBrains Mono", monospace'
+    ctx.font = `600 10px ${MONO}`
     ctx.textAlign = 'left'
     ctx.fillText('DRAG TO SCRUB', 20, H - 10)
     ctx.textAlign = 'right'

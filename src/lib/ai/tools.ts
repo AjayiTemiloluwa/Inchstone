@@ -16,6 +16,7 @@ import {
   type ItemKind,
 } from '@/lib/applications'
 import type { ToolSpec } from './llm'
+import { DATA_TOOLS } from './dataTools'
 
 export interface ToolCtx {
   userId: string
@@ -298,5 +299,7 @@ export const NOTE_TOOLS: Tool[] = [
 export type AssistantContext = 'applications' | 'general'
 
 export function toolsFor(context: AssistantContext): Tool[] {
-  return context === 'applications' ? [...APPLICATION_TOOLS, ...NOTE_TOOLS] : [...NOTE_TOOLS, ...APPLICATION_TOOLS]
+  return context === 'applications'
+    ? [...APPLICATION_TOOLS, ...NOTE_TOOLS, ...DATA_TOOLS]
+    : [...DATA_TOOLS, ...NOTE_TOOLS, ...APPLICATION_TOOLS]
 }

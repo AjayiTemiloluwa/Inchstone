@@ -126,6 +126,10 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+  font-optical-sizing: auto;
+  font-feature-settings: "kern", "liga", "calt";
   transition: background-color 0.3s ease, color 0.3s ease;
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
@@ -1207,8 +1211,26 @@ input[type="number"] {
 .hairline-right { border-right: 1px solid rgb(var(--gold-rgb) / 0.2); }
 
 /* Fluid type scale (v2 B1) — never raw px in a component */
-.text-display { font-family: var(--font-playfair), serif; font-size: var(--text-display); line-height: 1.05; font-weight: 700; }
-.text-h1 { font-family: var(--font-playfair), serif; font-size: var(--text-h1); line-height: 1.1; font-weight: 700; }
+.text-display { font-family: var(--font-playfair), serif; font-size: var(--text-display); line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; }
+.text-h1 { font-family: var(--font-playfair), serif; font-size: var(--text-h1); line-height: 1.1; font-weight: 700; letter-spacing: -0.015em; }
+
+/* ── Premium type finish ──
+   Titles: Playfair's discretionary ligatures and tight tracking, balanced
+   line breaks. Prose: no orphans. Figures: tabular, slashed zero in mono. */
+.font-display, h1, h2 {
+  font-variant-ligatures: common-ligatures discretionary-ligatures;
+  text-wrap: balance;
+}
+.font-display, .text-display, .text-h1 { letter-spacing: -0.012em; font-feature-settings: "kern", "liga", "lnum"; }
+/* Figures set in Playfair (stats, totals) use even-height lining digits. */
+.font-display.tabular-nums, .text-display.tabular-nums { font-feature-settings: "kern", "lnum", "tnum"; }
+p, li, dd { text-wrap: pretty; }
+.font-mono, code, kbd, samp {
+  font-feature-settings: "zero", "tnum";
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.tabular-nums { font-feature-settings: "tnum"; }
+::selection { background: rgb(var(--gold-rgb) / 0.28); color: inherit; }
 .text-heading { font-size: var(--text-heading); font-weight: 600; line-height: 1.25; }
 .text-body { font-size: var(--text-body); line-height: 1.5; }
 .text-caption { font-size: var(--text-caption); line-height: 1.4; color: rgb(var(--parchment-rgb) / 0.6); }
@@ -1572,7 +1594,7 @@ input[type="number"] {
   color: #0a0908;
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
-  font-family: var(--font-jetbrains-mono), monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -2246,7 +2268,7 @@ html.lenis body {
   color: #0a0908;
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.32);
-  font-family: var(--font-jetbrains-mono), monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.03em;

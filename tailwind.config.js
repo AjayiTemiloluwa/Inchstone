@@ -24,8 +24,8 @@ module.exports = {
                 coral: 'rgb(var(--ember-rgb) / <alpha-value>)', // → ember
             },
             fontFamily: {
-                sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-                mono: ['var(--font-jetbrains-mono)', 'monospace'],
+                sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+                mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
                 display: ['var(--font-playfair)', 'serif'],
             },
         },

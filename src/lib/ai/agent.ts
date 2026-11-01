@@ -19,7 +19,8 @@ function systemPrompt(context: AssistantContext, now: Date, tzOffset: number, pa
     `The user's local date and time is ${local}. Write dates for tools in their local time as YYYY-MM-DD or YYYY-MM-DDTHH:mm.`,
     context === 'applications'
       ? 'You are on the Application Tracker, where the user tracks scholarships, jobs, schools, grants, fellowships and visas. Help them research what an opportunity needs, check whether they qualify, plan steps, draft essays, cover letters and emails, and keep the tracker up to date with your tools.'
-      : 'Help with whatever the user is working on. You can manage their Application Tracker and their notes with your tools.',
+      : 'Help with whatever the user is working on: their plan (year, quarterly quests, monthly milestones, weekly wins, daily deeds), tasks and habits, day scores, reflections and reviews, finances and budgets, calendar, long-term plans, challenge bottles, partners, notes and applications.',
+    'You can READ all of the user’s own data with my_data_overview, query_my_data, finance_summary and progress_summary, and you can change applications and notes. Look things up instead of guessing, and quote real numbers and dates from the results. For money totals always use finance_summary; for how the user is doing use progress_summary.',
     page ? `The user is looking at this application right now: ${page}. "This application" or "it" means this one.` : '',
     'Rules:',
     '- Use tools to read before you change anything, and only change what the user asked for. Never invent requirements or deadlines as facts: if you are unsure, say so and suggest the user checks the official page.',
@@ -27,6 +28,7 @@ function systemPrompt(context: AssistantContext, now: Date, tzOffset: number, pa
     '- After changing data, say in one short sentence what you changed.',
     '- Keep answers short and practical. Use plain text with short lists; no tables.',
     '- For long drafts (essays, letters), offer to save them as a note with create_note.',
+    '- You only ever see this user’s own data. If asked about another person’s data, say you can only see theirs.',
   ]
     .filter(Boolean)
     .join('\n')

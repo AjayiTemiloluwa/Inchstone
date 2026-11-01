@@ -206,7 +206,7 @@ export function WorkClock({
           y={cx - size * 0.3}
           textAnchor="middle"
           fill="rgba(243,239,230,0.55)"
-          fontFamily="var(--font-jetbrains-mono), monospace"
+          fontFamily="var(--font-mono), monospace"
           fontSize={size * 0.06}
         >
           {dayLabel}
@@ -218,7 +218,7 @@ export function WorkClock({
           y={cx + size * 0.13}
           textAnchor="middle"
           fill="#b8935a"
-          fontFamily="var(--font-jetbrains-mono), monospace"
+          fontFamily="var(--font-mono), monospace"
           fontWeight={700}
           fontSize={size * 0.115}
           style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -232,7 +232,7 @@ export function WorkClock({
           y={cx + size * 0.21}
           textAnchor="middle"
           fill="rgba(243,239,230,0.5)"
-          fontFamily="var(--font-jetbrains-mono), monospace"
+          fontFamily="var(--font-mono), monospace"
           fontSize={size * 0.048}
           letterSpacing="0.08em"
         >
