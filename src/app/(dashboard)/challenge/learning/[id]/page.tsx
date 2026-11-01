@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Archive, BookOpen, Check, FileText, Link2, Lock, NotebookPen, Paperclip, Pencil, Plus, Sparkles,
-  Trash2, Trophy, Upload, Zap, ArrowUp, ArrowDown, Wand2, ChevronDown,
+  Trash2, Trophy, Upload, Zap, ArrowUp, ArrowDown, Wand2, ChevronDown, Layers,
 } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
@@ -15,7 +15,7 @@ import { StudyDeck, type StudyCard } from '@/components/learning/StudyDeck'
 import { NotesPicker } from '@/components/learning/NotesPicker'
 
 interface Concept { id: string; term: string; explanation: string }
-interface Material { id: string; kind: 'note' | 'link' | 'file'; title: string; url: string | null; content: string | null; fileName: string | null; mime: string | null; size: number | null }
+interface Material { id: string; kind: 'note' | 'link' | 'file'; title: string; url: string | null; content: string | null; fileName: string | null; mime: string | null; size: number | null; extractedAt: string | null; createdAt: string }
 interface Card { id: string; front: string; back: string; reps: number; interval: number; due: string }
 interface SectionRow {
   id: string; title: string; summary: string | null; concepts: Concept[]; notes: string | null; order: number
@@ -23,17 +23,19 @@ interface SectionRow {
   materials: Material[]; cards: Card[]
 }
 interface Track {
-  id: string; title: string; subject: string | null; goal: string | null; emoji: string | null; completedAt: string | null
+  id: string; title: string; subject: string | null; goal: string | null; emoji: string | null; completedAt: string | null; inOrder: boolean
   progress: { done: number; total: number; pct: number }; sections: SectionRow[]
 }
 
-type Tab = 'overview' | 'notes' | 'materials' | 'cards'
+type Tab = 'notes' | 'concepts' | 'guide' | 'materials' | 'cards'
 const TABS: { value: Tab; label: string }[] = [
-  { value: 'overview', label: 'Overview' },
-  { value: 'notes', label: 'Notes' },
-  { value: 'materials', label: 'Materials' },
+  { value: 'notes', label: 'My notes' },
+  { value: 'concepts', label: 'Concepts' },
   { value: 'cards', label: 'Flashcards' },
+  { value: 'guide', label: 'Study guide' },
+  { value: 'materials', label: 'Files & links' },
 ]
+const shortDate = (d: string) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
 const textarea = 'w-full rounded-lg border border-gold/20 bg-ink/40 px-3 py-2.5 text-sm leading-relaxed text-parchment placeholder:text-parchment/30 focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20'
 
@@ -59,7 +61,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
   const [track, setTrack] = useState<Track | null>(null)
   const [missing, setMissing] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>('overview')
+  const [tab, setTab] = useState<Tab>('notes')
   const [ai, setAi] = useState<string | null>(null)
   const [study, setStudy] = useState<{ cards: StudyCard[]; title: string } | null>(null)
   const [newSection, setNewSection] = useState('')
@@ -69,6 +71,9 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
   const [organizing, setOrganizing] = useState(false)
   const [pickNotes, setPickNotes] = useState(false)
   const [editConcept, setEditConcept] = useState<Concept | null>(null)
+  const [quick, setQuick] = useState({ title: '', text: '' })
+  const [editNote, setEditNote] = useState<{ id: string; title: string; text: string } | null>(null)
+  const [openNote, setOpenNote] = useState<string | null>(null)
   const orgFileRef = useRef<HTMLInputElement>(null)
   // Arriving from "From my notes": open the import panel straight away.
   useEffect(() => {
@@ -119,9 +124,33 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
     setAi(null)
     if (!data) return
     showToast(task === 'notes' ? 'Study notes written' : task === 'flashcards' ? `${data.added} flashcards made` : `${data.added} concepts found`, 'success')
-    if (task === 'notes') setTab('notes')
+    if (task === 'notes') setTab('guide')
     if (task === 'flashcards') setTab('cards')
     await load()
+  }
+
+  /** Concepts and flashcards from one note, or from every note not yet extracted. */
+  const extract = async (materialId?: string) => {
+    if (!sec) return
+    setAi(materialId ? `x:${materialId}` : 'extract')
+    const data = await api(`/api/learning/sections/${sec.id}`, 'POST', { kind: 'ai', task: 'extract', materialId })
+    setAi(null)
+    if (!data) return
+    showToast(`Pulled out ${data.concepts} concept${data.concepts === 1 ? '' : 's'} and ${data.cards} flashcard${data.cards === 1 ? '' : 's'}`, 'success')
+    await load()
+  }
+
+  const saveQuick = async (andExtract: boolean) => {
+    if (!sec) return
+    const text = quick.text.trim()
+    if (!text) return
+    const title = quick.title.trim() || text.split('\n')[0].replace(/^#+\s*/, '').slice(0, 80)
+    const data = await api(`/api/learning/sections/${sec.id}`, 'POST', { kind: 'note', title, content: text })
+    if (!data) return
+    setQuick({ title: '', text: '' })
+    await load()
+    if (andExtract) await extract(data.material.id)
+    else showToast('Note saved', 'success')
   }
 
   const complete = async (done: boolean) => {
@@ -137,7 +166,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
     await load()
     if (done && data.unlocked && track) {
       const next = track.sections.find((s) => s.title === data.unlocked)
-      if (next) { setSelected(next.id); setTab('overview') }
+      if (next) { setSelected(next.id); setTab('notes') }
     }
   }
 
@@ -157,6 +186,8 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
   if (!track) return <Loader routeKey="challenge" />
 
   const locked = sec?.state === 'locked'
+  const notes = (sec?.materials ?? []).filter((m) => m.kind === 'note').reverse()
+  const fresh = notes.filter((m) => !m.extractedAt && m.content).length
 
   return (
     <Page width="wide">
@@ -176,6 +207,9 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
               {dueAll.length ? `Review ${dueAll.length} due` : 'Nothing due'}
             </Button>
             <RowActions label="Track actions" className="[&>button]:opacity-100" actions={[
+              track.inOrder
+                ? { label: 'Open every section (subjects)', icon: Layers, onSelect: async () => { if (await api(`/api/learning/${track.id}`, 'PATCH', { inOrder: false })) { showToast('Every section is open now', 'success'); await load() } } }
+                : { label: 'Unlock sections in order', icon: Lock, onSelect: async () => { if (await api(`/api/learning/${track.id}`, 'PATCH', { inOrder: true })) { showToast('Sections now unlock one after another', 'success'); await load() } } },
               { label: 'Archive', icon: Archive, onSelect: async () => { if (await api(`/api/learning/${track.id}`, 'PATCH', { archived: true })) router.push('/challenge/learning') } },
               { label: 'Delete track', icon: Trash2, destructive: true, onSelect: async () => {
                 if (await confirm(`Delete "${track.title}" with every section, material and card?`) && await api(`/api/learning/${track.id}`, 'DELETE')) router.push('/challenge/learning')
@@ -203,7 +237,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         {/* Path */}
-        <Section title="Your path" action={
+        <Section title={track.inOrder ? 'Your path' : 'Sections'} action={
           <Button size="sm" variant="ghost" icon={Wand2} onClick={() => setOrganize(o => (o ? null : { text: '', picking: false }))}>From my notes</Button>
         }>
           {organize && (
@@ -250,6 +284,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                   <span className="min-w-0 flex-1 pt-1">
                     <span className={cx('block text-sm font-semibold', s.state === 'locked' ? 'text-parchment/45' : 'text-parchment')}>{s.title}</span>
                     <span className="mt-0.5 flex flex-wrap gap-x-2 font-mono text-[10px] text-parchment/40">
+                      <span>{s.materials.filter((m) => m.kind === 'note').length} notes</span>
                       <span>{s.concepts.length} concepts</span>
                       <span>{s.cards.length} cards</span>
                       {s.mastery !== null && <span className="text-moss">{s.mastery}% mastered</span>}
@@ -268,7 +303,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
             }
           }}>
             <div className="flex gap-2">
-              <input value={newSection} onChange={(e) => setNewSection(e.target.value)} placeholder="New section title" aria-label="New section title" className={inputClass} />
+              <input value={newSection} onChange={(e) => setNewSection(e.target.value)} placeholder="New section, e.g. Financial Engineering" aria-label="New section title" className={inputClass} />
               <Button type="submit" icon={Plus} disabled={!newSection.trim()}>Add</Button>
             </div>
             <button type="button" onClick={() => setSectionMore(v => !v)} className="inline-flex items-center gap-1 text-xs text-parchment/50 hover:text-gold">
@@ -291,7 +326,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/45">
-                    Section {sec.order + 1} · {sec.state === 'done' ? 'Finished' : sec.state === 'open' ? 'In progress' : 'Locked'}
+                    Section {sec.order + 1} · {sec.state === 'done' ? 'Finished' : sec.state === 'locked' ? 'Locked' : track.inOrder ? 'In progress' : 'Open'}
                   </p>
                   <h2 className="mt-1 font-display text-2xl font-bold text-parchment sm:text-3xl">{sec.title}</h2>
                   {sec.summary && <p className="mt-1 text-body text-parchment/60">{sec.summary}</p>}
@@ -302,7 +337,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                   )}
                   {sec.state === 'done'
                     ? <Button variant="ghost" onClick={() => complete(false)}>Reopen</Button>
-                    : <Button variant="primary" icon={Check} disabled={locked} onClick={() => complete(true)} title={locked ? 'Finish the sections before this one first' : undefined}>Mark finished</Button>}
+                    : <Button variant={track.inOrder ? 'primary' : 'secondary'} icon={Check} disabled={locked} onClick={() => complete(true)} title={locked ? 'Finish the sections before this one first' : undefined}>Mark finished</Button>}
                   <RowActions className="[&>button]:opacity-100" actions={[
                     { label: 'Rename', icon: Pencil, onSelect: async () => { const t = window.prompt('Section title', sec.title); if (t && t.trim() && await patchSection({ title: t })) await load() } },
                     { label: 'Edit summary', icon: NotebookPen, onSelect: async () => { const t = window.prompt('What this section covers', sec.summary ?? ''); if (t !== null && await patchSection({ summary: t })) await load() } },
@@ -320,10 +355,92 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
               <Segmented options={TABS} value={tab} onChange={setTab} ariaLabel="Section views" />
             </Panel>
 
-            {tab === 'overview' && (
+            {tab === 'notes' && (
+              <Section title="My notes" description={`Write what you learn about ${sec.title} as you go. The AI pulls concepts and flashcards out of your notes, using only what you wrote.`} action={
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" icon={NotebookPen} onClick={() => setPickNotes((v) => !v)}>From Notes page</Button>
+                  {notes.length > 0 && (
+                    <Button size="sm" icon={Sparkles} disabled={!!ai || !fresh} onClick={() => extract()} title={fresh ? undefined : 'Every note is extracted'}>
+                      {ai === 'extract' ? 'Extracting…' : fresh ? `Extract from ${fresh} new` : 'All extracted'}
+                    </Button>
+                  )}
+                </div>
+              }>
+                {pickNotes && (
+                  <div className="mb-3">
+                    <NotesPicker onClose={() => setPickNotes(false)} onPick={async (ns) => {
+                      for (const n of ns) await api(`/api/learning/sections/${sec.id}`, 'POST', { kind: 'note', title: n.title, content: n.text })
+                      setPickNotes(false)
+                      showToast(`Added ${ns.length} note${ns.length === 1 ? '' : 's'}`, 'success')
+                      await load()
+                    }} />
+                  </div>
+                )}
+                <Panel className="space-y-2 border-gold/25">
+                  <input value={quick.title} onChange={(e) => setQuick({ ...quick, title: e.target.value })} placeholder={`Topic (optional), e.g. a part of ${sec.title}`} aria-label="Note topic"
+                    className={cx(inputClass, 'font-semibold')} />
+                  <textarea value={quick.text} onChange={(e) => setQuick({ ...quick, text: e.target.value })} rows={5}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void saveQuick(false) } }}
+                    placeholder={`Quick note on ${sec.title}… definitions, formulas, examples, anything from class or your reading`} aria-label="Note" className={textarea} />
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <span className="mr-auto hidden font-mono text-[10px] text-parchment/35 sm:inline">Ctrl + Enter to save</span>
+                    <Button variant="ghost" disabled={!quick.text.trim() || !!ai} onClick={() => saveQuick(false)}>Save note</Button>
+                    <Button variant="primary" icon={Sparkles} disabled={!quick.text.trim() || !!ai} onClick={() => saveQuick(true)}>Save and extract</Button>
+                  </div>
+                </Panel>
+                {notes.length === 0 ? (
+                  <p className="mt-4 text-center text-caption text-parchment/45">No notes in this section yet. Your first one goes above.</p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {notes.map((m) => (
+                      <li key={m.id}>
+                        <Panel padded={false} className="group p-4">
+                          {editNote?.id === m.id ? (
+                            <div className="space-y-2">
+                              <input value={editNote.title} onChange={(e) => setEditNote({ ...editNote, title: e.target.value })} aria-label="Note topic" className={cx(inputClass, 'font-semibold')} autoFocus />
+                              <textarea value={editNote.text} onChange={(e) => setEditNote({ ...editNote, text: e.target.value })} rows={10} aria-label="Note" className={textarea} />
+                              <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="ghost" onClick={() => setEditNote(null)}>Cancel</Button>
+                                <Button size="sm" variant="primary" onClick={async () => {
+                                  if (await api(`/api/learning/items/material/${m.id}`, 'PATCH', { title: editNote.title, content: editNote.text })) { setEditNote(null); await load() }
+                                }}>Save</Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-start gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-parchment">{m.title}</p>
+                                  <p className="font-mono text-[10px] text-parchment/40">{shortDate(m.createdAt)}{m.extractedAt ? ' · extracted' : ''}</p>
+                                </div>
+                                <Button size="sm" variant="ghost" icon={Sparkles} disabled={!!ai || !m.content} onClick={() => extract(m.id)}>
+                                  {ai === `x:${m.id}` ? 'Extracting…' : m.extractedAt ? 'Again' : 'Extract'}
+                                </Button>
+                                <IconButton icon={Pencil} label={`Edit ${m.title}`} onClick={() => setEditNote({ id: m.id, title: m.title, text: m.content ?? '' })} />
+                                <IconButton icon={Trash2} tone="danger" label={`Delete ${m.title}`} onClick={async () => { if (await confirm(`Delete the note "${m.title}"?`) && await api(`/api/learning/items/material/${m.id}`, 'DELETE')) await load() }} />
+                              </div>
+                              {m.content && (openNote === m.id
+                                ? <div className="mt-2"><NotesView text={m.content} /></div>
+                                : <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-parchment/70">{m.content}</p>)}
+                              {m.content && m.content.length > 280 && (
+                                <button type="button" onClick={() => setOpenNote(openNote === m.id ? null : m.id)} className="mt-1 text-xs text-gold-dim hover:text-gold">
+                                  {openNote === m.id ? 'Show less' : 'Read all'}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </Panel>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Section>
+            )}
+
+            {tab === 'concepts' && (
               <Section title="Key concepts" action={<Button size="sm" icon={Sparkles} disabled={!!ai} onClick={() => runAi('concepts')}>{ai === 'concepts' ? 'Finding…' : 'Find with AI'}</Button>}>
                 {sec.concepts.length === 0 ? (
-                  <EmptyState title="No concepts yet" body="Add the ideas this section is about, or let the AI pick them out of your materials." />
+                  <EmptyState title="No concepts yet" body="Add the ideas this section is about, or write notes in My notes and extract them." />
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {sec.concepts.map((c) => (
@@ -357,8 +474,8 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
               </Section>
             )}
 
-            {tab === 'notes' && (
-              <Section title="Study notes" action={
+            {tab === 'guide' && (
+              <Section title="Study guide" description="One tidy write-up of the whole section, built from your notes, concepts and files. Rewrite it any time." action={
                 <div className="flex gap-2">
                   {editingNotes === null && <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEditingNotes(sec.notes || '')}>Edit</Button>}
                   <Button size="sm" icon={Sparkles} disabled={!!ai} onClick={() => runAi('notes')}>{ai === 'notes' ? 'Writing…' : sec.notes ? 'Rewrite with AI' : 'Write with AI'}</Button>
@@ -375,32 +492,20 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                 ) : sec.notes ? (
                   <Panel><NotesView text={sec.notes} /></Panel>
                 ) : (
-                  <EmptyState title="No notes yet" body="Add materials first, then let the AI turn them into clear study notes. Or write your own."
-                    action={<Button icon={NotebookPen} onClick={() => setEditingNotes('')}>Write notes</Button>} />
+                  <EmptyState title="No study guide yet" body="Write a few notes first, then let the AI turn them into one clear guide. Or write it yourself."
+                    action={<Button icon={NotebookPen} onClick={() => setEditingNotes('')}>Write it</Button>} />
                 )}
               </Section>
             )}
 
             {tab === 'materials' && (
-              <Section title="Materials" action={
+              <Section title="Files & links" action={
                 <div className="flex gap-2">
                   <input ref={fileRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f) }} />
-                  <Button size="sm" variant="ghost" icon={NotebookPen} onClick={() => setPickNotes(v => !v)}>From my notes</Button>
-                  <Button size="sm" variant="ghost" icon={FileText} onClick={() => setMat({ kind: 'note', title: '', url: '', content: '' })}>Note</Button>
                   <Button size="sm" variant="ghost" icon={Link2} onClick={() => setMat({ kind: 'link', title: '', url: '', content: '' })}>Link</Button>
                   <Button size="sm" icon={Upload} onClick={() => fileRef.current?.click()}>File</Button>
                 </div>
-              } description="Paste class notes, add links or upload files. The AI uses notes and text files to write notes, find concepts and make flashcards.">
-                {pickNotes && (
-                  <div className="mb-3">
-                    <NotesPicker onClose={() => setPickNotes(false)} onPick={async (ns) => {
-                      for (const n of ns) await api(`/api/learning/sections/${sec.id}`, 'POST', { kind: 'note', title: n.title, content: n.text })
-                      setPickNotes(false)
-                      showToast(`Added ${ns.length} note${ns.length === 1 ? '' : 's'}`, 'success')
-                      await load()
-                    }} />
-                  </div>
-                )}
+              } description="Slides, past questions, readings and links. Text files can be read by the AI; written notes go in My notes.">
                 {mat && (
                   <Panel className="mb-3 space-y-3 animate-fadeIn">
                     <input value={mat.title} onChange={(e) => setMat({ ...mat, title: e.target.value })} placeholder="Title" aria-label="Title" className={inputClass} autoFocus />
@@ -415,11 +520,11 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                     </div>
                   </Panel>
                 )}
-                {sec.materials.length === 0 && !mat ? (
-                  <EmptyState title="No materials yet" body="Add what you are learning from: notes, links, slides, past questions." />
+                {sec.materials.every((m) => m.kind === 'note') && !mat ? (
+                  <EmptyState title="No files or links yet" body="Add what you are learning from: slides, readings, past questions, videos." />
                 ) : (
                   <ul className="divide-y divide-gold/10 overflow-hidden rounded-xl border border-gold/15 bg-surface-solid">
-                    {sec.materials.map((m) => (
+                    {sec.materials.filter((m) => m.kind !== 'note').map((m) => (
                       <li key={m.id} className="group flex items-start gap-3 px-4 py-3">
                         {m.kind === 'link' ? <Link2 className="mt-0.5 h-4 w-4 text-gold-dim" /> : m.kind === 'file' ? <Paperclip className="mt-0.5 h-4 w-4 text-gold-dim" /> : <FileText className="mt-0.5 h-4 w-4 text-gold-dim" />}
                         <div className="min-w-0 flex-1">
@@ -451,7 +556,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                   <Button type="submit" icon={Plus} disabled={!cardDraft.front.trim() || !cardDraft.back.trim()}>Add card</Button>
                 </form>
                 {sec.cards.length === 0 ? (
-                  <EmptyState title="No flashcards yet" body="Add your own or let the AI make a deck from this section's concepts, notes and materials." />
+                  <EmptyState title="No flashcards yet" body="Add your own, extract them from My notes, or let the AI make a deck from the whole section." />
                 ) : (
                   <div className="grid gap-2 sm:grid-cols-2">
                     {sec.cards.map((c) => {
@@ -478,7 +583,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                 <div>
                   <p className="text-sm font-semibold text-parchment">Ready to move on?</p>
                   <p className="text-caption text-parchment/55">
-                    {sec.mastery !== null ? `You have mastered ${sec.mastery}% of this section's cards. ` : ''}Finishing unlocks the next section.
+                    {sec.mastery !== null ? `You have mastered ${sec.mastery}% of this section's cards. ` : ''}{track.inOrder ? 'Finishing unlocks the next section.' : 'Mark it finished when you know it well.'}
                   </p>
                   {sec.mastery !== null && <Meter value={sec.mastery} tone="moss" className="mt-2 max-w-xs" />}
                 </div>
@@ -487,7 +592,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
             )}
           </section>
         ) : (
-          <EmptyState title="Add your first section" body="Break what you are learning into sections. Each one unlocks after the one before it." />
+          <EmptyState title="Add your first section" body={track.inOrder ? 'Break what you are learning into sections. Each one unlocks after the one before it.' : 'Add a section for each subject, e.g. Financial Engineering, then keep your notes inside it.'} />
         )}
       </div>
 

@@ -31,7 +31,7 @@ export default function LearningLabPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [f, setF] = useState({ title: '', subject: '', goal: '', emoji: '', level: LEVELS[0], start: 'ai' as 'ai' | 'notes' | 'empty' })
+  const [f, setF] = useState({ title: '', subject: '', goal: '', emoji: '', level: LEVELS[0], start: 'ai' as 'ai' | 'notes' | 'empty', inOrder: true })
 
   const load = useCallback(async () => {
     try {
@@ -72,7 +72,7 @@ export default function LearningLabPage() {
       <PageHeader
         eyebrow="Challenge"
         title="Learning Lab"
-        description="Learn anything step by step: a path of sections that unlock as you finish them, key concepts highlighted, your own materials, AI study notes and flashcards that come back when you are about to forget."
+        description="Learn anything your way: sections for each subject, quick notes inside them, concepts and flashcards pulled out of what you wrote, and reviews that come back just before you forget."
         actions={<Button variant="primary" icon={creating ? X : Plus} onClick={() => setCreating((v) => !v)}>{creating ? 'Close' : 'Start learning'}</Button>}
       />
       <ChallengeTabs />
@@ -103,7 +103,7 @@ export default function LearningLabPage() {
                 <legend className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">How to start</legend>
                 <div className="grid grid-cols-3 gap-1.5">
                   {([['ai', 'Build it with AI'], ['notes', 'From my notes'], ['empty', 'Start empty']] as const).map(([v, label]) => (
-                    <button key={v} type="button" onClick={() => setF((x) => ({ ...x, start: v }))} aria-pressed={f.start === v}
+                    <button key={v} type="button" onClick={() => setF((x) => ({ ...x, start: v, inOrder: v === 'ai' }))} aria-pressed={f.start === v}
                       className={cx('min-h-11 rounded-xl border px-2 text-xs font-semibold transition-colors', f.start === v ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/60 hover:border-gold/35')}>
                       {v === 'ai' && <Sparkles className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{label}
                     </button>
@@ -111,6 +111,18 @@ export default function LearningLabPage() {
                 </div>
               </fieldset>
             </div>
+            <fieldset className="space-y-1.5">
+              <legend className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">How sections work</legend>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {([[false, 'Subjects', 'Every section is open. Keep notes in any of them, e.g. Financial Engineering.'], [true, 'Step by step', 'Each section unlocks when you finish the one before.']] as const).map(([v, label, hint]) => (
+                  <button key={label} type="button" onClick={() => setF((x) => ({ ...x, inOrder: v }))} aria-pressed={f.inOrder === v}
+                    className={cx('rounded-xl border px-3 py-2.5 text-left transition-colors', f.inOrder === v ? 'border-gold/60 bg-gold/10' : 'border-gold/15 hover:border-gold/35')}>
+                    <span className={cx('block text-sm font-semibold', f.inOrder === v ? 'text-gold' : 'text-parchment/80')}>{label}</span>
+                    <span className="block text-caption text-parchment/50">{hint}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button>
               <Button variant="primary" onClick={create} disabled={saving}>{saving ? (f.start === 'ai' ? 'Building your path… (about 30s)' : 'Creating…') : 'Create track'}</Button>

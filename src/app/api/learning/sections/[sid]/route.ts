@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { cleanStr, MAX_FILE_BYTES } from '@/lib/applications'
-import { aiConcepts, aiFlashcards, aiNotes, newConceptId, readableText, sectionStates, type Concept } from '@/lib/learning'
+import { aiConcepts, aiExtract, aiFlashcards, aiNotes, newConceptId, readableText, sectionStates, type Concept } from '@/lib/learning'
 
 // PATCH  /api/learning/sections/[sid] — title, summary, concepts, notes; { complete: true|false }
 //                                       finishes it (only when unlocked) or reopens it
@@ -10,6 +10,7 @@ import { aiConcepts, aiFlashcards, aiNotes, newConceptId, readableText, sectionS
 //          JSON { kind: 'note', title, content } | { kind: 'link', title, url }
 //          JSON { kind: 'card', front, back }
 //          JSON { kind: 'ai', task: 'notes' | 'flashcards' | 'concepts' }
+//          JSON { kind: 'ai', task: 'extract', materialId? } — concepts + cards from one note, or every note not yet extracted
 //          multipart { file, title? } — a file (text formats are read for the AI)
 // DELETE /api/learning/sections/[sid]
 
@@ -61,7 +62,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   let trackDone = false
   if ('complete' in b) {
     const siblings = await prisma.learningSection.findMany({ where: { trackId: section.trackId }, orderBy: { order: 'asc' }, select: { id: true, title: true, completedAt: true } })
-    const states = sectionStates(siblings)
+    const states = sectionStates(siblings, section.track.inOrder)
     const idx = siblings.findIndex((s) => s.id === sid)
     if (b.complete) {
       if (states[idx] === 'locked') return NextResponse.json({ error: 'Finish the sections before this one first' }, { status: 409 })
@@ -125,6 +126,33 @@ export async function POST(req: Request, { params }: Ctx) {
     if (!front || !back) return NextResponse.json({ error: 'A card needs a front and a back' }, { status: 400 })
     const card = await prisma.flashcard.create({ data: { sectionId: sid, userId, front, back } })
     return NextResponse.json({ card }, { status: 201 })
+  }
+
+  if (b.kind === 'ai' && b.task === 'extract') {
+    const notes = await prisma.learningMaterial.findMany({
+      where: { sectionId: sid, kind: { in: ['note', 'file'] }, content: { not: null }, ...(b.materialId ? { id: String(b.materialId) } : { extractedAt: null }) },
+      select: { id: true, title: true, content: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (!notes.length) return NextResponse.json({ error: b.materialId ? 'That note has no text to read' : 'Every note is already extracted. Write a new one, or extract a single note again.' }, { status: 400 })
+    const concepts = (section.concepts as unknown as Concept[]) ?? []
+    const existing = await prisma.flashcard.findMany({ where: { sectionId: sid }, select: { front: true } })
+    let found
+    try {
+      found = await aiExtract(section.title, notes.map((n) => `# ${n.title}\n${n.content}`).join('\n\n'), { terms: concepts.map((c) => c.term), fronts: existing.map((c) => c.front) })
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : 'The AI is unavailable right now' }, { status: 503 })
+    }
+    if (!found.concepts.length && !found.cards.length) return NextResponse.json({ error: 'Nothing new came out of these notes. Add more detail and try again.' }, { status: 502 })
+    await prisma.$transaction([
+      prisma.learningSection.update({
+        where: { id: sid },
+        data: { concepts: [...concepts, ...found.concepts.map((c) => ({ id: newConceptId(), term: String(c.term).slice(0, 120), explanation: String(c.explanation ?? '').slice(0, 800) }))].slice(0, 60) },
+      }),
+      prisma.flashcard.createMany({ data: found.cards.map((c) => ({ sectionId: sid, userId, front: String(c.front).slice(0, 500), back: String(c.back).slice(0, 1500) })) }),
+      prisma.learningMaterial.updateMany({ where: { id: { in: notes.map((n) => n.id) } }, data: { extractedAt: new Date() } }),
+    ])
+    return NextResponse.json({ concepts: found.concepts.length, cards: found.cards.length, notes: notes.length })
   }
 
   if (b.kind === 'ai') {

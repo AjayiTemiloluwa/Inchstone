@@ -7,11 +7,15 @@ export type Concept = { id: string; term: string; explanation: string }
 
 export type SectionState = 'done' | 'open' | 'locked'
 
-/** Sections unlock in order: every finished one, then the first unfinished, then locked. */
-export function sectionStates<T extends { completedAt: Date | string | null }>(sections: T[]): SectionState[] {
+/**
+ * In-order tracks unlock one section at a time: every finished one, then the
+ * first unfinished, then locked. Subject tracks (inOrder false) are all open.
+ */
+export function sectionStates<T extends { completedAt: Date | string | null }>(sections: T[], inOrder = true): SectionState[] {
   let openGiven = false
   return sections.map((s) => {
     if (s.completedAt) return 'done'
+    if (!inOrder) return 'open'
     if (!openGiven) { openGiven = true; return 'open' }
     return 'locked'
   })
@@ -138,6 +142,25 @@ export async function aiConcepts(b: SourceBundle) {
   )
   const out = parseJson<{ concepts?: { term: string; explanation: string }[] }>(reply)
   return (out?.concepts ?? []).filter((c) => c?.term && c?.explanation).slice(0, 12)
+}
+
+/**
+ * Pull the concepts and flashcards out of the learner's own notes, using ONLY
+ * what the notes say. Known terms and card fronts are passed so they are skipped.
+ */
+export async function aiExtract(section: string, notes: string, known: { terms: string[]; fronts: string[] }) {
+  const reply = await ask(
+    `${TUTOR} The learner wrote these notes for the section "${section}". Extract what they should remember, using ONLY these notes; do not add outside facts. Reply with JSON only: {"concepts":[{"term":"...","explanation":"one or two sentences, from the notes"}],"cards":[{"front":"question","back":"answer from the notes"}]}. Up to 8 concepts and up to 10 cards, fewer for short notes. Skip anything already known.`,
+    `Already known concepts: ${known.terms.join(' | ') || 'none'}\nExisting cards: ${known.fronts.join(' | ') || 'none'}\n\nNotes:\n${notes.slice(0, 14000)}`,
+    3000,
+  )
+  const out = parseJson<{ concepts?: { term: string; explanation: string }[]; cards?: { front: string; back: string }[] }>(reply)
+  const terms = new Set(known.terms.map((t) => t.trim().toLowerCase()))
+  const fronts = new Set(known.fronts.map((t) => t.trim().toLowerCase()))
+  return {
+    concepts: (out?.concepts ?? []).filter((c) => c?.term && !terms.has(String(c.term).trim().toLowerCase())).slice(0, 10),
+    cards: (out?.cards ?? []).filter((c) => c?.front && c?.back && !fronts.has(String(c.front).trim().toLowerCase())).slice(0, 15),
+  }
 }
 
 export const newConceptId = () => Math.random().toString(36).slice(2, 10)

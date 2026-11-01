@@ -657,6 +657,7 @@ model LearningTrack {
   emoji       String?
   targetDate  DateTime?
   archived    Boolean   @default(false)
+  inOrder     Boolean   @default(true) // sections unlock one after another; false = open subjects
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -700,7 +701,9 @@ model LearningMaterial {
   mime      String?
   size      Int?
   data      Bytes?
+  extractedAt DateTime? // when the AI last pulled concepts and cards out of this note
   createdAt DateTime        @default(now())
+  updatedAt DateTime        @default(now()) @updatedAt
 
   @@index([sectionId])
 }

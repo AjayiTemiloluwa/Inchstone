@@ -5,6 +5,7 @@ import { cleanStr } from '@/lib/applications'
 import { review, type Grade } from '@/lib/learning'
 
 // /api/learning/items/material/[id]  GET (download/open the file) · DELETE
+// /api/learning/items/material/[id]  PATCH { title?, content? } (edit a written note)
 // /api/learning/items/card/[id]      PATCH { grade } (review) or { front, back } (edit) · DELETE
 
 type Ctx = { params: Promise<{ kind: string; itemId: string }> }
@@ -34,6 +35,16 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { kind, itemId } = await params
+  if (kind === 'material') {
+    const m = await prisma.learningMaterial.findFirst({ where: { id: itemId, userId, kind: 'note' } })
+    if (!m) return NextResponse.json({ error: 'Note not found' }, { status: 404 })
+    const b = await req.json().catch(() => ({}))
+    const data: Record<string, unknown> = {}
+    if ('title' in b) data.title = cleanStr(b.title, 160) || m.title
+    if ('content' in b) { data.content = cleanStr(b.content, 60000); data.extractedAt = null }
+    const updated = await prisma.learningMaterial.update({ where: { id: m.id }, data, select: { id: true, title: true, content: true, extractedAt: true, updatedAt: true } })
+    return NextResponse.json({ material: updated })
+  }
   if (kind !== 'card') return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const card = await prisma.flashcard.findFirst({ where: { id: itemId, userId } })
   if (!card) return NextResponse.json({ error: 'Card not found' }, { status: 404 })

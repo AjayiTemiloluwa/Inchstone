@@ -55,6 +55,7 @@ export async function POST(req: Request) {
       goal: cleanStr(b.goal, 1000),
       emoji: cleanStr(b.emoji, 8),
       targetDate: parseDate(b.targetDate) ?? null,
+      inOrder: b.inOrder !== false,
     },
   })
 

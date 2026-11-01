@@ -6,7 +6,7 @@ import { aiOrganize, conceptsFromLines, mastery, newConceptId, sectionStates, tr
 
 // GET    /api/learning/[id] — the track with every section, its state (done/open/locked),
 //                             materials (no file bytes), card counts and mastery
-// PATCH  /api/learning/[id] — rename, change goal/subject/emoji/target, archive
+// PATCH  /api/learning/[id] — rename, change goal/subject/emoji/target, archive, inOrder (unlock in order or open subjects)
 // POST   /api/learning/[id] — add a section { title, summary?, concepts? ("Term — meaning" lines) } at the end,
 //                             or { kind: 'organize', text } to turn the user's own notes into sections
 // DELETE /api/learning/[id] — delete the track and everything in it
@@ -24,7 +24,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       sections: {
         orderBy: { order: 'asc' },
         include: {
-          materials: { select: { id: true, kind: true, title: true, url: true, content: true, fileName: true, mime: true, size: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
+          materials: { select: { id: true, kind: true, title: true, url: true, content: true, fileName: true, mime: true, size: true, extractedAt: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: 'asc' } },
           cards: { select: { id: true, front: true, back: true, reps: true, interval: true, due: true }, orderBy: { createdAt: 'asc' } },
         },
       },
@@ -32,7 +32,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   })
   if (!track) return NextResponse.json({ error: 'Track not found' }, { status: 404 })
 
-  const states = sectionStates(track.sections)
+  const states = sectionStates(track.sections, track.inOrder)
   const now = Date.now()
   return NextResponse.json({
     track: {
@@ -66,6 +66,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const target = parseDate(b.targetDate)
   if (target !== undefined) data.targetDate = target
   if ('archived' in b) data.archived = !!b.archived
+  if ('inOrder' in b) data.inOrder = !!b.inOrder
   const updated = await prisma.learningTrack.update({ where: { id }, data })
   return NextResponse.json({ track: updated })
 }
