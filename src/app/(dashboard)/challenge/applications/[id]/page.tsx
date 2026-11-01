@@ -85,6 +85,13 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     return () => clearTimeout(t)
   }, [load])
 
+  // Reload when the assistant changes something.
+  useEffect(() => {
+    const onChange = () => { void load() }
+    window.addEventListener('inchstone:data-changed', onChange)
+    return () => window.removeEventListener('inchstone:data-changed', onChange)
+  }, [load])
+
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 30_000)
     return () => window.clearInterval(t)

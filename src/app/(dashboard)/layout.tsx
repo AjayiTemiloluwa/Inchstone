@@ -15,6 +15,7 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { AlarmRinger } from "@/components/ui/AlarmRinger";
 import { DeedCountdown } from "@/components/ui/DeedCountdown";
 import { ApplicationRinger } from "@/components/applications/ApplicationRinger";
+import { Assistant } from "@/components/ai/Assistant";
 import { AtmosphereProvider } from "@/components/effects/atmosphere";
 import { AmbientBackground } from "@/components/effects/AmbientBackground";
 import { ScrollText } from "@/components/effects/ScrollText";
@@ -38,6 +39,7 @@ export default function AppLayout({
         <AlarmRinger />
         <DeedCountdown />
         <ApplicationRinger />
+        <Assistant />
         <ScrollText />
         <GLProvider>
         <div className="app-shell relative flex h-screen h-dvh w-full overflow-hidden">

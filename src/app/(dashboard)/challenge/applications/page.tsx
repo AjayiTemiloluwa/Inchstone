@@ -79,6 +79,13 @@ export default function ApplicationTrackerPage() {
     return () => clearTimeout(t)
   }, [load, showArchived])
 
+  // Reload when the assistant changes something.
+  useEffect(() => {
+    const onChange = () => load(showArchived)
+    window.addEventListener('inchstone:data-changed', onChange)
+    return () => window.removeEventListener('inchstone:data-changed', onChange)
+  }, [load, showArchived])
+
   // Countdowns tick once a minute.
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 60_000)
