@@ -723,3 +723,18 @@ model Flashcard {
   @@index([sectionId])
   @@index([userId, due])
 }
+
+// ── Daily check-ins (Partners streaks) ───────────────────────────────────────
+// One row per user per local day they checked in. Personal streaks, each
+// partner's streak and the shared "together" streak are computed from these.
+model CheckIn {
+  id        String   @id @default(uuid())
+  userId    String
+  day       String // yyyy-MM-dd in the user's own timezone
+  mood      Int? // 1..5
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId, day])
+}

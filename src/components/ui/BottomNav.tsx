@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useDialog } from '@/components/ui/useDialog'
 import { openAssistant, openCommand } from '@/lib/uiEvents'
+import { useUnread } from '@/lib/useUnread'
 
 /**
  * Phone navigation (v4): a floating dock with two tabs either side of a
@@ -17,6 +18,7 @@ export function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
   const [showMore, setShowMore] = useState(false)
+  const unread = useUnread()
   const sheetRef = useDialog<HTMLDivElement>(showMore, () => setShowMore(false))
 
   const tabs = MOBILE_TABS.map((href) => {
@@ -85,7 +87,7 @@ export function BottomNav() {
           </div>
 
           {right.map((t) => tab({ ...t, active: isNavActive(pathname, t.href), onClick: () => go(t.href) }))}
-          {tab({ name: 'More', href: '#more', icon: LayoutGrid, hint: 'Every page', active: moreActive || showMore, onClick: () => setShowMore(true) })}
+          {tab({ name: unread > 0 ? `More · ${unread}` : 'More', href: '#more', icon: LayoutGrid, hint: 'Every page', active: moreActive || showMore, onClick: () => setShowMore(true) })}
         </nav>
       </div>
 
@@ -154,7 +156,8 @@ export function BottomNav() {
                                 active ? 'border-gold/40 bg-gold/[0.12]' : 'border-gold/10 bg-ink/30 hover:border-gold/30'
                               }`}
                             >
-                              <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${active ? 'bg-gold text-ink' : 'bg-gold/[0.08] text-gold'}`}>
+                              <span className={`relative flex h-10 w-10 items-center justify-center rounded-xl ${active ? 'bg-gold text-ink' : 'bg-gold/[0.08] text-gold'}`}>
+                                {link.href === '/partners' && unread > 0 && <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-ember px-1 font-mono text-[10px] font-bold text-ink">{unread}</span>}
                                 <Icon className="h-5 w-5" strokeWidth={1.7} aria-hidden />
                               </span>
                               <span className={`text-[12px] leading-tight ${active ? 'font-semibold text-parchment' : 'font-medium text-parchment/75'}`}>{link.name}</span>

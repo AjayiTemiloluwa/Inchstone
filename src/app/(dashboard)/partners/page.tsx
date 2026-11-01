@@ -18,9 +18,13 @@ import {
   Target,
   CalendarDays,
   Copy,
+  Flame,
+  Handshake,
+  CheckCheck,
+  Check,
 } from 'lucide-react'
-import { format } from 'date-fns'
-import { Scramble } from '@/components/ui/motion'
+import { format, isSameDay, isToday, isYesterday } from 'date-fns'
+import { CheckInCard, DayDots, type CheckInData } from '@/components/partners/CheckInCard'
 import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
 import {
@@ -144,6 +148,10 @@ export default function PartnersPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showNudges, setShowNudges] = useState(false)
+  // Streaks and unread counts (live).
+  const [checkins, setCheckins] = useState<CheckInData | null>(null)
+  const [checkingIn, setCheckingIn] = useState(false)
+  const [unread, setUnread] = useState<Record<string, number>>({})
 
   const copyInviteLink = async (code: string, id: string) => {
     const url = `${window.location.origin}/partners/accept?code=${code}`
@@ -253,6 +261,48 @@ export default function PartnersPage() {
     Promise.all([partners, nudges, shared]).finally(() => setLoading(false))
   }, [])
 
+  const localToday = () => format(new Date(), 'yyyy-MM-dd')
+  const loadCheckins = async () => {
+    try {
+      const res = await fetch(`/api/checkins?today=${localToday()}`, { cache: 'no-store' })
+      if (res.ok) setCheckins(await res.json())
+    } catch { /* optional */ }
+  }
+  const loadUnread = async () => {
+    try {
+      const res = await fetch('/api/messages/unread', { cache: 'no-store' })
+      if (res.ok) setUnread((await res.json()).byPartner || {})
+    } catch { /* optional */ }
+  }
+  useEffect(() => {
+    const first = setTimeout(() => { void loadCheckins(); void loadUnread() }, 0)
+    const u = setInterval(() => { if (document.visibilityState === 'visible') void loadUnread() }, 15_000)
+    const c = setInterval(() => { if (document.visibilityState === 'visible') void loadCheckins() }, 60_000)
+    return () => { clearTimeout(first); clearInterval(u); clearInterval(c) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleCheckIn = async (mood: number | null, note: string) => {
+    setCheckingIn(true)
+    try {
+      const res = await fetch('/api/checkins', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ day: localToday(), mood, note }) })
+      if (!res.ok) { showToast((await res.json().catch(() => ({}))).error || 'Could not check in', 'error'); return }
+      const wasIn = checkins?.me.checkedIn
+      await loadCheckins()
+      if (!wasIn) { showToast('Checked in. Keep the streak going 🔥', 'success'); navigator.vibrate?.(30) }
+    } finally { setCheckingIn(false) }
+  }
+
+  /** One-tap nudge to a partner who has not checked in today. */
+  const nudgeToCheckIn = async (partner: Partner) => {
+    const res = await fetch('/api/messages', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partnerId: partner.id, message: `👋 Have you checked in today? Let's keep our streak going!` }),
+    })
+    const data = await res.json().catch(() => ({}))
+    showToast(res.ok ? `Nudged ${partner.name.split(' ')[0]}` : data.error || 'Could not send the nudge', res.ok ? 'success' : 'error')
+  }
+
   const fetchMessages = async (partnerId: string, opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoadingMessages(true)
     try {
@@ -272,6 +322,8 @@ export default function PartnersPage() {
   // up to ~25s and answers the moment the thread changes, so a quiet chat
   // costs a couple of lightweight requests a minute — no 5-second hammering.
   const messagesRef = useRef<Message[]>([])
+  const myIdRef = useRef<string | null>(null)
+  useEffect(() => { myIdRef.current = myId }, [myId])
   useEffect(() => { messagesRef.current = messages }, [messages])
 
   useEffect(() => {
@@ -284,7 +336,7 @@ export default function PartnersPage() {
       while (!stop) {
         try {
           const res = await fetch(
-            `/api/messages/wait?partnerId=${partnerId}&known=${messagesRef.current.length}`,
+            `/api/messages/wait?partnerId=${partnerId}&known=${messagesRef.current.length}&seen=${messagesRef.current.filter(m => myIdRef.current && m.senderId === myIdRef.current && m.read).length}`,
             { signal: controller.signal, cache: 'no-store' }
           )
           if (stop) return
@@ -382,6 +434,7 @@ export default function PartnersPage() {
 
   const handleSelectPartner = async (partner: Partner) => {
     setSelectedPartner(partner)
+    setUnread(u => { const n = { ...u }; delete n[partner.id]; return n })
     setMessages([])
     await fetchMessages(partner.id)
   }
@@ -460,7 +513,15 @@ export default function PartnersPage() {
         <Avatar name={selectedPartner.name} size="sm" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-heading text-parchment">{selectedPartner.name}</h2>
-          <p className="truncate text-caption text-parchment/50">{selectedPartner.role}</p>
+          {(() => {
+            const st = checkins?.partners.find(p => p.partnerId === selectedPartner.id)
+            return st
+              ? <p className="flex items-center gap-2 truncate text-caption text-parchment/50">
+                  <span className={cx('inline-flex items-center gap-1', st.checkedIn ? 'text-moss' : '')}>{st.checkedIn ? 'Checked in today' : 'Not checked in yet'}</span>
+                  <span className="inline-flex items-center gap-1 text-ember"><Handshake className="h-3 w-3" aria-hidden /> {st.together}d together</span>
+                </p>
+              : <p className="truncate text-caption text-parchment/50">{selectedPartner.role}</p>
+          })()}
         </div>
         <IconButton icon={X} label="Close conversation" onClick={handleBack} className="max-lg:hidden" />
       </div>
@@ -485,19 +546,35 @@ export default function PartnersPage() {
           </div>
         ) : (
           <div className="flex flex-col space-y-3 px-4 py-4">
-            {messages.map((msg) => {
+            {messages.map((msg, i) => {
               const isSent = myId ? msg.senderId === myId : msg.senderId === msg.receiverId
+              const when = new Date(msg.createdAt)
+              const newDay = i === 0 || !isSameDay(when, new Date(messages[i - 1].createdAt))
+              const lastMine = isSent && !messages.slice(i + 1).some(m => m.senderId === msg.senderId)
               return (
+                <div key={msg.id} className="flex flex-col">
+                {newDay && (
+                  <div className="my-2 flex items-center gap-3" aria-hidden>
+                    <span className="h-px flex-1 bg-gold/10" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/40">
+                      {isToday(when) ? 'Today' : isYesterday(when) ? 'Yesterday' : format(when, 'EEE d MMM')}
+                    </span>
+                    <span className="h-px flex-1 bg-gold/10" />
+                  </div>
+                )}
                 <div
-                  key={msg.id}
                   className={`flex flex-col ${isSent ? 'items-end' : 'items-start'}`}
                 >
                   <div className={isSent ? 'message-bubble-sent' : 'message-bubble-received'}>
                     <p className="text-sm leading-relaxed">{msg.message}</p>
                   </div>
-                  <span className="mt-1 px-1 font-mono text-[10px] tabular-nums text-parchment/40">
-                    {format(new Date(msg.createdAt), 'MMM d, h:mm a')}
+                  <span className="mt-1 flex items-center gap-1 px-1 font-mono text-[10px] tabular-nums text-parchment/40">
+                    {format(when, 'h:mm a')}
+                    {lastMine && (msg.read
+                      ? <span className="inline-flex items-center gap-0.5 text-moss"><CheckCheck className="h-3 w-3" aria-hidden /> Seen</span>
+                      : <span className="inline-flex items-center gap-0.5"><Check className="h-3 w-3" aria-hidden /> Sent</span>)}
                   </span>
+                </div>
                 </div>
               )
             })}
@@ -548,8 +625,8 @@ export default function PartnersPage() {
       <div className={cx('space-y-6', selectedPartner && 'max-lg:hidden')}>
         <PageHeader
           eyebrow="Accountability"
-          title={<Scramble text="Partners" mono={false} />}
-          description="Manage your accountability partners"
+          title="Partners"
+          description="Keep each other going: check in every day, build streaks together, and talk it through."
           meta={partners.length > 0 ? `${partners.length} ${partners.length === 1 ? 'partner' : 'partners'}` : undefined}
           actions={
             <>
@@ -579,6 +656,8 @@ export default function PartnersPage() {
             </>
           }
         />
+
+        {checkins && <CheckInCard data={checkins} onCheckIn={handleCheckIn} busy={checkingIn} />}
 
         {/* Invite delivery notice — honest about what actually happened */}
         {inviteNotice && (
@@ -769,7 +848,14 @@ export default function PartnersPage() {
                           >
                             <Avatar name={partner.name} />
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-heading text-parchment transition-colors group-hover:text-gold">{partner.name}</span>
+                              <span className="flex items-center gap-2">
+                                <span className="block truncate text-heading text-parchment transition-colors group-hover:text-gold">{partner.name}</span>
+                                {unread[partner.id] > 0 && (
+                                  <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-ember px-1.5 font-mono text-[10px] font-bold tabular-nums text-ink" aria-label={`${unread[partner.id]} unread`}>
+                                    {unread[partner.id]}
+                                  </span>
+                                )}
+                              </span>
                               <span className="mt-0.5 flex items-center gap-1 truncate text-caption text-parchment/50">
                                 <Mail className="h-3 w-3 shrink-0" strokeWidth={1.5} aria-hidden="true" />
                                 <span className="truncate">{partner.email}</span>
@@ -789,6 +875,34 @@ export default function PartnersPage() {
                           )}
                           <RowActions actions={actions} label={`Actions for ${partner.name}`} />
                         </div>
+
+                        {/* Streaks */}
+                        {(() => {
+                          const st = checkins?.partners.find(p => p.partnerId === partner.id)
+                          if (!st) return null
+                          return (
+                            <div className="flex flex-wrap items-center gap-2 pl-1 sm:pl-[3.75rem]">
+                              <span className={cx('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[11px] tabular-nums',
+                                st.checkedIn ? 'border-moss/40 bg-moss/10 text-moss' : 'border-gold/15 text-parchment/50')}>
+                                {st.checkedIn ? <Check className="h-3 w-3" strokeWidth={3} aria-hidden /> : null}
+                                {st.checkedIn ? 'In today' : 'Not in yet'}
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-full border border-ember/30 px-2.5 py-1 font-mono text-[11px] tabular-nums text-ember" title={`${partner.name.split(' ')[0]}'s streak`}>
+                                <Flame className="h-3 w-3" aria-hidden /> {st.streak}
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-full border border-gold/30 px-2.5 py-1 font-mono text-[11px] tabular-nums text-gold" title={`Days you both checked in in a row (best ${st.bestTogether})`}>
+                                <Handshake className="h-3 w-3" aria-hidden /> {st.together}d together
+                              </span>
+                              <DayDots days={st.days} tone="moss" />
+                              {!st.checkedIn && (
+                                <button type="button" onClick={() => nudgeToCheckIn(partner)}
+                                  className="ml-auto rounded-full border border-gold/25 px-3 py-1 text-xs text-gold transition-colors hover:bg-gold/10">
+                                  Nudge to check in
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()}
 
                         {/* Sharing + invite controls */}
                         <div className="flex flex-wrap items-center gap-2 pl-1 sm:pl-[3.75rem]">

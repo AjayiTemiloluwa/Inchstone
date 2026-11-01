@@ -6,6 +6,7 @@ import { ChevronsLeft, ChevronsRight, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLayoutStore } from '@/stores/layoutStore'
+import { useUnread } from '@/lib/useUnread'
 import { WorkClock } from '@/components/ui/WorkClock'
 import { NAV_GROUPS, SETTINGS_LINK, isNavActive, type NavLink } from '@/components/ds/nav'
 
@@ -108,6 +109,7 @@ function SidebarBody({
   onNavigate?: () => void
   drawer?: boolean
 }) {
+  const unread = useUnread()
   const row = (link: NavLink) => {
     const Icon = link.icon
     const active = isNavActive(pathname, link.href)
@@ -138,6 +140,9 @@ function SidebarBody({
         )}
         <Icon className={`relative h-[18px] w-[18px] shrink-0 ${active ? 'text-gold' : 'text-gold-dim group-hover:text-gold'}`} strokeWidth={1.6} />
         {!collapsed && <span className="relative truncate">{link.name}</span>}
+        {link.href === '/partners' && unread > 0 && (
+          <span className={`relative ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-ember px-1.5 font-mono text-[10px] font-bold tabular-nums text-ink ${collapsed ? 'absolute right-1 top-0.5 ml-0 h-4 min-w-4 px-1' : ''}`} aria-label={`${unread} unread messages`}>{unread}</span>
+        )}
       </Link>
     )
   }

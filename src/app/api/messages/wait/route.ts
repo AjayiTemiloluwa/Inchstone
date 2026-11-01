@@ -16,7 +16,7 @@ import { conversationAnchorId, conversationFilter } from '@/lib/partnerChat'
 export const maxDuration = 60 // headroom above the 25s wait window (Vercel)
 
 const WAIT_MS = 25_000
-const CHECK_EVERY_MS = 2_000
+const CHECK_EVERY_MS = 1_500
 
 export async function GET(req: Request) {
     try {
@@ -26,6 +26,8 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url)
         const partnerId = searchParams.get('partnerId')
         const known = Number(searchParams.get('known') ?? '0')
+        // How many of MY messages the client already shows as seen.
+        const seen = Number(searchParams.get('seen') ?? '-1')
 
         if (!partnerId || !Number.isFinite(known)) {
             return NextResponse.json({ error: 'partnerId and known are required' }, { status: 400 })
@@ -43,8 +45,13 @@ export async function GET(req: Request) {
         const deadline = Date.now() + WAIT_MS
 
         while (Date.now() < deadline) {
-            const count = await prisma.nudge.count({ where: filter })
-            if (count !== known) {
+            const [count, seenNow] = await Promise.all([
+                prisma.nudge.count({ where: filter }),
+                prisma.nudge.count({ where: { ...filter, senderId: userId, read: true } }),
+            ])
+            if (count !== known || (seen >= 0 && seenNow !== seen)) {
+                // The chat is open: anything new from them is read now.
+                await prisma.nudge.updateMany({ where: { partnerId: anchorId, receiverId: userId, read: false }, data: { read: true } })
                 const messages = await prisma.nudge.findMany({
                     where: filter,
                     orderBy: { createdAt: 'asc' },

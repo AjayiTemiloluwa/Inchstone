@@ -30,6 +30,9 @@ export async function GET(req: Request) {
         // doesn't matter whose card the chat was opened from.
         const anchorId = await conversationAnchorId(partner)
 
+        // Opening the conversation reads it: their messages to me become seen.
+        await prisma.nudge.updateMany({ where: { partnerId: anchorId, receiverId: userId, read: false }, data: { read: true } })
+
         const messages = await prisma.nudge.findMany({
             where: conversationFilter(anchorId, userId),
             orderBy: { createdAt: 'asc' },
@@ -90,6 +93,8 @@ export async function POST(req: Request) {
             // Resolve the RECIPIENT's own partner row so the tap deep-links
             // into THEIR chat (their mirror row on their side), not ours.
             const theirRow = await findMirrorRow(partner.connectionUserId, userId)
+            const me = await prisma.profile.findUnique({ where: { userId }, select: { name: true, email: true } })
+            const senderName = me?.name || me?.email?.split('@')[0] || 'your partner'
 
             const subscriptions = await prisma.pushSubscription.findMany({
                 where: { userId: partner.connectionUserId }
@@ -101,7 +106,7 @@ export async function POST(req: Request) {
                 const ok = await sendNotification(
                     { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
                     {
-                        title: `Message from ${partner.name}`,
+                        title: `Message from ${theirRow?.name || senderName}`,
                         body: message.slice(0, 140),
                         url: deepLink,
                         tag: `msg-${anchorId}`,
