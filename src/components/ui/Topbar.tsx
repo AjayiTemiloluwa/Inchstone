@@ -13,7 +13,11 @@ export function Topbar() {
   const pathname = usePathname()
 
   const { title, group } = routeMeta(pathname)
-  const { hidden, toggleHidden } = useLayoutStore()
+  const { hidden, toggleHidden, drawerOpen, setDrawer } = useLayoutStore()
+  const toggleSidebar = () => {
+    if (window.matchMedia('(min-width: 1024px)').matches) toggleHidden()
+    else setDrawer(!drawerOpen)
+  }
 
   return (
     <header className="topbar-h bg-ink/90 backdrop-blur-xl border-b border-gold/10 flex shrink-0 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -22,11 +26,11 @@ export function Topbar() {
         {/* Desktop only: open or close the sidebar. */}
         <button
           type="button"
-          onClick={toggleHidden}
+          onClick={toggleSidebar}
           aria-label={hidden ? 'Open sidebar' : 'Close sidebar'}
           aria-expanded={!hidden}
           title={hidden ? 'Open sidebar' : 'Close sidebar'}
-          className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gold/15 text-parchment/60 transition-colors hover:border-gold/40 hover:text-parchment lg:flex"
+          className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gold/15 text-parchment/60 transition-colors hover:border-gold/40 hover:text-parchment md:flex"
         >
           {hidden ? <PanelLeftOpen className="h-[18px] w-[18px]" strokeWidth={1.6} /> : <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={1.6} />}
         </button>

@@ -2121,6 +2121,16 @@ html.lenis body {
 }
 
 /* ── Masked line reveal (RevealLines) ────────────────────────── */
+/* Page header ambience: glows that drift slowly behind the title. */
+@keyframes hero-orb-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-48px, 28px, 0) scale(1.15); }
+  100% { transform: translate3d(24px, 56px, 0) scale(0.95); }
+}
+.hero-orb { animation: hero-orb-drift 16s ease-in-out infinite alternate; will-change: transform; }
+.hero-orb--slow { animation-duration: 23s; animation-direction: alternate-reverse; }
+@media (prefers-reduced-motion: reduce) { .hero-orb { animation: none; } }
+
 .line-mask {
   display: block;
   overflow: hidden;

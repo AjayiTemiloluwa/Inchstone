@@ -57,7 +57,8 @@ export function PageHeader({
   // into the subline.
   return (
     <header data-noreveal className={cx('relative overflow-hidden rounded-xl border border-gold/15 bg-surface-solid p-5 sm:p-7 lg:p-8', className)}>
-      <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-gold/[0.07] blur-3xl" />
+      <span aria-hidden="true" className="hero-orb pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gold/[0.09] blur-3xl" />
+      <span aria-hidden="true" className="hero-orb hero-orb--slow pointer-events-none absolute -bottom-32 left-1/4 h-64 w-64 rounded-full bg-ember/[0.05] blur-3xl" />
       {(eyebrow || meta) && (
         <div className="relative flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-gold/10 pb-3.5">
           {eyebrow ? <div className="min-w-0 font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/45">{eyebrow}</div> : <span />}

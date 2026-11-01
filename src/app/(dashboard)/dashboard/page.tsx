@@ -62,7 +62,7 @@ const EYEBROW = 'font-mono text-[10px] uppercase tracking-[0.2em] text-parchment
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user } = useUser()
+  const { user, isLoaded: userLoaded } = useUser()
   const { items, completionMap, setItems, getFlatItems, updateItem } = useHierarchyStore()
   const amb = useAmbient()
   const [loading, setLoading] = useState(true)
@@ -163,7 +163,14 @@ export default function DashboardPage() {
   const deedsPct = todayDeeds.length > 0 ? Math.round((doneToday / todayDeeds.length) * 100) : 0
   const yearPct = Math.round((dayOfYear / 365) * 100)
   const latestNudge = nudges[0]
-  const firstName = user?.firstName?.trim() || ''
+  // First name, else the first word of the full name, the username or the
+  // email; blank (never "friend") while the account is still loading.
+  const firstName =
+    user?.firstName?.trim() ||
+    user?.fullName?.trim().split(/\s+/)[0] ||
+    user?.username?.trim() ||
+    user?.primaryEmailAddress?.emailAddress?.split('@')[0] ||
+    ''
 
   // Keep the dashboard in sync with the day page: a deed's completion lives on
   // its Task(s). The tasks API recalculates the deed's progress (and every
@@ -264,14 +271,16 @@ export default function DashboardPage() {
             // The greeting is the page: oversized, tight-set, the name in gold on its own line.
             // Sized from the card's own width (container units), so "Good afternoon,"
             // always fits on one line whether or not the sidebar is open.
+            <Float delay={0.2} duration={10} amp={4} className="block w-full">
             <span className="block w-full whitespace-nowrap leading-[1.02] tracking-[-0.025em] [container-type:inline-size]">
-              <span className="block text-parchment text-[clamp(1.9rem,11.5cqi,6.75rem)]">
+              <span className="block text-parchment text-[clamp(1.25rem,10.5cqi,6.5rem)]">
                 <RevealLines delay={80} fluid lines={[`${greeting},`]} />
               </span>
-              <span className="block italic text-gold text-[clamp(1.9rem,11.5cqi,6.75rem)]">
-                <RevealLines delay={220} fluid lines={[firstName ? `${firstName}.` : 'friend.']} />
+              <span className="block min-h-[1.02em] italic text-gold text-[clamp(1.25rem,10.5cqi,6.5rem)]">
+                {userLoaded && <RevealLines delay={220} fluid lines={[firstName ? `${firstName}.` : 'friend.']} />}
               </span>
             </span>
+            </Float>
           }
           description={
             <span className="font-mono text-mono uppercase tracking-[0.18em] text-parchment/50">
