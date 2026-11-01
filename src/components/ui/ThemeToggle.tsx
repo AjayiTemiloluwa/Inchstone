@@ -47,7 +47,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
       data-cursor={dark ? 'Flip the lights' : 'Dim it down'}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-parchment/60 transition-colors hover:bg-gold/[0.08] hover:text-gold"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-parchment/60 transition-colors hover:bg-parchment/[0.06] hover:text-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
     >
       {ready && (dark ? <Sun className="h-[18px] w-[18px]" strokeWidth={1.5} /> : <Moon className="h-[18px] w-[18px]" strokeWidth={1.5} />)}
     </button>

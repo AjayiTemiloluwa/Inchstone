@@ -3,22 +3,23 @@
 import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { ChevronRight, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
 import { WorkClock } from "@/components/ui/WorkClock";
 import { YearPickerChip } from "@/components/ui/YearPicker";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { routeMeta } from "@/components/ds/nav";
 import { useLayoutStore } from "@/stores/layoutStore";
-import { openCommand } from "@/lib/uiEvents";
+import { openAssistant, openCommand } from "@/lib/uiEvents";
 
 /**
- * Top bar (v4): one calm row that stays pinned while the page scrolls.
- *   left   sidebar toggle · "Group / Page" in the display face
- *   centre search-or-jump field (Ctrl K), desktop
- *   right  one control pill: year · live time · theme, then the avatar
- * No boxed buttons or stacked dividers: controls are borderless inside a
- * single hairline pill, so the bar reads as one instrument.
+ * Top bar (v5): a quiet, solid 56px row pinned while the page scrolls.
+ *   left   sidebar toggle · breadcrumb "Group › Page" in the UI face
+ *          (the page itself carries the big display title, so the bar does not repeat it)
+ *   centre search-or-jump field (Ctrl K) on desktop
+ *   right  Ask AI · year · theme | avatar — every control the same 32px, square-rounded, ghost
  */
+const iconBtn = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-parchment/60 transition-colors hover:bg-parchment/[0.06] hover:text-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40'
+
 export function Topbar() {
   const pathname = usePathname()
   const { title, group } = routeMeta(pathname)
@@ -29,59 +30,57 @@ export function Topbar() {
   }
 
   return (
-    <header className="topbar-h sticky top-0 z-40 flex shrink-0 items-center gap-3 border-b border-gold/10 bg-ink/80 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-ink/65 sm:px-5 lg:px-6">
-      {/* Left */}
-      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          aria-label={hidden ? 'Open sidebar' : 'Toggle sidebar'}
-          title="Toggle sidebar"
-          className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-parchment/55 transition-colors hover:bg-gold/[0.08] hover:text-parchment md:flex"
-        >
+    <header className="topbar-h sticky top-0 z-40 flex shrink-0 items-center gap-3 border-b border-parchment/[0.07] bg-ink px-3 pt-[env(safe-area-inset-top,0px)] sm:px-4 lg:px-5">
+      {/* Left: toggle + breadcrumb */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <button type="button" onClick={toggleSidebar} aria-label={hidden ? 'Open sidebar' : 'Toggle sidebar'} title="Toggle sidebar" className={`${iconBtn} hidden md:flex`}>
           {hidden ? <PanelLeftOpen className="h-[18px] w-[18px]" strokeWidth={1.6} /> : <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={1.6} />}
         </button>
         {/* Phones have no sidebar: the mark doubles as the home link. */}
         <Link href="/dashboard" aria-label="Inchstone home" className="flex shrink-0 md:hidden">
-          <WorkClock size={26} progress={100} />
+          <WorkClock size={24} progress={100} />
         </Link>
-        <h2 className="flex min-w-0 items-baseline gap-2 leading-none">
-          {group && <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.24em] text-parchment/40 sm:inline">{group} /</span>}
-          <span className="truncate font-display text-[19px] font-bold tracking-[-0.01em] text-parchment sm:text-[21px]">{title}</span>
-        </h2>
+        <span aria-hidden className="mx-1 hidden h-4 w-px bg-parchment/10 md:block" />
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[13px] leading-none">
+          {group && (
+            <>
+              <span className="hidden shrink-0 text-parchment/45 sm:inline">{group}</span>
+              <ChevronRight aria-hidden className="hidden h-3.5 w-3.5 shrink-0 text-parchment/25 sm:block" />
+            </>
+          )}
+          <span aria-current="page" className="truncate text-[14px] font-semibold text-parchment">{title}</span>
+        </nav>
       </div>
 
       {/* Centre: search */}
       <button
         type="button"
         onClick={openCommand}
-        className="hidden h-9 w-full max-w-[320px] items-center gap-2.5 rounded-full border border-gold/15 bg-surface-solid/60 px-3.5 text-sm text-parchment/45 transition-colors hover:border-gold/35 hover:text-parchment/75 lg:flex"
+        className="hidden h-8 w-full max-w-[340px] items-center gap-2 rounded-lg border border-parchment/10 bg-parchment/[0.03] px-2.5 text-[13px] text-parchment/45 transition-colors hover:border-parchment/20 hover:text-parchment/70 lg:flex"
       >
-        <Search className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+        <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
         <span className="flex-1 text-left">Search or jump to…</span>
-        <kbd className="rounded-md border border-gold/15 px-1.5 py-0.5 font-mono text-[10px] text-parchment/40">Ctrl K</kbd>
+        <kbd className="rounded border border-parchment/10 px-1.5 py-px font-sans text-[10px] font-medium text-parchment/40">Ctrl K</kbd>
       </button>
 
       {/* Right */}
-      <div className="flex flex-1 items-center justify-end gap-2">
-        <button type="button" onClick={openCommand} aria-label="Search"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-parchment/55 hover:bg-gold/[0.08] hover:text-parchment lg:hidden">
+      <div className="flex flex-1 items-center justify-end gap-1">
+        <button type="button" onClick={openCommand} aria-label="Search" className={`${iconBtn} lg:hidden`}>
           <Search className="h-[18px] w-[18px]" strokeWidth={1.7} />
         </button>
-        <div className="flex items-center gap-0.5 rounded-full border border-gold/15 bg-surface-solid/60 p-0.5">
-          <YearPickerChip />
-          <span aria-hidden className="hidden h-5 w-px bg-gold/15 sm:block" />
-          <span className="hidden items-center px-2 sm:inline-flex">
-            <WorkClock size={20} progress={100} showTime />
-          </span>
-          <span aria-hidden className="h-5 w-px bg-gold/15" />
-          <ThemeToggle />
-        </div>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+        <button type="button" onClick={openAssistant} aria-label="Ask AI"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-parchment/70 transition-colors hover:bg-parchment/[0.06] hover:text-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40 sm:px-2.5">
+          <Sparkles className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
+          <span className="hidden sm:inline">Ask AI</span>
+        </button>
+        <YearPickerChip />
+        <ThemeToggle />
+        <span aria-hidden className="mx-1.5 h-5 w-px bg-parchment/10" />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center">
           <UserButton
             appearance={{
               elements: {
-                avatarBox: 'size-8 rounded-full ring-2 ring-gold/25',
+                avatarBox: 'size-7 rounded-full',
                 userButtonTrigger: 'rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50',
               },
             }}

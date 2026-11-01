@@ -297,7 +297,7 @@ export function YearPickerChip() {
         aria-haspopup="menu"
         aria-expanded={open}
         data-cursor="Switch year"
-        className="flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold tabular-nums text-parchment transition-colors hover:bg-gold/[0.08] hover:text-gold"
+        className="flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-[13px] font-medium tabular-nums text-parchment/70 transition-colors hover:bg-parchment/[0.06] hover:text-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
       >
         <span className="tabular-nums leading-none">{activeYear}</span>
         <motion.span
@@ -306,7 +306,7 @@ export function YearPickerChip() {
           transition={{ type: 'spring', stiffness: 420, damping: 28 }}
           className="inline-flex"
         >
-          <ChevronDown className="h-4 w-4 text-gold-dim" />
+          <ChevronDown className="h-3.5 w-3.5 text-parchment/40" />
         </motion.span>
       </button>
 

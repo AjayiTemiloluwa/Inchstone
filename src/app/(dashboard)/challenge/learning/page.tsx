@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpenCheck, Layers, Plus, Sparkles, X } from 'lucide-react'
+import { NotebookPen, PenLine, Plus, Sparkles, X, Zap } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
-import { Badge, Button, EmptyState, Field, Meter, Page, PageHeader, Panel, Section, Stat, StatGrid, cx, inputClass } from '@/components/ds'
+import { Badge, Button, EmptyState, Field, Meter, Page, PageHeader, Panel, Section, cx, inputClass } from '@/components/ds'
 import { ChallengeTabs } from '@/components/applications/ChallengeTabs'
 
 interface TrackRow {
@@ -24,6 +24,13 @@ interface TrackRow {
 
 const LEVELS = ['Complete beginner', 'Know the basics', 'Intermediate', 'Advanced']
 
+type Start = 'own' | 'import' | 'ai'
+const STARTS: { value: Start; icon: typeof PenLine; title: string; body: string }[] = [
+  { value: 'own', icon: PenLine, title: 'Write my own', body: 'Add sections yourself and keep notes in them.' },
+  { value: 'import', icon: NotebookPen, title: 'Import my notes', body: 'Paste notes; the AI splits them into sections.' },
+  { value: 'ai', icon: Sparkles, title: 'Plan it with AI', body: 'The AI suggests the sections for a topic.' },
+]
+
 export default function LearningLabPage() {
   const router = useRouter()
   const { showToast } = useToast()
@@ -31,7 +38,7 @@ export default function LearningLabPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [f, setF] = useState({ title: '', subject: '', goal: '', emoji: '', level: LEVELS[0], start: 'ai' as 'ai' | 'notes' | 'empty', inOrder: true })
+  const [f, setF] = useState({ title: '', goal: '', level: LEVELS[0], start: 'own' as Start })
 
   const load = useCallback(async () => {
     try {
@@ -46,25 +53,27 @@ export default function LearningLabPage() {
     return () => window.removeEventListener('inchstone:data-changed', on)
   }, [load])
 
-  const create = async () => {
+  const create = async (e: React.FormEvent) => {
+    e.preventDefault()
     if (!f.title.trim()) { showToast('Name what you are learning', 'error'); return }
     setSaving(true)
     try {
-      const res = await fetch('/api/learning', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...f, outline: f.start === 'ai' }) })
+      // AI-planned tracks unlock step by step; your own sections are all open.
+      const res = await fetch('/api/learning', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: f.title, goal: f.start === 'ai' ? f.goal : '', level: f.level, outline: f.start === 'ai', inOrder: f.start === 'ai' }),
+      })
       const data = await res.json()
       if (!res.ok) { showToast(data.error || 'Could not create it', 'error'); return }
       if (data.outlineError) showToast(data.outlineError, 'error')
-      else if (data.outlined) showToast(`Your path is ready: ${data.outlined} sections`, 'success')
-      router.push(`/challenge/learning/${data.track.id}${f.start === 'notes' ? '?start=notes' : ''}`)
+      else if (data.outlined) showToast(`Your plan is ready: ${data.outlined} sections`, 'success')
+      router.push(`/challenge/learning/${data.track.id}${f.start === 'import' ? '?start=notes' : ''}`)
     } catch { showToast('Network error', 'error') } finally { setSaving(false) }
   }
 
   if (loading) return <Loader routeKey="challenge" />
 
-  const active = tracks.filter((t) => !t.completedAt)
   const due = tracks.reduce((n, t) => n + t.due, 0)
-  const cards = tracks.reduce((n, t) => n + t.cards, 0)
-  const sectionsDone = tracks.reduce((n, t) => n + t.progress.done, 0)
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF((x) => ({ ...x, [k]: e.target.value }))
 
   return (
@@ -72,89 +81,73 @@ export default function LearningLabPage() {
       <PageHeader
         eyebrow="Challenge"
         title="Learning Lab"
-        description="Learn anything your way: sections for each subject, quick notes inside them, concepts and flashcards pulled out of what you wrote, and reviews that come back just before you forget."
-        actions={<Button variant="primary" icon={creating ? X : Plus} onClick={() => setCreating((v) => !v)}>{creating ? 'Close' : 'Start learning'}</Button>}
+        description="Keep notes by subject, and turn them into flashcards that come back just before you forget."
+        actions={<Button variant="primary" icon={creating ? X : Plus} onClick={() => setCreating((v) => !v)}>{creating ? 'Close' : 'New track'}</Button>}
       />
       <ChallengeTabs />
 
-      <StatGrid>
-        <Stat label="Learning now" value={active.length} caption={`${tracks.length - active.length} finished`} icon={BookOpenCheck} />
-        <Stat label="Sections done" value={sectionsDone} tone="gold" caption="across every track" icon={Layers} />
-        <Stat label="Cards due" value={due} tone={due ? 'ember' : 'moss'} caption={due ? 'ready to review' : 'all caught up'} />
-        <Stat label="Flashcards" value={cards} caption="in your decks" />
-      </StatGrid>
-
       {creating && (
-        <Section title="New learning track">
+        <form onSubmit={create}>
           <Panel className="space-y-5 animate-fadeIn">
-            <div className="grid gap-4 sm:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)]">
-              <Field label="Icon"><input value={f.emoji} onChange={set('emoji')} placeholder="📘" maxLength={4} className={cx(inputClass, 'text-center text-lg')} /></Field>
-              <Field label="What are you learning?"><input autoFocus value={f.title} onChange={set('title')} placeholder="Financial accounting basics" className={inputClass} /></Field>
-              <Field label="Subject"><input value={f.subject} onChange={set('subject')} placeholder="Accounting" className={inputClass} /></Field>
-            </div>
-            <Field label="Your goal" hint="The AI shapes the path around it.">
-              <textarea value={f.goal} onChange={set('goal')} rows={2} placeholder="Pass the ICAN foundation exam in March" className={cx(inputClass, 'py-2.5')} />
+            <Field label="What are you learning?">
+              <input autoFocus value={f.title} onChange={set('title')} placeholder="e.g. Finance degree, CFA Level 1, Spanish" className={inputClass} />
             </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Where you are starting">
-                <select value={f.level} onChange={set('level')} className={inputClass}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
-              </Field>
-              <fieldset className="space-y-1.5">
-                <legend className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">How to start</legend>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {([['ai', 'Build it with AI'], ['notes', 'From my notes'], ['empty', 'Start empty']] as const).map(([v, label]) => (
-                    <button key={v} type="button" onClick={() => setF((x) => ({ ...x, start: v, inOrder: v === 'ai' }))} aria-pressed={f.start === v}
-                      className={cx('min-h-11 rounded-xl border px-2 text-xs font-semibold transition-colors', f.start === v ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/60 hover:border-gold/35')}>
-                      {v === 'ai' && <Sparkles className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{label}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            </div>
-            <fieldset className="space-y-1.5">
-              <legend className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">How sections work</legend>
-              <div className="grid gap-1.5 sm:grid-cols-2">
-                {([[false, 'Subjects', 'Every section is open. Keep notes in any of them, e.g. Financial Engineering.'], [true, 'Step by step', 'Each section unlocks when you finish the one before.']] as const).map(([v, label, hint]) => (
-                  <button key={label} type="button" onClick={() => setF((x) => ({ ...x, inOrder: v }))} aria-pressed={f.inOrder === v}
-                    className={cx('rounded-xl border px-3 py-2.5 text-left transition-colors', f.inOrder === v ? 'border-gold/60 bg-gold/10' : 'border-gold/15 hover:border-gold/35')}>
-                    <span className={cx('block text-sm font-semibold', f.inOrder === v ? 'text-gold' : 'text-parchment/80')}>{label}</span>
-                    <span className="block text-caption text-parchment/50">{hint}</span>
+            <fieldset className="space-y-2">
+              <legend className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">How do you want to start?</legend>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {STARTS.map(({ value, icon: Icon, title, body }) => (
+                  <button key={value} type="button" onClick={() => setF((x) => ({ ...x, start: value }))} aria-pressed={f.start === value}
+                    className={cx('flex flex-col gap-1 rounded-xl border p-3 text-left transition-colors', f.start === value ? 'border-gold/60 bg-gold/10' : 'border-gold/15 hover:border-gold/35')}>
+                    <span className={cx('flex items-center gap-2 text-sm font-semibold', f.start === value ? 'text-gold' : 'text-parchment')}><Icon className="h-4 w-4" aria-hidden />{title}</span>
+                    <span className="text-caption text-parchment/55">{body}</span>
                   </button>
                 ))}
               </div>
             </fieldset>
+            {f.start === 'ai' && (
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] animate-fadeIn">
+                <Field label="Your goal (optional)"><input value={f.goal} onChange={set('goal')} placeholder="Pass the ICAN foundation exam in March" className={inputClass} /></Field>
+                <Field label="Your level"><select value={f.level} onChange={set('level')} className={inputClass}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select></Field>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button>
-              <Button variant="primary" onClick={create} disabled={saving}>{saving ? (f.start === 'ai' ? 'Building your path… (about 30s)' : 'Creating…') : 'Create track'}</Button>
+              <Button type="submit" variant="primary" disabled={saving}>{saving ? (f.start === 'ai' ? 'Planning… (about 30s)' : 'Creating…') : 'Create'}</Button>
             </div>
           </Panel>
-        </Section>
+        </form>
+      )}
+
+      {due > 0 && (
+        <Panel className="flex flex-wrap items-center justify-between gap-3 border-gold/30">
+          <p className="text-sm text-parchment/80"><span className="font-semibold text-parchment">{due} flashcards</span> are due for review across your tracks.</p>
+          <span className="inline-flex items-center gap-1.5 text-xs text-parchment/50"><Zap className="h-3.5 w-3.5 text-gold" /> Open a track to review</span>
+        </Panel>
       )}
 
       <Section title="Your tracks">
         {tracks.length === 0 ? (
-          <EmptyState title="Nothing in the lab yet" body="Start a track for anything you want to learn: an exam, a language, a skill, a book."
-            action={<Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>Start learning</Button>} />
+          <EmptyState title="Nothing here yet" body="A track is anything you are learning. Inside it, add a section for each subject and keep your notes there."
+            action={<Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>New track</Button>} />
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {tracks.map((t) => (
               <Link key={t.id} href={`/challenge/learning/${t.id}`} className="group block focus-visible:outline-none">
-                <Panel interactive className="flex h-full flex-col gap-4 group-focus-visible:ring-2 group-focus-visible:ring-gold/40">
+                <Panel interactive className="flex h-full flex-col gap-3 group-focus-visible:ring-2 group-focus-visible:ring-gold/40">
                   <div className="flex items-start gap-3">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/10 text-2xl">{t.emoji || '📘'}</span>
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold/10 text-xl">{t.emoji || '📘'}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/40">{t.subject || 'Learning'}</p>
                       <h3 className="truncate font-display text-xl font-bold text-parchment">{t.title}</h3>
-                      <p className="truncate text-caption text-parchment/55">{t.completedAt ? 'Finished. Well done.' : t.current ? `Now: ${t.current}` : 'Add your first section'}</p>
+                      <p className="text-caption text-parchment/55">{t.progress.total} sections · {t.cards} flashcards</p>
                     </div>
                     {t.completedAt ? <Badge tone="moss">Done</Badge> : t.due > 0 ? <Badge tone="ember">{t.due} due</Badge> : null}
                   </div>
-                  <div className="mt-auto space-y-1.5">
-                    <div className="flex justify-between font-mono text-[10px] uppercase tracking-[0.16em] text-parchment/45">
-                      <span>{t.progress.done} of {t.progress.total} sections</span><span className="tabular-nums">{t.progress.pct}%</span>
+                  {t.progress.total > 0 && (
+                    <div className="mt-auto space-y-1">
+                      <Meter value={t.progress.pct} tone={t.progress.pct >= 100 ? 'moss' : 'gold'} />
+                      <p className="font-mono text-[10px] text-parchment/40">{t.progress.done} of {t.progress.total} sections finished</p>
                     </div>
-                    <Meter value={t.progress.pct} tone={t.progress.pct >= 100 ? 'moss' : 'gold'} />
-                  </div>
+                  )}
                 </Panel>
               </Link>
             ))}
