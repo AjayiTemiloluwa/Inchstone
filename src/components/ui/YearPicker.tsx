@@ -297,7 +297,7 @@ export function YearPickerChip() {
         aria-haspopup="menu"
         aria-expanded={open}
         data-cursor="Switch year"
-        className="flex h-10 min-w-[5.75rem] items-center justify-center gap-2 rounded-lg border border-gold-dim/30 bg-white/[0.04] px-3.5 text-[15px] font-bold text-parchment transition-colors hover:border-gold/50 hover:bg-white/[0.06] hover:text-gold"
+        className="flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold tabular-nums text-parchment transition-colors hover:bg-gold/[0.08] hover:text-gold"
       >
         <span className="tabular-nums leading-none">{activeYear}</span>
         <motion.span

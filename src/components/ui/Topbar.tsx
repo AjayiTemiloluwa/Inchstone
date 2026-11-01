@@ -2,16 +2,25 @@
 
 import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { WorkClock } from "@/components/ui/WorkClock";
 import { YearPickerChip } from "@/components/ui/YearPicker";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { routeMeta } from "@/components/ds/nav";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useLayoutStore } from "@/stores/layoutStore";
+import { openCommand } from "@/lib/uiEvents";
 
+/**
+ * Top bar (v4): one calm row that stays pinned while the page scrolls.
+ *   left   sidebar toggle · "Group / Page" in the display face
+ *   centre search-or-jump field (Ctrl K), desktop
+ *   right  one control pill: year · live time · theme, then the avatar
+ * No boxed buttons or stacked dividers: controls are borderless inside a
+ * single hairline pill, so the bar reads as one instrument.
+ */
 export function Topbar() {
   const pathname = usePathname()
-
   const { title, group } = routeMeta(pathname)
   const { hidden, toggleHidden, drawerOpen, setDrawer } = useLayoutStore()
   const toggleSidebar = () => {
@@ -20,50 +29,60 @@ export function Topbar() {
   }
 
   return (
-    <header className="topbar-h bg-ink/90 backdrop-blur-xl border-b border-gold/10 flex shrink-0 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-      {/* Left: where you are. Group as a mono eyebrow, page name beneath (v3). */}
-      <div className="flex min-w-0 items-center gap-3">
-        {/* Desktop only: open or close the sidebar. */}
+    <header className="topbar-h sticky top-0 z-40 flex shrink-0 items-center gap-3 border-b border-gold/10 bg-ink/80 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-ink/65 sm:px-5 lg:px-6">
+      {/* Left */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={toggleSidebar}
-          aria-label={hidden ? 'Open sidebar' : 'Close sidebar'}
-          aria-expanded={!hidden}
-          title={hidden ? 'Open sidebar' : 'Close sidebar'}
-          className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gold/15 text-parchment/60 transition-colors hover:border-gold/40 hover:text-parchment md:flex"
+          aria-label={hidden ? 'Open sidebar' : 'Toggle sidebar'}
+          title="Toggle sidebar"
+          className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-parchment/55 transition-colors hover:bg-gold/[0.08] hover:text-parchment md:flex"
         >
           {hidden ? <PanelLeftOpen className="h-[18px] w-[18px]" strokeWidth={1.6} /> : <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={1.6} />}
         </button>
-      <div className="flex min-w-0 flex-col justify-center">
-        {group && <span className="hidden font-mono text-[9px] uppercase tracking-[0.26em] text-gold-dim sm:block">{group}</span>}
-        <h2 className="truncate text-[17px] font-semibold leading-tight tracking-tight text-parchment">{title}</h2>
-      </div>
+        {/* Phones have no sidebar: the mark doubles as the home link. */}
+        <Link href="/dashboard" aria-label="Inchstone home" className="flex shrink-0 md:hidden">
+          <WorkClock size={26} progress={100} />
+        </Link>
+        <h2 className="flex min-w-0 items-baseline gap-2 leading-none">
+          {group && <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.24em] text-parchment/40 sm:inline">{group} /</span>}
+          <span className="truncate font-display text-[19px] font-bold tracking-[-0.01em] text-parchment sm:text-[21px]">{title}</span>
+        </h2>
       </div>
 
-      {/* Right: year workspace picker + live work clock + theme + Clerk profile.
-          Standard app-bar rules: every control is a 40px target, groups are
-          separated by a 1px gold-dim rule, and the avatar sits last (thumb
-          reach). The clock is desktop-only — on mobile the bottom bar's active
-          glyph already carries the brand mark, so the row stays lean. */}
-      <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
-        <YearPickerChip />
-        <span aria-hidden className="hidden h-6 w-px bg-gold-dim/25 sm:block" />
-        <span className="hidden sm:inline-flex">
-          <WorkClock size={24} progress={100} showTime />
-        </span>
-        <span aria-hidden className="hidden h-6 w-px bg-gold-dim/25 sm:block" />
-        <ThemeToggle />
-        <span aria-hidden className="h-6 w-px bg-gold-dim/25" />
-        {/* Clerk profile: the button is capped by a fixed 40px slot so the
-            avatar can never paint taller than the bar (Clerk's remote UI
-            defaults to a 36px box; the appearance class shrinks the ring so
-            the whole control stays inside the 40px target). */}
-        <span className="flex h-10 w-10 items-center justify-center">
+      {/* Centre: search */}
+      <button
+        type="button"
+        onClick={openCommand}
+        className="hidden h-9 w-full max-w-[320px] items-center gap-2.5 rounded-full border border-gold/15 bg-surface-solid/60 px-3.5 text-sm text-parchment/45 transition-colors hover:border-gold/35 hover:text-parchment/75 lg:flex"
+      >
+        <Search className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden />
+        <span className="flex-1 text-left">Search or jump to…</span>
+        <kbd className="rounded-md border border-gold/15 px-1.5 py-0.5 font-mono text-[10px] text-parchment/40">Ctrl K</kbd>
+      </button>
+
+      {/* Right */}
+      <div className="flex flex-1 items-center justify-end gap-2">
+        <button type="button" onClick={openCommand} aria-label="Search"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-parchment/55 hover:bg-gold/[0.08] hover:text-parchment lg:hidden">
+          <Search className="h-[18px] w-[18px]" strokeWidth={1.7} />
+        </button>
+        <div className="flex items-center gap-0.5 rounded-full border border-gold/15 bg-surface-solid/60 p-0.5">
+          <YearPickerChip />
+          <span aria-hidden className="hidden h-5 w-px bg-gold/15 sm:block" />
+          <span className="hidden items-center px-2 sm:inline-flex">
+            <WorkClock size={20} progress={100} showTime />
+          </span>
+          <span aria-hidden className="h-5 w-px bg-gold/15" />
+          <ThemeToggle />
+        </div>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center">
           <UserButton
             appearance={{
               elements: {
-                avatarBox: 'size-9 rounded-full ring-1 ring-gold-dim/40',
-                userButtonTrigger: 'rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-dim/60',
+                avatarBox: 'size-8 rounded-full ring-2 ring-gold/25',
+                userButtonTrigger: 'rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/50',
               },
             }}
           />
