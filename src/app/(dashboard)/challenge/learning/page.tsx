@@ -31,7 +31,7 @@ export default function LearningLabPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [f, setF] = useState({ title: '', subject: '', goal: '', emoji: '', level: LEVELS[0], outline: true })
+  const [f, setF] = useState({ title: '', subject: '', goal: '', emoji: '', level: LEVELS[0], start: 'ai' as 'ai' | 'notes' | 'empty' })
 
   const load = useCallback(async () => {
     try {
@@ -50,12 +50,12 @@ export default function LearningLabPage() {
     if (!f.title.trim()) { showToast('Name what you are learning', 'error'); return }
     setSaving(true)
     try {
-      const res = await fetch('/api/learning', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })
+      const res = await fetch('/api/learning', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...f, outline: f.start === 'ai' }) })
       const data = await res.json()
       if (!res.ok) { showToast(data.error || 'Could not create it', 'error'); return }
       if (data.outlineError) showToast(data.outlineError, 'error')
       else if (data.outlined) showToast(`Your path is ready: ${data.outlined} sections`, 'success')
-      router.push(`/challenge/learning/${data.track.id}`)
+      router.push(`/challenge/learning/${data.track.id}${f.start === 'notes' ? '?start=notes' : ''}`)
     } catch { showToast('Network error', 'error') } finally { setSaving(false) }
   }
 
@@ -99,14 +99,21 @@ export default function LearningLabPage() {
               <Field label="Where you are starting">
                 <select value={f.level} onChange={set('level')} className={inputClass}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>
               </Field>
-              <label className="flex items-center gap-3 self-end rounded-xl border border-gold/20 px-3 py-3">
-                <input type="checkbox" checked={f.outline} onChange={(e) => setF((x) => ({ ...x, outline: e.target.checked }))} className="h-4 w-4 accent-[rgb(var(--gold-rgb))]" />
-                <span className="text-sm text-parchment/80"><Sparkles className="mr-1 inline h-4 w-4 text-gold" aria-hidden />Let AI build the path of sections and key concepts</span>
-              </label>
+              <fieldset className="space-y-1.5">
+                <legend className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">How to start</legend>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([['ai', 'Build it with AI'], ['notes', 'From my notes'], ['empty', 'Start empty']] as const).map(([v, label]) => (
+                    <button key={v} type="button" onClick={() => setF((x) => ({ ...x, start: v }))} aria-pressed={f.start === v}
+                      className={cx('min-h-11 rounded-xl border px-2 text-xs font-semibold transition-colors', f.start === v ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/60 hover:border-gold/35')}>
+                      {v === 'ai' && <Sparkles className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button>
-              <Button variant="primary" onClick={create} disabled={saving}>{saving ? (f.outline ? 'Building your path… (about 30s)' : 'Creating…') : 'Create track'}</Button>
+              <Button variant="primary" onClick={create} disabled={saving}>{saving ? (f.start === 'ai' ? 'Building your path… (about 30s)' : 'Creating…') : 'Create track'}</Button>
             </div>
           </Panel>
         </Section>

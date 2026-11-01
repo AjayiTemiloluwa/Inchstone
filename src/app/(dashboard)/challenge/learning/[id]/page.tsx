@@ -5,13 +5,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Archive, BookOpen, Check, FileText, Link2, Lock, NotebookPen, Paperclip, Pencil, Plus, Sparkles,
-  Trash2, Trophy, Upload, Zap,
+  Trash2, Trophy, Upload, Zap, ArrowUp, ArrowDown, Wand2, ChevronDown,
 } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
 import { useToast } from '@/components/ui/ToastProvider'
 import { Badge, Button, EmptyState, IconButton, Meter, Page, PageHeader, Panel, RowActions, Section, Segmented, cx, inputClass } from '@/components/ds'
 import { ChallengeTabs } from '@/components/applications/ChallengeTabs'
 import { StudyDeck, type StudyCard } from '@/components/learning/StudyDeck'
+import { NotesPicker } from '@/components/learning/NotesPicker'
 
 interface Concept { id: string; term: string; explanation: string }
 interface Material { id: string; kind: 'note' | 'link' | 'file'; title: string; url: string | null; content: string | null; fileName: string | null; mime: string | null; size: number | null }
@@ -62,6 +63,19 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
   const [ai, setAi] = useState<string | null>(null)
   const [study, setStudy] = useState<{ cards: StudyCard[]; title: string } | null>(null)
   const [newSection, setNewSection] = useState('')
+  const [sectionMore, setSectionMore] = useState(false)
+  const [sectionExtra, setSectionExtra] = useState({ summary: '', concepts: '' })
+  const [organize, setOrganize] = useState<{ text: string; picking: boolean } | null>(null)
+  const [organizing, setOrganizing] = useState(false)
+  const [pickNotes, setPickNotes] = useState(false)
+  const [editConcept, setEditConcept] = useState<Concept | null>(null)
+  const orgFileRef = useRef<HTMLInputElement>(null)
+  // Arriving from "From my notes": open the import panel straight away.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('start') !== 'notes') return
+    const t = setTimeout(() => setOrganize({ text: '', picking: true }), 0)
+    return () => clearTimeout(t)
+  }, [])
   const [editingNotes, setEditingNotes] = useState<string | null>(null)
   const [concept, setConcept] = useState({ term: '', explanation: '' })
   const [mat, setMat] = useState<{ kind: 'note' | 'link'; title: string; url: string; content: string } | null>(null)
@@ -189,7 +203,39 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         {/* Path */}
-        <Section title="Your path">
+        <Section title="Your path" action={
+          <Button size="sm" variant="ghost" icon={Wand2} onClick={() => setOrganize(o => (o ? null : { text: '', picking: false }))}>From my notes</Button>
+        }>
+          {organize && (
+            <div className="mb-4 space-y-3 rounded-2xl border border-gold/25 bg-surface-solid p-4 animate-fadeIn">
+              <p className="text-sm font-semibold text-parchment">Build sections from your own notes</p>
+              <p className="text-caption text-parchment/55">Paste class notes, a syllabus or a chapter, pick notes you already wrote, or upload a text file. The AI splits it into sections and concepts using only what you give it, and keeps the original text with each section.</p>
+              <textarea value={organize.text} onChange={(e) => setOrganize({ ...organize, text: e.target.value })} rows={8} placeholder="Paste your notes here…" aria-label="Your notes" className={textarea} />
+              <div className="flex flex-wrap items-center gap-2">
+                <input ref={orgFileRef} type="file" accept=".txt,.md,.markdown,.csv,.json,.html,text/*" className="hidden"
+                  onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { const t = await f.text(); setOrganize(o => o && { ...o, text: (o.text ? o.text + '\n\n' : '') + t.slice(0, 24000) }) } }} />
+                <Button size="sm" variant="ghost" icon={Upload} onClick={() => orgFileRef.current?.click()}>Text file</Button>
+                <Button size="sm" variant="ghost" icon={NotebookPen} onClick={() => setOrganize({ ...organize, picking: true })}>Pick from Notes</Button>
+                <span className="ml-auto font-mono text-[10px] text-parchment/40">{organize.text.length.toLocaleString()} / 24,000</span>
+              </div>
+              {organize.picking && (
+                <NotesPicker cta="Use" onClose={() => setOrganize({ ...organize, picking: false })}
+                  onPick={(ns) => setOrganize({ picking: false, text: [organize.text, ...ns.map(n => `# ${n.title}\n${n.text}`)].filter(Boolean).join('\n\n').slice(0, 24000) })} />
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setOrganize(null)}>Cancel</Button>
+                <Button variant="primary" icon={Sparkles} disabled={organizing || organize.text.trim().length < 40}
+                  onClick={async () => {
+                    setOrganizing(true)
+                    const data = await api(`/api/learning/${track.id}`, 'POST', { kind: 'organize', text: organize.text })
+                    setOrganizing(false)
+                    if (data) { showToast(`Added ${data.added} sections from your notes`, 'success'); setOrganize(null); await load() }
+                  }}>
+                  {organizing ? 'Organising… (about 30s)' : 'Make sections'}
+                </Button>
+              </div>
+            </div>
+          )}
           <ol className="relative space-y-1">
             {track.sections.map((s, i) => (
               <li key={s.id} className="relative">
@@ -214,9 +260,27 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
               </li>
             ))}
           </ol>
-          <form className="mt-3 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (!newSection.trim()) return; if (await api(`/api/learning/${track.id}`, 'POST', { title: newSection })) { setNewSection(''); await load() } }}>
-            <input value={newSection} onChange={(e) => setNewSection(e.target.value)} placeholder="Add a section" aria-label="New section title" className={inputClass} />
-            <Button type="submit" icon={Plus} disabled={!newSection.trim()} aria-label="Add section"><span className="sr-only">Add</span></Button>
+          <form className="mt-3 space-y-2 rounded-xl border border-gold/15 p-3" onSubmit={async (e) => {
+            e.preventDefault()
+            if (!newSection.trim()) return
+            if (await api(`/api/learning/${track.id}`, 'POST', { title: newSection, ...sectionExtra })) {
+              setNewSection(''); setSectionExtra({ summary: '', concepts: '' }); setSectionMore(false); await load()
+            }
+          }}>
+            <div className="flex gap-2">
+              <input value={newSection} onChange={(e) => setNewSection(e.target.value)} placeholder="New section title" aria-label="New section title" className={inputClass} />
+              <Button type="submit" icon={Plus} disabled={!newSection.trim()}>Add</Button>
+            </div>
+            <button type="button" onClick={() => setSectionMore(v => !v)} className="inline-flex items-center gap-1 text-xs text-parchment/50 hover:text-gold">
+              <ChevronDown className={cx('h-3.5 w-3.5 transition-transform', sectionMore && 'rotate-180')} /> Summary and concepts
+            </button>
+            {sectionMore && (
+              <div className="space-y-2 animate-fadeIn">
+                <input value={sectionExtra.summary} onChange={(e) => setSectionExtra({ ...sectionExtra, summary: e.target.value })} placeholder="What this section covers" aria-label="Summary" className={inputClass} />
+                <textarea value={sectionExtra.concepts} onChange={(e) => setSectionExtra({ ...sectionExtra, concepts: e.target.value })} rows={4}
+                  placeholder={'One concept per line, e.g.\nMean — the average of the values\nMedian — the middle value'} aria-label="Concepts" className={textarea} />
+              </div>
+            )}
           </form>
         </Section>
 
@@ -241,6 +305,9 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                     : <Button variant="primary" icon={Check} disabled={locked} onClick={() => complete(true)} title={locked ? 'Finish the sections before this one first' : undefined}>Mark finished</Button>}
                   <RowActions className="[&>button]:opacity-100" actions={[
                     { label: 'Rename', icon: Pencil, onSelect: async () => { const t = window.prompt('Section title', sec.title); if (t && t.trim() && await patchSection({ title: t })) await load() } },
+                    { label: 'Edit summary', icon: NotebookPen, onSelect: async () => { const t = window.prompt('What this section covers', sec.summary ?? ''); if (t !== null && await patchSection({ summary: t })) await load() } },
+                    ...(sec.order > 0 ? [{ label: 'Move up', icon: ArrowUp, onSelect: async () => { if (await patchSection({ move: 'up' })) await load() } }] : []),
+                    ...(sec.order < track.sections.length - 1 ? [{ label: 'Move down', icon: ArrowDown, onSelect: async () => { if (await patchSection({ move: 'down' })) await load() } }] : []),
                     { label: 'Delete section', icon: Trash2, destructive: true, onSelect: async () => { if (await confirm(`Delete "${sec.title}"?`) && await api(`/api/learning/sections/${sec.id}`, 'DELETE')) await load() } },
                   ]} />
                 </div>
@@ -260,9 +327,21 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {sec.concepts.map((c) => (
+                      editConcept?.id === c.id ? (
+                        <Panel key={c.id} className="space-y-2 border-l-2 border-l-gold">
+                          <input value={editConcept.term} onChange={(e) => setEditConcept({ ...editConcept, term: e.target.value })} aria-label="Concept" className={inputClass} autoFocus />
+                          <textarea value={editConcept.explanation} onChange={(e) => setEditConcept({ ...editConcept, explanation: e.target.value })} rows={3} aria-label="Explanation" className={textarea} />
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => setEditConcept(null)}>Cancel</Button>
+                            <Button size="sm" variant="primary" onClick={async () => { if (await patchSection({ concepts: sec.concepts.map(x => x.id === c.id ? editConcept : x) })) { setEditConcept(null); await load() } }}>Save</Button>
+                          </div>
+                        </Panel>
+                      ) :
                       <Panel key={c.id} className="group relative space-y-1.5 border-l-2 border-l-gold/60">
-                        <p className="font-display text-lg font-bold text-gold">{c.term}</p>
-                        <p className="text-sm leading-relaxed text-parchment/75">{c.explanation}</p>
+                        <button type="button" onClick={() => setEditConcept(c)} className="block text-left" title="Edit concept">
+                          <p className="font-display text-lg font-bold text-gold">{c.term}</p>
+                          <p className="text-sm leading-relaxed text-parchment/75">{c.explanation || <span className="text-parchment/35">Add what it means</span>}</p>
+                        </button>
                         <IconButton icon={Trash2} tone="danger" label={`Remove ${c.term}`} className="absolute right-2 top-2 can-hover:opacity-0 can-hover:group-hover:opacity-100"
                           onClick={async () => { if (await patchSection({ concepts: sec.concepts.filter((x) => x.id !== c.id) })) await load() }} />
                       </Panel>
@@ -306,11 +385,22 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
               <Section title="Materials" action={
                 <div className="flex gap-2">
                   <input ref={fileRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f) }} />
+                  <Button size="sm" variant="ghost" icon={NotebookPen} onClick={() => setPickNotes(v => !v)}>From my notes</Button>
                   <Button size="sm" variant="ghost" icon={FileText} onClick={() => setMat({ kind: 'note', title: '', url: '', content: '' })}>Note</Button>
                   <Button size="sm" variant="ghost" icon={Link2} onClick={() => setMat({ kind: 'link', title: '', url: '', content: '' })}>Link</Button>
                   <Button size="sm" icon={Upload} onClick={() => fileRef.current?.click()}>File</Button>
                 </div>
               } description="Paste class notes, add links or upload files. The AI uses notes and text files to write notes, find concepts and make flashcards.">
+                {pickNotes && (
+                  <div className="mb-3">
+                    <NotesPicker onClose={() => setPickNotes(false)} onPick={async (ns) => {
+                      for (const n of ns) await api(`/api/learning/sections/${sec.id}`, 'POST', { kind: 'note', title: n.title, content: n.text })
+                      setPickNotes(false)
+                      showToast(`Added ${ns.length} note${ns.length === 1 ? '' : 's'}`, 'success')
+                      await load()
+                    }} />
+                  </div>
+                )}
                 {mat && (
                   <Panel className="mb-3 space-y-3 animate-fadeIn">
                     <input value={mat.title} onChange={(e) => setMat({ ...mat, title: e.target.value })} placeholder="Title" aria-label="Title" className={inputClass} autoFocus />

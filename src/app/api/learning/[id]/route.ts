@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { cleanStr, parseDate } from '@/lib/applications'
-import { mastery, sectionStates, trackProgress } from '@/lib/learning'
+import { aiOrganize, conceptsFromLines, mastery, newConceptId, sectionStates, trackProgress } from '@/lib/learning'
 
 // GET    /api/learning/[id] — the track with every section, its state (done/open/locked),
 //                             materials (no file bytes), card counts and mastery
 // PATCH  /api/learning/[id] — rename, change goal/subject/emoji/target, archive
-// POST   /api/learning/[id] — add a section { title, summary? } at the end
+// POST   /api/learning/[id] — add a section { title, summary?, concepts? ("Term — meaning" lines) } at the end,
+//                             or { kind: 'organize', text } to turn the user's own notes into sections
 // DELETE /api/learning/[id] — delete the track and everything in it
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -77,11 +78,39 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!track) return NextResponse.json({ error: 'Track not found' }, { status: 404 })
 
   const b = await req.json().catch(() => ({}))
+  const last = await prisma.learningSection.findFirst({ where: { trackId: id }, orderBy: { order: 'desc' }, select: { order: true } })
+  let order = (last?.order ?? -1) + 1
+
+  if (b.kind === 'organize') {
+    const text = typeof b.text === 'string' ? b.text.trim() : ''
+    if (text.length < 40) return NextResponse.json({ error: 'Paste or pick more of your notes first' }, { status: 400 })
+    const full = await prisma.learningTrack.findUnique({ where: { id }, select: { title: true } })
+    let sections
+    try { sections = await aiOrganize(full!.title, text) } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : 'The AI is unavailable right now' }, { status: 503 })
+    }
+    if (!sections.length) return NextResponse.json({ error: 'The AI could not organise these notes. Try a smaller piece.' }, { status: 502 })
+    for (const s of sections) {
+      const created = await prisma.learningSection.create({
+        data: {
+          trackId: id, userId, title: String(s.title).slice(0, 160), summary: s.summary ? String(s.summary).slice(0, 600) : null, order: order++,
+          concepts: (s.concepts ?? []).slice(0, 12).map((c) => ({ id: newConceptId(), term: String(c.term).slice(0, 120), explanation: String(c.explanation ?? '').slice(0, 800) })),
+        },
+      })
+      if (s.excerpt) await prisma.learningMaterial.create({ data: { sectionId: created.id, userId, kind: 'note', title: 'From your notes', content: String(s.excerpt).slice(0, 8000) } })
+    }
+    await prisma.learningTrack.update({ where: { id }, data: { completedAt: null } })
+    return NextResponse.json({ added: sections.length }, { status: 201 })
+  }
+
   const title = cleanStr(b.title, 160)
   if (!title) return NextResponse.json({ error: 'Give the section a title' }, { status: 400 })
-  const last = await prisma.learningSection.findFirst({ where: { trackId: id }, orderBy: { order: 'desc' }, select: { order: true } })
   const section = await prisma.learningSection.create({
-    data: { trackId: id, userId, title, summary: cleanStr(b.summary, 600), order: (last?.order ?? -1) + 1 },
+    data: {
+      trackId: id, userId, title, summary: cleanStr(b.summary, 600), order,
+      concepts: typeof b.concepts === 'string' ? conceptsFromLines(b.concepts) : [],
+      notes: cleanStr(b.notes, 30000),
+    },
   })
   // A new unfinished section means the track is not finished any more.
   await prisma.learningTrack.update({ where: { id }, data: { completedAt: null } })

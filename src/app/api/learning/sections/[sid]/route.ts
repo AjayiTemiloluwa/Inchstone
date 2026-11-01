@@ -45,6 +45,18 @@ export async function PATCH(req: Request, { params }: Ctx) {
       .map((c) => ({ id: String(c.id || newConceptId()).slice(0, 20), term: String(c.term).trim().slice(0, 120), explanation: String(c.explanation || '').slice(0, 800) }))
   }
 
+  if (b.move === 'up' || b.move === 'down') {
+    const siblings = await prisma.learningSection.findMany({ where: { trackId: section.trackId }, orderBy: { order: 'asc' }, select: { id: true } })
+    const idx = siblings.findIndex((s) => s.id === sid)
+    const to = b.move === 'up' ? idx - 1 : idx + 1
+    if (to >= 0 && to < siblings.length) {
+      const ids = siblings.map((s) => s.id)
+      ;[ids[idx], ids[to]] = [ids[to], ids[idx]]
+      await prisma.$transaction(ids.map((x, i) => prisma.learningSection.update({ where: { id: x }, data: { order: i } })))
+    }
+    return NextResponse.json({ moved: true })
+  }
+
   let unlocked: string | null = null
   let trackDone = false
   if ('complete' in b) {

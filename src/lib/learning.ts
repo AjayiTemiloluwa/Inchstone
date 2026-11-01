@@ -150,3 +150,37 @@ export function readableText(mime: string, name: string, bytes: Uint8Array): str
   return (/\.html?$/i.test(name) ? text.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ') : text)
     .replace(/\s+\n/g, '\n').slice(0, 60000)
 }
+
+export interface OrganizedSection { title: string; summary?: string; concepts?: { term: string; explanation: string }[]; excerpt?: string }
+
+/**
+ * Turn the user's own notes into sections, using ONLY that material: each
+ * section gets its key concepts and the excerpt of the notes it came from.
+ */
+export async function aiOrganize(trackTitle: string, text: string): Promise<OrganizedSection[]> {
+  const body = text.slice(0, 24000)
+  for (const size of ['3 to 10', '3 to 6']) {
+    const reply = await ask(
+      `${TUTOR} The learner pasted their own notes. Organise ONLY this material into ordered sections; do not add facts that are not in it. Reply with JSON only: {"sections":[{"title":"...","summary":"one sentence","concepts":[{"term":"...","explanation":"from the notes, one or two sentences"}],"excerpt":"the part of the notes this section covers, copied verbatim, max 1500 characters"}]}. ${size} sections in a sensible learning order.`,
+      `Track: ${trackTitle}\n\nNotes:\n${body}`,
+      4000,
+    )
+    const out = parseJson<{ sections?: OrganizedSection[] } | OrganizedSection[]>(reply)
+    const sections = (Array.isArray(out) ? out : out?.sections ?? []).filter((s) => s && typeof s.title === 'string' && s.title.trim())
+    if (sections.length) return sections.slice(0, 15)
+  }
+  return []
+}
+
+/** "Term — meaning" / "Term: meaning" lines → concepts. */
+export function conceptsFromLines(text: string): Concept[] {
+  return text
+    .split('\n')
+    .map((l) => l.trim().replace(/^[-*•]\s*/, ''))
+    .filter(Boolean)
+    .map((l) => {
+      const m = l.match(/^(.+?)\s*(?:—|–|-|:)\s+(.+)$/)
+      return { id: newConceptId(), term: (m ? m[1] : l).slice(0, 120), explanation: (m ? m[2] : '').slice(0, 800) }
+    })
+    .slice(0, 30)
+}
