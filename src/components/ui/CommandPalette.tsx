@@ -24,6 +24,7 @@ const NAV: Array<Omit<Command, 'action'>> = [
   { id: 'plans', label: 'Long-term plans', icon: '🎯', keywords: 'goals decades milestones' },
   { id: 'challenge', label: 'Challenge bottles', icon: '🧪', keywords: 'bottles pour challenge' },
   { id: 'challenge/applications', label: 'Application Tracker', icon: '📋', keywords: 'scholarship job school grant visa deadline excel' },
+  { id: 'challenge/learning', label: 'Learning Lab', icon: '🎓', keywords: 'study learn flashcards course exam notes' },
   { id: 'transactions', label: 'Transactions', icon: '🧾', keywords: 'money income expense ledger' },
   { id: 'assistant', label: 'Ask the assistant', icon: '✨', keywords: 'ai chat help question report' },
   { id: 'finance', label: 'Finance & Budgeting', icon: '💰', keywords: 'money purses budget ledger transactions' },

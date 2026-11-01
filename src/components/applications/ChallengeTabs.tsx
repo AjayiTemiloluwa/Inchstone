@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { FlaskConical, ClipboardList } from 'lucide-react'
+import { FlaskConical, ClipboardList, GraduationCap } from 'lucide-react'
 import { cx } from '@/components/ds'
 
-/** The two rooms of Challenge: the bottle wall and the application tracker. */
+/** The rooms of Challenge: the bottle wall, the application tracker and the learning lab. */
 const TABS = [
   { href: '/challenge', label: 'Bottles', icon: FlaskConical },
   { href: '/challenge/applications', label: 'Application Tracker', icon: ClipboardList },
+  { href: '/challenge/learning', label: 'Learning Lab', icon: GraduationCap },
 ]
 
 export function ChallengeTabs() {

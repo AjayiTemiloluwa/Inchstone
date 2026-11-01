@@ -134,7 +134,8 @@ async function post(url: string, key: string, body: unknown, extraHeaders: Recor
   return message
 }
 
-export async function chat(messages: ChatMessage[], tools?: ToolSpec[]): Promise<ChatResult> {
+export async function chat(messages: ChatMessage[], tools?: ToolSpec[], opts: { maxTokens?: number } = {}): Promise<ChatResult> {
+  const maxTokens = opts.maxTokens ?? 1400
   const keys = openRouterKeys()
   const errors: string[] = []
 
@@ -151,7 +152,7 @@ export async function chat(messages: ChatMessage[], tools?: ToolSpec[]): Promise
           const message = await post(
             OPENROUTER_URL,
             keys[ki],
-            { model, messages, ...(tools?.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.4, max_tokens: 1400 },
+            { model, messages, ...(tools?.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.4, max_tokens: maxTokens },
             { 'HTTP-Referer': 'https://myinchstone.vercel.app', 'X-Title': 'Inchstone' },
           )
           return { message, model, provider: 'openrouter' }

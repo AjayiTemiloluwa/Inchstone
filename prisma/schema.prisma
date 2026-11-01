@@ -642,3 +642,84 @@ model ApplicationFile {
 
   @@index([applicationId])
 }
+
+// ── Learning Lab (lives under Challenge) ─────────────────────────────────────
+// A track is something the user is learning, made of ordered sections. A
+// section unlocks once the one before it is finished. Each section holds the
+// key concepts, the user's materials, AI study notes and flashcards that are
+// reviewed on a spaced schedule (SM-2).
+model LearningTrack {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  subject     String?
+  goal        String?
+  emoji       String?
+  targetDate  DateTime?
+  archived    Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sections LearningSection[]
+
+  @@index([userId, archived])
+}
+
+model LearningSection {
+  id          String        @id @default(uuid())
+  trackId     String
+  track       LearningTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  userId      String
+  title       String
+  summary     String?
+  concepts    Json          @default("[]") // [{ id, term, explanation }]
+  notes       String? // AI or user study notes (markdown-ish plain text)
+  order       Int           @default(0)
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  materials LearningMaterial[]
+  cards     Flashcard[]
+
+  @@index([trackId, order])
+  @@index([userId])
+}
+
+model LearningMaterial {
+  id        String          @id @default(uuid())
+  sectionId String
+  section   LearningSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  userId    String
+  kind      String // note | link | file
+  title     String
+  url       String?
+  content   String? // note text, or text extracted from a text file
+  fileName  String?
+  mime      String?
+  size      Int?
+  data      Bytes?
+  createdAt DateTime        @default(now())
+
+  @@index([sectionId])
+}
+
+model Flashcard {
+  id         String          @id @default(uuid())
+  sectionId  String
+  section    LearningSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  userId     String
+  front      String
+  back       String
+  ease       Float           @default(2.5)
+  interval   Int             @default(0) // days
+  reps       Int             @default(0)
+  lapses     Int             @default(0)
+  due        DateTime        @default(now())
+  lastReview DateTime?
+  createdAt  DateTime        @default(now())
+
+  @@index([sectionId])
+  @@index([userId, due])
+}

@@ -202,6 +202,27 @@ export const TABLES: Record<string, TableSpec> = {
     date: 'createdAt',
     search: ['label', 'detail'],
   },
+  learning_tracks: {
+    model: 'learningTrack',
+    about: 'Learning Lab tracks (what the user is learning).',
+    fields: ['id', 'title', 'subject', 'goal', 'targetDate', 'completedAt', 'archived'],
+    date: 'createdAt',
+    search: ['title', 'subject', 'goal'],
+  },
+  learning_sections: {
+    model: 'learningSection',
+    about: 'Sections of a learning track in order (trackId); completedAt set when finished; concepts and study notes.',
+    fields: ['id', 'trackId', 'title', 'summary', 'concepts', 'notes', 'order', 'completedAt'],
+    date: 'createdAt',
+    search: ['title', 'summary', 'notes'],
+  },
+  flashcards: {
+    model: 'flashcard',
+    about: 'Flashcards per section with spaced-repetition state (due, interval days, reps).',
+    fields: ['id', 'sectionId', 'front', 'back', 'due', 'interval', 'reps', 'lapses'],
+    date: 'due',
+    search: ['front', 'back'],
+  },
   application_files: {
     model: 'applicationFile',
     about: 'Names of files uploaded to an application (contents are not readable here).',

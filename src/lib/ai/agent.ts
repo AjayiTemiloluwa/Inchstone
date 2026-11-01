@@ -13,6 +13,7 @@ const APP_GUIDE = [
   '- [Year View](/year): the year, its quarterly quests, monthly milestones and habits; drill into /quarter, /month, /week pages.',
   '- [Long-Term](/plans): plans over months or years with sections, goals, milestones and review sessions.',
   '- [Challenge](/challenge): bottles filled by typing @Bottle amount in reflections; [Application Tracker](/challenge/applications) for scholarships, jobs, schools, grants and visas, with Excel import and deadline alarms.',
+  '- [Learning Lab](/challenge/learning): learning tracks made of sections that unlock in order; each section has key concepts, materials (notes, links, files), AI study notes and flashcards studied with spaced repetition (Again/Hard/Good/Easy). Buttons: Start learning, Find with AI, Write with AI, Make with AI, Study, Review due, Mark finished.',
   '- [Finance](/finance) and [Transactions](/transactions): purses, budgets, allocations, income and expenses.',
   '- [Partners](/partners): accountability partners, shared progress and messages.',
   '- [Notes](/notes): notes and journal entries.',
