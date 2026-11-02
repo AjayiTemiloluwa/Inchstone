@@ -35,11 +35,14 @@ export interface ToolSpec {
 export interface ChatResult {
   message: ChatMessage
   model: string
-  provider: 'openrouter' | 'gemini'
+  provider: 'openrouter' | 'gemini' | 'groq'
 }
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
+/** Groq models that handle tools, best first. */
+const GROQ_MODELS = (process.env.GROQ_MODELS || 'openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b').split(',').map((m) => m.trim()).filter(Boolean)
 const TIMEOUT_MS = 28_000
 const KEY_REST_MS = 10 * 60_000
 const MODEL_REST_MS = 30 * 60_000
@@ -68,8 +71,12 @@ export function openRouterKeys(): string[] {
   return [...new Set(raw.split(',').map((k) => k.trim()).filter(Boolean))]
 }
 
+export function groqKeys(): string[] {
+  return [...new Set((process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',').map((k) => k.trim()).filter(Boolean))]
+}
+
 export function aiConfigured(): boolean {
-  return openRouterKeys().length > 0 || !!process.env.GEMINI_API_KEY
+  return groqKeys().length > 0 || openRouterKeys().length > 0 || !!process.env.GEMINI_API_KEY
 }
 
 async function freeModels(): Promise<string[]> {
@@ -156,6 +163,23 @@ export async function chat(messages: ChatMessage[], tools?: ToolSpec[], opts: { 
   const keys = openRouterKeys()
   const errors: string[] = []
 
+  // Groq first: fast, and its limit is separate from OpenRouter's. Any failure falls through.
+  const gk = groqKeys()
+  for (const model of GROQ_MODELS) {
+    if (!gk.length) break
+    if (isResting(`groq:model:${model}`)) continue
+    const key = gk[rotation++ % gk.length]
+    try {
+      const message = await post(GROQ_URL, key, { model, messages, ...(tools?.length ? { tools, tool_choice: 'auto' } : {}), temperature: 0.4, max_tokens: maxTokens })
+      return { message, model, provider: 'groq' }
+    } catch (e) {
+      const err = e as ProviderError
+      errors.push(`groq ${model}: ${err.status} ${err.message.slice(0, 100)}`)
+      // A daily cap rests the model for an hour; a burst limit or odd reply only briefly.
+      rest(`groq:model:${model}`, err.status === 429 && /day|daily/i.test(err.message) ? 60 * 60_000 : err.status === 401 ? KEY_REST_MS : 2 * 60_000)
+    }
+  }
+
   if (keys.length) {
     const models = (await freeModels()).filter((m) => !isResting(`model:${m}`))
     if (!models.includes(ROUTER)) models.push(ROUTER)
@@ -231,7 +255,7 @@ export async function chat(messages: ChatMessage[], tools?: ToolSpec[], opts: { 
   }
 
   console.error('[ai] every provider failed', errors)
-  if (!keys.length && !gemini) throw new Error('AI is not set up: add OPENROUTER_API_KEYS.')
+  if (!keys.length && !gemini && !gk.length) throw new Error('AI is not set up: add GROQ_API_KEY or OPENROUTER_API_KEYS.')
   if (keys.length && keys.every((_, i) => isResting(`key:${i}`)) && !gemini) {
     throw new Error('Every OpenRouter key is rejected or has used its free daily limit. It resets daily; adding $10 credit to a key raises the free limit to 1,000 a day.')
   }
