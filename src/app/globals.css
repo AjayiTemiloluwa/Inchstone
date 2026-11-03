@@ -2468,3 +2468,24 @@ html:not(.dark) .touch-hint-pill {
     padding-left: 0.75rem;
   }
 }
+
+/* Same on every page, old or new: these are element-level rules, so any screen that uses a
+   native checkbox, radio, field or drop-down gets the phone sizing without opting in. */
+@media (max-width: 768px) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  textarea {
+    min-height: 2.75rem;
+  }
+
+  .text-\[12px\] {
+    font-size: 0.8125rem !important;
+    line-height: 1.35 !important;
+  }
+}
