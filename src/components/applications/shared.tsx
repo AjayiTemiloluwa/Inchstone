@@ -104,7 +104,7 @@ export function ReminderPicker({ value, onChange, disabled }: { value: number[];
           return (
             <button key={c.minutes} type="button" onClick={() => toggle(c.minutes)} aria-pressed={on}
               className={cx(
-                'min-h-9 rounded-full border px-3 text-xs transition-colors disabled:opacity-40',
+                'min-h-11 pointer-fine:min-h-9 rounded-full border px-3 text-xs transition-colors disabled:opacity-40',
                 on ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/55 hover:border-gold/35',
               )}>
               {c.label}

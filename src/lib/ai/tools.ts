@@ -18,6 +18,7 @@ import {
 import type { ToolSpec } from './llm'
 import { DATA_TOOLS } from './dataTools'
 import { ACTION_TOOLS } from './actionTools'
+import { APP_API_TOOLS } from './appApiTool'
 import { WEB_TOOLS } from './webTools'
 
 export interface ToolCtx {
@@ -304,6 +305,6 @@ export type AssistantContext = 'applications' | 'general'
 
 export function toolsFor(context: AssistantContext): Tool[] {
   return context === 'applications'
-    ? [...APPLICATION_TOOLS, ...WEB_TOOLS, ...NOTE_TOOLS, ...DATA_TOOLS, ...ACTION_TOOLS]
-    : [...DATA_TOOLS, ...ACTION_TOOLS, ...NOTE_TOOLS, ...APPLICATION_TOOLS, ...WEB_TOOLS]
+    ? [...APPLICATION_TOOLS, ...WEB_TOOLS, ...NOTE_TOOLS, ...DATA_TOOLS, ...ACTION_TOOLS, ...APP_API_TOOLS]
+    : [...DATA_TOOLS, ...ACTION_TOOLS, ...APP_API_TOOLS, ...NOTE_TOOLS, ...APPLICATION_TOOLS, ...WEB_TOOLS]
 }

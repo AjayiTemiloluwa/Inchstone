@@ -410,7 +410,7 @@ export default function ChallengePage() {
                     </div>
 
                     {/* Target — editable number on each bottle card */}
-                    <div className="flex min-h-9 items-center gap-2">
+                    <div className="flex min-h-11 pointer-fine:min-h-9 items-center gap-2">
                       {targetEditId === bottle.id ? (
                         <>
                           <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/45">Target</span>
@@ -423,7 +423,7 @@ export default function ChallengePage() {
                         </>
                       ) : (
                         <button type="button" onClick={() => openTargetEditor(bottle)} title={bottle.target != null ? 'Edit target' : 'Set a target'}
-                          className="group/target inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-dashed border-gold/20 px-2.5 font-mono text-[11px] tabular-nums text-parchment/50 transition-colors hover:border-gold/50 hover:text-parchment/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40">
+                          className="group/target inline-flex min-h-11 pointer-fine:min-h-9 items-center gap-1.5 rounded-lg border border-dashed border-gold/20 px-2.5 font-mono text-[11px] tabular-nums text-parchment/50 transition-colors hover:border-gold/50 hover:text-parchment/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40">
                           <Target aria-hidden="true" className="h-3.5 w-3.5 text-gold-dim" strokeWidth={1.75} />
                           <span>{bottle.target != null ? `Target ${bottle.target.toLocaleString()}${unit}` : 'Set target'}</span>
                           {bottle.target != null && <Pencil aria-hidden="true" className="h-3 w-3 opacity-0 transition-opacity group-hover/target:opacity-100" />}

@@ -25,7 +25,7 @@ import { useHabitData } from '@/components/day/useHabitData'
 import { DaySchedule, type ScheduleEvent } from '@/components/day/schedule/DaySchedule'
 import { DayHero, EventCard, MagicAdd, QuickCreate, TasksLane, type QuickCreateValues } from '@/components/day/schedule/ScheduleParts'
 import { autoPlan, freeGaps, hhmm } from '@/lib/schedule/layout'
-import type { QuickAdd } from '@/lib/schedule/quickAdd'
+import { matchByTitle, parseEditCommand, type QuickAdd } from '@/lib/schedule/quickAdd'
 import { dedupeGoogleEvents, dedupeTasks, withoutDeedMirrors } from '@/components/day/dedupe'
 import type { DayNote, DeedModalData, DeleteScope, GoogleEventView, NewDeedValues } from '@/components/day/types'
 
@@ -722,8 +722,65 @@ export default function DayPage() {
     if (ok) setQuick(null)
   }
 
+  /** "move gym to 7pm", "rename gym to workout", "delete gym", "done gym", "make gym weekly" … */
+  const runInstruction = async (text: string): Promise<boolean | null> => {
+    const cmd = parseEditCommand(text)
+    if (!cmd) return null
+    const { match, candidates } = matchByTitle(cmd.target, allTasks)
+    // "Finish report 3pm" / "Complete 250 pushups" read like "done …" but may just be a new deed's name.
+    if (!match && cmd.action === 'done' && candidates.length === 0) return null
+    if (!match) {
+      showToast(candidates.length > 1
+        ? `Which one? ${candidates.slice(0, 4).map(c => `"${c.title}"`).join(', ')}. Use more of the name.`
+        : `No deed on this day matches "${cmd.target}".`, 'error')
+      return false
+    }
+    const series = !!(match.isRecurring || match.isHabit)
+    const put = async (body: Record<string, unknown>, ok: string) => {
+      const res = await fetch(`/api/tasks/${match.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (!res.ok) { showToast('Could not save that change', 'error'); return false }
+      await Promise.all([fetchItems(), fetchTodayHabits(), fetchHabitHistory()])
+      showToast(ok, 'success')
+      return true
+    }
+    switch (cmd.action) {
+      case 'move': {
+        if (cmd.dayOffset || cmd.weekday !== null) { showToast('I can change the time from here. To move a deed to another day, open it from that day.', 'error'); return false }
+        if (!cmd.start) { showToast('Say a time, e.g. "move gym to 7pm".', 'error'); return false }
+        const [sh, sm] = cmd.start.split(':').map(Number)
+        const startMin = sh * 60 + sm
+        let endMin = startMin + 60
+        if (cmd.end) { const [eh, em] = cmd.end.split(':').map(Number); endMin = eh * 60 + em }
+        else if (match.startTime && match.endTime) endMin = startMin + Math.max(15, Math.round((new Date(match.endTime).getTime() - new Date(match.startTime).getTime()) / 60000))
+        await retimeTask(match, startMin, endMin)
+        return true
+      }
+      case 'rename':
+        return put({ title: cmd.title, scope: series ? 'all' : 'single' }, `Renamed to "${cmd.title}"${series ? ' across the series' : ''}`)
+      case 'delete':
+        if (!(await confirm(`Delete "${match.title}"${cmd.whole && series ? ' and its whole series' : series ? ' (this day only)' : ''}?`))) return false
+        await performDeleteTask(match.id, cmd.whole && series ? 'all' : 'single')
+        return true
+      case 'done':
+        if (!!match.completed === !cmd.undo) { showToast(`"${match.title}" is already ${cmd.undo ? 'open' : 'done'}`, 'info'); return true }
+        handleToggleTask(match)
+        return true
+      case 'repeat':
+        return put({ isRecurring: true, recurrencePattern: cmd.repeat, scope: 'all' }, `"${match.title}" now repeats ${cmd.repeat}`)
+      case 'stop-repeat':
+        if (!series) { showToast(`"${match.title}" does not repeat`, 'info'); return true }
+        return put({ isRecurring: false, scope: 'future' }, `"${match.title}" no longer repeats from here on`)
+    }
+    return false
+  }
+
   const submitMagic = async (q: QuickAdd): Promise<boolean> => {
-    const target = q.dayOffset ? format(addDays(currentDate, q.dayOffset), 'yyyy-MM-dd') : dateStr
+    const instruction = await runInstruction(q.raw)
+    if (instruction !== null) return instruction
+    // "every monday" starts on the next such weekday; "on friday" lands on it.
+    const wdOffset = q.weekday !== null ? (q.weekday - currentDate.getDay() + 7) % 7 : 0
+    const offset = q.dayOffset || wdOffset
+    const target = offset ? format(addDays(currentDate, offset), 'yyyy-MM-dd') : dateStr
     if (q.kind === 'event') {
       if (!q.start || !q.end) { showToast('Give the event a time, e.g. "Lunch 1-2pm #event"', 'error'); return false }
       return createEvent(q.title, q.start, q.end, target)
@@ -732,6 +789,7 @@ export default function DayPage() {
       ...blankDeed(q.title, q.start ?? '', q.end ?? ''),
       isFrog: q.frog, isImportant: q.important, isHabit: q.habit,
       isRecurring: !!q.repeat && !q.habit, recurrencePattern: q.repeat ?? 'daily',
+      recurrenceEnd: q.repeat && q.until ? q.until : '',
     })
     if (ok && target !== dateStr) showToast(`Added to ${format(parseISO(target), 'EEEE d MMM')}`, 'success')
     return ok

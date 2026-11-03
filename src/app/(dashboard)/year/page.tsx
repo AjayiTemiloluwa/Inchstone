@@ -71,7 +71,7 @@ export default function YearPage() {
       <Page width="wide">
         <YearHero yearItem={yearItem} activeYear={activeYear} score={completionMap[yearItem.id] || 0} onDownloadReport={handleDownloadReport} />
 
-        <YearQuarters quarters={quarters} completionMap={completionMap} />
+        <YearQuarters quarters={quarters} completionMap={completionMap} onSaved={fetchItems} />
 
         {/* key: switching year resets the weight-balancer and accordion state */}
         <YearCategories key={yearItem.id} yearItem={yearItem} categories={orderedCategories} yearlyGoals={yearlyGoals}

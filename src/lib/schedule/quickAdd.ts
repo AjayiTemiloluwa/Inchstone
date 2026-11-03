@@ -9,6 +9,13 @@
 //   Lunch noon-1pm #event     → a calendar event instead of a deed
 //   Pay rent !important       → very important (rings before it starts)
 //   Plan week tomorrow 8am    → on tomorrow's date
+//   Gym every monday 6am      → weekly, starting the next Monday
+//   Study daily until dec 20  → repeats until 20 December
+//   Swim weekly for 6 weeks   → repeats for 6 weeks
+//
+// Edit instructions (see parseEditCommand) act on a deed already on the page:
+//   move gym to 7pm · rename gym to workout · delete gym · done gym
+//   make gym weekly · stop repeating gym
 //
 // Pure and timezone-free: times are wall-clock "HH:mm" on the page's day.
 
@@ -26,6 +33,12 @@ export interface QuickAdd {
   frog: boolean
   important: boolean
   priority: 'high' | 'medium' | 'low' | null
+  /** 0 = Sunday … 6 = Saturday, when the phrase named a weekday ("every monday", "on friday"). */
+  weekday: number | null
+  /** Last day a repeating deed runs, "yyyy-MM-dd" ("until dec 20", "for 6 weeks"). */
+  until: string | null
+  /** The text exactly as typed (an edit instruction is recognised from it). */
+  raw: string
   /** Human read-back of what was understood, for the preview chip. */
   chips: string[]
 }
@@ -47,7 +60,32 @@ function toMinutes(h: string, m: string | undefined, ap: string | undefined, fal
 
 const TIME = String.raw`(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?`
 
-export function parseQuickAdd(input: string): QuickAdd {
+const WEEKDAYS: Record<string, number> = {
+  sunday: 0, sun: 0, monday: 1, mon: 1, tuesday: 2, tues: 2, tue: 2, wednesday: 3, wed: 3,
+  thursday: 4, thurs: 4, thur: 4, thu: 4, friday: 5, fri: 5, saturday: 6, sat: 6,
+}
+const WEEKDAY_RE = 'monday|mon|tuesday|tues|tue|wednesday|wed|thursday|thurs|thur|thu|friday|fri|saturday|sat|sunday|sun'
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+/** "dec 20", "20 dec", "december 20 2026", "2026-12-20" → "yyyy-MM-dd" (next occurrence if already past). */
+export function parseLooseDate(raw: string, today: Date = new Date()): string | null {
+  const t = raw.trim().toLowerCase()
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t)
+  if (iso) return t
+  const md = /^(?:(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3})[a-z]*|([a-z]{3})[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?)(?:,?\s+(\d{4}))?$/.exec(t)
+  if (!md) return null
+  const mon = MONTHS.indexOf((md[2] ?? md[3]) as string)
+  const day = +(md[1] ?? md[4])
+  if (mon < 0 || day < 1 || day > 31) return null
+  let year = md[5] ? +md[5] : today.getFullYear()
+  let d = new Date(year, mon, day)
+  if (!md[5] && d < new Date(today.getFullYear(), today.getMonth(), today.getDate())) d = new Date(++year, mon, day)
+  return ymd(d)
+}
+
+export function parseQuickAdd(input: string, today: Date = new Date()): QuickAdd {
   let text = ` ${input.trim()} `
   const chips: string[] = []
   const take = (re: RegExp) => {
@@ -67,6 +105,18 @@ export function parseQuickAdd(input: string): QuickAdd {
   if (take(/\s(tomorrow|tmrw|tmr)\b/i)) dayOffset = 1
   else take(/\stoday\b/i)
 
+  // "until dec 20" / "till 2026-12-31" / "until end of year"; "for 6 weeks" is handled once we know it repeats
+  let until: string | null = null
+  const untilM = take(/\s(?:until|till|through)\s+(end of (?:the )?year|year end|\d{4}-\d{2}-\d{2}|\d{1,2}(?:st|nd|rd|th)?\s+[a-z]{3,9}(?:,?\s+\d{4})?|[a-z]{3,9}\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?)(?=\s)/i)
+  if (untilM) until = /end of|year end/i.test(untilM[1]) ? `${today.getFullYear()}-12-31` : parseLooseDate(untilM[1], today)
+  const forM = take(/\s(?:for|over)\s+(\d{1,3})\s*(day|week|month)s?(?=\s)/i)
+
+  // "every monday", "on friday", "next tuesday" → a weekday; "every …" also makes it repeat weekly.
+  let weekday: number | null = null
+  let weekdayRepeats = false
+  const wd = take(new RegExp(String.raw`\s(every|on|next)\s+(${WEEKDAY_RE})(?=\s)`, 'i'))
+  if (wd) { weekday = WEEKDAYS[wd[2].toLowerCase()]; weekdayRepeats = wd[1].toLowerCase() === 'every' }
+
   let repeat: Repeat | null = null
   let habit = false
   if (take(/\s(every ?day|daily)\b/i)) { habit = true; repeat = 'daily' }
@@ -75,6 +125,16 @@ export function parseQuickAdd(input: string): QuickAdd {
   else if (take(/\s(every week|weekly)\b/i)) repeat = 'weekly'
   else if (take(/\s(every month|monthly)\b/i)) repeat = 'monthly'
   else if (take(/\s(every year|yearly|annually)\b/i)) repeat = 'yearly'
+  else if (weekdayRepeats) repeat = 'weekly'
+  if (repeat && !until && forM) {
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const n = +forM[1]
+    if (/day/i.test(forM[2])) end.setDate(end.getDate() + n)
+    else if (/week/i.test(forM[2])) end.setDate(end.getDate() + n * 7)
+    else end.setMonth(end.getMonth() + n)
+    until = ymd(end)
+  }
+  if (!repeat) until = null
 
   // Duration: "for 20m", "45 min", "1h", "1.5 hours", "2h30"
   let duration: number | null = null
@@ -109,8 +169,10 @@ export function parseQuickAdd(input: string): QuickAdd {
 
   if (start !== null) chips.push(`${fmt(start)}–${fmt(Math.min(end!, 24 * 60 - 1))}`)
   if (dayOffset === 1) chips.push('Tomorrow')
+  if (weekday !== null) chips.push(weekdayRepeats ? `Every ${WEEKDAY_NAMES[weekday]}` : WEEKDAY_NAMES[weekday])
   if (habit) chips.push('Daily habit')
-  else if (repeat) chips.push(`Repeats ${repeat}`)
+  else if (repeat && !(weekdayRepeats && repeat === 'weekly')) chips.push(`Repeats ${repeat}`)
+  if (until) chips.push(`Until ${until}`)
   if (frog) chips.push('Frog')
   if (important) chips.push('Very important')
   if (priority) chips.push(`${priority[0].toUpperCase()}${priority.slice(1)} priority`)
@@ -127,6 +189,69 @@ export function parseQuickAdd(input: string): QuickAdd {
     frog,
     important,
     priority,
+    weekday,
+    until,
+    raw: input.trim(),
     chips,
   }
+}
+
+// ── Edit instructions ──────────────────────────────────────────────────────
+
+export type EditCommand =
+  | { action: 'move'; target: string; start: string | null; end: string | null; dayOffset: number; weekday: number | null }
+  | { action: 'rename'; target: string; title: string }
+  | { action: 'delete'; target: string; whole: boolean }
+  | { action: 'done'; target: string; undo: boolean }
+  | { action: 'repeat'; target: string; repeat: Repeat; weekday: number | null; until: string | null }
+  | { action: 'stop-repeat'; target: string }
+
+/**
+ * Recognise an instruction that changes a deed that already exists, as opposed to adding a new one.
+ * Returns null when the text is just a new deed. Matching the deed by name is the caller's job.
+ */
+export function parseEditCommand(input: string, today: Date = new Date()): EditCommand | null {
+  const text = input.trim().replace(/\s+/g, ' ')
+  const clean = (v: string) => v.replace(/^(the|my)\s+/i, '').replace(/["“”]/g, '').trim()
+  let m: RegExpExecArray | null
+
+  if ((m = /^(?:move|reschedule|shift|push|change)\s+(.+?)\s+(?:to|for|at)\s+(.+)$/i.exec(text))) {
+    const when = parseQuickAdd(`x ${m[2]}`, today)
+    if (when.start || when.dayOffset || when.weekday !== null) {
+      return { action: 'move', target: clean(m[1]), start: when.start, end: m[2].match(/(-|–|—|\bto\b|\buntil\b)/i) || /\d\s*(m|min|h|hr)/i.test(m[2]) ? when.end : null, dayOffset: when.dayOffset, weekday: when.weekday }
+    }
+  }
+  if ((m = /^rename\s+(.+?)\s+(?:to|as)\s+(.+)$/i.exec(text))) return { action: 'rename', target: clean(m[1]), title: clean(m[2]) }
+  if ((m = /^(?:stop|cancel|end|pause)\s+(?:repeating|repeat|the repeat of)\s+(.+)$/i.exec(text)) ||
+      (m = /^(?:make|set)\s+(.+?)\s+(?:not repeat|one[- ]off|just once)$/i.exec(text))) {
+    return { action: 'stop-repeat', target: clean(m[1]) }
+  }
+  if ((m = /^(?:delete|remove|cancel|drop)\s+(.+)$/i.exec(text))) {
+    const whole = /\s(?:series|every day|all|everywhere)$/i.test(m[1])
+    return { action: 'delete', target: clean(m[1].replace(/\s(?:series|every day|all|everywhere)$/i, '')), whole }
+  }
+  if ((m = /^(?:mark\s+)?(?:done|complete|completed|finish|finished|tick|check)\s+(.+)$/i.exec(text)) ||
+      (m = /^mark\s+(.+?)\s+(?:as\s+)?(?:done|complete|completed)$/i.exec(text))) {
+    return { action: 'done', target: clean(m[1]), undo: false }
+  }
+  if ((m = /^(?:undo|reopen|uncheck|untick)\s+(.+)$/i.exec(text))) return { action: 'done', target: clean(m[1]), undo: true }
+  if ((m = /^(?:make|set|repeat)\s+(.+?)\s+((?:repeat\w*\s+)?(?:every|daily|weekly|weekdays?|monthly|yearly|annually|biweekly|fortnightly).*)$/i.exec(text)) ||
+      (m = /^(?:make|set|repeat)\s+(.+?)\s+(repeat.*)$/i.exec(text))) {
+    const r = parseQuickAdd(`x ${m[2].replace(/^repeat\w*\s+/i, '')}`, today)
+    if (r.repeat) return { action: 'repeat', target: clean(m[1]), repeat: r.repeat, weekday: r.weekday, until: r.until }
+  }
+  return null
+}
+
+/** Best match for a spoken name among deed titles: exact, then starts-with, then contains. */
+export function matchByTitle<T extends { title: string }>(name: string, items: T[]): { match: T | null; candidates: T[] } {
+  const q = name.trim().toLowerCase()
+  if (!q) return { match: null, candidates: [] }
+  const norm = (t: string) => t.trim().toLowerCase()
+  for (const test of [(t: string) => t === q, (t: string) => t.startsWith(q), (t: string) => t.includes(q)]) {
+    const found = items.filter((i) => test(norm(i.title)))
+    if (found.length === 1) return { match: found[0], candidates: found }
+    if (found.length > 1) return { match: null, candidates: found }
+  }
+  return { match: null, candidates: [] }
 }

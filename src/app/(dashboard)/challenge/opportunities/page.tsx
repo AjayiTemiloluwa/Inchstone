@@ -155,7 +155,7 @@ export default function OpportunitiesPage() {
                 const on = typesOn.includes(t)
                 return (
                   <button key={t} type="button" aria-pressed={on} onClick={() => set('types', (on ? typesOn.filter((x) => x !== t) : [...typesOn, t]).join(','))}
-                    className={cx('min-h-9 rounded-full border px-3 text-sm transition-colors', on ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/60 hover:border-gold/35')}>
+                    className={cx('min-h-11 pointer-fine:min-h-9 rounded-full border px-3 text-sm transition-colors', on ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/60 hover:border-gold/35')}>
                     {typeLabel(t)}
                   </button>
                 )
@@ -232,7 +232,7 @@ export default function OpportunitiesPage() {
         {/* Bulk actions */}
         {shown.length > 0 && view !== 'approved' && (
           <div className="sticky top-16 z-10 flex flex-wrap items-center gap-2 rounded-xl border border-gold/20 bg-surface-solid px-3 py-2">
-            <label className="mr-auto flex min-h-9 items-center gap-2 text-sm text-parchment/75">
+            <label className="mr-auto flex min-h-11 pointer-fine:min-h-9 items-center gap-2 text-sm text-parchment/75">
               <input type="checkbox" checked={allPicked} onChange={() => setSelected(allPicked ? new Set() : new Set(shownIds))} className="h-4 w-4 accent-[rgb(var(--gold-rgb))]" />
               {picked.length ? `${picked.length} selected` : 'Select all'}
             </label>

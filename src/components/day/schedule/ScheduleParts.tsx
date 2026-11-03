@@ -6,7 +6,7 @@ import { CalendarClock, Check, ChevronLeft, ChevronRight, CornerDownLeft, Extern
 import type { Task } from '@/stores/hierarchyStore'
 import { Button, cx, inputClass } from '@/components/ds'
 import { WorkClock } from '@/components/ui/WorkClock'
-import { parseQuickAdd, type QuickAdd } from '@/lib/schedule/quickAdd'
+import { parseEditCommand, parseQuickAdd, type EditCommand, type QuickAdd } from '@/lib/schedule/quickAdd'
 import { label12 } from '@/lib/schedule/layout'
 import { openAssistant } from '@/lib/uiEvents'
 import type { ScheduleEvent } from './DaySchedule'
@@ -95,13 +95,25 @@ export function DayHero({
 
 // ── Magic add: type a phrase, see what it understood, press Enter ────────────
 
-const EXAMPLES = ['Gym 6-7pm', 'Call mum at 14:30 for 20m', 'Write SOP 9am !frog', 'Read 20 pages every day', 'Lunch noon-1pm #event', 'Plan the week tomorrow 8am']
+const EXAMPLES = ['Gym 6-7pm', 'Call mum at 14:30 for 20m', 'Write SOP 9am !frog', 'Read 20 pages every day', 'Swim every monday 6am until dec 20', 'move gym to 7pm', 'rename gym to workout', 'make gym weekly', 'done gym', 'Lunch noon-1pm #event']
+
+function describeEdit(c: EditCommand): string {
+  switch (c.action) {
+    case 'move': return `move "${c.target}" to ${c.start ?? 'a new time'}${c.end ? `–${c.end}` : ''}`
+    case 'rename': return `rename "${c.target}" to "${c.title}"`
+    case 'delete': return `delete "${c.target}"${c.whole ? ' (whole series)' : ''}`
+    case 'done': return `${c.undo ? 'reopen' : 'mark done'} "${c.target}"`
+    case 'repeat': return `make "${c.target}" repeat ${c.repeat}`
+    case 'stop-repeat': return `stop "${c.target}" repeating`
+  }
+}
 
 export function MagicAdd({ onSubmit, busy }: { onSubmit: (q: QuickAdd) => Promise<boolean>; busy: boolean }) {
   const [text, setText] = useState('')
   const [hint, setHint] = useState(0)
   const ref = useRef<HTMLInputElement>(null)
   const parsed = useMemo(() => (text.trim() ? parseQuickAdd(text) : null), [text])
+  const instruction = useMemo(() => (text.trim() ? parseEditCommand(text) : null), [text])
 
   useEffect(() => {
     const id = window.setInterval(() => setHint((h) => (h + 1) % EXAMPLES.length), 3500)
@@ -140,12 +152,21 @@ export function MagicAdd({ onSubmit, busy }: { onSubmit: (q: QuickAdd) => Promis
       </div>
       {parsed && (
         <div className="flex flex-wrap items-center gap-1.5 px-2 pb-1 pt-2 animate-fadeIn">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/40">{parsed.kind === 'event' ? 'Event' : 'Deed'}:</span>
-          <span className="text-sm text-parchment">{parsed.title || '…'}</span>
-          {parsed.chips.map((c) => (
-            <span key={c} className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 font-mono text-[10px] text-gold">{c}</span>
-          ))}
-          {!parsed.start && parsed.kind === 'deed' && <span className="font-mono text-[10px] text-parchment/40">no time: goes to Tasks</span>}
+          {instruction ? (
+            <>
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-gold">Edit:</span>
+              <span className="text-sm text-parchment">{describeEdit(instruction)}</span>
+            </>
+          ) : (
+            <>
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/40">{parsed.kind === 'event' ? 'Event' : 'Deed'}:</span>
+              <span className="text-sm text-parchment">{parsed.title || '…'}</span>
+              {parsed.chips.map((c) => (
+                <span key={c} className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 font-mono text-[10px] text-gold">{c}</span>
+              ))}
+              {!parsed.start && parsed.kind === 'deed' && <span className="font-mono text-[10px] text-parchment/40">no time: goes to Tasks</span>}
+            </>
+          )}
           <button type="button" onClick={openAssistant} className="ml-auto inline-flex items-center gap-1 text-xs text-parchment/45 hover:text-gold">
             <Sparkles className="h-3 w-3" aria-hidden /> Ask the assistant instead
           </button>

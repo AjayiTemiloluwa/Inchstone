@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, FileText, Pencil, Trash2 } from 'lucide-react'
 import { IconButton, Panel, RowActions, cx } from '@/components/ds'
 import { useHierarchyStore, type Item } from '@/stores/hierarchyStore'
 import { useDeleteItem } from '../DeleteItemButton'
 import { WeightScoreInputs } from '../WeightScoreInputs'
 import { Meter, Percent } from '../primitives'
+import { ItemEditDialog } from '../ItemEditDialog'
 
 interface YearGoalCardProps {
   goal: Item
@@ -14,10 +15,14 @@ interface YearGoalCardProps {
   open: boolean
   onToggle: () => void
   onDeleted: (id: string) => void | Promise<void>
+  /** Categories the goal can be moved between. */
+  categories?: Item[]
+  onSaved?: () => unknown
 }
 
 /** One yearly goal: inline rename, expandable weight / score sliders, delete. */
-export function YearGoalCard({ goal, score, open, onToggle, onDeleted }: YearGoalCardProps) {
+export function YearGoalCard({ goal, score, open, onToggle, onDeleted, categories, onSaved }: YearGoalCardProps) {
+  const [details, setDetails] = useState(false)
   const updateItem = useHierarchyStore(s => s.updateItem)
   const [editing, setEditing] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
@@ -46,7 +51,8 @@ export function YearGoalCard({ goal, score, open, onToggle, onDeleted }: YearGoa
           <div className="flex shrink-0 items-center gap-1">
             <Percent value={score} className="text-heading text-parchment" />
             <RowActions label="Goal actions" actions={[
-              { label: 'Edit goal name', icon: Pencil, onSelect: startRename },
+              { label: 'Edit details', icon: FileText, onSelect: () => setDetails(true) },
+              { label: 'Rename', icon: Pencil, onSelect: startRename },
               { label: 'Delete Goal', icon: Trash2, destructive: true, onSelect: () => { void remove() } },
             ]} />
           </div>
@@ -57,6 +63,10 @@ export function YearGoalCard({ goal, score, open, onToggle, onDeleted }: YearGoa
             onWeightChange={v => updateItem(goal.id, { weight: v })}
             onScoreChange={v => updateItem(goal.id, { progress: v })} />
         )}
+      {details && (
+        <ItemEditDialog item={goal} heading={goal.title} fields={['title', 'description', 'parent', 'dates']}
+          parentOptions={categories?.map(c => ({ id: c.id, title: c.title }))} onClose={() => setDetails(false)} onSaved={onSaved} />
+      )}
     </Panel>
   )
 }

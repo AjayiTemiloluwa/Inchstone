@@ -91,6 +91,33 @@ internal fun drawTimers(views: RemoteViews, json: JSONObject, accent: Int) {
     views.setProgressBar(R.id.progress, 100, json.optJSONObject("plan")?.optInt("dayProgress", 0) ?: 0, false)
 }
 
+/** Today's deeds as a checklist: ☐ open, ☑ done, with the time when it has one. Up to 5 lines; the count says what is left. */
+internal fun drawTasks(views: RemoteViews, json: JSONObject, accent: Int) {
+    val deeds = json.optJSONObject("plan")?.optJSONArray("deeds")
+    if (deeds == null || deeds.length() == 0) {
+        views.setTextViewText(R.id.title, "No deeds today")
+        views.setTextViewText(R.id.secondary, "")
+        views.setProgressBar(R.id.progress, 100, 0, true)
+        return
+    }
+    val all = mutableListOf<JSONObject>()
+    for (i in 0 until deeds.length()) deeds.optJSONObject(i)?.let { all.add(it) }
+    val done = all.count { it.optBoolean("completed") }
+    // Open deeds first (they are what you act on), finished ones after.
+    val ordered = all.filter { !it.optBoolean("completed") } + all.filter { it.optBoolean("completed") }
+    val lines = ordered.take(5).joinToString("\n") { d ->
+        val time = d.optString("time").takeIf { it.isNotEmpty() && it != "null" }?.let { WidgetData.fmtTime(it) + "  " } ?: ""
+        (if (d.optBoolean("completed")) "☑  " else "☐  ") + time + d.optString("title")
+    }
+    views.setTextViewText(R.id.title, lines)
+    views.setTextViewTextSize(R.id.title, android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+    views.setInt(R.id.title, "setMaxLines", 5)
+    val more = all.size - 5
+    views.setTextViewText(R.id.secondary, "$done/${all.size} done" + if (more > 0) "  ·  +$more more" else "")
+    views.setTextColor(R.id.secondary, accent)
+    views.setProgressBar(R.id.progress, 100, json.optJSONObject("plan")?.optInt("dayProgress", 0) ?: 0, false)
+}
+
 internal fun drawNote(views: RemoteViews, page: JSONObject) {
     views.setTextViewText(R.id.title, page.optString("note", ""))
     views.setTextViewText(R.id.secondary, "")

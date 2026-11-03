@@ -81,6 +81,29 @@ object WidgetData {
         }
     }
 
+    /**
+     * Cheap change check: asks the server only for today's deed revision (one small query) and
+     * downloads the full bundle only when it differs from the cached one. Lets the widget look
+     * often without wasting battery or data.
+     */
+    fun refreshIfChanged(context: Context) {
+        executor.execute {
+            try {
+                val activeSecret = secret(context)
+                if (activeSecret.isNullOrEmpty()) return@execute
+                val conn = URL("https://${host(context)}/api/widget?secret=$activeSecret&rev=1").openConnection() as HttpURLConnection
+                conn.connectTimeout = 8_000
+                conn.readTimeout = 8_000
+                if (conn.responseCode != 200) return@execute
+                val rev = JSONObject(conn.inputStream.bufferedReader().readText()).optLong("rev", -1L)
+                val cached = cachedJson(context)?.optJSONObject("plan")?.optLong("rev", -2L) ?: -2L
+                if (rev != cached) refreshAsync(context)
+            } catch (e: Exception) {
+                // Offline: keep showing the last good data.
+            }
+        }
+    }
+
     /** Seconds the user chose for per-page dwell (5–120, from the web design). */
     fun rotateSeconds(context: Context): Long {
         val raw = cachedJson(context)?.optJSONObject("widget")?.optInt("rotateSeconds", 15) ?: 15

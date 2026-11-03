@@ -7,6 +7,7 @@ import { ChevronRight, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "l
 import { WorkClock } from "@/components/ui/WorkClock";
 import { YearPickerChip } from "@/components/ui/YearPicker";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 import { routeMeta } from "@/components/ds/nav";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { openAssistant, openCommand } from "@/lib/uiEvents";
@@ -74,6 +75,7 @@ export function Topbar() {
           <span className="hidden sm:inline">Ask AI</span>
         </button>
         <YearPickerChip />
+        <NotificationBell />
         <ThemeToggle />
         <span aria-hidden className="mx-1.5 h-5 w-px bg-parchment/10" />
         <span className="flex h-8 w-8 shrink-0 items-center justify-center">

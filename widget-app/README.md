@@ -16,6 +16,7 @@ device shows the same thing):
 | Page kind | Shows |
 |---|---|
 | `plan` | Your next deed today + its time + progress bar |
+| `tasks` | Today's deeds as a checklist (☐ open / ☑ done, with times), open ones first. Tap the widget to pull in changes; it also checks for changes on every rotation tick |
 | `timers` | Your next *timed* deed + `HH:MM · n/m done` + the day's progress |
 | `alarms` | Your next alarm (title + time, "+n more") |
 | `messages` | Latest message from your partner |

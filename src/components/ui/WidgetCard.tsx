@@ -5,7 +5,7 @@ import { Copy, RefreshCw, Plus, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/ToastProvider'
 
 type WidgetPage = {
-  kind: 'plan' | 'timers' | 'alarms' | 'messages' | 'clock' | 'note'
+  kind: 'plan' | 'timers' | 'tasks' | 'alarms' | 'messages' | 'clock' | 'note'
   note?: string
   accent?: string
   bg?: string
@@ -21,7 +21,7 @@ type WidgetConfig = {
   showMessages: boolean
 }
 
-const KINDS: WidgetPage['kind'][] = ['plan', 'timers', 'alarms', 'messages', 'clock', 'note']
+const KINDS: WidgetPage['kind'][] = ['plan', 'timers', 'tasks', 'alarms', 'messages', 'clock', 'note']
 
 /**
  * WidgetCard — Settings → Widget. Pair the native Android home-screen widget

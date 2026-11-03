@@ -20,7 +20,7 @@ const PICK = (p: DigestSettings): DigestSettings => ({
   digestMinMatch: p.digestMinMatch, digestScope: p.digestScope, digestTypes: p.digestTypes, digestMax: p.digestMax,
   digestOnlyNew: p.digestOnlyNew, tz: p.tz,
 })
-const chip = (on: boolean) => cx('min-h-9 rounded-full border px-3 text-sm transition-colors', on ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/60 hover:border-gold/35')
+const chip = (on: boolean) => cx('min-h-11 pointer-fine:min-h-9 rounded-full border px-3 text-sm transition-colors', on ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/60 hover:border-gold/35')
 
 /**
  * Email digest: when it goes out, what goes in, and a live preview of the
@@ -122,7 +122,7 @@ export function EmailDigestSettings({ onClose }: { onClose?: () => void }) {
         {/* What */}
         <div className="space-y-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">What to include</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2">
             <Field label="Where">
               <select value={s.digestScope} onChange={(e) => set('digestScope', e.target.value)} className={inputClass}>
                 <option value="all">Local + global</option><option value="local">Local only</option><option value="global">Global only</option>

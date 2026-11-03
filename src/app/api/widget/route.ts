@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
  */
 
 export type WidgetPage = {
-  kind: 'plan' | 'alarms' | 'messages' | 'clock' | 'note'
+  kind: 'plan' | 'timers' | 'tasks' | 'alarms' | 'messages' | 'clock' | 'note'
   note?: string // free-text page — the user's own line, fully styleable
   styles?: Record<string, { color?: string; size?: number; weight?: number }>
   bg?: string
@@ -73,6 +73,14 @@ export async function GET(req: Request) {
   const config = await ensureConfig(userId)
   if (url.searchParams.has('pref')) return NextResponse.json({ widget: config })
 
+  // ?rev=1 → just the tasks revision (one cheap query), so the widget can poll often and only
+  // download the full bundle when something actually changed.
+  if (url.searchParams.has('rev')) {
+    const r = todayRange()
+    const agg = await prisma.task.aggregate({ where: { userId, date: { gte: r.start, lt: r.end } }, _max: { updatedAt: true }, _count: true })
+    return NextResponse.json({ rev: (agg._max.updatedAt?.getTime() ?? 0) + agg._count })
+  }
+
   const { start, end } = todayRange()
   const [todayTasks, activeItems, alarms, messages] = await Promise.all([
     prisma.task.findMany({
@@ -113,8 +121,11 @@ export async function GET(req: Request) {
         ? { title: nextUp.title, time: nextUp.startTime, progress: nextUp.progress, completed: nextUp.completed, isFrog: nextUp.isFrog }
         : null,
       deeds: todayTasks.map((t) => ({
-        title: t.title, time: t.startTime, completed: t.completed, progress: t.progress, isFrog: t.isFrog,
+        id: t.id, title: t.title, time: t.startTime, completed: t.completed, progress: t.progress, isFrog: t.isFrog,
       })),
+      // Changes whenever a deed is added, edited, ticked or deleted, so the widget can tell at a glance
+      // that what it shows is stale (see ?rev below).
+      rev: todayTasks.reduce((m, t) => Math.max(m, t.updatedAt.getTime()), 0) + todayTasks.length,
       goals: activeItems.map((g) => ({ title: g.title, progress: g.progress })),
       dayProgress:
         todayTasks.length > 0

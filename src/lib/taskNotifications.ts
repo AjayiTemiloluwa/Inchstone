@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma'
 import { sendNotification } from '@/lib/pushNotifications'
+import { logNotification } from '@/lib/notificationLog'
 
 /**
  * Task notification engine — the server-side half of deed reminders.
@@ -30,6 +31,16 @@ export const START_PUSH_GRACE_MINUTES = 5
 
 /** Grace window after the end time a "finished" alarm may still be sent. */
 export const FINISH_PUSH_GRACE_MINUTES = 10
+
+/**
+ * Catch-up: the server-side push (not the foreground ringer) still delivers a missed "starting"
+ * or "reminder" notification up to this long after its moment, labelled "Missed", so a late
+ * scheduler or a phone that was off never silently drops the day's deeds.
+ */
+export const CATCH_UP_HOURS = 12
+
+/** This many missed deeds at once are folded into a single digest push. */
+export const MISSED_DIGEST_THRESHOLD = 4
 
 /** Cap the scan window so the cron never walks old history. */
 export const TASK_SCAN_WINDOW_HOURS = 24
@@ -84,12 +95,14 @@ export function taskEndTime(t: Pick<SchedulableTask, 'startTime' | 'endTime' | '
 /** Which notifications does this task owe right now? */
 export function dueTaskNotifications(
   t: SchedulableTask,
-  now: Date = new Date()
+  now: Date = new Date(),
+  opts: { catchUp?: boolean } = {}
 ): TaskNotificationKind[] {
   const start = ts(t.startTime)
   if (start == null) return []
   const n = now.getTime()
   const due: TaskNotificationKind[] = []
+  const catchUpMs = opts.catchUp ? CATCH_UP_HOURS * 60 * MIN : 0
 
   // Pre-start countdown — every scheduled task, once.
   const cd = start - COUNTDOWN_LEAD_MINUTES * MIN
@@ -99,15 +112,15 @@ export function dueTaskNotifications(
   // time") fires inside the same grace window as the start push.
   const r = reminderTime(t)
   if (t.isImportant && r != null && !ts(t.reminderNotifiedAt)) {
-    const alarmEnd = t.reminderMinutes === 0
+    const alarmEnd = (t.reminderMinutes === 0
       ? start + START_PUSH_GRACE_MINUTES * MIN
-      : start
+      : start) + catchUpMs
     if (n >= r && n < alarmEnd) due.push('reminder')
   }
 
   // Starting-now — once, inside a small grace window so a slightly late cron
   // still delivers, but a task from hours ago never spams.
-  if (!ts(t.startNotifiedAt) && n >= start && n < start + START_PUSH_GRACE_MINUTES * MIN) {
+  if (!ts(t.startNotifiedAt) && n >= start && n < start + START_PUSH_GRACE_MINUTES * MIN + catchUpMs) {
     due.push('start')
   }
 
@@ -143,8 +156,29 @@ function dayUrl(v: Date | string): string {
 }
 
 /** Web-push payload for a task notification (consumed by public/sw.js). */
-export function buildTaskPayload(t: SchedulableTask, kind: TaskNotificationKind) {
-  return { ...buildTaskPayloadCore(t, kind), ...taskExtras(t, kind) }
+export function buildTaskPayload(t: SchedulableTask, kind: TaskNotificationKind, now: Date = new Date()) {
+  const payload = { ...buildTaskPayloadCore(t, kind), ...taskExtras(t, kind) }
+  if (!isLate(t, kind, now)) return payload
+  return {
+    ...payload,
+    title: `🕘 Missed ${fmtTime(t.startTime!)}: ${t.title}`,
+    body: `This was scheduled for ${fmtWindow(t)} and is still open. Tap to catch up.`,
+    requireInteraction: false,
+    vibrate: [120, 60, 120],
+    late: true,
+  }
+}
+
+/** A start/reminder push going out after its grace window is a catch-up ("Missed"), not a live cue. */
+export function isLate(t: SchedulableTask, kind: TaskNotificationKind, now: Date = new Date()): boolean {
+  if (kind !== 'start' && kind !== 'reminder') return false
+  const start = ts(t.startTime)
+  return start != null && now.getTime() - start > START_PUSH_GRACE_MINUTES * MIN
+}
+
+function fmtWindow(t: SchedulableTask): string {
+  const start = fmtTime(t.startTime!)
+  return t.endTime ? `${start} – ${fmtTime(t.endTime)}` : start
 }
 
 /** Android extras: the deed's own time, its id, and Done / Open buttons. */
@@ -218,8 +252,12 @@ function buildTaskPayloadCore(t: SchedulableTask, kind: TaskNotificationKind) {
 /** Push one task notification to every device of the owner; prunes dead endpoints. */
 export async function pushTaskToUser(
   userId: string,
-  payload: ReturnType<typeof buildTaskPayload>
+  payload: ReturnType<typeof buildTaskPayload> & { late?: boolean },
+  kind: TaskNotificationKind | 'missed-digest' = 'start'
 ) {
+  await logNotification(userId, {
+    kind, title: payload.title, body: payload.body, url: payload.url, taskId: (payload as { taskId?: string }).taskId, late: payload.late,
+  })
   const subs = await prisma.pushSubscription.findMany({ where: { userId } })
   let sent = 0
   for (const s of subs) {

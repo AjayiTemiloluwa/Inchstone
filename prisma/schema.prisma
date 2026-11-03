@@ -798,3 +798,19 @@ model Opportunity {
   @@unique([userId, url])
   @@index([userId, status])
 }
+
+// Every push the server sends (deed reminders, alarms, application deadlines), kept so the user can
+// scroll back through the day's notifications in-app, including ones the phone never showed.
+model NotificationLog {
+  id        String   @id @default(uuid())
+  userId    String
+  kind      String // countdown | reminder | start | ending | finish | alarm | application | missed-digest
+  title     String
+  body      String
+  url       String?
+  taskId    String?
+  late      Boolean  @default(false) // delivered after its moment passed (caught up)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

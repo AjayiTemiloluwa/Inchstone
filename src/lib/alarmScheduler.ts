@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma'
 import { sendNotification } from '@/lib/pushNotifications'
+import { logNotification } from '@/lib/notificationLog'
 
 /** Days string "0,1,2" (0=Sun) → Set of JS day numbers. */
 export function parseDays(days: string): Set<number> {
@@ -42,6 +43,13 @@ function tzOffsetMs(utcMs: number, tz?: string | null): number {
 export const ALARM_RING_GRACE_MINUTES = 5
 
 /**
+ * The cron (server push) is more forgiving than the foreground ringer: an alarm up to this long
+ * overdue is still pushed once, labelled "Missed", so the day's old alarms are rolled back to the
+ * phone instead of dropped. Beyond it the alarm is advanced silently.
+ */
+export const ALARM_CATCH_UP_HOURS = 12
+
+/**
  * Next occurrence of an "HH:mm" alarm on one of `days`, after `from`.
  * The time is interpreted in the alarm's OWN timezone (`tz`, captured from
  * the browser at creation) — never the server's — so a 06:00 alarm rings at
@@ -77,13 +85,15 @@ export function computeNextFire(time: string, days: string, from = new Date(), t
 type Sub = { endpoint: string; p256dh: string; auth: string }
 
 /** Push an alarm to every subscription of a user; prunes dead endpoints. */
-export async function pushAlarmToUser(userId: string, alarm: { id: string; title: string; time: string }) {
+export async function pushAlarmToUser(userId: string, alarm: { id: string; title: string; time: string }, opts: { late?: boolean } = {}) {
   const subs = await prisma.pushSubscription.findMany({ where: { userId } })
-  const body = `${alarm.title} — it's ${alarm.time}.`
+  const title = opts.late ? '🕘 Missed alarm' : '⏰ Alarm'
+  const body = opts.late ? `${alarm.title} — it was set for ${alarm.time}.` : `${alarm.title} — it's ${alarm.time}.`
+  await logNotification(userId, { kind: 'alarm', title, body, url: '/dashboard', late: opts.late })
   for (const s of subs) {
     const ok = await sendNotification(
       { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth },
-      { title: '⏰ Alarm', body, icon: '/icon-192.png', url: '/dashboard' }
+      { title, body, icon: '/icon-192.png', url: '/dashboard' }
     )
     if (!ok) await prisma.pushSubscription.delete({ where: { id: s.id } }).catch(() => {})
   }

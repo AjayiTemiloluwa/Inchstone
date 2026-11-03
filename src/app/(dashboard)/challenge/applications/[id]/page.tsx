@@ -573,7 +573,7 @@ function SectionsEditor({ sections, onSave }: { sections: DetailSection[]; onSav
         editing === s.id ? null : (
           <Panel key={s.id} className="group space-y-2">
             <div className="flex items-start justify-between gap-3">
-              <h3 className="text-heading text-parchment">{s.title || 'Untitled'}</h3>
+              <h3 className="min-w-0 break-words text-heading text-parchment">{s.title || 'Untitled'}</h3>
               <RowActions actions={[
                 { label: 'Edit', icon: Pencil, onSelect: () => start(s) },
                 { label: 'Delete', icon: Trash2, destructive: true, onSelect: () => onSave(sections.filter((x) => x.id !== s.id)) },

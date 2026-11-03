@@ -216,7 +216,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
       {/* Track header: back, name, one line of facts, the actions */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 space-y-1">
-          <Link href="/challenge/learning" className="inline-flex min-h-9 items-center gap-1.5 text-sm text-parchment/55 hover:text-parchment">
+          <Link href="/challenge/learning" className="inline-flex min-h-11 pointer-fine:min-h-9 items-center gap-1.5 text-sm text-parchment/55 hover:text-parchment">
             <ArrowLeft className="h-4 w-4" /> Learning Lab
           </Link>
           <h1 className="flex items-center gap-3 font-display text-3xl font-bold text-parchment sm:text-4xl">
@@ -250,7 +250,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
       {importing && (
         <Panel className="space-y-3 border-gold/30 animate-fadeIn">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="font-semibold text-parchment">Import notes into sections</p>
               <p className="text-caption text-parchment/55">Paste a syllabus, class notes or a chapter. The AI splits it into sections using only your text, and files each part as a note.</p>
             </div>
@@ -343,7 +343,7 @@ export default function TrackPage({ params }: { params: Promise<{ id: string }> 
                     onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void saveQuick(false) } }}
                     placeholder={`Write a note on ${sec.title}…`} aria-label="Note" className={textarea} />
                   <div className="flex flex-wrap items-center justify-end gap-2">
-                    <button type="button" onClick={() => setPickNotes((v) => !v)} className="mr-auto inline-flex min-h-9 items-center gap-1.5 text-xs text-parchment/50 hover:text-gold">
+                    <button type="button" onClick={() => setPickNotes((v) => !v)} className="mr-auto inline-flex min-h-11 pointer-fine:min-h-9 items-center gap-1.5 text-xs text-parchment/50 hover:text-gold">
                       <NotebookPen className="h-3.5 w-3.5" /> Bring in from Notes page
                     </button>
                     <Button variant="ghost" disabled={!quick.text.trim() || !!ai} onClick={() => saveQuick(false)}>Save</Button>

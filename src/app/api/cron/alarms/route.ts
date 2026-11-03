@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { ALARM_RING_GRACE_MINUTES, computeNextFire, pushAlarmToUser } from '@/lib/alarmScheduler'
+import { ALARM_CATCH_UP_HOURS, ALARM_RING_GRACE_MINUTES, computeNextFire, pushAlarmToUser } from '@/lib/alarmScheduler'
+import { logNotification } from '@/lib/notificationLog'
 import { DEADLINE_CLOSED, dueReminders, reminderPayload, stampOffsets } from '@/lib/applications'
 import { sendNotification } from '@/lib/pushNotifications'
 import {
   buildTaskPayload,
   dueTaskNotifications,
+  isLate,
+  MISSED_DIGEST_THRESHOLD,
   pushTaskToUser,
   stampTaskNotification,
   TASK_SCAN_WINDOW_HOURS,
@@ -42,15 +45,15 @@ export async function GET(req: Request) {
   let sent = 0
   let skippedStale = 0
   for (const alarm of due) {
-    // Same grace rule as the foreground ringer: an alarm whose moment passed
-    // long ago (scheduler down, device off) is advanced silently — a push
-    // hours late would be just as wrong as a ring hours late.
+    // Within the grace window it is a live alarm. Past it but still the same day
+    // (ALARM_CATCH_UP_HOURS) it is rolled back as a "Missed alarm" push; older is advanced silently.
     const fireAt = alarm.nextFire ? alarm.nextFire.getTime() : null
-    if (fireAt != null && now.getTime() - fireAt > graceMs) {
+    const overdueMs = fireAt != null ? now.getTime() - fireAt : 0
+    if (overdueMs > ALARM_CATCH_UP_HOURS * 3_600_000) {
       skippedStale++
     } else {
       try {
-        await pushAlarmToUser(alarm.userId, alarm)
+        await pushAlarmToUser(alarm.userId, alarm, { late: overdueMs > graceMs })
         sent++
       } catch (e) {
         console.error('Alarm dispatch failed', alarm.id, e)
@@ -80,15 +83,48 @@ export async function GET(req: Request) {
   })
 
   let taskPushes = 0
+  // Missed deeds (start/reminder that passed while the scheduler or phone was down) are rolled back
+  // per user; a long backlog collapses into one digest so a phone coming back online is not spammed.
+  const missed = new Map<string, { t: (typeof scheduled)[number]; kind: 'start' | 'reminder' }[]>()
   for (const t of scheduled) {
-    for (const kind of dueTaskNotifications(t, now)) {
+    for (const kind of dueTaskNotifications(t, now, { catchUp: true })) {
+      if (isLate(t, kind, now)) {
+        const list = missed.get(t.userId) ?? []
+        // One missed line per deed even if both its reminder and start slipped.
+        if (!list.some((m) => m.t.id === t.id)) list.push({ t, kind: kind as 'start' | 'reminder' })
+        missed.set(t.userId, list)
+        await stampTaskNotification(t.id, kind, now)
+        continue
+      }
       try {
-        await pushTaskToUser(t.userId, buildTaskPayload(t, kind))
+        await pushTaskToUser(t.userId, buildTaskPayload(t, kind, now), kind)
         taskPushes++
       } catch (e) {
         console.error('Task notification dispatch failed', t.id, kind, e)
       }
       await stampTaskNotification(t.id, kind, now)
+    }
+  }
+  for (const [userId, list] of missed) {
+    try {
+      if (list.length >= MISSED_DIGEST_THRESHOLD) {
+        const names = list.slice(0, 3).map((m) => m.t.title).join(', ')
+        await pushTaskToUser(userId, {
+          title: `🕘 You missed ${list.length} deeds today`,
+          body: `${names}${list.length > 3 ? ` and ${list.length - 3} more` : ''}. Tap to catch up.`,
+          url: '/dashboard',
+          tag: 'missed-digest',
+          late: true,
+        } as unknown as ReturnType<typeof buildTaskPayload>, 'missed-digest')
+        taskPushes++
+      } else {
+        for (const m of list) {
+          await pushTaskToUser(userId, buildTaskPayload(m.t, m.kind, now), m.kind)
+          taskPushes++
+        }
+      }
+    } catch (e) {
+      console.error('Missed-deed catch-up failed', userId, e)
     }
   }
 
@@ -109,6 +145,8 @@ export async function GET(req: Request) {
     if (off === null && !silent.length) continue
     if (off !== null) {
       const subs = await prisma.pushSubscription.findMany({ where: { userId: a.userId } })
+      const rp = reminderPayload(a, off)
+      await logNotification(a.userId, { kind: 'application', title: rp.title, body: rp.body, url: rp.url })
       for (const s of subs) {
         try {
           const ok = await sendNotification({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, reminderPayload(a, off))

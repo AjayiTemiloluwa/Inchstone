@@ -18,7 +18,7 @@ import java.util.Locale
  * the home screen and rotates through the configured pages.
  *
  * Pages come from /api/widget (designed in the web app's Settings → Widget):
- * kind = plan | timers | alarms | messages | clock | note, each with optional
+ * kind = plan | timers | tasks | alarms | messages | clock | note, each with optional
  * per-page accent/background and per-element text styles.
  *
  * Tap the widget → next page. A repeating alarm advances pages automatically
@@ -45,6 +45,8 @@ class InchstoneWidgetProvider : AppWidgetProvider() {
                 if (id >= 0) {
                     WidgetData.advancePage(context, id)
                     render(context, manager, id)
+                    // A tap is also a look: pull in any deed changes made since the last refresh.
+                    WidgetData.refreshIfChanged(context)
                 }
             }
             // Rotation tick → advance every widget, then refresh the data so
@@ -136,6 +138,7 @@ internal fun drawPage(context: Context, views: RemoteViews, json: JSONObject, pa
 
     when (page.optString("kind", "plan")) {
         "timers" -> drawTimers(views, json, accent)
+        "tasks" -> drawTasks(views, json, accent)
         "alarms" -> drawAlarms(views, json, accent)
         "messages" -> drawMessages(views, json, accent)
         "clock" -> drawClock(views, accent)

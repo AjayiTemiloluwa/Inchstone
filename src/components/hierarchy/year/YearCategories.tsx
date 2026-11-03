@@ -13,7 +13,7 @@ import { createYearlyGoalWithQuarters } from '../createGoal'
 import { equalWeight } from '../itemTree'
 import { LockToggle, Meter, Percent } from '../primitives'
 import { useWeightBalancer } from '../useWeightBalancer'
-import { WeightSlider } from '../WeightScoreInputs'
+import { PercentField, WeightSlider } from '../WeightScoreInputs'
 import { YearGoalCard } from './YearGoalCard'
 
 interface YearCategoriesProps {
@@ -170,13 +170,11 @@ export function YearCategories({ yearItem, categories, yearlyGoals, completionMa
                       <LockToggle locked={isLocked} onToggle={() => balancer.toggleLock(category.id)} />
                       <CategoryActions categoryId={category.id} onEdit={() => setEditingCategoryId(category.id)} onDeleted={handleDeleted} />
                     </div>
-                    <label className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/45">Score</span>
-                      <input type="number" min="0" max="100" value={Math.round(catScore)}
-                        onChange={e => { void updateItemScoreMode(category.id, 'manual', parseFloat(e.target.value) || 0) }}
-                        className="h-9 w-16 rounded-lg border border-gold/20 bg-ink/40 px-2 text-right font-mono text-sm tabular-nums text-parchment focus:border-gold/50 focus:outline-none focus:ring-2 focus:ring-gold/20" />
-                      <span className="font-mono text-[11px] text-parchment/45">%</span>
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/55">Score</span>
+                      <PercentField label={`${category.title} score`} value={catScore}
+                        onCommit={v => { void updateItemScoreMode(category.id, 'manual', v) }} />
+                    </div>
                   </div>
                   <WeightSlider label={`${category.title} weight`} value={w} onChange={v => balancer.changeWeight(category.id, v)} />
 
@@ -204,7 +202,7 @@ export function YearCategories({ yearItem, categories, yearlyGoals, completionMa
                       {categoryGoals.map(goal => (
                         <YearGoalCard key={goal.id} goal={goal} score={completionMap[goal.id] || 0}
                           open={openItemId === goal.id} onToggle={() => setOpenItemId(openItemId === goal.id ? null : goal.id)}
-                          onDeleted={handleDeleted} />
+                          onDeleted={handleDeleted} categories={categories} onSaved={fetchItems} />
                       ))}
                     </div>
                     {categoryGoals.length === 0 && !addingGoal && <p className="text-caption text-parchment/45">{emptyGoals}</p>}
