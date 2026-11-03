@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useSyncExternalStore } from 'react'
+import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react'
 import { format } from 'date-fns'
 import { SECTION_CATEGORIES, INCOME_CATEGORIES, BudgetCategoryOption } from './budgetCategories'
 import { CategorySelect } from './CategorySelect'
@@ -9,6 +9,7 @@ import { useCountdown } from '@/lib/useCountdown'
 import { RotateCcw } from 'lucide-react'
 import { Button, Field, Panel, Segmented, cx, inputClass } from '@/components/ds'
 import { Notice, labelClass } from './ui'
+import { newRequestId } from './money'
 
 const SECTION_OPTIONS: { value: CustomCategoryScope; label: string }[] = [
   { value: 'Need', label: 'Need' },
@@ -34,6 +35,8 @@ const noopSubscribe = () => () => {}
 
 export function TransactionForm({ onSuccess, purses: externalPurses }: TransactionFormProps) {
   const [type, setType] = useState<'income' | 'expense'>('expense')
+  // One id per logical entry, reused if the same submit is retried, so a double tap or a flaky network can never record it twice.
+  const requestIdRef = useRef(newRequestId())
   const [amount, setAmount] = useState('')
   const [lastExpensePurse, setLastExpensePurse] = useState('')
   const [category, setCategory] = useState('')
@@ -98,13 +101,14 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type,
-          amount: parseFloat(amount),
+          amount, // sent as typed: the server parses it strictly (commas ok, more than 2 decimals refused)
           category,
           description,
           comments,
           entryDate,
           priority: type === 'expense' ? section : null,
-          purse: effectivePurse
+          purse: effectivePurse,
+          requestId: requestIdRef.current,
         })
       })
 
@@ -124,6 +128,7 @@ export function TransactionForm({ onSuccess, purses: externalPurses }: Transacti
         setError(errorMsg)
       } else {
         console.log('[TransactionForm] Transaction added successfully')
+        requestIdRef.current = newRequestId() // that entry is saved; the next one gets a fresh id
         setAmount('')
         setCategory('')
         setDescription('')

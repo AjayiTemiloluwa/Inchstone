@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { FinanceError, upsertBudget } from '@/lib/finance/service'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 
@@ -39,39 +40,10 @@ export async function POST(req: Request) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const body = await req.json()
-    const { category, amount, month, section } = body
-
-    if (!category || amount === undefined || !month || !section) {
-      return NextResponse.json({ error: 'category, amount, month, and section are required' }, { status: 400 })
-    }
-
-    if (!['Need', 'Want', 'Offerings', 'Savings'].includes(section)) {
-      return NextResponse.json({ error: 'section must be Need, Want, Offerings, or Savings' }, { status: 400 })
-    }
-
-    const budget = await prisma.budget.upsert({
-      where: {
-        userId_category_month_section: {
-          userId,
-          category,
-          month,
-          section,
-        },
-      },
-      update: { amount: parseFloat(amount) },
-      create: {
-        userId,
-        section,
-        category,
-        amount: parseFloat(amount),
-        month,
-      },
-    })
-
-    return NextResponse.json({ success: true, budget })
+    const result = await upsertBudget(userId, await req.json().catch(() => ({})))
+    return NextResponse.json({ success: true, ...result })
   } catch (error) {
+    if (error instanceof FinanceError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('Failed to upsert budget', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

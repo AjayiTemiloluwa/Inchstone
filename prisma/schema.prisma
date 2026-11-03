@@ -274,6 +274,8 @@ model Purse {
   name      String
   icon      String   @default("👜")
   color     String   @default("#3B82F6")
+  // A purse with history is archived, never deleted, so old entries keep a home.
+  archivedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -298,10 +300,22 @@ model FinancialEntry {
   // re-setting or clearing that section's plan can replace exactly those rows
   // instead of duplicating the movement or stranding money in a purse.
   allocationId String?
+  // Ledger integrity (see src/lib/finance/ledger.ts). Entries are never deleted: a mistake is VOIDED
+  // (kept, excluded from balances), and an edit to money fields voids the old row and writes a
+  // replacement that points back at it. Both legs of a transfer share a groupId and are voided together.
+  voidedAt    DateTime?
+  voidReason  String?
+  groupId     String?
+  replacesId  String?
+  // Client-minted key so a double tap or a retried request can never record the same entry twice.
+  requestId   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@unique([userId, requestId])
   @@index([userId, allocationId])
+  @@index([userId, voidedAt])
+  @@index([userId, groupId])
 }
 
 model UserToken {

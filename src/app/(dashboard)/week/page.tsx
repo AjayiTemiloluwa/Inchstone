@@ -6,7 +6,9 @@ import { CheckCircle2, Circle } from 'lucide-react'
 import { useState } from 'react'
 import type { Task } from '@/stores/hierarchyStore'
 import { Page, PageHeader, Section, Panel, StatGrid, Stat, EmptyState, Badge, cx } from '@/components/ds'
+import Link from 'next/link'
 import { PeriodNav, Meter } from '../calendar/_components/PeriodNav'
+import { dayScoreOf, tasksOnDay } from '@/components/day/dayTasks'
 
 /** Scheduled length of a deed in minutes (start/end gap, else its estimate). */
 function taskMinutes(t: Task): number {
@@ -33,20 +35,16 @@ export default function WeekPage() {
   const flatItems = getFlatItems()
   // Layer 5 = Weekly Goals
   const weeklyGoals = flatItems.filter(i => i.layer === 5)
-  // Layer 6 = Daily Goals
-  const dailyGoals = flatItems.filter(i => i.layer === 6)
 
   // Calculate week overall progress (average of weekly goals, or based on their weights)
   const totalWeeklyWeight = weeklyGoals.reduce((sum, g) => sum + g.weight, 0)
   const earnedWeeklyScore = weeklyGoals.reduce((sum, g) => sum + (g.weight * ((completionMap[g.id] || 0) / 100)), 0)
   const weekProgress = totalWeeklyWeight > 0 ? (earnedWeeklyScore / totalWeeklyWeight) * 100 : 0
 
-  // Real time totals from the deeds on this week's daily goals
-  const weekTasks = weekDays.flatMap(date =>
-    dailyGoals
-      .filter(g => g.startDate && isSameDay(new Date(g.startDate), date))
-      .flatMap(g => g.tasks || [])
-  )
+  // Every deed on each day of the week, read exactly as the Day page reads it (any deed dated that day,
+  // including habits that hang under other goals), so this board and a day's own page always agree.
+  const tasksByDay = weekDays.map(date => tasksOnDay(flatItems, format(date, 'yyyy-MM-dd')))
+  const weekTasks = tasksByDay.flat()
   const plannedMinutes = weekTasks.reduce((sum, t) => sum + taskMinutes(t), 0)
   const completedMinutes = weekTasks.filter(t => t.completed).reduce((sum, t) => sum + taskMinutes(t), 0)
   const completedCount = weekTasks.filter(t => t.completed).length
@@ -109,10 +107,10 @@ export default function WeekPage() {
       {/* ── The seven days, read as one board ── */}
       <Section title="Daily schedule" id="week-days">
         <ol className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7 xl:gap-2">
-          {weekDays.map(date => {
-            const dayGoals = dailyGoals.filter(g =>
-              g.startDate && isSameDay(new Date(g.startDate), date)
-            )
+          {weekDays.map((date, di) => {
+            const dayKey = format(date, 'yyyy-MM-dd')
+            const tasks = tasksByDay[di]
+            const score = dayScoreOf(tasks)
             const isCurrent = isSameDay(date, today)
 
             return (
@@ -130,40 +128,36 @@ export default function WeekPage() {
                   </div>
 
                   <div className="flex-1 space-y-4 overflow-y-auto p-4 xl:p-3" data-lenis-prevent>
-                    {dayGoals.map(dg => {
-                      const tasks = dg.tasks || []
-                      return (
-                        <div key={dg.id} className="space-y-2">
-                          <div className="flex items-baseline justify-between gap-2">
-                            <span className="min-w-0 break-words text-caption font-semibold text-parchment/85">{dg.title}</span>
-                            <span className="shrink-0 font-mono text-[10px] tabular-nums text-parchment/45">{Math.round(completionMap[dg.id] || 0)}%</span>
-                          </div>
-
-                          <ul className="space-y-1.5">
-                            {tasks.map(t => (
-                              <li key={t.id} className="flex items-start gap-2 text-caption">
-                                {t.completed ? (
-                                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-moss" strokeWidth={1.5} aria-label="Done" />
-                                ) : (
-                                  <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-parchment/30" strokeWidth={1.5} aria-label="Open" />
-                                )}
-                                <div className="min-w-0">
-                                  <p className={cx('break-words', t.completed ? 'text-parchment/45 line-through' : 'text-parchment/85')}>{t.title}</p>
-                                  {t.startTime && (
-                                    <p className="font-mono text-[10px] tabular-nums text-gold-dim">{format(new Date(t.startTime), 'HH:mm')}</p>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                          {tasks.length === 0 && (
-                            <p className="text-caption text-parchment/35">No tasks scheduled.</p>
-                          )}
-                        </div>
-                      )
-                    })}
-                    {dayGoals.length === 0 && (
-                      <p className="text-caption text-parchment/35 xl:pt-4 xl:text-center">No daily goals</p>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <Link href={`/day/${dayKey}`} className="min-w-0 truncate text-caption font-semibold text-parchment/85 underline-offset-2 hover:text-gold hover:underline">
+                        {format(date, 'EEEE')}<span className="sr-only"> — open this day</span>
+                      </Link>
+                      <span className="shrink-0 font-mono text-[10px] tabular-nums text-parchment/55">{tasks.length ? `${tasks.filter(t => t.completed).length}/${tasks.length} · ${score}%` : ''}</span>
+                    </div>
+                    {tasks.length > 0 && <Meter value={score} tone="gold" />}
+                    <ul className="space-y-1.5">
+                      {tasks.map(t => {
+                        // The same colour rule the Day page uses: the deed's own colour, else green when done, else gold.
+                        const accent = t.color || (t.completed ? '#8fbc8f' : 'var(--gold)')
+                        return (
+                          <li key={t.id} className="flex items-start gap-2 border-l-2 pl-2 text-caption" style={{ borderLeftColor: accent }}>
+                            {t.completed ? (
+                              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: accent }} strokeWidth={1.5} aria-label="Done" />
+                            ) : (
+                              <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: accent }} strokeWidth={1.5} aria-label="Open" />
+                            )}
+                            <div className="min-w-0">
+                              <p className={cx('break-words', t.completed ? 'text-parchment/55 line-through' : 'text-parchment/85')}>{t.title}</p>
+                              {t.startTime && (
+                                <p className="font-mono text-[10px] tabular-nums" style={{ color: accent }}>{format(new Date(t.startTime), 'HH:mm')}</p>
+                              )}
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                    {tasks.length === 0 && (
+                      <p className="text-caption text-parchment/55">Nothing scheduled.</p>
                     )}
                   </div>
                 </Panel>

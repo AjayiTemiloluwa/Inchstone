@@ -26,7 +26,8 @@ import { DaySchedule, type ScheduleEvent } from '@/components/day/schedule/DaySc
 import { DayHero, EventCard, MagicAdd, QuickCreate, TasksLane, type QuickCreateValues } from '@/components/day/schedule/ScheduleParts'
 import { autoPlan, freeGaps, hhmm } from '@/lib/schedule/layout'
 import { matchByTitle, parseEditCommand, type QuickAdd } from '@/lib/schedule/quickAdd'
-import { dedupeGoogleEvents, dedupeTasks, withoutDeedMirrors } from '@/components/day/dedupe'
+import { dedupeGoogleEvents, withoutDeedMirrors } from '@/components/day/dedupe'
+import { tasksOnDay } from '@/components/day/dayTasks'
 import type { DayNote, DeedModalData, DeleteScope, GoogleEventView, NewDeedValues } from '@/components/day/types'
 
 const RichNoteModal = dynamic(() => import('@/components/ui/RichNoteModal').then(mod => mod.RichNoteModal), { ssr: false })
@@ -237,23 +238,12 @@ export default function DayPage() {
     fetchItems()
   }, [fetchItems])
 
+  // One shared definition of "what is on this day" (also used by the Week board), so the two never disagree.
   const allTasks: Task[] = useMemo(() => {
-    const tasks: Task[] = []
-    const searchTasks = (nodes: Item[]) => {
-      nodes.forEach(n => {
-        if (n.tasks) {
-          n.tasks.forEach(t => {
-            const tDate = new Date(t.date).toISOString().substring(0, 10)
-            if (tDate === dateStr && !tasks.some(existing => existing.id === t.id)) {
-              tasks.push(t)
-            }
-          })
-        }
-        if (n.children) searchTasks(n.children)
-      })
-    }
-    searchTasks(items)
-    return dedupeTasks(tasks).map(t => (retimed[t.id] ? { ...t, ...retimed[t.id] } : t))
+    const flat: Item[] = []
+    const walk = (nodes: Item[]) => nodes.forEach(n => { flat.push(n); if (n.children) walk(n.children) })
+    walk(items)
+    return tasksOnDay(flat, dateStr).map(t => (retimed[t.id] ? { ...t, ...retimed[t.id] } : t))
   }, [items, dateStr, retimed])
 
   // Progress for each day of the week strip (from the loaded hierarchy).
