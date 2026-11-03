@@ -303,7 +303,8 @@ async function overview(_a: Record<string, unknown>, { userId }: ToolCtx) {
 async function financeSummary(a: Record<string, unknown>, { userId, tzOffset }: ToolCtx) {
   const from = parseDay(a.from, false, tzOffset)
   const to = parseDay(a.to, true, tzOffset)
-  const where = { AND: [{ userId }, ...(from || to ? [{ entryDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }] : [])] }
+  // Voided entries are history, not money: they never count.
+  const where = { AND: [{ userId, voidedAt: null }, ...(from || to ? [{ entryDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }] : [])] }
   const rows = await prisma.financialEntry.findMany({ where, select: { type: true, amount: true, currency: true, category: true, purse: true } })
   const sum: Record<string, { income: number; expense: number; transfer: number; byCategory: Record<string, number>; byPurse: Record<string, number> }> = {}
   for (const r of rows) {

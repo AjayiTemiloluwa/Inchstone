@@ -251,7 +251,7 @@ export const ACTION_TOOLS: Tool[] = [
   },
   {
     mutates: true,
-    spec: spec('log_money', 'Record income or an expense, like the Finance page. Income always goes to the Main purse; expenses come from the named purse (default Main) and need enough balance.', {
+    spec: spec('log_money', 'Record income or an expense, like the Finance page. Income always goes to the Main purse; expenses come from the named purse (default Main), need enough balance, and must say which envelope they belong to.', {
       type: { type: 'string', enum: ['income', 'expense'], description: 'income or expense' },
       amount: n('Amount (positive)'),
       category: s('Category, e.g. Food, Transport, Salary'),
@@ -259,6 +259,7 @@ export const ACTION_TOOLS: Tool[] = [
       date: s('Day YYYY-MM-DD (default today)'),
       description: s('What it was'),
       currency: s('Currency code, default NGN'),
+      envelope: { type: 'string', enum: ['Need', 'Want', 'Offerings', 'Savings'], description: 'For an expense: Need (essentials), Want (lifestyle), Offerings (giving, tithe) or Savings. Required for expenses; ask the user if unclear.' },
     }, ['type', 'amount', 'category']),
     async run(a, ctx) {
       const amount = num(a.amount)
@@ -267,6 +268,7 @@ export const ACTION_TOOLS: Tool[] = [
       const r = await call(financeApi.POST, 'POST', '/api/financial', {
         type: a.type, amount, category: String(a.category || '').slice(0, 80),
         purse: typeof a.purse === 'string' ? a.purse : undefined,
+        priority: a.type === 'expense' ? a.envelope : undefined,
         entryDate: date ? at(date, [12, 0], ctx.tzOffset) : new Date().toISOString(),
         description: typeof a.description === 'string' ? a.description.slice(0, 300) : null,
         currency: typeof a.currency === 'string' ? a.currency.toUpperCase().slice(0, 3) : 'NGN',

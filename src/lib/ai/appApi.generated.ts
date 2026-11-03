@@ -24,50 +24,51 @@ import * as r20 from '@/app/api/categories/route'
 import * as r21 from '@/app/api/checkins/route'
 import * as r22 from '@/app/api/daily-score/route'
 import * as r23 from '@/app/api/events/route'
-import * as r24 from '@/app/api/financial/route'
-import * as r25 from '@/app/api/habits/overview/route'
-import * as r26 from '@/app/api/habits/route'
-import * as r27 from '@/app/api/items/[id]/route'
-import * as r28 from '@/app/api/items/[id]/score/route'
-import * as r29 from '@/app/api/items/route'
-import * as r30 from '@/app/api/learning/[id]/route'
-import * as r31 from '@/app/api/learning/items/[kind]/[itemId]/route'
-import * as r32 from '@/app/api/learning/route'
-import * as r33 from '@/app/api/learning/sections/[sid]/route'
-import * as r34 from '@/app/api/messages/route'
-import * as r35 from '@/app/api/messages/unread/route'
-import * as r36 from '@/app/api/notes/route'
-import * as r37 from '@/app/api/nudges/route'
-import * as r38 from '@/app/api/opportunities/route'
-import * as r39 from '@/app/api/partner-links/route'
-import * as r40 from '@/app/api/partners/[id]/route'
-import * as r41 from '@/app/api/partners/accept/route'
-import * as r42 from '@/app/api/partners/route'
-import * as r43 from '@/app/api/partners/shared/route'
-import * as r44 from '@/app/api/plan-goals/[id]/route'
-import * as r45 from '@/app/api/plan-goals/reorder/route'
-import * as r46 from '@/app/api/plan-goals/route'
-import * as r47 from '@/app/api/plan-milestones/[id]/route'
-import * as r48 from '@/app/api/plan-milestones/route'
-import * as r49 from '@/app/api/plan-sections/[id]/route'
-import * as r50 from '@/app/api/plan-sections/reorder/route'
-import * as r51 from '@/app/api/plan-sections/route'
-import * as r52 from '@/app/api/plans/[id]/review-sessions/route'
-import * as r53 from '@/app/api/plans/[id]/route'
-import * as r54 from '@/app/api/plans/route'
-import * as r55 from '@/app/api/profile/route'
-import * as r56 from '@/app/api/purses/route'
-import * as r57 from '@/app/api/reflections/[id]/route'
-import * as r58 from '@/app/api/reflections/route'
-import * as r59 from '@/app/api/reports/route'
-import * as r60 from '@/app/api/reviews/route'
-import * as r61 from '@/app/api/status-log/route'
-import * as r62 from '@/app/api/suggestions/route'
-import * as r63 from '@/app/api/tasks/[id]/route'
-import * as r64 from '@/app/api/tasks/route'
-import * as r65 from '@/app/api/trackers/[id]/route'
-import * as r66 from '@/app/api/trackers/route'
-import * as r67 from '@/app/api/years/route'
+import * as r24 from '@/app/api/finance/overview/route'
+import * as r25 from '@/app/api/financial/route'
+import * as r26 from '@/app/api/habits/overview/route'
+import * as r27 from '@/app/api/habits/route'
+import * as r28 from '@/app/api/items/[id]/route'
+import * as r29 from '@/app/api/items/[id]/score/route'
+import * as r30 from '@/app/api/items/route'
+import * as r31 from '@/app/api/learning/[id]/route'
+import * as r32 from '@/app/api/learning/items/[kind]/[itemId]/route'
+import * as r33 from '@/app/api/learning/route'
+import * as r34 from '@/app/api/learning/sections/[sid]/route'
+import * as r35 from '@/app/api/messages/route'
+import * as r36 from '@/app/api/messages/unread/route'
+import * as r37 from '@/app/api/notes/route'
+import * as r38 from '@/app/api/nudges/route'
+import * as r39 from '@/app/api/opportunities/route'
+import * as r40 from '@/app/api/partner-links/route'
+import * as r41 from '@/app/api/partners/[id]/route'
+import * as r42 from '@/app/api/partners/accept/route'
+import * as r43 from '@/app/api/partners/route'
+import * as r44 from '@/app/api/partners/shared/route'
+import * as r45 from '@/app/api/plan-goals/[id]/route'
+import * as r46 from '@/app/api/plan-goals/reorder/route'
+import * as r47 from '@/app/api/plan-goals/route'
+import * as r48 from '@/app/api/plan-milestones/[id]/route'
+import * as r49 from '@/app/api/plan-milestones/route'
+import * as r50 from '@/app/api/plan-sections/[id]/route'
+import * as r51 from '@/app/api/plan-sections/reorder/route'
+import * as r52 from '@/app/api/plan-sections/route'
+import * as r53 from '@/app/api/plans/[id]/review-sessions/route'
+import * as r54 from '@/app/api/plans/[id]/route'
+import * as r55 from '@/app/api/plans/route'
+import * as r56 from '@/app/api/profile/route'
+import * as r57 from '@/app/api/purses/route'
+import * as r58 from '@/app/api/reflections/[id]/route'
+import * as r59 from '@/app/api/reflections/route'
+import * as r60 from '@/app/api/reports/route'
+import * as r61 from '@/app/api/reviews/route'
+import * as r62 from '@/app/api/status-log/route'
+import * as r63 from '@/app/api/suggestions/route'
+import * as r64 from '@/app/api/tasks/[id]/route'
+import * as r65 from '@/app/api/tasks/route'
+import * as r66 from '@/app/api/trackers/[id]/route'
+import * as r67 from '@/app/api/trackers/route'
+import * as r68 from '@/app/api/years/route'
 
 export interface AppRoute { pattern: string; mod: Record<string, unknown>; methods: string[] }
 export const APP_ROUTES: AppRoute[] = [
@@ -95,50 +96,51 @@ export const APP_ROUTES: AppRoute[] = [
   { pattern: '/api/checkins', mod: r21 as Record<string, unknown>, methods: ["GET","POST"] },
   { pattern: '/api/daily-score', mod: r22 as Record<string, unknown>, methods: ["GET"] },
   { pattern: '/api/events', mod: r23 as Record<string, unknown>, methods: ["GET","POST","PUT","DELETE"] },
-  { pattern: '/api/financial', mod: r24 as Record<string, unknown>, methods: ["GET","POST","PUT","DELETE"] },
-  { pattern: '/api/habits/overview', mod: r25 as Record<string, unknown>, methods: ["GET"] },
-  { pattern: '/api/habits', mod: r26 as Record<string, unknown>, methods: ["GET","DELETE","PATCH","POST"] },
-  { pattern: '/api/items/:id', mod: r27 as Record<string, unknown>, methods: ["PUT","PATCH","DELETE"] },
-  { pattern: '/api/items/:id/score', mod: r28 as Record<string, unknown>, methods: ["PUT"] },
-  { pattern: '/api/items', mod: r29 as Record<string, unknown>, methods: ["GET","POST","DELETE"] },
-  { pattern: '/api/learning/:id', mod: r30 as Record<string, unknown>, methods: ["GET","PATCH","POST","DELETE"] },
-  { pattern: '/api/learning/items/:kind/:itemId', mod: r31 as Record<string, unknown>, methods: ["GET","PATCH","DELETE"] },
-  { pattern: '/api/learning', mod: r32 as Record<string, unknown>, methods: ["GET","POST"] },
-  { pattern: '/api/learning/sections/:sid', mod: r33 as Record<string, unknown>, methods: ["PATCH","POST","DELETE"] },
-  { pattern: '/api/messages', mod: r34 as Record<string, unknown>, methods: ["GET","POST"] },
-  { pattern: '/api/messages/unread', mod: r35 as Record<string, unknown>, methods: ["GET"] },
-  { pattern: '/api/notes', mod: r36 as Record<string, unknown>, methods: ["GET","POST","PUT","DELETE"] },
-  { pattern: '/api/nudges', mod: r37 as Record<string, unknown>, methods: ["GET","POST","PATCH"] },
-  { pattern: '/api/opportunities', mod: r38 as Record<string, unknown>, methods: ["GET","PUT","POST"] },
-  { pattern: '/api/partner-links', mod: r39 as Record<string, unknown>, methods: ["POST","DELETE"] },
-  { pattern: '/api/partners/:id', mod: r40 as Record<string, unknown>, methods: ["PATCH"] },
-  { pattern: '/api/partners/accept', mod: r41 as Record<string, unknown>, methods: ["POST"] },
-  { pattern: '/api/partners', mod: r42 as Record<string, unknown>, methods: ["GET","POST","DELETE"] },
-  { pattern: '/api/partners/shared', mod: r43 as Record<string, unknown>, methods: ["GET"] },
-  { pattern: '/api/plan-goals/:id', mod: r44 as Record<string, unknown>, methods: ["PATCH","DELETE"] },
-  { pattern: '/api/plan-goals/reorder', mod: r45 as Record<string, unknown>, methods: ["PATCH"] },
-  { pattern: '/api/plan-goals', mod: r46 as Record<string, unknown>, methods: ["POST"] },
-  { pattern: '/api/plan-milestones/:id', mod: r47 as Record<string, unknown>, methods: ["PATCH","DELETE"] },
-  { pattern: '/api/plan-milestones', mod: r48 as Record<string, unknown>, methods: ["POST"] },
-  { pattern: '/api/plan-sections/:id', mod: r49 as Record<string, unknown>, methods: ["PATCH","DELETE"] },
-  { pattern: '/api/plan-sections/reorder', mod: r50 as Record<string, unknown>, methods: ["PATCH"] },
-  { pattern: '/api/plan-sections', mod: r51 as Record<string, unknown>, methods: ["POST"] },
-  { pattern: '/api/plans/:id/review-sessions', mod: r52 as Record<string, unknown>, methods: ["GET","POST"] },
-  { pattern: '/api/plans/:id', mod: r53 as Record<string, unknown>, methods: ["GET","PATCH","DELETE"] },
-  { pattern: '/api/plans', mod: r54 as Record<string, unknown>, methods: ["GET","POST"] },
-  { pattern: '/api/profile', mod: r55 as Record<string, unknown>, methods: ["GET"] },
-  { pattern: '/api/purses', mod: r56 as Record<string, unknown>, methods: ["GET","POST","PUT","DELETE"] },
-  { pattern: '/api/reflections/:id', mod: r57 as Record<string, unknown>, methods: ["PUT","PATCH","DELETE"] },
-  { pattern: '/api/reflections', mod: r58 as Record<string, unknown>, methods: ["GET","POST","PATCH","PUT","DELETE"] },
-  { pattern: '/api/reports', mod: r59 as Record<string, unknown>, methods: ["GET"] },
-  { pattern: '/api/reviews', mod: r60 as Record<string, unknown>, methods: ["GET","POST","PUT","DELETE"] },
-  { pattern: '/api/status-log', mod: r61 as Record<string, unknown>, methods: ["GET","POST"] },
-  { pattern: '/api/suggestions', mod: r62 as Record<string, unknown>, methods: ["GET","POST","PATCH"] },
-  { pattern: '/api/tasks/:id', mod: r63 as Record<string, unknown>, methods: ["PUT","DELETE"] },
-  { pattern: '/api/tasks', mod: r64 as Record<string, unknown>, methods: ["GET","POST"] },
-  { pattern: '/api/trackers/:id', mod: r65 as Record<string, unknown>, methods: ["PUT","DELETE"] },
-  { pattern: '/api/trackers', mod: r66 as Record<string, unknown>, methods: ["GET","POST"] },
-  { pattern: '/api/years', mod: r67 as Record<string, unknown>, methods: ["POST"] },
+  { pattern: '/api/finance/overview', mod: r24 as Record<string, unknown>, methods: ["GET"] },
+  { pattern: '/api/financial', mod: r25 as Record<string, unknown>, methods: ["GET","POST","PUT","PATCH","DELETE"] },
+  { pattern: '/api/habits/overview', mod: r26 as Record<string, unknown>, methods: ["GET"] },
+  { pattern: '/api/habits', mod: r27 as Record<string, unknown>, methods: ["GET","DELETE","PATCH","POST"] },
+  { pattern: '/api/items/:id', mod: r28 as Record<string, unknown>, methods: ["PUT","PATCH","DELETE"] },
+  { pattern: '/api/items/:id/score', mod: r29 as Record<string, unknown>, methods: ["PUT"] },
+  { pattern: '/api/items', mod: r30 as Record<string, unknown>, methods: ["GET","POST","DELETE"] },
+  { pattern: '/api/learning/:id', mod: r31 as Record<string, unknown>, methods: ["GET","PATCH","POST","DELETE"] },
+  { pattern: '/api/learning/items/:kind/:itemId', mod: r32 as Record<string, unknown>, methods: ["GET","PATCH","DELETE"] },
+  { pattern: '/api/learning', mod: r33 as Record<string, unknown>, methods: ["GET","POST"] },
+  { pattern: '/api/learning/sections/:sid', mod: r34 as Record<string, unknown>, methods: ["PATCH","POST","DELETE"] },
+  { pattern: '/api/messages', mod: r35 as Record<string, unknown>, methods: ["GET","POST"] },
+  { pattern: '/api/messages/unread', mod: r36 as Record<string, unknown>, methods: ["GET"] },
+  { pattern: '/api/notes', mod: r37 as Record<string, unknown>, methods: ["GET","POST","PUT","DELETE"] },
+  { pattern: '/api/nudges', mod: r38 as Record<string, unknown>, methods: ["GET","POST","PATCH"] },
+  { pattern: '/api/opportunities', mod: r39 as Record<string, unknown>, methods: ["GET","PUT","POST"] },
+  { pattern: '/api/partner-links', mod: r40 as Record<string, unknown>, methods: ["POST","DELETE"] },
+  { pattern: '/api/partners/:id', mod: r41 as Record<string, unknown>, methods: ["PATCH"] },
+  { pattern: '/api/partners/accept', mod: r42 as Record<string, unknown>, methods: ["POST"] },
+  { pattern: '/api/partners', mod: r43 as Record<string, unknown>, methods: ["GET","POST","DELETE"] },
+  { pattern: '/api/partners/shared', mod: r44 as Record<string, unknown>, methods: ["GET"] },
+  { pattern: '/api/plan-goals/:id', mod: r45 as Record<string, unknown>, methods: ["PATCH","DELETE"] },
+  { pattern: '/api/plan-goals/reorder', mod: r46 as Record<string, unknown>, methods: ["PATCH"] },
+  { pattern: '/api/plan-goals', mod: r47 as Record<string, unknown>, methods: ["POST"] },
+  { pattern: '/api/plan-milestones/:id', mod: r48 as Record<string, unknown>, methods: ["PATCH","DELETE"] },
+  { pattern: '/api/plan-milestones', mod: r49 as Record<string, unknown>, methods: ["POST"] },
+  { pattern: '/api/plan-sections/:id', mod: r50 as Record<string, unknown>, methods: ["PATCH","DELETE"] },
+  { pattern: '/api/plan-sections/reorder', mod: r51 as Record<string, unknown>, methods: ["PATCH"] },
+  { pattern: '/api/plan-sections', mod: r52 as Record<string, unknown>, methods: ["POST"] },
+  { pattern: '/api/plans/:id/review-sessions', mod: r53 as Record<string, unknown>, methods: ["GET","POST"] },
+  { pattern: '/api/plans/:id', mod: r54 as Record<string, unknown>, methods: ["GET","PATCH","DELETE"] },
+  { pattern: '/api/plans', mod: r55 as Record<string, unknown>, methods: ["GET","POST"] },
+  { pattern: '/api/profile', mod: r56 as Record<string, unknown>, methods: ["GET"] },
+  { pattern: '/api/purses', mod: r57 as Record<string, unknown>, methods: ["GET","POST","PUT","DELETE"] },
+  { pattern: '/api/reflections/:id', mod: r58 as Record<string, unknown>, methods: ["PUT","PATCH","DELETE"] },
+  { pattern: '/api/reflections', mod: r59 as Record<string, unknown>, methods: ["GET","POST","PATCH","PUT","DELETE"] },
+  { pattern: '/api/reports', mod: r60 as Record<string, unknown>, methods: ["GET"] },
+  { pattern: '/api/reviews', mod: r61 as Record<string, unknown>, methods: ["GET","POST","PUT","DELETE"] },
+  { pattern: '/api/status-log', mod: r62 as Record<string, unknown>, methods: ["GET","POST"] },
+  { pattern: '/api/suggestions', mod: r63 as Record<string, unknown>, methods: ["GET","POST","PATCH"] },
+  { pattern: '/api/tasks/:id', mod: r64 as Record<string, unknown>, methods: ["PUT","DELETE"] },
+  { pattern: '/api/tasks', mod: r65 as Record<string, unknown>, methods: ["GET","POST"] },
+  { pattern: '/api/trackers/:id', mod: r66 as Record<string, unknown>, methods: ["PUT","DELETE"] },
+  { pattern: '/api/trackers', mod: r67 as Record<string, unknown>, methods: ["GET","POST"] },
+  { pattern: '/api/years', mod: r68 as Record<string, unknown>, methods: ["POST"] },
 ]
 
 /** One line per endpoint: METHOD path ?query {body fields}. */
@@ -147,8 +149,8 @@ export const APP_API_CATALOG: string[] = [
   "DELETE /api/alarms/:id",
   "GET /api/alarms",
   "POST /api/alarms {title,time,days,tz}",
-  "GET /api/allocations ?month&section",
-  "POST /api/allocations {section,amount,month,sourcePurse,purse}",
+  "GET /api/allocations",
+  "POST /api/allocations",
   "PATCH /api/applications/:id/items/:itemId",
   "DELETE /api/applications/:id/items/:itemId",
   "POST /api/applications/:id/items",
@@ -168,7 +170,7 @@ export const APP_API_CATALOG: string[] = [
   "GET /api/bottles ?entryLimit",
   "POST /api/bottles {name,emoji,unit,target,challenge,challengeDue}",
   "GET /api/budgets ?month&section",
-  "POST /api/budgets {category,amount,month,section}",
+  "POST /api/budgets",
   "DELETE /api/budgets {id}",
   "POST /api/calendar/disconnect",
   "GET /api/calendar/events ?timeMin&timeMax",
@@ -186,10 +188,12 @@ export const APP_API_CATALOG: string[] = [
   "POST /api/events {title,startTime,endTime,score,comment,type,completed}",
   "PUT /api/events {id,title,startTime,endTime,score,comment,type,completed}",
   "DELETE /api/events {id}",
-  "GET /api/financial ?itemId&startDate&endDate&purse&category&type&limit&offset",
-  "POST /api/financial {itemId,entryDate,type,amount,currency,category,description,comments,priority,purse}",
-  "PUT /api/financial {amount,from,to,description}",
-  "DELETE /api/financial {id}",
+  "GET /api/finance/overview ?month",
+  "GET /api/financial",
+  "POST /api/financial",
+  "PUT /api/financial",
+  "PATCH /api/financial {id}",
+  "DELETE /api/financial {id,reason}",
   "GET /api/habits/overview ?date",
   "GET /api/habits ?range&date&start&end",
   "DELETE /api/habits ?title&deleteAll",
@@ -255,8 +259,8 @@ export const APP_API_CATALOG: string[] = [
   "POST /api/plans {title,startMonth,endMonth,reviewCadence,anchorNote}",
   "GET /api/profile",
   "GET /api/purses",
-  "POST /api/purses {name,icon,color}",
-  "PUT /api/purses {id,name,icon,color}",
+  "POST /api/purses",
+  "PUT /api/purses {id}",
   "DELETE /api/purses {id}",
   "PUT /api/reflections/:id {content}",
   "PATCH /api/reflections/:id",

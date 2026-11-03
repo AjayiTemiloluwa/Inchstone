@@ -1,278 +1,110 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
+import { FinanceError, editEntry, recordEntry, transfer, voidEntry } from '@/lib/finance/service'
+
+export const dynamic = 'force-dynamic'
+
+/** Every route here is a thin wrapper: authenticate, hand the body to the ledger service, report its verdict. */
+function fail(error: unknown) {
+  if (error instanceof FinanceError) return NextResponse.json({ error: error.message }, { status: error.status })
+  console.error('Finance request failed', error)
+  return NextResponse.json({ error: 'Something went wrong. Nothing was changed.' }, { status: 500 })
+}
 
 export async function GET(req: Request) {
-  try {
-    const authResult = await auth()
-    const { userId } = authResult
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const { searchParams } = new URL(req.url)
-    const itemId = searchParams.get('itemId')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
-    const purse = searchParams.get('purse')
-    const category = searchParams.get('category')
-    const type = searchParams.get('type')
-    const limit = searchParams.get('limit')
-    const offset = searchParams.get('offset')
-
-    const where: any = { userId }
-
-    if (itemId) where.itemId = itemId
-    if (purse) where.purse = purse
-    if (category) where.category = category
-    if (type) where.type = type
-
-    if (startDate && endDate) {
-      where.entryDate = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      }
-    }
-
-    const take = limit ? parseInt(limit) : undefined
-    const skip = offset ? parseInt(offset) : undefined
-
-    const [entries, totalCount] = await Promise.all([
-      prisma.financialEntry.findMany({
-        where,
-        orderBy: { entryDate: 'desc' },
-        take,
-        skip,
-      }),
-      prisma.financialEntry.count({ where }),
-    ])
-
-    // Calculate totals
-    const totalIncome = entries
-      .filter(e => e.type === 'income')
-      .reduce((sum, e) => sum + e.amount, 0)
-
-    const totalExpense = entries
-      .filter(e => e.type === 'expense')
-      .reduce((sum, e) => sum + e.amount, 0)
-
-    // Category breakdown
-    const categoryBreakdown: Record<string, { total: number, count: number, type: string }> = {}
-    entries.forEach(e => {
-      // Internal purse movements (manual transfers and the auto Main-purse
-      // deduction) are not real spending on a category — skip them so
-      // breakdowns stay accurate.
-      if (e.type === 'transfer_in' || e.type === 'transfer_out') return
-      if (!categoryBreakdown[e.category]) {
-        categoryBreakdown[e.category] = { total: 0, count: 0, type: e.type }
-      }
-      categoryBreakdown[e.category].total += e.amount
-      categoryBreakdown[e.category].count += 1
-    })
-
-    return NextResponse.json({ entries, totalIncome, totalExpense, totalCount, categoryBreakdown })
-  } catch (error) {
-    console.error('Failed to fetch financial entries', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const authResult = await auth()
-    const { userId } = authResult
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const body = await req.json()
-    const { itemId, entryDate, type, amount, currency, category, description, comments, priority, purse } = body
-
-    if (!type || !amount || !category) {
-      return NextResponse.json({ error: 'type, amount, and category are required' }, { status: 400 })
-    }
-
-    if (!['income', 'expense', 'transfer_in', 'transfer_out'].includes(type)) {
-      return NextResponse.json({ error: 'type must be income, expense, transfer_in, or transfer_out' }, { status: 400 })
-    }
-
-    const parsedAmount = parseFloat(amount)
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
-    }
-
-    // BUSINESS RULE: Income always goes into the "Main" purse.
-    // Expenses can come from any selected purse.
-    const purseName = type === 'income' ? 'Main' : (purse || 'Main')
-    const existingPurse = await prisma.purse.findFirst({ where: { userId, name: purseName } })
-    if (!existingPurse) {
-      return NextResponse.json({ error: `Purse "${purseName}" not found` }, { status: 400 })
-    }
-
-    // SPENDING RULE: For expenses, validate the purse has enough balance
-    if (type === 'expense') {
-      // Calculate current balance of the selected purse
-      const allEntries = await prisma.financialEntry.findMany({ where: { userId } })
-      let purseBalance = 0
-      for (const e of allEntries) {
-        if (e.purse === purseName) {
-          if (e.type === 'income' || e.type === 'transfer_in') purseBalance += e.amount
-          else if (e.type === 'expense' || e.type === 'transfer_out') purseBalance -= e.amount
-        }
-      }
-
-      if (parsedAmount > purseBalance) {
-        return NextResponse.json({
-          error: `Insufficient balance in "${purseName}" purse. You have ₦${purseBalance.toFixed(2)} but trying to spend ₦${parsedAmount.toFixed(2)}. Add income or transfer from another purse first.`
-        }, { status: 400 })
-      }
-    }
-
-    const entryData = {
-      userId,
-      itemId: itemId || null,
-      entryDate: entryDate ? new Date(entryDate) : new Date(),
-      type,
-      amount: parsedAmount,
-      currency: currency || 'NGN',
-      category: category.trim(),
-      description: description || null,
-      comments: comments || null,
-      priority: priority || null,
-      purse: purseName,
-    }
-
-    // MIRROR RULE: Main is the master purse — money only leaves the system
-    // through it. An expense from any other purse (Savings, Offerings, …)
-    // therefore also deducts the same amount from "Main", recorded as an
-    // internal transfer_out so the ledger shows a clear audit trail.
-    const mainDeduction =
-      purseName !== 'Main'
-        ? {
-            userId,
-            entryDate: entryData.entryDate,
-            type: 'transfer_out' as const,
-            amount: parsedAmount,
-            currency: currency || 'NGN',
-            category: 'Transfer',
-            description: `Auto: ${description || category.trim()} spent from ${purseName}`,
-            purse: 'Main',
-          }
-        : null
-
-    const [entry, deduction] = await prisma.$transaction([
-      prisma.financialEntry.create({ data: entryData }),
-      ...(mainDeduction ? [prisma.financialEntry.create({ data: mainDeduction })] : []),
-    ])
-
-    return NextResponse.json({ success: true, entry, mainDeduction: deduction || null })
-  } catch (error) {
-    console.error('Failed to create financial entry', error)
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
-    return NextResponse.json({ error: message }, { status: 500 })
-  }
-}
-
-// Transfer between purses
-export async function PUT(req: Request) {
-  try {
-    const authResult = await auth()
-    const { userId } = authResult
-    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const body = await req.json()
-    const { amount, from, to, description } = body
-
-    const parsedAmount = parseFloat(amount)
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
-    }
-
-    if (!from || !to || from === to) {
-      return NextResponse.json({ error: 'Must specify different from and to purses' }, { status: 400 })
-    }
-
-    // Verify both purses exist
-    const [fromPurse, toPurse] = await Promise.all([
-      prisma.purse.findFirst({ where: { userId, name: from } }),
-      prisma.purse.findFirst({ where: { userId, name: to } }),
-    ])
-    if (!fromPurse) {
-      return NextResponse.json({ error: `Source purse "${from}" not found` }, { status: 400 })
-    }
-    if (!toPurse) {
-      return NextResponse.json({ error: `Destination purse "${to}" not found` }, { status: 400 })
-    }
-
-    // SPENDING RULE: Validate source purse has enough balance
-    const allEntries = await prisma.financialEntry.findMany({ where: { userId } })
-    let fromBalance = 0
-    for (const e of allEntries) {
-      if (e.purse === from) {
-        if (e.type === 'income' || e.type === 'transfer_in') fromBalance += e.amount
-        else if (e.type === 'expense' || e.type === 'transfer_out') fromBalance -= e.amount
-      }
-    }
-
-    if (parsedAmount > fromBalance) {
-      return NextResponse.json({
-        error: `Insufficient balance in "${from}" purse. You have ₦${fromBalance.toFixed(2)} but trying to transfer ₦${parsedAmount.toFixed(2)}.`
-      }, { status: 400 })
-    }
-
-    // Create withdrawal from source purse
-    const outEntry = await prisma.financialEntry.create({
-      data: {
-        userId,
-        entryDate: new Date(),
-        type: 'transfer_out',
-        amount: parsedAmount,
-        currency: 'NGN',
-        category: 'Transfer',
-        description: description || `Transfer from ${from} to ${to}`,
-        purse: from,
-      },
-    })
-
-    // Create deposit to destination purse
-    const inEntry = await prisma.financialEntry.create({
-      data: {
-        userId,
-        entryDate: new Date(),
-        type: 'transfer_in',
-        amount: parsedAmount,
-        currency: 'NGN',
-        category: 'Transfer',
-        description: description || `Transfer from ${from} to ${to}`,
-        purse: to,
-      },
-    })
-
-    return NextResponse.json({ success: true, outEntry, inEntry })
-  } catch (error) {
-    console.error('Failed to transfer between purses', error)
-    const message = error instanceof Error ? error.message : 'Internal Server Error'
-    return NextResponse.json({ error: message }, { status: 500 })
-  }
-}
-
-export async function DELETE(req: Request) {
   try {
     const { userId } = await auth()
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await req.json()
-    const { id } = body
+    const sp = new URL(req.url).searchParams
+    const where: Record<string, unknown> = { userId }
+    // Voided entries are history, not money: hidden unless asked for.
+    if (sp.get('includeVoided') !== '1') where.voidedAt = null
+    for (const k of ['itemId', 'purse', 'category', 'type'] as const) if (sp.get(k)) where[k] = sp.get(k)
 
-    if (!id) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    const start = sp.get('startDate'), end = sp.get('endDate')
+    if (start && end) {
+      const s = new Date(start), e = new Date(end)
+      if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return NextResponse.json({ error: 'Invalid date range' }, { status: 400 })
+      where.entryDate = { gte: s, lte: e }
     }
+    const take = Math.min(Math.max(parseInt(sp.get('limit') || '0', 10) || 0, 0), 1000) || undefined
+    const skip = Math.max(parseInt(sp.get('offset') || '0', 10) || 0, 0) || undefined
 
-    await prisma.financialEntry.deleteMany({
-      where: { id, userId },
-    })
+    const [entries, totalCount] = await Promise.all([
+      prisma.financialEntry.findMany({ where, orderBy: [{ entryDate: 'desc' }, { createdAt: 'desc' }], take, skip }),
+      prisma.financialEntry.count({ where }),
+    ])
 
-    return NextResponse.json({ success: true })
+    // Totals and the category breakdown only count real income and spending; transfers and voided rows are not either.
+    let totalIncome = 0, totalExpense = 0
+    const categoryBreakdown: Record<string, { total: number; count: number; type: string }> = {}
+    for (const e of entries) {
+      if (e.voidedAt) continue
+      if (e.type === 'income') totalIncome += e.amount
+      else if (e.type === 'expense') totalExpense += e.amount
+      else continue
+      const c = (categoryBreakdown[e.category] ??= { total: 0, count: 0, type: e.type })
+      c.total += e.amount
+      c.count += 1
+    }
+    return NextResponse.json({ entries, totalIncome, totalExpense, totalCount, categoryBreakdown })
   } catch (error) {
-    console.error('Failed to delete financial entry', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return fail(error)
+  }
+}
+
+/** Record income or spending. */
+export async function POST(req: Request) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const body = await req.json().catch(() => ({}))
+    const { entry, duplicate } = await recordEntry(userId, body)
+    return NextResponse.json({ success: true, entry, duplicate })
+  } catch (error) {
+    return fail(error)
+  }
+}
+
+/** Transfer between two purses (both legs, or neither). */
+export async function PUT(req: Request) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const body = await req.json().catch(() => ({}))
+    const result = await transfer(userId, body)
+    return NextResponse.json({ success: true, ...result })
+  } catch (error) {
+    return fail(error)
+  }
+}
+
+/** Edit an entry: text in place; amount, date or purse by voiding the old row and writing a replacement. */
+export async function PATCH(req: Request) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const body = await req.json().catch(() => ({}))
+    if (!body.id || typeof body.id !== 'string') return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    const entry = await editEntry(userId, body.id, body)
+    return NextResponse.json({ success: true, entry })
+  } catch (error) {
+    return fail(error)
+  }
+}
+
+/** "Delete" voids: the entry stays in history, out of every balance. A transfer is voided as a pair. */
+export async function DELETE(req: Request) {
+  try {
+    const { userId } = await auth()
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const body = await req.json().catch(() => ({}))
+    if (!body.id || typeof body.id !== 'string') return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    const result = await voidEntry(userId, body.id, body.reason)
+    return NextResponse.json({ success: true, ...result })
+  } catch (error) {
+    return fail(error)
   }
 }
