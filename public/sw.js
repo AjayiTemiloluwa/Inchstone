@@ -1,6 +1,6 @@
 /* Inchstone service worker — offline shell + data cache + write-queue bridge. */
 
-const VERSION = 'v10'
+const VERSION = 'v11'
 const SHELL_CACHE = `inchstone-shell-${VERSION}`
 const RUNTIME_CACHE = `inchstone-runtime-${VERSION}`
 const API_CACHE = `inchstone-api-${VERSION}`
@@ -234,7 +234,12 @@ self.addEventListener('sync', (event) => {
 // ── Push notifications ─────────────────────────────────────────────────────────
 
 self.addEventListener('push', function (event) {
-    if (!event.data) return
+    // Android shows a generic "updated in the background" notice when a push shows nothing,
+    // so a push with no readable payload still gets a visible notification.
+    if (!event.data) {
+        event.waitUntil(self.registration.showNotification('Inchstone', { icon: '/icon-192.png', badge: '/notify-badge.png', data: { url: '/dashboard' } }))
+        return
+    }
 
     try {
         const data = event.data.json()
@@ -267,6 +272,7 @@ self.addEventListener('push', function (event) {
         )
     } catch (e) {
         console.error('Push notification error:', e)
+        event.waitUntil(self.registration.showNotification('Inchstone', { body: event.data.text(), icon: '/icon-192.png', badge: '/notify-badge.png', data: { url: '/dashboard' } }))
     }
 })
 

@@ -74,7 +74,11 @@ export async function sendNotification(
                 ...(payload.tag ? { tag: payload.tag, renotify: true } : {}),
                 ...(payload.requireInteraction ? { requireInteraction: true } : {}),
                 ...(payload.vibrate ? { vibrate: payload.vibrate } : {}),
-            })
+            }),
+            // Android parks "normal" pushes while the phone dozes or saves battery, so they only show
+            // once the app is opened. "high" urgency wakes the device; TTL keeps the message queued
+            // for a day if the phone is off or offline.
+            { urgency: 'high', TTL: 60 * 60 * 24 }
         )
         return true
     } catch (error: any) {

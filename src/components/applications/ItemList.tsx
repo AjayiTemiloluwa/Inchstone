@@ -123,7 +123,7 @@ export function ItemList({
             )
           }
           return (
-            <li key={it.id} className="group flex items-start gap-3 px-4 py-3">
+            <li key={it.id} className="group flex items-start gap-3 px-4 py-4 pointer-fine:py-3">
               {kind === 'step' ? (
                 <button
                   type="button"
@@ -131,16 +131,16 @@ export function ItemList({
                   aria-label={done ? `Mark "${it.label}" not done` : `Mark "${it.label}" done`}
                   aria-pressed={done}
                   className={cx(
-                    'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors',
+                    'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 transition-colors pointer-fine:h-6 pointer-fine:w-6 pointer-fine:rounded-md pointer-fine:border',
                     done ? 'border-moss bg-moss/20 text-moss' : 'border-gold/30 text-transparent hover:border-gold/60',
                   )}
                 >
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  <Check className="h-5 w-5 pointer-fine:h-3.5 pointer-fine:w-3.5" strokeWidth={3} />
                 </button>
               ) : null}
 
               <div className="min-w-0 flex-1">
-                <p className={cx('text-sm', done ? 'text-parchment/40 line-through' : 'text-parchment')}>{it.label}</p>
+                <p className={cx('text-base leading-snug pointer-fine:text-sm', done ? 'text-parchment/40 line-through' : 'text-parchment')}>{it.label}</p>
                 {it.detail && <p className="mt-0.5 whitespace-pre-wrap text-caption text-parchment/50">{it.detail}</p>}
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   {it.dueDate && <Badge tone="neutral">by {new Date(it.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</Badge>}

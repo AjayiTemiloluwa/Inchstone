@@ -2450,3 +2450,21 @@ html:not(.dark) .touch-hint-pill {
     0 18px 50px rgb(0 0 0 / 0.28);
 }
 .nav-scroll { scrollbar-width: thin; scrollbar-color: rgb(var(--gold-rgb) / 0.2) transparent; }
+
+/* ── Phones: bigger reading sizes and tap targets for checklists and drop-downs ──
+   The caption / body tokens bottom out at 11–15px, which reads as tiny print on
+   high-density phones. A phone gets one step up; a mouse keeps the compact size. */
+@media (max-width: 768px) {
+  :root {
+    --text-body: 1rem;
+    --text-caption: 0.875rem;
+    --text-mono: 0.875rem;
+  }
+
+  select {
+    min-height: 2.75rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    padding-left: 0.75rem;
+  }
+}
