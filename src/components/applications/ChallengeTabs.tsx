@@ -16,7 +16,7 @@ const TABS = [
 export function ChallengeTabs() {
   const pathname = usePathname()
   return (
-    <nav aria-label="Challenge sections" className="-mt-2 flex max-w-full gap-1 overflow-x-auto border-b border-gold/10 sm:-mt-4">
+    <nav aria-label="Challenge sections" className="-mt-2 grid max-w-full grid-cols-2 gap-2 sm:-mt-4 sm:flex sm:gap-1 sm:overflow-x-auto sm:border-b sm:border-gold/10">
       {TABS.map(({ href, label, icon: Icon }) => {
         const active = href === '/challenge' ? pathname === '/challenge' : pathname.startsWith(href)
         return (
@@ -25,13 +25,13 @@ export function ChallengeTabs() {
             href={href}
             aria-current={active ? 'page' : undefined}
             className={cx(
-              'relative -mb-px flex min-h-11 shrink-0 items-center gap-2 px-3 text-sm font-medium transition-colors',
-              active ? 'text-parchment' : 'text-parchment/45 hover:text-parchment/75',
+              'relative flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-medium leading-tight transition-colors sm:-mb-px sm:shrink-0 sm:rounded-none sm:border-0',
+              active ? 'border-gold/40 bg-gold/10 text-parchment sm:bg-transparent' : 'border-gold/10 text-parchment/55 hover:text-parchment/80',
             )}
           >
-            <Icon className={cx('h-4 w-4', active ? 'text-gold' : 'text-gold-dim')} strokeWidth={1.6} aria-hidden="true" />
+            <Icon className={cx('h-4 w-4 shrink-0', active ? 'text-gold' : 'text-gold-dim')} strokeWidth={1.6} aria-hidden="true" />
             {label}
-            {active && <span aria-hidden className="absolute inset-x-2 -bottom-px h-0.5 bg-gold" />}
+            {active && <span aria-hidden className="absolute inset-x-2 -bottom-px hidden h-0.5 bg-gold sm:block" />}
           </Link>
         )
       })}

@@ -10,6 +10,7 @@ import { APPLICATION_TYPES, DEFAULT_ITEM_STATUS, starterItemsFor } from '@/lib/a
 import { readFeed, readPage, webSearch } from '@/lib/web'
 import { sendEmail } from '@/lib/email'
 import { describeSchedule, digestSelection } from '@/lib/digest'
+import { digestEmailHtml } from '@/lib/digestEmail'
 
 /** Opportunity sites with reliable RSS feeds, read when "built-in sources" is on. */
 export const BUILT_IN_SOURCES = [
@@ -189,25 +190,7 @@ export async function sendDigest(userId: string) {
   const all = await prisma.opportunity.findMany({ where: { userId, status: 'new', emailSkip: false } })
   const opps = digestSelection(settings, all)
   if (!opps.length) return { ok: false, reason: 'Nothing matches your digest settings right now' }
-  const review = `${appUrl()}/challenge/opportunities`
-  const row = (o: (typeof opps)[number]) => `
-    <tr><td style="padding:12px 0;border-bottom:1px solid #e7decb">
-      <a href="${esc(o.url)}" style="color:#241e15;font-weight:bold;font-size:15px;text-decoration:none">${esc(o.title)}</a>
-      <div style="font-size:12px;color:#8a7a5c;margin-top:3px">${esc([o.organization, o.type, o.location, o.deadline ? `Deadline ${o.deadline.toISOString().slice(0, 10)}` : 'No deadline given'].filter(Boolean).join(' · '))}</div>
-      ${o.summary ? `<div style="font-size:13px;color:#4b4030;margin-top:5px;line-height:1.5">${esc(o.summary)}</div>` : ''}
-      <div style="font-size:12px;color:#96762f;margin-top:4px">${o.match}% match${o.matchReason ? ` · ${esc(o.matchReason)}` : ''}</div>
-    </td></tr>`
-  const group = (label: string, list: typeof opps) => list.length ? `<h2 style="font-size:16px;margin:22px 0 4px">${label} · ${list.length}</h2><table style="width:100%;border-collapse:collapse">${list.map(row).join('')}</table>` : ''
-  const local = opps.filter((o) => o.scope === 'local'), global = opps.filter((o) => o.scope !== 'local')
-  const html = `
-    <div style="font-family:Georgia,serif;max-width:620px;margin:0 auto;padding:28px 22px;background:#faf6ee;color:#241e15;border:1px solid #e7decb;border-radius:12px">
-      <p style="font-family:monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#96762f;margin:0 0 14px">Inchstone · Opportunity Scout</p>
-      <h1 style="font-size:22px;margin:0 0 8px">${opps.length} new ${opps.length === 1 ? 'opportunity' : 'opportunities'} for you</h1>
-      <p style="font-size:14px;color:#4b4030;margin:0 0 6px">Review them and choose which go into your Application Tracker: approve all, one by one, or just the ones you pick.</p>
-      <p style="margin:18px 0"><a href="${review}" style="background:#96762f;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px;font-weight:bold;display:inline-block">Review and approve</a></p>
-      ${group('Local', local)}${group('Global', global)}
-      <p style="font-size:12px;color:#8a7a5c;margin-top:24px">Schedule: ${esc(describeSchedule(settings))}. Change what is sent and when on the Application Tracker or Opportunity Scout page.</p>
-    </div>`
+  const html = digestEmailHtml({ name: profile.name, opps, reviewUrl: `${appUrl()}/challenge/opportunities`, schedule: describeSchedule(settings) })
   const res = await sendEmail({ to: profile.email, subject: `${opps.length} new opportunities to review`, html })
   if (res.ok) await prisma.opportunity.updateMany({ where: { id: { in: opps.map((o) => o.id) } }, data: { emailedAt: new Date() } })
   return res.ok ? { ok: true, sent: opps.length, to: profile.email } : { ok: false, reason: res.reason === 'sender_not_verified' ? 'The email sender is not verified for this address yet' : res.detail || 'Email failed' }

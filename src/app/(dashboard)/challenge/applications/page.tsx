@@ -167,15 +167,15 @@ export default function ApplicationTrackerPage() {
         title="Application Tracker"
         description="Every scholarship, job, school and grant you are going for: what it needs, whether you qualify, how far along you are, and when it is due."
         actions={
-          <>
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
             <Button variant="ghost" icon={Mail} onClick={() => setShowDigest((v) => !v)} aria-expanded={showDigest}>Email digest</Button>
             <Button variant="ghost" icon={Archive} onClick={() => { setLoading(true); setShowArchived((v) => !v) }}>
               {showArchived ? 'Back to active' : 'Archived'}
             </Button>
-            <Button variant="primary" icon={showCreate ? X : Plus} onClick={() => setShowCreate((v) => !v)}>
+            <Button variant="primary" icon={showCreate ? X : Plus} onClick={() => setShowCreate((v) => !v)} className="col-span-2">
               {showCreate ? 'Close' : 'New application'}
             </Button>
-          </>
+          </div>
         }
       />
       <ChallengeTabs />
@@ -249,7 +249,7 @@ export default function ApplicationTrackerPage() {
       >
         {!showArchived && (
           <div className="mb-4 flex flex-col gap-2">
-            <Segmented options={FILTERS} value={filter} onChange={setFilter} ariaLabel="Filter applications" />
+            <Segmented options={FILTERS} value={filter} onChange={setFilter} ariaLabel="Filter applications" className="flex-wrap !overflow-visible" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" aria-label="Search applications"
               className={cx(inputClass, 'sm:hidden')} />
           </div>
@@ -281,8 +281,8 @@ function AppCard({ app: a }: { app: AppRow }) {
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/40">
               {typeLabel(a.type)}{a.priority === 'high' ? ' · High priority' : ''}
             </p>
-            <h3 className="mt-1 truncate text-heading text-parchment">{a.title}</h3>
-            {a.organization && <p className="truncate text-caption text-parchment/55">{a.organization}</p>}
+            <h3 className="mt-1 line-clamp-3 break-words text-heading text-parchment">{a.title}</h3>
+            {a.organization && <p className="line-clamp-2 break-words text-caption text-parchment/55">{a.organization}</p>}
           </div>
           <StatusBadge status={a.status} />
         </div>

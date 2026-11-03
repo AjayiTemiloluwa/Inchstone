@@ -206,20 +206,28 @@ export function FluidText({
 
   return (
     <span ref={wrapRef} className={className} aria-label={text} role="text">
-      {text.split('').map((ch, i) =>
-        ch === ' ' ? (
-          <span key={i}> </span>
-        ) : (
-          <span
-            key={`${i}-${ch}`}
-            ref={el => { charRefs.current[i] = el }}
-            aria-hidden="true"
-            className="inline-block will-change-transform"
-          >
-            {ch}
-          </span>
-        ),
-      )}
+      {(() => {
+        let at = 0 // index of the glyph in the whole text, so charRefs lines up with the springs
+        return text.split(/( )/).map((word, w) => {
+          if (word === ' ' || word === '') { at += word.length; return word === ' ' ? <span key={`s${w}`}> </span> : null }
+          const start = at
+          at += word.length
+          return (
+            <span key={`w${w}`} className="inline-block whitespace-nowrap">
+              {word.split('').map((ch, j) => (
+                <span
+                  key={`${start + j}-${ch}`}
+                  ref={el => { charRefs.current[start + j] = el }}
+                  aria-hidden="true"
+                  className="inline-block will-change-transform"
+                >
+                  {ch}
+                </span>
+              ))}
+            </span>
+          )
+        })
+      })()}
     </span>
   )
 }
