@@ -307,6 +307,54 @@ self.addEventListener('notificationclick', function (event) {
         return
     }
 
+    // "Not done" reopens the deed (marks incomplete) without opening the app.
+    if (event.action === 'not-done' && taskId) {
+        event.waitUntil(
+            fetch('/api/tasks/' + encodeURIComponent(taskId), {
+                method: 'PUT',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ completed: false, progress: 0 }),
+            })
+                .then(function (res) {
+                    return self.registration.showNotification(res.ok ? 'Reopened ↻' : 'Could not reopen', {
+                        body: res.ok ? event.notification.title.replace(/^[^:]*:\\s*/, '') : 'Open Inchstone to retry.',
+                        icon: '/icon-192.png',
+                        badge: '/notify-badge.png',
+                        tag: 'task-notdone-' + taskId,
+                        silent: true,
+                        data: { url: url },
+                    })
+                })
+                .catch(function () {})
+        )
+        return
+    }
+
+    // "Extend" pushes the task's start/end time forward by 15 minutes.
+    if (event.action === 'extend' && taskId) {
+        event.waitUntil(
+            fetch('/api/tasks/' + encodeURIComponent(taskId), {
+                method: 'PUT',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ extendMinutes: 15 }),
+            })
+                .then(function (res) {
+                    return self.registration.showNotification(res.ok ? 'Extended +15m' : 'Could not extend', {
+                        body: res.ok ? event.notification.title.replace(/^[^:]*:\\s*/, '') : 'Open Inchstone to reschedule.',
+                        icon: '/icon-192.png',
+                        badge: '/notify-badge.png',
+                        tag: 'task-extend-' + taskId,
+                        silent: true,
+                        data: { url: url },
+                    })
+                })
+                .catch(function () {})
+        )
+        return
+    }
+
     event.waitUntil(
         clients
             .matchAll({ type: 'window', includeUncontrolled: true })

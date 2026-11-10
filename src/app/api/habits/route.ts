@@ -68,7 +68,7 @@ export async function GET(req: Request) {
             const completed = instances.filter(h => h.completed).length
             const latest = instances[instances.length - 1]
             // Days still to come: 0 means the habit was stopped and only its history is left.
-            const upcoming = instances.filter(h => h.date >= todayUtc).length
+            const upcoming = instances.filter(h => h.date! >= todayUtc).length
             return { title, total, completed, upcoming, latestDate: latest?.date }
         })
 

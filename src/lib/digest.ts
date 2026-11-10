@@ -38,7 +38,7 @@ export function digestSelection<T extends DigestCandidate>(s: DigestSettings, op
   const dl = (o: T) => (o.deadline ? new Date(o.deadline).getTime() : Infinity)
   return opps
     .filter((o) =>
-      o.status === 'new' && !o.emailSkip &&
+      o.status !== 'approved' && !o.emailSkip &&
       (!s.digestOnlyNew || !o.emailedAt) &&
       o.match >= s.digestMinMatch &&
       (s.digestScope === 'all' || o.scope === s.digestScope) &&

@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeftRight, ChevronLeft, ChevronRight, Plus, ShieldCheck, TriangleAlert } from 'lucide-react'
-import { Badge, Button, IconButton, Page, PageHeader, Panel, Section, Stat, StatGrid } from '@/components/ds'
+import { Badge, Button, IconButton, Meter, Page, PageHeader, Panel, Section, Stat, StatGrid, inputClass } from '@/components/ds'
 import { Loader } from '@/components/ui/Loader'
 import { TransactionForm } from '@/components/finance/TransactionForm'
 import { TransferForm } from '@/components/finance/TransferForm'
 import { EnvelopeCard, type EnvelopeData } from '@/components/finance/EnvelopeCard'
 import { AccountsPanel, type PurseData } from '@/components/finance/AccountsPanel'
 import { RecentActivity } from '@/components/finance/RecentActivity'
+import { MonthLedger, type Reconciliation } from '@/components/finance/MonthLedger'
 import { FinanceSheet } from '@/components/finance/FinanceSheet'
 import { Notice } from '@/components/finance/ui'
 import { api, monthLabel, naira, nairaShort } from '@/components/finance/money'
@@ -25,6 +26,7 @@ interface Overview {
   assignedTotal: number
   unassignedIncome: number
   sections: EnvelopeData[]
+  reconciliation: Reconciliation
   runwayMonths: number | null
   integrity: { ok: boolean; issues: string[]; entryCount: number; voidedCount: number }
 }
@@ -43,6 +45,17 @@ export default function FinancePage() {
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
   const [sheet, setSheet] = useState<'add' | 'transfer' | null>(null)
+  // Monthly savings goal: kept in this browser under the same key the earlier page used, so an existing target carries over.
+  const [goal, setGoal] = useState(0)
+  const [editGoal, setEditGoal] = useState(false)
+  const [goalInput, setGoalInput] = useState('')
+  useEffect(() => { try { const v = parseFloat(localStorage.getItem('monthlySavingsTarget') ?? ''); if (v > 0) setGoal(v) } catch { /* private mode */ } }, [])
+  const saveGoal = () => {
+    const v = parseFloat(goalInput.replace(/,/g, ''))
+    const next = Number.isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : 0
+    setGoal(next); setEditGoal(false)
+    try { localStorage.setItem('monthlySavingsTarget', String(next)) } catch { /* private mode */ }
+  }
 
   const reload = useCallback(() => setTick((t) => t + 1), [])
   useEffect(() => {
@@ -65,9 +78,9 @@ export default function FinancePage() {
   return (
     <Page width="wide" className="pb-16">
       <PageHeader
-        eyebrow="Finance"
-        title="Money"
-        description="Give every naira a job. Income lands in Main, you assign it to envelopes, and spending is measured against them."
+        eyebrow={<>Ledger · <span className="tabular-nums">{data.integrity.entryCount}</span> entries</>}
+        title="Every sum, accounted for."
+        description={`Income, expenses & savings — ${monthLabel(month)}. Give every naira a job: income lands in Main, you assign it to envelopes, and spending is measured against them.`}
         actions={
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
             <Button variant="primary" icon={Plus} onClick={() => setSheet('add')}>Add transaction</Button>
@@ -87,11 +100,41 @@ export default function FinancePage() {
 
       <Section title="This month at a glance" id="finance-glance">
         <StatGrid cols={4}>
+          <Stat label="Income" value={nairaShort(data.income)} tone="moss" caption={monthLabel(month)} />
+          <Stat label="Expenses" value={nairaShort(data.spent)} tone="ember" caption="all spending this month" />
+          <Stat label="Net" value={nairaShort(data.net)} tone={data.net >= 0 ? 'gold' : 'ember'} caption={data.savingsRatePct === null ? 'no income yet' : `saved ${data.savingsRatePct}% of income`} />
+          <Stat label="Offerings" value={nairaShort(data.sections.find((x) => x.section === 'Offerings')?.spent ?? 0)} caption={`Given in ${monthLabel(month)}`} />
+        </StatGrid>
+        <StatGrid cols={4} className="mt-3">
           <Stat label="Net worth" value={nairaShort(data.netWorth)} tone="gold" caption="all purses together" />
           <Stat label="Ready to assign" value={nairaShort(data.readyToAssign)} tone={data.readyToAssign > 0 ? 'gold' : 'moss'} caption="in Main, no job yet" />
-          <Stat label="Income" value={nairaShort(data.income)} tone="moss" caption={monthLabel(month)} />
-          <Stat label="Spent" value={nairaShort(data.spent)} caption={data.savingsRatePct === null ? 'no income yet' : `saved ${data.savingsRatePct}% of income`} tone={data.net < 0 ? 'ember' : 'neutral'} />
+          <Stat label="Month opened at" value={nairaShort(data.reconciliation.openingNetWorth)} caption="net worth on the 1st" />
+          <Stat label="Month closes at" value={nairaShort(data.reconciliation.closingNetWorth)} tone={data.reconciliation.reconciles ? 'neutral' : 'ember'} caption={data.reconciliation.reconciles ? 'opening + income − expenses' : 'does not reconcile'} />
         </StatGrid>
+
+        <Panel className="mt-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/55">Monthly savings goal</p>
+            <Button size="sm" variant="ghost" className="text-gold" onClick={() => { setEditGoal(!editGoal); setGoalInput(goal ? String(goal) : '') }}>{editGoal ? 'Cancel' : goal > 0 ? 'Edit' : 'Set'}</Button>
+          </div>
+          {editGoal ? (
+            <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); saveGoal() }}>
+              <input autoFocus inputMode="decimal" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} aria-label="Monthly savings target" placeholder="50000" className={`${inputClass} max-w-xs font-mono`} />
+              <Button type="submit" variant="secondary">Save</Button>
+            </form>
+          ) : goal > 0 ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <p className="font-mono text-heading tabular-nums text-parchment">{naira(Math.max(data.net, 0))} <span className="text-mono text-parchment/55">/ {naira(goal)}</span></p>
+                {data.net >= goal && <Badge tone="moss">Goal reached</Badge>}
+              </div>
+              <Meter value={Math.min(100, (Math.max(data.net, 0) / goal) * 100)} tone={data.net >= goal ? 'moss' : 'gold'} label="Savings goal progress" />
+              <p className="text-caption text-parchment/55">Saved this month = income minus expenses.</p>
+            </div>
+          ) : (
+            <p className="text-caption text-parchment/60">Tap Set to add a monthly target.</p>
+          )}
+        </Panel>
 
         <Panel className="mt-3 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -121,6 +164,10 @@ export default function FinancePage() {
 
       <Section title="Recent activity" id="finance-activity">
         <RecentActivity refreshKey={tick} onChanged={reload} />
+      </Section>
+
+      <Section title={`${monthLabel(month)} ledger`} id="finance-ledger" description="Every entry in order with a running balance, and the proof that each purse adds up.">
+        <MonthLedger month={month} recon={data.reconciliation} income={data.income} spent={data.spent} refreshKey={tick} />
       </Section>
 
       <Section title="Ledger check" id="finance-integrity">

@@ -89,7 +89,7 @@ model Task {
   progress  Float   @default(0)
   completed Boolean @default(false)
 
-  date              DateTime // Target execution date
+  date              DateTime? // Target execution date — optional for frogs to be scheduled later
   startTime         DateTime? // 24h scheduling start
   endTime           DateTime? // 24h scheduling end
   estimatedDuration Int? // in minutes

@@ -37,7 +37,7 @@ export async function GET(req: Request) {
         const deduped: typeof tasks = []
         const deletePromises: Promise<unknown>[] = []
         for (const task of tasks) {
-            const dateKey = task.date.toISOString().substring(0, 10)
+            const dateKey = task.date ? task.date.toISOString().substring(0, 10) : 'null'
             const startKey = task.startTime?.toISOString() || 'null'
             const key = `${task.title}|${dateKey}|${task.goalId}|${startKey}`
             if (!seen.has(key)) {
@@ -68,8 +68,8 @@ export async function POST(req: Request) {
         const body = await req.json()
         const { goalId, title, date, startTime, endTime, estimatedDuration, priority, categoryId, weight, color, reflection, isRecurring, recurrencePattern, recurrenceEnd, isFrog, isHabit, isImportant, reminderMinutes, notifyDeed, endWarnMinutes } = body
 
-        if (!goalId || !title || !date) {
-            return NextResponse.json({ error: 'goalId, title, and date are required' }, { status: 400 })
+        if (!goalId || !title) {
+            return NextResponse.json({ error: 'goalId and title are required' }, { status: 400 })
         }
 
         // Verify the goal belongs to user
@@ -82,11 +82,11 @@ export async function POST(req: Request) {
 
         const taskWeight = weight !== undefined ? weight : 10.0
 
-        const taskDate = new Date(date)
+        const taskDate = date ? new Date(date) : null
         const recurrenceEndDate = recurrenceEnd ? new Date(recurrenceEnd) : null
         
-        const startOffset = startTime ? new Date(startTime).getTime() - taskDate.getTime() : null;
-        const endOffset = endTime ? new Date(endTime).getTime() - taskDate.getTime() : null;
+        const startOffset = (startTime && taskDate) ? new Date(startTime).getTime() - taskDate.getTime() : null;
+        const endOffset = (endTime && taskDate) ? new Date(endTime).getTime() - taskDate.getTime() : null;
 
         const task = await prisma.task.create({
             data: {
@@ -117,9 +117,9 @@ export async function POST(req: Request) {
             },
         })
 
-        // If recurring, generate additional instances
+        // If recurring, generate additional instances (requires a base date)
         const effectiveEndDate = recurrenceEndDate || new Date(Date.UTC(new Date().getFullYear(), 11, 31, 23, 59, 59, 999))
-        if (isRecurring && recurrencePattern) {
+        if (taskDate && isRecurring && recurrencePattern) {
             const instances: Prisma.PrismaPromise<unknown>[] = []
             const currentDate = new Date(taskDate)
             currentDate.setUTCDate(currentDate.getUTCDate() + 1)
