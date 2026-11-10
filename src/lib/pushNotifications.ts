@@ -68,7 +68,7 @@ export async function sendNotification(
                     ...(payload.taskId ? { taskId: payload.taskId } : {}),
                 },
                 ...(payload.timestamp ? { timestamp: payload.timestamp } : {}),
-                ...(payload.actions?.length ? { actions: payload.actions.slice(0, 2) } : {}),
+                ...(payload.actions?.length ? { actions: payload.actions.slice(0, 3) } : {}),
                 // Pass-through options the service worker applies to
                 // showNotification (see public/sw.js).
                 ...(payload.tag ? { tag: payload.tag, renotify: true } : {}),

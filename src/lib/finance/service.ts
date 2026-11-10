@@ -395,6 +395,41 @@ export async function getOverview(userId: string, month: string) {
   })
   const assignedTotalK = sections.reduce((s, x) => s + toKobo(x.assigned), 0)
 
+  // Month reconciliation: for every purse, opening balance + what came in and went out = closing balance.
+  // The total is then cross-checked against a separate calculation (every live entry up to month end), so a
+  // gap anywhere would show as reconciles=false instead of being hidden.
+  const key = (e: LedgerEntry) => new Date(e.entryDate).toISOString().slice(0, 7)
+  const liveRows = ledger.filter((e) => !e.voidedAt)
+  const names = [...new Set(liveRows.filter((e) => key(e) <= month).map((e) => e.purse))]
+  const rows = names.map((name) => {
+    let opening = 0, income = 0, spent = 0, tin = 0, tout = 0
+    for (const e of liveRows) {
+      if (e.purse !== name) continue
+      const k = toKobo(e.amount)
+      const mk = key(e)
+      if (mk < month) opening += e.type === 'income' || e.type === 'transfer_in' ? k : -k
+      else if (mk === month) {
+        if (e.type === 'income') income += k
+        else if (e.type === 'expense') spent += k
+        else if (e.type === 'transfer_in') tin += k
+        else if (e.type === 'transfer_out') tout += k
+      }
+    }
+    return { name, opening, income, spent, tin, tout, closing: opening + income - spent + tin - tout }
+  }).filter((r) => r.opening || r.income || r.spent || r.tin || r.tout)
+  const upToMonthEnd = balancesKobo(liveRows.filter((e) => key(e) <= month))
+  const closingTotal = rows.reduce((a, r) => a + r.closing, 0)
+  const openingTotal = rows.reduce((a, r) => a + r.opening, 0)
+  const reconciliation = {
+    rows: rows.map((r) => ({ name: r.name, opening: fromKobo(r.opening), income: fromKobo(r.income), spent: fromKobo(r.spent), transfersIn: fromKobo(r.tin), transfersOut: fromKobo(r.tout), closing: fromKobo(r.closing) })),
+    openingNetWorth: fromKobo(openingTotal),
+    closingNetWorth: fromKobo(closingTotal),
+    reconciles:
+      openingTotal + sum.incomeK - sum.spentK === closingTotal &&
+      rows.every((r) => r.closing === (upToMonthEnd[r.name] ?? 0)) &&
+      rows.reduce((a, r) => a + r.tin - r.tout, 0) === 0,
+  }
+
   return {
     month,
     currency: CURRENCY,
@@ -406,6 +441,7 @@ export async function getOverview(userId: string, month: string) {
     assignedTotal: fromKobo(assignedTotalK),
     unassignedIncome: fromKobo(Math.max(0, sum.incomeK - assignedTotalK)),
     sections,
+    reconciliation,
     runwayMonths: runwayMonths(savingsK, needAvgK),
     integrity: { ok: audit.ok, issues: audit.issues.map((i) => i.message), entryCount: ledger.filter((e) => !e.voidedAt).length, voidedCount: ledger.filter((e) => !!e.voidedAt).length },
   }

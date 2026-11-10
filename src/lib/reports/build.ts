@@ -41,6 +41,7 @@ export async function buildReport(userId: string, type: ReportType, start: Date,
     // re-projected into ReportTasks); snapshot them per task id.
     const goalTitles = new Map<string, string | null>()
     tasks.forEach(task => {
+        if (!task.date) return
         const key = format(new Date(task.date), 'yyyy-MM-dd')
         const entry = days.get(key)
         if (entry) {

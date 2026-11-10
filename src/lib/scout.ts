@@ -187,7 +187,7 @@ export async function sendDigest(userId: string) {
     scoutProfile(userId),
   ])
   if (!profile?.email) return { ok: false, reason: 'No email address on this account' }
-  const all = await prisma.opportunity.findMany({ where: { userId, status: 'new', emailSkip: false } })
+  const all = await prisma.opportunity.findMany({ where: { userId, status: { not: 'approved' }, emailSkip: false } })
   const opps = digestSelection(settings, all)
   if (!opps.length) return { ok: false, reason: 'Nothing matches your digest settings right now' }
   const html = digestEmailHtml({ name: profile.name, opps, reviewUrl: `${appUrl()}/challenge/opportunities`, schedule: describeSchedule(settings) })

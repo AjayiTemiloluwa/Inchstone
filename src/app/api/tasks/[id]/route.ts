@@ -12,7 +12,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         const { id: taskId } = await params
         const body = await req.json()
-        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, isImportant, reminderMinutes, notifyDeed, endWarnMinutes } = body
+        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, isImportant, reminderMinutes, notifyDeed, endWarnMinutes, extendMinutes } = body
 
         const task = await prisma.task.findFirst({
             where: { id: taskId, userId },
@@ -31,6 +31,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (scheduledTime !== undefined) updateData.scheduledTime = scheduledTime ? new Date(scheduledTime) : null
         if (startTime !== undefined) updateData.startTime = startTime ? new Date(startTime) : null
         if (endTime !== undefined) updateData.endTime = endTime ? new Date(endTime) : null
+        // Extend: push startTime and endTime forward by N minutes (used by the
+        // Android notification "Extend 15m" action). Only shifts scheduled times;
+        // leaves undated frogs untouched.
+        if (extendMinutes !== undefined && task.startTime) {
+            const ms = Number(extendMinutes) * 60_000
+            updateData.startTime = new Date(task.startTime.getTime() + ms)
+            if (task.endTime) updateData.endTime = new Date(task.endTime.getTime() + ms)
+        }
         if (categoryId !== undefined) updateData.categoryId = categoryId
         if (estimatedDuration !== undefined) updateData.estimatedDuration = estimatedDuration
         if (priority !== undefined) updateData.priority = priority
@@ -48,6 +56,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (
             startTime !== undefined ||
             endTime !== undefined ||
+            extendMinutes !== undefined ||
             reminderMinutes !== undefined ||
             isImportant !== undefined ||
             notifyDeed !== undefined ||
@@ -116,7 +125,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         // 1. Copy the edited fields onto the other occurrences in scope.
         if (wasSeries && scope !== 'single') {
             const rangeWhere: Prisma.TaskWhereInput =
-                scope === 'future' ? { ...seriesWhere, date: { gt: task.date } } : seriesWhere
+                scope === 'future' ? { ...seriesWhere, date: { gt: task.date! } } : seriesWhere
             const siblings = await prisma.task.findMany({ where: rangeWhere })
             const timeChanged = startTime !== undefined || endTime !== undefined
             const shared: Prisma.TaskUpdateInput = {}
@@ -134,16 +143,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             if (categoryId !== undefined) shared.categoryId = categoryId
 
             // Keep each sibling's own day; carry only the time-of-day change.
-            const startOffset = timeChanged && startTime ? new Date(startTime).getTime() - task.date.getTime() : null
-            const endOffset = timeChanged && endTime ? new Date(endTime).getTime() - task.date.getTime() : null
+            const startOffset = timeChanged && startTime ? new Date(startTime).getTime() - task.date!.getTime() : null
+            const endOffset = timeChanged && endTime ? new Date(endTime).getTime() - task.date!.getTime() : null
             const clearStart = startTime !== undefined && !startTime
             const clearEnd = endTime !== undefined && !endTime
 
             await prisma.$transaction(
                 siblings.map(s => {
                     const data: Prisma.TaskUpdateInput = { ...shared }
-                    if (startOffset !== null) data.startTime = new Date(s.date.getTime() + startOffset)
-                    if (endOffset !== null) data.endTime = new Date(s.date.getTime() + endOffset)
+                    if (startOffset !== null) data.startTime = new Date(s.date!.getTime() + startOffset)
+                    if (endOffset !== null) data.endTime = new Date(s.date!.getTime() + endOffset)
                     if (clearStart) data.startTime = null
                     if (clearEnd) data.endTime = null
                     if (timeChanged || reminderMinutes !== undefined || isImportant !== undefined || notifyDeed !== undefined || endWarnMinutes !== undefined) {
@@ -163,7 +172,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         //    for the new pattern, completed ones and the past stay as they are.
         const reshape = becameRecurring || ((patternChanged || stoppedRecurring) && scope !== 'single')
         if (reshape) {
-            const from = new Date(Math.max(tomorrow.getTime(), task.date.getTime() + 86_400_000))
+            const from = new Date(Math.max(tomorrow.getTime(), task.date!.getTime() + 86_400_000))
             await prisma.task.deleteMany({
                 where: { ...reshapeWhere, completed: false, date: { gte: from } },
             })
@@ -171,16 +180,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             if (finalIsRecurring && finalRecurrencePattern) {
                 const keptDates = new Set(
                     (await prisma.task.findMany({ where: { ...reshapeWhere, date: { gte: from } }, select: { date: true } }))
-                        .map(r => r.date.getTime()),
+                        .map(r => r.date!.getTime()),
                 )
                 const fresh = await prisma.task.findUniqueOrThrow({ where: { id: taskId } })
                 const effectiveEndDate = fresh.recurrenceEnd || new Date(Date.UTC(new Date().getFullYear(), 11, 31, 23, 59, 59, 999))
                 const taskDate = fresh.date
-                const startOff = fresh.startTime ? fresh.startTime.getTime() - taskDate.getTime() : null
-                const endOff = fresh.endTime ? fresh.endTime.getTime() - taskDate.getTime() : null
-                const instances: Prisma.TaskCreateManyInput[] = []
-                const currentDate = new Date(taskDate)
-                currentDate.setUTCDate(currentDate.getUTCDate() + 1)
+                if (taskDate) {
+                    const startOff = fresh.startTime ? fresh.startTime.getTime() - taskDate.getTime() : null
+                    const endOff = fresh.endTime ? fresh.endTime.getTime() - taskDate.getTime() : null
+                    const instances: Prisma.TaskCreateManyInput[] = []
+                    const currentDate = new Date(taskDate)
+                    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
 
                 while (currentDate <= effectiveEndDate) {
                     const day = currentDate.getUTCDay()
@@ -220,6 +230,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                     currentDate.setUTCDate(currentDate.getUTCDate() + 1)
                 }
                 if (instances.length > 0) await prisma.task.createMany({ data: instances })
+                }
             }
         }
 
@@ -288,7 +299,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         // of a series is generated from one starting date with identical
         // time-of-day handling, so `date >= boundary` selects exactly this
         // occurrence and the later ones — without any timezone guesswork.
-        const cutFrom = new Date(task.date)
+        const cutFrom = new Date(task.date!)
         let truncatedFrom: Date | null = null
 
         // The Google series id lives on the series' first occurrence, which the

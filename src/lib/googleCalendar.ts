@@ -361,7 +361,7 @@ export async function syncGoogleEvents(
 export interface GoogleSyncableTask {
   id: string
   title: string
-  date: Date | string
+  date: Date | string | null
   startTime: Date | string | null
   endTime: Date | string | null
   isHabit?: boolean
@@ -380,7 +380,7 @@ function asDate(d: Date | string): Date {
 /** Inchstone recurrence pattern → Google RRULE (with UNTIL if bounded). */
 export function taskToRRule(task: GoogleSyncableTask): string | null {
   if (!task.isRecurring || !task.recurrencePattern) return null
-  const anchor = task.startTime ? asDate(task.startTime) : asDate(task.date)
+  const anchor = task.startTime ? asDate(task.startTime) : asDate(task.date!)
   const z = zonedParts(anchor)
   const weekday = z.weekday
   let rule = ''
@@ -414,7 +414,7 @@ export function taskToRRule(task: GoogleSyncableTask): string | null {
 }
 
 function buildEventPayload(task: GoogleSyncableTask): Record<string, unknown> {
-  const start = task.startTime ? asDate(task.startTime) : asDate(task.date)
+  const start = task.startTime ? asDate(task.startTime) : asDate(task.date!)
   const end = task.endTime ? asDate(task.endTime) : new Date(start.getTime() + 30 * 60_000)
   const rrule = taskToRRule(task)
   const payload: Record<string, unknown> = {

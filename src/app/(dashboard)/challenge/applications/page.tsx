@@ -15,7 +15,7 @@ import { ExcelPanel } from '@/components/applications/ExcelPanel'
 import {
   DeadlineBadge, ReminderPicker, StatusBadge, countdown, formatDeadline, fromLocalInput, selectClass, typeLabel, type Fit,
 } from '@/components/applications/shared'
-import { APPLICATION_TYPES, DEADLINE_CLOSED, OUTCOME_STATUSES, PRIORITIES } from '@/lib/applications'
+import { APPLICATION_STATUSES, APPLICATION_TYPES, DEADLINE_CLOSED, OUTCOME_STATUSES, PRIORITIES } from '@/lib/applications'
 
 interface AppRow {
   id: string
@@ -34,6 +34,8 @@ interface AppRow {
   steps: { total: number; done: number }
   reminderOffsets: string
   archived: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 type Filter = 'active' | 'due' | 'submitted' | 'outcomes' | 'all'
@@ -45,6 +47,49 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
 ]
 
+type SortKey = 'deadline' | 'deadline-desc' | 'priority' | 'progress' | 'progress-desc' | 'fit' | 'status' | 'name' | 'newest' | 'updated'
+const SORTS: { value: SortKey; label: string }[] = [
+  { value: 'deadline', label: 'Deadline: soonest first' },
+  { value: 'deadline-desc', label: 'Deadline: latest first' },
+  { value: 'priority', label: 'Priority: high first' },
+  { value: 'progress', label: 'Progress: least done first' },
+  { value: 'progress-desc', label: 'Progress: most done first' },
+  { value: 'fit', label: 'Best fit first' },
+  { value: 'status', label: 'Stage: earliest first' },
+  { value: 'name', label: 'Name: A to Z' },
+  { value: 'newest', label: 'Recently added' },
+  { value: 'updated', label: 'Recently updated' },
+]
+const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
+const STATUS_RANK = Object.fromEntries(APPLICATION_STATUSES.map((st, i) => [st.value, i])) as Record<string, number>
+const time = (v: string | null) => (v ? new Date(v).getTime() : null)
+
+/** Sort a copy of the list. Missing values (no deadline, no fit yet) always go last so they never crowd the top. */
+function sortApps(list: AppRow[], key: SortKey): AppRow[] {
+  const byDeadline = (a: AppRow, b: AppRow, dir = 1) => {
+    const x = time(a.deadline), y = time(b.deadline)
+    if (x === null && y === null) return 0
+    if (x === null) return 1
+    if (y === null) return -1
+    return (x - y) * dir
+  }
+  const cmp: Record<SortKey, (a: AppRow, b: AppRow) => number> = {
+    deadline: (a, b) => byDeadline(a, b),
+    'deadline-desc': (a, b) => byDeadline(a, b, -1),
+    priority: (a, b) => (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3) || byDeadline(a, b),
+    progress: (a, b) => a.progress - b.progress || byDeadline(a, b),
+    'progress-desc': (a, b) => b.progress - a.progress || byDeadline(a, b),
+    fit: (a, b) => (b.fit.pct ?? -1) - (a.fit.pct ?? -1) || byDeadline(a, b),
+    status: (a, b) => (STATUS_RANK[a.status] ?? 99) - (STATUS_RANK[b.status] ?? 99) || byDeadline(a, b),
+    name: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+    newest: (a, b) => (time(b.createdAt) ?? 0) - (time(a.createdAt) ?? 0),
+    updated: (a, b) => (time(b.updatedAt) ?? 0) - (time(a.updatedAt) ?? 0),
+  }
+  return [...list].sort(cmp[key])
+}
+
+const VIEW_KEY = 'inchstone-applications-view'
+
 const DEFAULT_REMINDERS = [10080, 4320, 1440, 180]
 
 export default function ApplicationTrackerPage() {
@@ -55,6 +100,11 @@ export default function ApplicationTrackerPage() {
   const [showArchived, setShowArchived] = useState(false)
   const [filter, setFilter] = useState<Filter>('active')
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<SortKey>('deadline')
+  const [typeF, setTypeF] = useState('')
+  const [statusF, setStatusF] = useState('')
+  const [priorityF, setPriorityF] = useState('')
+  const [viewReady, setViewReady] = useState(false)
   const [now, setNow] = useState(() => Date.now())
 
   const [showCreate, setShowCreate] = useState(false)
@@ -87,6 +137,23 @@ export default function ApplicationTrackerPage() {
     window.addEventListener('inchstone:data-changed', onChange)
     return () => window.removeEventListener('inchstone:data-changed', onChange)
   }, [load, showArchived])
+
+  // Remember how the list was sorted and filtered, so coming back to the page finds it as you left it.
+  useEffect(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(VIEW_KEY) || '{}')
+      if (SORTS.some((o) => o.value === v.sort)) setSort(v.sort)
+      if (FILTERS.some((o) => o.value === v.filter)) setFilter(v.filter)
+      if (typeof v.typeF === 'string') setTypeF(v.typeF)
+      if (typeof v.statusF === 'string') setStatusF(v.statusF)
+      if (typeof v.priorityF === 'string') setPriorityF(v.priorityF)
+    } catch { /* private mode or bad data: start from the defaults */ }
+    setViewReady(true)
+  }, [])
+  useEffect(() => {
+    if (!viewReady) return
+    try { localStorage.setItem(VIEW_KEY, JSON.stringify({ sort, filter, typeF, statusF, priorityF })) } catch { /* private mode */ }
+  }, [viewReady, sort, filter, typeF, statusF, priorityF])
 
   // Countdowns tick once a minute.
   useEffect(() => {
@@ -125,12 +192,17 @@ export default function ApplicationTrackerPage() {
     }
   }
 
+  // A chosen stage already says which applications to show, so it replaces the quick filter instead of fighting it.
+  const quick: Filter = statusF ? 'all' : filter
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return apps.filter((a) => {
-      if (q && ![a.title, a.organization, a.location, typeLabel(a.type)].some((s) => s?.toLowerCase().includes(q))) return false
+    const matched = apps.filter((a) => {
+      if (q && ![a.title, a.organization, a.location, a.value, typeLabel(a.type)].some((s) => s?.toLowerCase().includes(q))) return false
+      if (typeF && a.type !== typeF) return false
+      if (statusF && a.status !== statusF) return false
+      if (priorityF && a.priority !== priorityF) return false
       if (showArchived) return true
-      switch (filter) {
+      switch (quick) {
         case 'active': return !DEADLINE_CLOSED.has(a.status)
         case 'due': {
           if (!a.deadline || DEADLINE_CLOSED.has(a.status)) return false
@@ -142,7 +214,10 @@ export default function ApplicationTrackerPage() {
         default: return true
       }
     })
-  }, [apps, filter, query, showArchived, now])
+    return sortApps(matched, sort)
+  }, [apps, quick, query, showArchived, now, sort, typeF, statusF, priorityF])
+  const narrowed = !!(query.trim() || typeF || statusF || priorityF || sort !== 'deadline' || (!showArchived && filter !== 'active'))
+  const clearView = () => { setQuery(''); setTypeF(''); setStatusF(''); setPriorityF(''); setSort('deadline'); setFilter('active') }
 
   if (loading) return <Loader routeKey="challenge" />
 
@@ -247,13 +322,24 @@ export default function ApplicationTrackerPage() {
           </label>
         }
       >
-        {!showArchived && (
-          <div className="mb-4 flex flex-col gap-2">
-            <Segmented options={FILTERS} value={filter} onChange={setFilter} ariaLabel="Filter applications" className="flex-wrap !overflow-visible" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" aria-label="Search applications"
-              className={cx(inputClass, 'sm:hidden')} />
+        <div className="mb-4 space-y-3">
+          {!showArchived && <Segmented options={FILTERS} value={statusF ? 'all' : filter} onChange={(v) => { setStatusF(''); setFilter(v) }} ariaLabel="Filter applications" className="flex-wrap !overflow-visible" />}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Sort and filter">
+            <label className="col-span-2 block sm:col-span-1"><span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/55">Sort by</span>
+              <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className={selectClass}>{SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
+            <label className="block"><span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/55">Type</span>
+              <select value={typeF} onChange={(e) => setTypeF(e.target.value)} className={selectClass}><option value="">All types</option>{APPLICATION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
+            <label className="block"><span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/55">Stage</span>
+              <select value={statusF} onChange={(e) => setStatusF(e.target.value)} className={selectClass}><option value="">All stages</option>{APPLICATION_STATUSES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
+            <label className="block"><span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-parchment/55">Priority</span>
+              <select value={priorityF} onChange={(e) => setPriorityF(e.target.value)} className={selectClass}><option value="">Any priority</option>{PRIORITIES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
           </div>
-        )}
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" aria-label="Search applications" className={cx(inputClass, 'sm:hidden')} />
+          <div className="flex items-center justify-between gap-3 text-caption text-parchment/60" aria-live="polite">
+            <span>Showing {filtered.length} of {apps.length}</span>
+            {narrowed && <button type="button" onClick={clearView} className="text-gold underline-offset-2 hover:underline">Reset sort and filters</button>}
+          </div>
+        </div>
 
         {filtered.length === 0 ? (
           <EmptyState

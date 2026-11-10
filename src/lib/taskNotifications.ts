@@ -49,7 +49,7 @@ export interface SchedulableTask {
   id: string
   userId: string
   title: string
-  date: Date | string
+  date: Date | string | null
   startTime: Date | string | null
   endTime: Date | string | null
   estimatedDuration: number | null
@@ -189,7 +189,7 @@ function taskExtras(t: SchedulableTask, kind: TaskNotificationKind) {
     timestamp: at ? new Date(at).getTime() : undefined,
     actions: kind === 'finish'
       ? [{ action: 'open', title: 'Open day' }]
-      : [{ action: 'done', title: 'Mark done' }, { action: 'open', title: 'Open day' }],
+      : [{ action: 'done', title: 'Mark done' }, { action: 'not-done', title: 'Not done' }, { action: 'extend', title: 'Extend 15m' }, { action: 'open', title: 'Open day' }],
   }
 }
 
@@ -198,7 +198,7 @@ function buildTaskPayloadCore(t: SchedulableTask, kind: TaskNotificationKind) {
   const start = fmtTime(t.startTime)
   const end = t.endTime ? fmtTime(t.endTime) : null
   const window = end ? `${start} – ${end}` : start
-  const url = dayUrl(t.date)
+  const url = dayUrl(t.date ?? new Date())
 
   if (kind === 'countdown') {
     return {

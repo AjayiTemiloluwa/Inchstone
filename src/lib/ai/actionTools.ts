@@ -146,7 +146,7 @@ export const ACTION_TOOLS: Tool[] = [
     async run(a, ctx) {
       const task = await ownTask(a.task_id, ctx)
       if (!task) return { result: { error: 'Task not found' } }
-      const day = task.date.toISOString().slice(0, 10)
+      const day = task.date ? task.date.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
       const body: Record<string, unknown> = { scope: a.scope }
       if (typeof a.title === 'string' && a.title.trim()) body.title = a.title.trim().slice(0, 200)
       if (a.start !== undefined) { const t = hhmm(a.start); body.startTime = t ? at(day, t, ctx.tzOffset) : null }

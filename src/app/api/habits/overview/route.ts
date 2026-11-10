@@ -48,7 +48,7 @@ export async function GET(req: Request) {
         }>()
 
         for (const row of rows) {
-            const iso = row.date.toISOString().slice(0, 10)
+            const iso = row.date!.toISOString().slice(0, 10)
             let entry = byTitle.get(row.title)
             if (!entry) {
                 entry = {
@@ -61,7 +61,7 @@ export async function GET(req: Request) {
             }
             entry.dates.push(iso)
             if (!entry.scheduled) {
-                const inWindow = row.date >= dayStart && row.date < dayEnd
+                const inWindow = row.date! >= dayStart && row.date! < dayEnd
                 entry.scheduled = inWindow || iso === dateStr
             }
         }

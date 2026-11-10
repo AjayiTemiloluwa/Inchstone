@@ -79,18 +79,24 @@ async function main() {
   console.log(`Today:  ${todayStr} (kept, along with the future)`)
   console.log(`Delete: ${pastCount} tasks before today — deeds and habits (${pastDone} completed)`)
   console.log(`Delete: ${dupes.length} duplicate copies from today onward (${groups.size} unique rows kept)`)
-  if (pastCount + dupes.length === 0) { console.log('Nothing to delete.'); return }
+  // --scores: also clear the daily scores before today, so charts and streaks start today too.
+  const scoresToo = flag('scores') === true
+  const pastScores = scoresToo ? await prisma.dailyScore.count({ where: { userId, date: { lt: today } } }) : 0
+  if (scoresToo) console.log(`Delete: ${pastScores} daily scores before today`)
+  if (pastCount + dupes.length + pastScores === 0) { console.log('Nothing to delete.'); return }
   if (!apply) { console.log('\nDRY RUN — nothing deleted. Re-run with --apply.'); return }
 
   const file = join(HERE, 'backups', `schedule-before-${todayStr}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`)
   const pastRows = await prisma.task.findMany({ where: past })
+  const scoreRows = scoresToo ? await prisma.dailyScore.findMany({ where: { userId, date: { lt: today } } }) : []
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, JSON.stringify({ userId, email, today: todayStr, past: pastRows, duplicates: dupes }, null, 2))
+  writeFileSync(file, JSON.stringify({ userId, email, today: todayStr, past: pastRows, duplicates: dupes, dailyScores: scoreRows }, null, 2))
   console.log(`Backup: ${file}`)
 
   const a = await prisma.task.deleteMany({ where: past })
   const b = await prisma.task.deleteMany({ where: { id: { in: dupes.map(d => d.id) } } })
-  console.log(`✔ Deleted ${a.count} past tasks and ${b.count} duplicates.`)
+  const c = scoresToo ? await prisma.dailyScore.deleteMany({ where: { userId, date: { lt: today } } }) : { count: 0 }
+  console.log(`✔ Deleted ${a.count} past tasks, ${b.count} duplicates and ${c.count} daily scores.`)
   console.log(`Verified remaining before today: ${await prisma.task.count({ where: past })}`)
 }
 
