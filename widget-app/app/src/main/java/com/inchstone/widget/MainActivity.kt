@@ -38,7 +38,7 @@ class MainActivity : Activity() {
             setTextColor(0xFFF3EFE6.toInt())
         }
         val hint = TextView(this).apply {
-            text = "1. Open Inchstone → Settings → Widget\n2. Copy your pairing secret\n3. Paste it below"
+            text = "1. Open Inchstone → Settings → Widget\n2. Copy your pairing secret and paste it below\n3. Server: leave as ${WidgetData.DEFAULT_HOST} (Settings shows it too)"
             textSize = 14f
             setTextColor(0xFFB8B2A6.toInt())
             setPadding(0, pad / 2, 0, pad / 2)
@@ -68,7 +68,11 @@ class MainActivity : Activity() {
         setContentView(root)
 
         WidgetData.secret(this)?.let { input.setText(it) }
-        WidgetData.host(this).takeIf { it != WidgetData.DEFAULT_HOST }?.let { hostInput.setText(it) }
+        // Always show the server it will use (the right one by default), so a wrong address is visible.
+        hostInput.setText(WidgetData.host(this))
+        WidgetData.lastSynced(this).takeIf { it > 0 }?.let {
+            status.text = "Last synced " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(it))
+        }
 
         // When launched as the widget's configure step (user just added the
         // widget), we must always return the widget id with a result code —
@@ -89,12 +93,12 @@ class MainActivity : Activity() {
             save.isEnabled = false
             WidgetData.saveHost(this, hostInput.text.toString())
             WidgetData.saveSecret(this, secret)
-            WidgetData.refreshAsync(this) {
+            WidgetData.refreshAsync(this) { problem ->
                 runOnUiThread {
                     save.isEnabled = true
-                    val paired = WidgetData.cachedJson(this) != null
-                    status.text = if (paired) "Paired ✓ — add the widget to your home screen."
-                    else "Couldn't reach Inchstone — check the secret / connection."
+                    val paired = problem == null
+                    status.text = if (paired) "Paired ✓ — add the widget to your home screen (long-press the home screen → Widgets → Inchstone)."
+                    else problem
                     // Tell any existing widgets to redraw
                     val manager = AppWidgetManager.getInstance(this)
                     val ids = manager.getAppWidgetIds(ComponentName(this, InchstoneWidgetProvider::class.java))

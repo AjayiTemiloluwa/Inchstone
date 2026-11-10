@@ -84,7 +84,7 @@ dwell time is with a minimum of ~1 minute. The system's own 30-minute
 1. Web app: **Settings → Widget → copy pairing secret**.
 2. Open the **Inchstone Widget** app on your phone.
 3. Leave **Server** as-is unless you self-host
-   (default `inchstone.vercel.app` — must match your deployed URL,
+   (default `myinchstone.vercel.app` — must match your deployed URL,
    no `https://`, no trailing `/`).
 4. Paste the secret → tap **Pair & refresh**.
    - **Paired ✓** → done, go to Part C.

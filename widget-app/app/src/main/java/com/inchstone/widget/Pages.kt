@@ -50,12 +50,13 @@ internal fun drawMessages(views: RemoteViews, json: JSONObject, accent: Int) {
     views.setProgressBar(R.id.progress, 100, 0, true)
 }
 
+/** A big live clock (TextClock ticks by itself, so it never shows a stale time) and today's date. */
 internal fun drawClock(views: RemoteViews, accent: Int) {
     val now = Date()
-    views.setTextViewText(R.id.title, SimpleDateFormat("HH:mm", Locale.getDefault()).format(now))
+    views.setViewVisibility(R.id.title, android.view.View.GONE)
+    views.setViewVisibility(R.id.big_clock, android.view.View.VISIBLE)
+    views.setTextColor(R.id.big_clock, accent)
     views.setTextViewText(R.id.secondary, SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now))
-    views.setTextViewTextSize(R.id.title, android.util.TypedValue.COMPLEX_UNIT_SP, 28f)
-    views.setTextColor(R.id.title, accent)
     views.setProgressBar(R.id.progress, 100, 0, true)
 }
 

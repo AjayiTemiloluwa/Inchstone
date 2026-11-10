@@ -22,15 +22,29 @@
             android:fontFamily="monospace"
             android:text="INCHSTONE" />
 
-        <TextView
+        <!-- A TextClock ticks by itself: the time is always current, with no refresh or battery cost. -->
+        <TextClock
             android:id="@+id/clock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="11sp"
             android:textColor="#B8935A"
             android:fontFamily="monospace"
-            android:text="" />
+            android:format12Hour="HH:mm"
+            android:format24Hour="HH:mm" />
     </LinearLayout>
+
+    <!-- The Clock page's big live clock (hidden on other pages). -->
+    <TextClock
+        android:id="@+id/big_clock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textSize="34sp"
+        android:textColor="#B8935A"
+        android:format12Hour="HH:mm"
+        android:format24Hour="HH:mm"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/title"

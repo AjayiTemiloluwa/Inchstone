@@ -575,6 +575,9 @@ model WidgetConfig {
   showAlarms    Boolean @default(true)
   showMessages  Boolean @default(true)
   showPlan      Boolean @default(true)
+  // The last time a paired phone fetched its widget data, and from which app version — Settings shows it.
+  lastSyncAt    DateTime?
+  lastSyncAgent String?
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }

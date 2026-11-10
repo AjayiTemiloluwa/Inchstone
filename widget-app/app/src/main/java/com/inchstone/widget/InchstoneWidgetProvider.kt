@@ -125,16 +125,24 @@ internal fun render(context: Context, manager: AppWidgetManager, appWidgetId: In
     push(context, manager, appWidgetId, views)
 }
 
+/** A colour from the web design; a missing or malformed value falls back instead of crashing the widget. */
+internal fun safeColor(value: String?, fallback: String): Int =
+    try { Color.parseColor(if (value.isNullOrBlank()) fallback else value) } catch (e: Exception) { Color.parseColor(fallback) }
+
 internal fun drawPage(context: Context, views: RemoteViews, json: JSONObject, page: JSONObject) {
     val now = Date()
     views.setTextViewText(R.id.day_label,
         SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(now).uppercase(Locale.getDefault()))
-    views.setTextViewText(R.id.clock,
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(now))
 
-    val accent = Color.parseColor(page.optString("accent", "#B8935A"))
+    val accent = safeColor(page.optString("accent"), "#B8935A")
     views.setTextColor(R.id.clock, accent)
-    views.setInt(R.id.root, "setBackgroundColor", Color.parseColor(page.optString("bg", "#0A0908")))
+    views.setInt(R.id.root, "setBackgroundColor", safeColor(page.optString("bg"), "#0A0908"))
+    // Every page starts from the same layout: the title shown, the big clock hidden (the Clock page swaps them).
+    views.setViewVisibility(R.id.title, android.view.View.VISIBLE)
+    views.setViewVisibility(R.id.big_clock, android.view.View.GONE)
+    views.setTextColor(R.id.title, Color.parseColor("#F3EFE6"))
+    views.setTextViewTextSize(R.id.title, TypedValue.COMPLEX_UNIT_SP, 17f)
+    views.setInt(R.id.title, "setMaxLines", 2)
 
     when (page.optString("kind", "plan")) {
         "timers" -> drawTimers(views, json, accent)
@@ -157,7 +165,8 @@ internal fun drawPage(context: Context, views: RemoteViews, json: JSONObject, pa
 private fun applyStyles(views: RemoteViews, page: JSONObject) {
     val styles = page.optJSONObject("styles") ?: return
     val targets = mapOf(
-        "title" to R.id.title,
+        // On the Clock page the "text" style is the big clock.
+        "title" to (if (page.optString("kind") == "clock") R.id.big_clock else R.id.title),
         "secondary" to R.id.secondary,
         "dayLabel" to R.id.day_label,
         "clock" to R.id.clock,
@@ -183,7 +192,8 @@ private fun push(context: Context, manager: AppWidgetManager, id: Int, views: Re
 
 private fun drawPlaceholder(views: RemoteViews, message: String) {
     views.setTextViewText(R.id.day_label, "INCHSTONE")
-    views.setTextViewText(R.id.clock, "")
+    views.setViewVisibility(R.id.big_clock, android.view.View.GONE)
+    views.setViewVisibility(R.id.title, android.view.View.VISIBLE)
     views.setTextViewText(R.id.title, message)
     views.setTextViewText(R.id.secondary, "")
     views.setProgressBar(R.id.progress, 100, 0, true)

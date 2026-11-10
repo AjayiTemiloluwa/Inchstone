@@ -30,12 +30,60 @@ const DEFAULT_PAGES: WidgetPage[] = [
   { kind: 'clock', accent: '#B8935A' },
 ]
 
-function todayRange(): { start: Date; end: Date } {
-  const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
+/**
+ * Today, as the PHONE sees it. Task.date is UTC midnight of the day it belongs to, so "today" is the
+ * phone's local date at UTC midnight. The app sends its time zone (?tz=Africa/Lagos); the server's own
+ * clock (UTC on Vercel) would show yesterday's deeds for an hour after local midnight.
+ */
+function todayRange(tz: string): { start: Date; end: Date } {
+  let ymd: string
+  try {
+    ymd = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  } catch {
+    ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  }
+  const start = new Date(`${ymd}T00:00:00.000Z`)
+  const end = new Date(start.getTime() + 86_400_000)
   return { start, end }
+}
+
+const HEX = /^#[0-9a-fA-F]{6}$/
+/** Only well-formed pages reach the phone (a bad colour would crash the native widget). */
+function cleanPages(pages: unknown[]): WidgetPage[] {
+  const kinds = ['plan', 'timers', 'tasks', 'alarms', 'messages', 'clock', 'note']
+  return pages.slice(0, 10).flatMap((raw) => {
+    const p = raw as WidgetPage
+    if (!p || !kinds.includes(p.kind)) return []
+    const out: WidgetPage = { kind: p.kind }
+    if (p.kind === 'note') out.note = String(p.note ?? '').slice(0, 280)
+    if (p.accent && HEX.test(p.accent)) out.accent = p.accent
+    if (p.bg && HEX.test(p.bg)) out.bg = p.bg
+    if (p.styles && typeof p.styles === 'object') {
+      const styles: NonNullable<WidgetPage['styles']> = {}
+      for (const [k, s] of Object.entries(p.styles)) {
+        if (!['title', 'secondary', 'dayLabel', 'clock'].includes(k) || !s) continue
+        const st: { color?: string; size?: number } = {}
+        if (s.color && HEX.test(s.color)) st.color = s.color
+        if (typeof s.size === 'number' && s.size >= 8 && s.size <= 48) st.size = s.size
+        styles[k] = st
+      }
+      out.styles = styles
+    }
+    return [out]
+  })
+}
+
+/**
+ * The pages the phone shows: the design, minus what the Plan / Alarms / Partner messages switches turn
+ * off. Plan covers the deed pages (plan, timers, tasks). Never empty: a clock is shown instead.
+ */
+function visiblePages(config: { pages: unknown; showPlan: boolean; showAlarms: boolean; showMessages: boolean }): WidgetPage[] {
+  const pages = cleanPages(Array.isArray(config.pages) ? config.pages : []).filter((p) =>
+    ['plan', 'timers', 'tasks'].includes(p.kind) ? config.showPlan
+      : p.kind === 'alarms' ? config.showAlarms
+        : p.kind === 'messages' ? config.showMessages
+          : true)
+  return pages.length ? pages : [{ kind: 'clock', accent: '#B8935A' }]
 }
 
 async function ensureConfig(userId: string) {
@@ -71,17 +119,26 @@ export async function GET(req: Request) {
   }
 
   const config = await ensureConfig(userId)
-  if (url.searchParams.has('pref')) return NextResponse.json({ widget: config })
+  // Settings reads the design (and when the phone last synced); the secret stays out of it.
+  if (url.searchParams.has('pref')) return NextResponse.json({ widget: { ...config, secret: undefined } })
+
+  // The phone's time zone decides "today"; fall back to the user's scout zone, then Lagos.
+  const tz = url.searchParams.get('tz') || (await prisma.scoutProfile.findUnique({ where: { userId }, select: { tz: true } }))?.tz || 'Africa/Lagos'
+
+  // A paired phone is calling: note it, so Settings can show "Phone last synced …".
+  if (secret) {
+    await prisma.widgetConfig.update({ where: { userId }, data: { lastSyncAt: new Date(), lastSyncAgent: (url.searchParams.get('v') || req.headers.get('user-agent') || '').slice(0, 120) } }).catch(() => undefined)
+  }
 
   // ?rev=1 → just the tasks revision (one cheap query), so the widget can poll often and only
   // download the full bundle when something actually changed.
   if (url.searchParams.has('rev')) {
-    const r = todayRange()
+    const r = todayRange(tz)
     const agg = await prisma.task.aggregate({ where: { userId, date: { gte: r.start, lt: r.end } }, _max: { updatedAt: true }, _count: true })
     return NextResponse.json({ rev: (agg._max.updatedAt?.getTime() ?? 0) + agg._count })
   }
 
-  const { start, end } = todayRange()
+  const { start, end } = todayRange(tz)
   const [todayTasks, activeItems, alarms, messages] = await Promise.all([
     prisma.task.findMany({
       where: { userId, date: { gte: start, lt: end } },
@@ -110,7 +167,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     widget: {
-      pages: config.pages,
+      pages: visiblePages(config),
       rotateSeconds: config.rotateSeconds,
       showAlarms: config.showAlarms,
       showMessages: config.showMessages,
@@ -151,7 +208,7 @@ export async function PUT(req: Request) {
   }
 
   const data: Record<string, unknown> = {}
-  if (Array.isArray(body.pages)) data.pages = body.pages.slice(0, 10)
+  if (Array.isArray(body.pages)) data.pages = cleanPages(body.pages) as unknown as object[]
   if (typeof body.rotateSeconds === 'number') data.rotateSeconds = Math.min(Math.max(body.rotateSeconds, 5), 120)
   if (typeof body.showAlarms === 'boolean') data.showAlarms = body.showAlarms
   if (typeof body.showMessages === 'boolean') data.showMessages = body.showMessages

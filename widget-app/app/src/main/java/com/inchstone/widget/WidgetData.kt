@@ -23,12 +23,17 @@ import java.util.concurrent.Executors
  */
 object WidgetData {
     /** Production server — the pairing screen lets the user override it. */
-    const val DEFAULT_HOST = "inchstone.vercel.app"
+    const val DEFAULT_HOST = "myinchstone.vercel.app"
+    /** Older builds defaulted to this address, which is NOT Inchstone; a saved copy is replaced. */
+    private const val WRONG_OLD_HOST = "inchstone.vercel.app"
+    /** Sent with every call, so Settings → Widget can show which app version last synced. */
+    const val APP_VERSION = "widget-app 1.1"
 
     private const val PREFS = "inchstone_widget"
     private const val KEY_SECRET = "secret"
     private const val KEY_HOST = "host"
     private const val KEY_CACHE = "cache"
+    private const val KEY_SYNCED = "synced_at"
     private const val KEY_PAGE_PREFIX = "page_"
     private val executor = Executors.newSingleThreadExecutor()
 
@@ -42,9 +47,16 @@ object WidgetData {
     }
 
     // ── Server host (e.g. "inchstone.vercel.app") ──
-    fun host(context: Context): String =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_HOST, DEFAULT_HOST) ?: DEFAULT_HOST
+    fun host(context: Context): String {
+        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_HOST, null)?.trim().orEmpty()
+        return if (saved.isEmpty() || saved == WRONG_OLD_HOST) DEFAULT_HOST else saved
+    }
+
+    /** The query every call carries: the secret, the phone's time zone ("today" is the phone's today) and the app version. */
+    private fun query(secret: String): String {
+        val enc = { s: String -> java.net.URLEncoder.encode(s, "UTF-8") }
+        return "secret=${enc(secret)}&tz=${enc(java.util.TimeZone.getDefault().id)}&v=${enc(APP_VERSION)}"
+    }
 
     fun saveHost(context: Context, host: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -57,29 +69,44 @@ object WidgetData {
         return try { JSONObject(raw) } catch (e: Exception) { null }
     }
 
-    fun refreshAsync(context: Context, onDone: (() -> Unit)? = null) {
+    /**
+     * Fetch the widget bundle. `onDone` gets null when it worked, else a sentence saying what is wrong
+     * (wrong secret, wrong server, no connection), so the pairing screen can tell the user.
+     */
+    fun refreshAsync(context: Context, onDone: ((String?) -> Unit)? = null) {
         executor.execute {
+            var problem: String? = null
             try {
                 val activeSecret = secret(context)
-                if (activeSecret.isNullOrEmpty()) return@execute
-                val conn = URL("https://${host(context)}/api/widget?secret=$activeSecret").openConnection() as HttpURLConnection
+                if (activeSecret.isNullOrEmpty()) { problem = "Paste the pairing secret first."; return@execute }
+                val conn = URL("https://${host(context)}/api/widget?${query(activeSecret)}").openConnection() as HttpURLConnection
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 10_000
-                if (conn.responseCode == 200) {
-                    val body = conn.inputStream.bufferedReader().readText()
-                    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                        .edit().putString(KEY_CACHE, body).apply()
-                    rescheduleRotation(context)
-                    redrawAll(context)
+                val code = conn.responseCode
+                val body = if (code == 200) conn.inputStream.bufferedReader().readText() else ""
+                when {
+                    code == 200 && body.trimStart().startsWith("{") -> {
+                        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                            .edit().putString(KEY_CACHE, body).putLong(KEY_SYNCED, System.currentTimeMillis()).apply()
+                        rescheduleRotation(context)
+                        redrawAll(context)
+                    }
+                    code == 401 -> problem = "That pairing secret isn't valid. Copy it again from Inchstone → Settings → Widget (it changes if you regenerate it)."
+                    else -> problem = "${host(context)} is not answering as Inchstone (HTTP $code). Check the Server box: it should be ${DEFAULT_HOST}."
                 }
             } catch (e: Exception) {
                 // Offline — keep the last good cache so the widget still draws.
+                problem = "Couldn't reach ${host(context)}. Check the phone's internet connection and the Server box."
             } finally {
                 // Always release the caller (the pairing screen waits on this).
-                onDone?.invoke()
+                onDone?.invoke(problem)
             }
         }
     }
+
+    /** When the widget last got fresh data (0 = never). */
+    fun lastSynced(context: Context): Long =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_SYNCED, 0L)
 
     /**
      * Cheap change check: asks the server only for today's deed revision (one small query) and
@@ -91,7 +118,7 @@ object WidgetData {
             try {
                 val activeSecret = secret(context)
                 if (activeSecret.isNullOrEmpty()) return@execute
-                val conn = URL("https://${host(context)}/api/widget?secret=$activeSecret&rev=1").openConnection() as HttpURLConnection
+                val conn = URL("https://${host(context)}/api/widget?${query(activeSecret)}&rev=1").openConnection() as HttpURLConnection
                 conn.connectTimeout = 8_000
                 conn.readTimeout = 8_000
                 if (conn.responseCode != 200) return@execute
