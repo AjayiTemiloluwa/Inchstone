@@ -3,7 +3,7 @@
 import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
+import { ChevronRight, PanelLeft, PanelLeftOpen, Search, Sparkles } from "lucide-react";
 import { WorkClock } from "@/components/ui/WorkClock";
 import { YearPickerChip } from "@/components/ui/YearPicker";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -35,7 +35,7 @@ export function Topbar() {
       {/* Left: toggle + breadcrumb */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <button type="button" onClick={toggleSidebar} aria-label={hidden ? 'Open sidebar' : 'Toggle sidebar'} title="Toggle sidebar" className={`${iconBtn} hidden md:flex`}>
-          {hidden ? <PanelLeftOpen className="h-[18px] w-[18px]" strokeWidth={1.6} /> : <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={1.6} />}
+          {hidden ? <PanelLeftOpen className="h-[18px] w-[18px]" strokeWidth={1.6} /> : <PanelLeft className="h-[18px] w-[18px]" strokeWidth={1.6} />}
         </button>
         {/* Phones have no sidebar: the mark doubles as the home link. */}
         <Link href="/dashboard" aria-label="Inchstone home" className="flex shrink-0 md:hidden">
