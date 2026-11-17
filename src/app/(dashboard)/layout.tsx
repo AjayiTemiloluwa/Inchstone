@@ -20,6 +20,8 @@ import { AtmosphereProvider } from "@/components/effects/atmosphere";
 import { AmbientBackground } from "@/components/effects/AmbientBackground";
 import { ScrollText } from "@/components/effects/ScrollText";
 import { GLProvider } from "@/components/gl/GLProvider";
+import { RouteCurtain } from "@/components/motion/RouteCurtain";
+import { MotionFx } from "@/components/motion/MotionFx";
 
 export default function AppLayout({
   children,
@@ -41,6 +43,8 @@ export default function AppLayout({
         <ApplicationRinger />
         <Assistant />
         <ScrollText />
+        <RouteCurtain />
+        <MotionFx />
         <GLProvider>
         <div className="app-shell relative flex h-screen h-dvh w-full overflow-hidden">
           {/* Backdrop: living sky → dimming veil → app UI (back to front) */}

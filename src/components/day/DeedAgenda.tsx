@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { CheckCircle2, Circle, Star } from 'lucide-react'
 import type { Task } from '@/stores/hierarchyStore'
 import { CountdownChip } from './CountdownChip'
+import { SwipeRow } from '@/components/motion/SwipeRow'
 import type { GoogleEventView } from './types'
 
 type AgendaEntry =
@@ -75,6 +76,8 @@ export function DeedAgenda({
         const accent = t.color || (t.completed ? '#8fbc8f' : 'var(--gold)')
         return (
           <li key={t.id}>
+            {/* swipe right to mark done (or undo), left for details */}
+            <SwipeRow done={!!t.completed} onComplete={() => onToggle(t)} onOpen={() => onOpen(t)}>
             <div
               role="button"
               tabIndex={0}
@@ -113,6 +116,7 @@ export function DeedAgenda({
                 {Math.round(t.weight * 10) / 10} pts
               </span>
             </div>
+            </SwipeRow>
           </li>
         )
       })}

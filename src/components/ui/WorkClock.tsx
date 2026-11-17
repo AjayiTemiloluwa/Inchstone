@@ -254,7 +254,7 @@ export function WorkClock({
 
   if (!onClick) {
     return (
-      <span className={`inline-flex items-center gap-2 ${className}`}>
+      <span data-gyro className={`inline-flex items-center gap-2 ${className}`}>
         {face}
         {timeLabel}
       </span>
@@ -265,6 +265,7 @@ export function WorkClock({
     <button
       type="button"
       onClick={onClick}
+      data-gyro
       aria-label={interactiveLabel}
       className={`inline-flex cursor-pointer items-center gap-2 rounded-full focus-visible:outline-2 focus-visible:outline-gold ${className}`}
     >

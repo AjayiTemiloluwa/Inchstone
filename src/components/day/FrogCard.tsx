@@ -5,6 +5,7 @@ import { CheckCircle2, Circle, Plus, Target, Trash2 } from 'lucide-react'
 import type { Task } from '@/stores/hierarchyStore'
 import { Card } from '@/components/ui/Card'
 import { Scramble } from '@/components/ui/motion'
+import { SwipeRow } from '@/components/motion/SwipeRow'
 
 export function FrogCard({
   frogTasks,
@@ -34,8 +35,10 @@ export function FrogCard({
             ) : (
               <div className="space-y-2">
                 {frogTasks.map((task, idx) => (
-                  <div key={task.id} className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 p-2.5 rounded-xl border transition-all sm:flex-nowrap sm:gap-3 ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
-                    <button onClick={() => onToggle(task)} className="shrink-0">
+                  // swipe right to eat the frog (or undo)
+                  <SwipeRow key={task.id} done={!!task.completed} onComplete={() => onToggle(task)} className="rounded-xl">
+                  <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 p-2.5 rounded-xl border transition-all sm:flex-nowrap sm:gap-3 ${task.completed ? 'glass border-sage/30 bg-sage/5 opacity-80' : 'bg-black/20 border-white/10 hover:border-gold/50'}`}>
+                    <button onClick={() => onToggle(task)} aria-label={task.completed ? `Mark ${task.title} pending` : `Mark ${task.title} done`} className="-m-2 shrink-0 p-2">
                       {task.completed ? <CheckCircle2 className="w-4 h-4 text-sage" /> : <Circle className="w-4 h-4 text-ink/30" />}
                     </button>
                     <span className="text-[9px] font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full shrink-0 uppercase">Frog #{idx + 1}</span>
@@ -45,6 +48,7 @@ export function FrogCard({
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                  </SwipeRow>
                 ))}
               </div>
             )}

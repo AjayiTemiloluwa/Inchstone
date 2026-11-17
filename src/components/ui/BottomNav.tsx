@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useDialog } from '@/components/ui/useDialog'
 import { openAssistant, openCommand } from '@/lib/uiEvents'
 import { useUnread } from '@/lib/useUnread'
+import { navigateWithCurtain } from '@/components/motion/RouteCurtain'
 
 /**
  * Phone navigation (v4): a floating dock with two tabs either side of a
@@ -36,7 +37,8 @@ export function BottomNav() {
 
   const go = (href: string) => {
     setShowMore(false)
-    router.push(href)
+    // the curtain opens from the tab you tapped
+    navigateWithCurtain(href, undefined, (h) => router.push(h))
   }
 
   const tab = ({ name, href, icon: Icon, hint, active, onClick }: { name: string; href: string; icon: React.ElementType; hint: string; active: boolean; onClick: () => void }) => (
