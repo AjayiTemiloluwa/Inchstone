@@ -147,22 +147,54 @@ export function dueTaskNotifications(
   return due
 }
 
-function fmtTime(v: Date | string): string {
-  return new Date(v).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+/** Used when we know nothing about where the user is (the app's home). */
+export const DEFAULT_TZ = 'Africa/Lagos'
+
+/**
+ * The user's own timezone, for wording server pushes. The server runs in UTC,
+ * so without this "Starts at 2:00 PM" would be an hour off in Lagos. Taken
+ * from the scout settings, else the newest alarm (both captured from the
+ * browser), else the app default.
+ */
+export async function userTimeZone(userId: string): Promise<string> {
+  const scout = await prisma.scoutProfile.findUnique({ where: { userId }, select: { tz: true } }).catch(() => null)
+  if (scout?.tz) return scout.tz
+  const alarm = await prisma.alarm
+    .findFirst({ where: { userId, tz: { not: null } }, orderBy: { createdAt: 'desc' }, select: { tz: true } })
+    .catch(() => null)
+  return alarm?.tz || DEFAULT_TZ
 }
 
-function dayUrl(v: Date | string): string {
-  return `/day/${new Date(v).toISOString().substring(0, 10)}`
+function fmtTime(v: Date | string, tz: string = DEFAULT_TZ): string {
+  return new Date(v).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
 }
+
+/** yyyy-MM-dd of an instant in the user's timezone (the /day route's key). */
+function dayKey(v: Date | string, tz: string = DEFAULT_TZ): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(v))
+}
+
+function dayUrl(v: Date | string, tz?: string): string {
+  return `/day/${dayKey(v, tz)}`
+}
+
+/**
+ * One live card per deed: the countdown, the start and the almost-done cue
+ * all share this tag (the same one the in-app pin uses), so the notification
+ * bar shows a single notification that moves through the deed's life instead
+ * of a stack of them.
+ */
+export const deedTag = (taskId: string) => `deed-countdown-${taskId}`
+export const deedFinishTag = (taskId: string) => `deed-finish-${taskId}`
 
 /** Web-push payload for a task notification (consumed by public/sw.js). */
-export function buildTaskPayload(t: SchedulableTask, kind: TaskNotificationKind, now: Date = new Date()) {
-  const payload = { ...buildTaskPayloadCore(t, kind), ...taskExtras(t, kind) }
+export function buildTaskPayload(t: SchedulableTask, kind: TaskNotificationKind, now: Date = new Date(), tz: string = DEFAULT_TZ) {
+  const payload = { ...buildTaskPayloadCore(t, kind, tz), ...taskExtras(t, kind) }
   if (!isLate(t, kind, now)) return payload
   return {
     ...payload,
-    title: `🕘 Missed ${fmtTime(t.startTime!)}: ${t.title}`,
-    body: `This was scheduled for ${fmtWindow(t)} and is still open. Tap to catch up.`,
+    title: `🕘 Missed ${fmtTime(t.startTime!, tz)}: ${t.title}`,
+    body: `This was scheduled for ${fmtWindow(t, tz)} and is still open. Tap to catch up.`,
     requireInteraction: false,
     vibrate: [120, 60, 120],
     late: true,
@@ -176,9 +208,9 @@ export function isLate(t: SchedulableTask, kind: TaskNotificationKind, now: Date
   return start != null && now.getTime() - start > START_PUSH_GRACE_MINUTES * MIN
 }
 
-function fmtWindow(t: SchedulableTask): string {
-  const start = fmtTime(t.startTime!)
-  return t.endTime ? `${start} – ${fmtTime(t.endTime)}` : start
+function fmtWindow(t: SchedulableTask, tz?: string): string {
+  const start = fmtTime(t.startTime!, tz)
+  return t.endTime ? `${start} – ${fmtTime(t.endTime, tz)}` : start
 }
 
 /** Android extras: the deed's own time, its id, and Done / Open buttons. */
@@ -189,23 +221,25 @@ function taskExtras(t: SchedulableTask, kind: TaskNotificationKind) {
     timestamp: at ? new Date(at).getTime() : undefined,
     actions: kind === 'finish'
       ? [{ action: 'open', title: 'Open day' }]
-      : [{ action: 'done', title: 'Mark done' }, { action: 'not-done', title: 'Not done' }, { action: 'extend', title: 'Extend 15m' }, { action: 'open', title: 'Open day' }],
+      // Android shows the first two (see sw.js): the two you need while a deed runs.
+      : [{ action: 'done', title: 'Done ✓' }, { action: 'extend', title: '+15 min' }, { action: 'not-done', title: 'Not done' }, { action: 'open', title: 'Open day' }],
   }
 }
 
-function buildTaskPayloadCore(t: SchedulableTask, kind: TaskNotificationKind) {
+function buildTaskPayloadCore(t: SchedulableTask, kind: TaskNotificationKind, tz: string) {
   if (!t.startTime) throw new Error('buildTaskPayload requires a startTime')
-  const start = fmtTime(t.startTime)
-  const end = t.endTime ? fmtTime(t.endTime) : null
-  const window = end ? `${start} – ${end}` : start
-  const url = dayUrl(t.date ?? new Date())
+  const start = fmtTime(t.startTime, tz)
+  const endMs = taskEndTime(t)
+  const end = endMs != null ? fmtTime(new Date(endMs), tz) : null
+  const window = t.endTime && end ? `${start} – ${end}` : start
+  const url = dayUrl(t.startTime, tz)
 
   if (kind === 'countdown') {
     return {
       title: `⏳ In ${COUNTDOWN_LEAD_MINUTES} min: ${t.title}`,
       body: `Starts at ${window}. The countdown is running.`,
       url,
-      tag: `task-${t.id}-countdown`,
+      tag: deedTag(t.id),
     }
   }
   if (kind === 'reminder') {
@@ -226,7 +260,7 @@ function buildTaskPayloadCore(t: SchedulableTask, kind: TaskNotificationKind) {
       title: `⏳ Almost done: ${t.title}`,
       body: `Time runs out${end ? ` at ${end}` : ''} — ${lead} ${lead === 1 ? 'minute' : 'minutes'} left.`,
       url,
-      tag: `task-${t.id}-ending`,
+      tag: deedTag(t.id),
       requireInteraction: false,
       vibrate: [220, 100, 220],
     }
@@ -236,16 +270,18 @@ function buildTaskPayloadCore(t: SchedulableTask, kind: TaskNotificationKind) {
       title: `✓ Finished: ${t.title}`,
       body: `Done — you wrapped ${window}. Great work.`,
       url,
-      tag: `task-${t.id}-finish`,
+      tag: deedFinishTag(t.id),
       requireInteraction: false,
       vibrate: [120, 60, 120],
     }
   }
   return {
     title: `▶ Starting now: ${t.title}`,
-    body: `It's ${window}. Countdown's live on your day.`,
+    body: end
+      ? `Running until ${end}. Tap Done when you finish, or Extend if you need more time.`
+      : `It's ${start}. Countdown's live on your day.`,
     url,
-    tag: `task-${t.id}-start`,
+    tag: deedTag(t.id),
   }
 }
 

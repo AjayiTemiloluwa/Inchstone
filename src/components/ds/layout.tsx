@@ -56,7 +56,7 @@ export function PageHeader({
   // a large Playfair title that reveals line by line, and a gold rule leading
   // into the subline.
   return (
-    <header data-noreveal className={cx('relative overflow-hidden rounded-xl border border-gold/15 bg-surface-solid p-5 sm:p-7 lg:p-8', className)}>
+    <header data-noreveal data-sig="head" className={cx('page-head relative overflow-hidden rounded-xl border border-gold/15 bg-surface-solid p-5 sm:p-7 lg:p-8', className)}>
       <span aria-hidden="true" className="hero-orb pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gold/[0.09] blur-3xl" />
       <span aria-hidden="true" className="hero-orb hero-orb--slow pointer-events-none absolute -bottom-32 left-1/4 h-64 w-64 rounded-full bg-ember/[0.05] blur-3xl" />
       {(eyebrow || meta) && (

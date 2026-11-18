@@ -76,6 +76,11 @@ export default function RootLayout({
                       document.documentElement.classList.add('dark');
                     }
                   } catch (e) {}
+                  // Palette — the colour mood (lib/palette.ts); classic has no attribute.
+                  try {
+                    var palette = localStorage.getItem('inchstone-palette');
+                    if (palette && palette !== 'classic') document.documentElement.setAttribute('data-palette', palette);
+                  } catch (e) {}
                   // Accent — replay the stored --gold* mix before first paint, so a
                   // chosen accent never flashes brass. lib/accent.ts keeps both mixes.
                   try {

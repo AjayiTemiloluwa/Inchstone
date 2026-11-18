@@ -22,6 +22,8 @@ import { ScrollText } from "@/components/effects/ScrollText";
 import { GLProvider } from "@/components/gl/GLProvider";
 import { RouteCurtain } from "@/components/motion/RouteCurtain";
 import { MotionFx } from "@/components/motion/MotionFx";
+import { PageSignature } from "@/components/motion/PageSignature";
+import { Welcome } from "@/components/fun/Welcome";
 
 export default function AppLayout({
   children,
@@ -45,6 +47,8 @@ export default function AppLayout({
         <ScrollText />
         <RouteCurtain />
         <MotionFx />
+        <PageSignature />
+        <Welcome />
         <GLProvider>
         <div className="app-shell relative flex h-screen h-dvh w-full overflow-hidden">
           {/* Backdrop: living sky → dimming veil → app UI (back to front) */}

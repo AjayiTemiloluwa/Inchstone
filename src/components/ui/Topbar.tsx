@@ -8,6 +8,7 @@ import { WorkClock } from "@/components/ui/WorkClock";
 import { YearPickerChip } from "@/components/ui/YearPicker";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/ui/NotificationBell";
+import { MomentumChip } from "@/components/fun/MomentumChip";
 import { routeMeta } from "@/components/ds/nav";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { openAssistant, openCommand } from "@/lib/uiEvents";
@@ -74,6 +75,7 @@ export function Topbar() {
           <Sparkles className="h-4 w-4 text-gold" strokeWidth={1.8} aria-hidden />
           <span className="hidden sm:inline">Ask AI</span>
         </button>
+        <MomentumChip />
         <YearPickerChip />
         <NotificationBell />
         <ThemeToggle />

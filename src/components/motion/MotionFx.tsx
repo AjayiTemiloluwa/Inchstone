@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { gsap, ScrollTrigger, prefersReducedMotion, isTouch, scroller } from '@/lib/gsap'
+import { cardEntrance } from '@/components/motion/PageSignature'
 
 /**
  * MotionFx — the shared motion layer, wired by selectors so screens need no
@@ -141,13 +142,15 @@ export function MotionFx() {
     const flushEntrances = () => {
       if (!entering.length) return
       const batch = entering.splice(0)
-      gsap.set(batch, { autoAlpha: 0, y: 34, rotationX: -14, transformPerspective: 900, transformOrigin: '50% 0%' })
+      // each route has its own arrival (pop, drop, flip, slide…), see PageSignature
+      const { from, ease, stagger } = cardEntrance(pathname)
+      gsap.set(batch, { autoAlpha: 0, transformPerspective: 900, transformOrigin: '50% 0%', ...from })
       const sts = ScrollTrigger.batch(batch, {
         scroller: main,
         start: 'top 96%',
         once: true,
         onEnter: (els) =>
-          gsap.to(els, { autoAlpha: 1, y: 0, rotationX: 0, duration: 0.8, ease: 'settle', stagger: 0.06, overwrite: 'auto' }),
+          gsap.to(els, { autoAlpha: 1, x: 0, y: 0, scale: 1, rotation: 0, rotationX: 0, rotationY: 0, duration: 0.75, ease, stagger, overwrite: 'auto' }),
       })
       cleanups.push(() => sts.forEach((s) => s.kill()))
     }
