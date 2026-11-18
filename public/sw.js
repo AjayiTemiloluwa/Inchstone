@@ -1,6 +1,6 @@
 /* Inchstone service worker — offline shell + data cache + write-queue bridge. */
 
-const VERSION = 'v11'
+const VERSION = 'v12'
 const SHELL_CACHE = `inchstone-shell-${VERSION}`
 const RUNTIME_CACHE = `inchstone-runtime-${VERSION}`
 const API_CACHE = `inchstone-api-${VERSION}`
@@ -318,7 +318,7 @@ self.addEventListener('notificationclick', function (event) {
             })
                 .then(function (res) {
                     return self.registration.showNotification(res.ok ? 'Reopened ↻' : 'Could not reopen', {
-                        body: res.ok ? event.notification.title.replace(/^[^:]*:\\s*/, '') : 'Open Inchstone to retry.',
+                        body: res.ok ? event.notification.title.replace(/^[^:]*:\s*/, '') : 'Open Inchstone to retry.',
                         icon: '/icon-192.png',
                         badge: '/notify-badge.png',
                         tag: 'task-notdone-' + taskId,
@@ -342,7 +342,7 @@ self.addEventListener('notificationclick', function (event) {
             })
                 .then(function (res) {
                     return self.registration.showNotification(res.ok ? 'Extended +15m' : 'Could not extend', {
-                        body: res.ok ? event.notification.title.replace(/^[^:]*:\\s*/, '') : 'Open Inchstone to reschedule.',
+                        body: res.ok ? event.notification.title.replace(/^[^:]*:\s*/, '') : 'Open Inchstone to reschedule.',
                         icon: '/icon-192.png',
                         badge: '/notify-badge.png',
                         tag: 'task-extend-' + taskId,

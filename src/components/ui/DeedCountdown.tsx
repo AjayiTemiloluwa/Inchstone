@@ -47,12 +47,29 @@ function fmtClock(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`
 }
 
+/** "3:45 PM" in the device's own time. */
+function fmtAt(ms: number): string {
+  return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
+/** yyyy-MM-dd of an instant in the device's own day (the /day route's key). */
+function localDay(ms: number): string {
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 export function DeedCountdown() {
   const now = useCountdown()
   const [timers, setTimers] = useState<DeedTimer[]>([])
   const firedFinish = useRef<Set<string>>(new Set())
   const lastPinnedBody = useRef<Map<string, string>>(new Map())
   const pinnedActive = useRef<Set<string>>(new Set())
+  // The phone freezes a page the moment you leave it, so a ticking "12:34 left"
+  // would sit there wrong. While you're away the pin switches to fixed wording
+  // ("ends at 3:45 PM") that stays true without ticking; the server's pushes
+  // move it on (starting → almost done → finished) until you're back.
+  const [away, setAway] = useState(false)
 
   const fetchTimers = useCallback(async () => {
     try {
@@ -67,15 +84,22 @@ export function DeedCountdown() {
 
   // Keep the feed fresh (mount, interval, and whenever the tab becomes visible).
   useEffect(() => {
-    fetchTimers()
+    const first = window.setTimeout(fetchTimers, 0)
     const id = window.setInterval(fetchTimers, REFRESH_TIMERS_MS)
     const onVis = () => {
-      if (document.visibilityState === 'visible') fetchTimers()
+      const hidden = document.visibilityState === 'hidden'
+      // Redraw every pin in the new mode (ticking ↔ fixed wording).
+      lastPinnedBody.current.clear()
+      setAway(hidden)
+      if (!hidden) fetchTimers()
     }
     document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pagehide', onVis)
     return () => {
+      window.clearTimeout(first)
       window.clearInterval(id)
       document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pagehide', onVis)
     }
   }, [fetchTimers])
   // Drive the pinned notifications from the ticking clock.
@@ -139,11 +163,16 @@ export function DeedCountdown() {
           // Outside the pin window yet? Not until 15 min before start.
           if (nowMs < start - PIN_BEFORE_MS) continue
 
-          const body =
-            nowMs < start
-              ? `${fmtClock(start - nowMs)} until start`
-              : `${fmtClock(end - nowMs)} left ⏳`
-          const title = nowMs < start ? `Up next: ${t.title}` : t.title
+          const running = nowMs >= start
+          // In the app: a live m:ss clock. Away: wording that needs no ticking.
+          const body = away
+            ? running
+              ? `Running · ends at ${fmtAt(end)}`
+              : `Starts at ${fmtAt(start)} · runs until ${fmtAt(end)}`
+            : running
+              ? `${fmtClock(end - nowMs)} left ⏳ · ends ${fmtAt(end)}`
+              : `${fmtClock(start - nowMs)} until start`
+          const title = running ? `▶ ${t.title}` : `Up next: ${t.title}`
 
           const prev = lastPinnedBody.current.get(t.taskId)
           if (prev === `${title}\u0000${body}`) continue // unchanged — don't spam
@@ -155,13 +184,19 @@ export function DeedCountdown() {
             tag: tag(t.taskId),
             silent: true, // replace in place — no re-buzz every tick
             icon: '/icon-192.png',
-                badge: '/notify-badge.png',
-            data: { url: `/day/${new Date(t.startTime).toISOString().substring(0, 10)}` },
+            badge: '/notify-badge.png',
+            // Android shows this as the notification's time: the moment that matters next.
+            timestamp: running ? end : start,
+            // Act on the deed straight from the notification bar (handled in sw.js).
+            actions: running
+              ? [{ action: 'done', title: 'Done ✓' }, { action: 'extend', title: '+15 min' }]
+              : [{ action: 'open', title: 'Open day' }],
+            data: { url: `/day/${localDay(start)}`, taskId: t.taskId },
           } as NotificationOptions)
         }
       })
       .catch(() => {})
-  }, [now, timers])
+  }, [now, timers, away])
 
   return null
 }

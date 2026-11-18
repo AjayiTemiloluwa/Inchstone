@@ -93,6 +93,150 @@
   --glass-gold-border: rgb(var(--gold-rgb) / 0.2);
 }
 
+/* ── PALETTES — Settings → Appearance → Colour mood (lib/palette.ts) ──
+   <html data-palette="…"> re-points the six base tokens for both themes.
+   Classic has no attribute, so the blocks above stay the original look.
+   --volt is each mood's second neon, used for glows and gradients only. */
+:root { --volt-rgb: var(--ember-rgb); }
+
+html[data-palette] {
+  --ink: #f7f9f4; --ink-rgb: 247 249 244;
+  --parchment: #101410; --parchment-rgb: 16 20 16;
+  --bg: #f7f9f4; --fg: #101410; --fg-rgb: 16 20 16;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-solid: #ffffff;
+  --mist: rgba(16, 20, 16, 0.07);
+  --mist-solid: #eef1ea; --mist-solid-rgb: 238 241 234;
+  --glass: rgba(16, 20, 16, 0.03);
+  --glass-border: rgba(16, 20, 16, 0.12);
+  --glass-strong: rgba(255, 255, 255, 0.94);
+}
+html[data-palette='voltage'] {
+  --gold: #4f8f00; --gold-rgb: 79 143 0;
+  --gold-dim: #5f7d2a; --gold-dim-rgb: 95 125 42;
+  --gold-glow-rgb: 111 179 18;
+  --ember: #d4145a; --ember-rgb: 212 20 90;
+  --moss: #008f6b; --moss-rgb: 0 143 107;
+  --volt-rgb: 124 77 255;
+}
+html[data-palette='pulse'] {
+  --gold: #c4129f; --gold-rgb: 196 18 159;
+  --gold-dim: #8f2a80; --gold-dim-rgb: 143 42 128;
+  --gold-glow-rgb: 224 61 191;
+  --ember: #d9411c; --ember-rgb: 217 65 28;
+  --moss: #0f9a52; --moss-rgb: 15 154 82;
+  --volt-rgb: 10 143 196;
+}
+html[data-palette='aurora'] {
+  --gold: #0089a8; --gold-rgb: 0 137 168;
+  --gold-dim: #2a7385; --gold-dim-rgb: 42 115 133;
+  --gold-glow-rgb: 20 169 201;
+  --ember: #d61f55; --ember-rgb: 214 31 85;
+  --moss: #3f8f00; --moss-rgb: 63 143 0;
+  --volt-rgb: 107 61 255;
+}
+
+html.dark[data-palette='voltage'] {
+  --ink: #0a0c0b; --ink-rgb: 10 12 11;
+  --parchment: #f1f5ee; --parchment-rgb: 241 245 238;
+  --gold: #c6ff3d; --gold-rgb: 198 255 61;
+  --gold-dim: #8bbf1f; --gold-dim-rgb: 139 191 31;
+  --gold-glow-rgb: 219 255 133;
+  --ember: #ff4d8d; --ember-rgb: 255 77 141;
+  --moss: #3dffc5; --moss-rgb: 61 255 197;
+  --volt-rgb: 185 139 255;
+  --bg: #0a0c0b; --fg: #f1f5ee; --fg-rgb: 241 245 238;
+  --surface: rgba(18, 22, 20, 0.62);
+  --surface-solid: #121614;
+  --mist-solid: #161b18; --mist-solid-rgb: 22 27 24;
+  --glass-strong: rgba(10, 12, 11, 0.92);
+}
+html.dark[data-palette='pulse'] {
+  --ink: #0b0912; --ink-rgb: 11 9 18;
+  --parchment: #f5f0ff; --parchment-rgb: 245 240 255;
+  --gold: #ff3df2; --gold-rgb: 255 61 242;
+  --gold-dim: #b52aab; --gold-dim-rgb: 181 42 171;
+  --gold-glow-rgb: 255 138 247;
+  --ember: #ff5c38; --ember-rgb: 255 92 56;
+  --moss: #3dff8f; --moss-rgb: 61 255 143;
+  --volt-rgb: 61 216 255;
+  --bg: #0b0912; --fg: #f5f0ff; --fg-rgb: 245 240 255;
+  --surface: rgba(21, 17, 31, 0.62);
+  --surface-solid: #15111f;
+  --mist-solid: #1a1526; --mist-solid-rgb: 26 21 38;
+  --glass-strong: rgba(11, 9, 18, 0.92);
+}
+html.dark[data-palette='aurora'] {
+  --ink: #060a0f; --ink-rgb: 6 10 15;
+  --parchment: #eef8ff; --parchment-rgb: 238 248 255;
+  --gold: #3de8ff; --gold-rgb: 61 232 255;
+  --gold-dim: #2aa3b5; --gold-dim-rgb: 42 163 181;
+  --gold-glow-rgb: 138 242 255;
+  --ember: #ff4f7b; --ember-rgb: 255 79 123;
+  --moss: #9bff4a; --moss-rgb: 155 255 74;
+  --volt-rgb: 160 107 255;
+  --bg: #060a0f; --fg: #eef8ff; --fg-rgb: 238 248 255;
+  --surface: rgba(14, 21, 32, 0.62);
+  --surface-solid: #0e1520;
+  --mist-solid: #121a27; --mist-solid-rgb: 18 26 39;
+  --glass-strong: rgba(6, 10, 15, 0.92);
+}
+html.dark[data-palette] {
+  --mist: rgb(var(--parchment-rgb) / 0.08);
+  --glass: rgb(var(--parchment-rgb) / 0.04);
+  --glass-border: rgb(var(--parchment-rgb) / 0.1);
+}
+
+/* The veil over the living sky takes the mood's own ink, lit by two neon
+   washes (accent top right, second neon bottom left) that slowly breathe. */
+html[data-palette]:root .app-overlay {
+  background:
+    radial-gradient(55% 45% at 88% 0%, rgb(var(--gold-rgb) / 0.13), transparent 70%),
+    radial-gradient(50% 42% at 0% 100%, rgb(var(--volt-rgb) / 0.12), transparent 70%),
+    linear-gradient(180deg, rgb(var(--ink-rgb) / 0.9) 0%, rgb(var(--ink-rgb) / 0.82) 40%, rgb(var(--ink-rgb) / 0.95) 100%);
+  animation: volt-breathe 14s ease-in-out infinite alternate;
+}
+html:not(.dark)[data-palette]:root .app-shell {
+  background: linear-gradient(180deg, rgb(var(--ink-rgb) / 0.7), rgb(var(--ink-rgb) / 0.92));
+}
+@keyframes volt-breathe {
+  from { filter: hue-rotate(0deg) saturate(1); }
+  to { filter: hue-rotate(-14deg) saturate(1.25); }
+}
+
+/* Neon finish, dark only: accents glow, primary buttons radiate. */
+html.dark[data-palette] .text-gold { text-shadow: 0 0 18px rgb(var(--gold-rgb) / 0.45); }
+html.dark[data-palette] .text-moss { text-shadow: 0 0 14px rgb(var(--moss-rgb) / 0.35); }
+html.dark[data-palette] .text-ember { text-shadow: 0 0 14px rgb(var(--ember-rgb) / 0.35); }
+html.dark[data-palette] .bg-gold { box-shadow: 0 0 22px rgb(var(--gold-rgb) / 0.35), 0 0 2px rgb(var(--gold-rgb) / 0.8); }
+html[data-palette] ::selection { background: rgb(var(--gold-rgb) / 0.35); }
+
+/* Page headers wear a slowly turning neon edge in the electric moods. */
+html[data-palette] .page-head::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--volt-angle, 0deg), rgb(var(--gold-rgb) / 0.9), rgb(var(--volt-rgb) / 0.7), rgb(var(--ember-rgb) / 0.6), rgb(var(--gold-rgb) / 0.9));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: volt-spin 9s linear infinite;
+}
+html[data-palette] .page-head .hero-orb:nth-child(2) { background: rgb(var(--volt-rgb) / 0.12); }
+@property --volt-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes volt-spin { to { --volt-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+  html[data-palette] .app-overlay,
+  html[data-palette] .page-head::before { animation: none; }
+}
+
 /* ── TipTap Placeholder ── */
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -2608,4 +2752,57 @@ html:not(.dark) .touch-hint-pill {
     opacity: 0;
     transform: scale(1.08);
   }
+}
+
+/* ── Momentum (components/fun/MomentumChip.tsx) ───────────────────── */
+.xp-pop {
+  position: fixed;
+  z-index: 9997;
+  pointer-events: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font: 800 13px/1 var(--font-mono), ui-monospace, monospace;
+  color: rgb(var(--ink-rgb));
+  background: linear-gradient(90deg, rgb(var(--gold-rgb)), rgb(var(--volt-rgb)));
+  box-shadow: 0 0 24px rgb(var(--gold-rgb) / 0.55);
+  white-space: nowrap;
+}
+.xp-spark {
+  position: fixed;
+  z-index: 9996;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: rgb(var(--gold-rgb));
+  box-shadow: 0 0 10px rgb(var(--gold-rgb) / 0.8);
+}
+.xp-spark:nth-child(odd) { background: rgb(var(--volt-rgb)); box-shadow: 0 0 10px rgb(var(--volt-rgb) / 0.8); }
+.record-banner {
+  position: fixed;
+  left: 50%;
+  top: max(16px, env(safe-area-inset-top));
+  z-index: 9997;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 20px;
+  border-radius: 16px;
+  text-align: center;
+  color: rgb(var(--ink-rgb));
+  background: linear-gradient(100deg, rgb(var(--gold-rgb)), rgb(var(--volt-rgb)));
+  box-shadow: 0 10px 40px rgb(var(--gold-rgb) / 0.45);
+  font-size: 13px;
+}
+.record-banner strong { font: 800 16px/1.1 var(--font-playfair), serif; }
+.combo-badge { animation: combo-pop 0.5s cubic-bezier(0.34, 1.8, 0.64, 1); box-shadow: 0 0 12px rgb(var(--ember-rgb) / 0.6); }
+@keyframes combo-pop { from { transform: scale(0) rotate(-20deg); } to { transform: scale(1) rotate(0); } }
+.momentum-chip:hover .momentum-emblem { animation: emblem-wiggle 0.6s ease; }
+@keyframes emblem-wiggle {
+  25% { transform: rotate(-14deg) scale(1.15); }
+  60% { transform: rotate(10deg) scale(1.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .combo-badge, .momentum-chip:hover .momentum-emblem { animation: none; }
 }

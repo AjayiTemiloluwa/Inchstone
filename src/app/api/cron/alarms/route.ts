@@ -12,6 +12,7 @@ import {
   pushTaskToUser,
   stampTaskNotification,
   TASK_SCAN_WINDOW_HOURS,
+  userTimeZone,
 } from '@/lib/taskNotifications'
 
 /**
@@ -83,6 +84,12 @@ export async function GET(req: Request) {
   })
 
   let taskPushes = 0
+  // Each user's own timezone, looked up once per run, so pushes say "2:00 PM" in Lagos time, not UTC.
+  const tzCache = new Map<string, Promise<string>>()
+  const tzOf = (userId: string) => {
+    if (!tzCache.has(userId)) tzCache.set(userId, userTimeZone(userId))
+    return tzCache.get(userId)!
+  }
   // Missed deeds (start/reminder that passed while the scheduler or phone was down) are rolled back
   // per user; a long backlog collapses into one digest so a phone coming back online is not spammed.
   const missed = new Map<string, { t: (typeof scheduled)[number]; kind: 'start' | 'reminder' }[]>()
@@ -97,7 +104,7 @@ export async function GET(req: Request) {
         continue
       }
       try {
-        await pushTaskToUser(t.userId, buildTaskPayload(t, kind, now), kind)
+        await pushTaskToUser(t.userId, buildTaskPayload(t, kind, now, await tzOf(t.userId)), kind)
         taskPushes++
       } catch (e) {
         console.error('Task notification dispatch failed', t.id, kind, e)
@@ -119,7 +126,7 @@ export async function GET(req: Request) {
         taskPushes++
       } else {
         for (const m of list) {
-          await pushTaskToUser(userId, buildTaskPayload(m.t, m.kind, now), m.kind)
+          await pushTaskToUser(userId, buildTaskPayload(m.t, m.kind, now, await tzOf(userId)), m.kind)
           taskPushes++
         }
       }

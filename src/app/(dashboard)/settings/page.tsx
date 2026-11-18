@@ -7,6 +7,8 @@ import { AlarmsCard } from '@/components/ui/AlarmsCard'
 import { useInstallPrompt } from '@/components/ui/InstallPrompt'
 import { ThemeSwitch } from '@/components/ui/ThemeToggle'
 import { AccentPicker } from '@/components/ui/AccentPicker'
+import { PalettePicker } from '@/components/ui/PalettePicker'
+import { EmblemPicker } from '@/components/fun/EmblemPicker'
 import { useState, useEffect } from 'react'
 import { CheckCircle, XCircle, Smartphone, Database, ChevronDown, RotateCcw } from 'lucide-react'
 import { Loader } from '@/components/ui/Loader'
@@ -152,6 +154,10 @@ export default function SettingsPage() {
           <SettingRow label="Theme" description="Dark is the classic midnight look. Light is warm paper.">
             <ThemeSwitch />
           </SettingRow>
+          <Divider />
+          <PalettePicker />
+          <Divider />
+          <EmblemPicker />
           <Divider />
           <AccentPicker />
         </Panel>
