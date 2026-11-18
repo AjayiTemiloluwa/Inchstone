@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { gsap, ScrollTrigger, prefersReducedMotion, scroller } from '@/lib/gsap'
+import { gsap, ScrollTrigger, SplitText, prefersReducedMotion, scroller } from '@/lib/gsap'
 
 /**
  * PageSignature — each screen's own entrance, on top of MotionFx's shared
@@ -13,6 +13,11 @@ import { gsap, ScrollTrigger, prefersReducedMotion, scroller } from '@/lib/gsap'
  *     hairline under it sweeps across, the gold rule before the subline grows
  *   · section headers: the hairline beside each title draws across as the
  *     section scrolls into view
+ *   · headings a page draws itself: letters flip up into place (SplitText),
+ *     then the heading is handed back to React untouched
+ *   · header glows drift with the scroll (parallax, scrubbed)
+ *   · table rows stream in; primary buttons are magnetic (mouse only)
+ *   · cards lean with scroll speed and spring back upright
  *
  * Per route (the family's signature)
  *   calendar · week · month · quarter · year   grid cells ripple out from the centre
@@ -122,16 +127,78 @@ export function PageSignature() {
         })
       }
 
-      // ── ledger family: table rows stream in from the right ──
-      if (family === 'ledger') {
-        main.querySelectorAll<HTMLElement>('tbody').forEach((tb) => {
-          if (!fresh(tb) || !visible(tb)) return
-          const rows = [...tb.querySelectorAll<HTMLElement>(':scope > tr')].slice(0, 40)
-          if (!rows.length) return
-          gsap.set(rows, { x: 60, autoAlpha: 0 })
-          onView(tb, () => gsap.to(rows, { x: 0, autoAlpha: 1, duration: 0.55, stagger: 0.035, ease: 'power4.out', clearProps: 'transform,opacity,visibility' }))
+      // ── headings a page draws itself (no shared PageHeader): letters flip up into place ──
+      main.querySelectorAll<HTMLElement>('h1').forEach((h) => {
+        if (!fresh(h) || !visible(h) || h.closest('[data-sig="head"]') || h.querySelector('[data-reveal], .reveal-line')) return
+        if ((h.textContent ?? '').length > 80) return
+        const split = SplitText.create(h, { type: 'words,chars', mask: 'words' })
+        const tw = gsap.from(split.chars, {
+          yPercent: 115,
+          rotationX: -70,
+          transformOrigin: '50% 100%',
+          duration: 0.8,
+          ease: 'back.out(1.8)',
+          stagger: 0.022,
+          // hand the heading back to React untouched once it has landed
+          onComplete: () => split.revert(),
+        })
+        kills.push(() => {
+          tw.kill()
+          split.revert()
+        })
+      })
+
+      // ── header orbs drift as the page scrolls (parallax) ──
+      main.querySelectorAll<HTMLElement>('[data-sig="head"]').forEach((head) => {
+        const orbs = head.querySelectorAll<HTMLElement>('.hero-orb')
+        if (!orbs.length || head.dataset.parallax) return
+        head.dataset.parallax = '1'
+        const tw = gsap.to(orbs, {
+          yPercent: (i) => (i % 2 ? -60 : 70),
+          xPercent: (i) => (i % 2 ? 30 : -20),
+          ease: 'none',
+          scrollTrigger: { trigger: head, scroller: main, start: 'top top', end: 'bottom top', scrub: 0.6 },
+        })
+        kills.push(() => {
+          tw.scrollTrigger?.kill()
+          tw.kill()
+          delete head.dataset.parallax
+        })
+      })
+
+      // ── table rows stream in (from the right on money pages, from the left elsewhere) ──
+      main.querySelectorAll<HTMLElement>('tbody').forEach((tb) => {
+        if (!fresh(tb) || !visible(tb)) return
+        const rows = [...tb.querySelectorAll<HTMLElement>(':scope > tr')].slice(0, 40)
+        if (!rows.length) return
+        gsap.set(rows, { x: family === 'ledger' ? 60 : -40, autoAlpha: 0 })
+        onView(tb, () => gsap.to(rows, { x: 0, autoAlpha: 1, duration: 0.55, stagger: 0.035, ease: 'power4.out', clearProps: 'transform,opacity,visibility' }))
+      })
+
+      // ── primary buttons are magnetic: they lean toward a nearby pointer ──
+      if (window.matchMedia('(pointer: fine)').matches) {
+        main.querySelectorAll<HTMLElement>('button.bg-gold, a.bg-gold').forEach((btn) => {
+          if (!fresh(btn)) return
+          const x = gsap.quickTo(btn, 'x', { duration: 0.4, ease: 'power3.out' })
+          const y = gsap.quickTo(btn, 'y', { duration: 0.4, ease: 'power3.out' })
+          const move = (e: PointerEvent) => {
+            const r = btn.getBoundingClientRect()
+            x((e.clientX - (r.left + r.width / 2)) * 0.28)
+            y((e.clientY - (r.top + r.height / 2)) * 0.4)
+          }
+          const leave = () => gsap.to(btn, { x: 0, y: 0, duration: 0.7, ease: 'elastic.out(1, 0.4)' })
+          btn.addEventListener('pointermove', move)
+          btn.addEventListener('pointerleave', leave)
+          kills.push(() => {
+            btn.removeEventListener('pointermove', move)
+            btn.removeEventListener('pointerleave', leave)
+            gsap.set(btn, { clearProps: 'transform' })
+          })
         })
       }
+
+      // cards to lean with scroll speed (see below)
+      cards = [...main.querySelectorAll<HTMLElement>('[data-fx], .card')].filter((c) => c.getBoundingClientRect().height < 620)
 
       // ── lists: rows arrive one after another (timeline-style on the day page) ──
       main.querySelectorAll<HTMLElement>('ul, ol').forEach((list) => {
@@ -180,6 +247,30 @@ export function PageSignature() {
 
       ScrollTrigger.refresh()
     }
+
+    // ── scroll with energy: cards skew a touch with scroll speed and spring back ──
+    let cards: HTMLElement[] = []
+    const skew = { v: 0 }
+    const clampSkew = gsap.utils.clamp(-5, 5)
+    const speed = ScrollTrigger.create({
+      scroller: main,
+      onUpdate: (self) => {
+        const target = clampSkew(self.getVelocity() / -450)
+        if (Math.abs(target) <= Math.abs(skew.v) || !cards.length) return
+        skew.v = target
+        gsap.to(skew, {
+          v: 0,
+          duration: 0.8,
+          ease: 'power3.out',
+          overwrite: true,
+          onUpdate: () => gsap.set(cards, { skewY: skew.v }),
+        })
+      },
+    })
+    kills.push(() => {
+      speed.kill()
+      gsap.set(cards, { skewY: 0 })
+    })
 
     let pending = 0
     const mo = new MutationObserver(() => {

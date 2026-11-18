@@ -8,7 +8,7 @@
   /* canonical six tokens — light (paper) values */
   --ink: #f6f1e7; /* background — warm paper */
   --parchment: #241e15; /* primary text — warm espresso */
-  --gold: #96762f; /* the single accent — deep brass for light bg */
+  --gold: #7d6224; /* the single accent — deep brass for light bg (5.1:1 on paper) */
   --gold-dim: #7c6338; /* gold at rest / secondary */
   --ember: #9e4028; /* warnings / overdue / destructive */
   --moss: #465c41; /* completed / rollup-achieved */
@@ -16,7 +16,7 @@
   /* RGB triplets (Tailwind alpha support) */
   --ink-rgb: 246 241 231;
   --parchment-rgb: 36 30 21;
-  --gold-rgb: 150 118 47;
+  --gold-rgb: 125 98 36;
   --gold-dim-rgb: 124 99 56;
   --ember-rgb: 158 64 40;
   --moss-rgb: 70 92 65;
@@ -112,27 +112,27 @@ html[data-palette] {
   --glass-strong: rgba(255, 255, 255, 0.94);
 }
 html[data-palette='voltage'] {
-  --gold: #4f8f00; --gold-rgb: 79 143 0;
-  --gold-dim: #5f7d2a; --gold-dim-rgb: 95 125 42;
+  --gold: #3d7000; --gold-rgb: 61 112 0;
+  --gold-dim: #4c6620; --gold-dim-rgb: 76 102 32;
   --gold-glow-rgb: 111 179 18;
   --ember: #d4145a; --ember-rgb: 212 20 90;
-  --moss: #008f6b; --moss-rgb: 0 143 107;
+  --moss: #00785a; --moss-rgb: 0 120 90;
   --volt-rgb: 124 77 255;
 }
 html[data-palette='pulse'] {
   --gold: #c4129f; --gold-rgb: 196 18 159;
   --gold-dim: #8f2a80; --gold-dim-rgb: 143 42 128;
   --gold-glow-rgb: 224 61 191;
-  --ember: #d9411c; --ember-rgb: 217 65 28;
-  --moss: #0f9a52; --moss-rgb: 15 154 82;
+  --ember: #bf3816; --ember-rgb: 191 56 22;
+  --moss: #0a7a40; --moss-rgb: 10 122 64;
   --volt-rgb: 10 143 196;
 }
 html[data-palette='aurora'] {
-  --gold: #0089a8; --gold-rgb: 0 137 168;
+  --gold: #00718c; --gold-rgb: 0 113 140;
   --gold-dim: #2a7385; --gold-dim-rgb: 42 115 133;
   --gold-glow-rgb: 20 169 201;
   --ember: #d61f55; --ember-rgb: 214 31 85;
-  --moss: #3f8f00; --moss-rgb: 63 143 0;
+  --moss: #347400; --moss-rgb: 52 116 0;
   --volt-rgb: 107 61 255;
 }
 
@@ -155,7 +155,7 @@ html.dark[data-palette='pulse'] {
   --ink: #0b0912; --ink-rgb: 11 9 18;
   --parchment: #f5f0ff; --parchment-rgb: 245 240 255;
   --gold: #ff3df2; --gold-rgb: 255 61 242;
-  --gold-dim: #b52aab; --gold-dim-rgb: 181 42 171;
+  --gold-dim: #d23ec6; --gold-dim-rgb: 210 62 198;
   --gold-glow-rgb: 255 138 247;
   --ember: #ff5c38; --ember-rgb: 255 92 56;
   --moss: #3dff8f; --moss-rgb: 61 255 143;
@@ -589,35 +589,69 @@ html:not(.dark) .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-colo
 html:not(.dark) .text-white\/10 { color: rgb(36 30 21 / 0.12); }
 html:not(.dark) .from-black\/30 { --tw-gradient-from: rgb(36 30 21 / 0.1) var(--tw-gradient-from-position); --tw-gradient-to: rgb(36 30 21 / 0) var(--tw-gradient-to-position); }
 html:not(.dark) .to-black\/10 { --tw-gradient-to: rgb(36 30 21 / 0.04) var(--tw-gradient-to-position); }
-html:not(.dark) .text-ink\/20 { color: rgb(36 30 21 / 0.3); }
-html:not(.dark) .text-ink\/25 { color: rgb(36 30 21 / 0.5); }
-html:not(.dark) .text-ink\/30 { color: rgb(36 30 21 / 0.5); }
-html:not(.dark) .text-ink\/35 { color: rgb(36 30 21 / 0.54); }
-html:not(.dark) .text-ink\/40 { color: rgb(36 30 21 / 0.6); }
-html:not(.dark) .text-ink\/45 { color: rgb(36 30 21 / 0.64); }
-html:not(.dark) .text-ink\/50 { color: rgb(36 30 21 / 0.68); }
-html:not(.dark) .text-ink\/55 { color: rgb(36 30 21 / 0.71); }
-html:not(.dark) .text-ink\/60 { color: rgb(36 30 21 / 0.74); }
-html:not(.dark) .text-ink\/65 { color: rgb(36 30 21 / 0.82); }
-html:not(.dark) .text-ink\/70 { color: rgb(36 30 21 / 0.82); }
-html:not(.dark) .text-ink\/75 { color: rgb(36 30 21 / 0.85); }
-html:not(.dark) .text-ink\/80 { color: rgb(36 30 21 / 0.9); }
-html:not(.dark) .text-parchment\/20 { color: rgb(36 30 21 / 0.3); }
-html:not(.dark) .text-parchment\/25 { color: rgb(36 30 21 / 0.5); }
-html:not(.dark) .text-parchment\/30 { color: rgb(36 30 21 / 0.5); }
-html:not(.dark) .text-parchment\/35 { color: rgb(36 30 21 / 0.54); }
-html:not(.dark) .text-parchment\/40 { color: rgb(36 30 21 / 0.6); }
-html:not(.dark) .text-parchment\/45 { color: rgb(36 30 21 / 0.64); }
-html:not(.dark) .text-parchment\/50 { color: rgb(36 30 21 / 0.68); }
-html:not(.dark) .text-parchment\/55 { color: rgb(36 30 21 / 0.71); }
-html:not(.dark) .text-parchment\/60 { color: rgb(36 30 21 / 0.74); }
-html:not(.dark) .text-parchment\/65 { color: rgb(36 30 21 / 0.82); }
-html:not(.dark) .text-parchment\/70 { color: rgb(36 30 21 / 0.82); }
-html:not(.dark) .text-parchment\/75 { color: rgb(36 30 21 / 0.85); }
-html:not(.dark) .text-parchment\/80 { color: rgb(36 30 21 / 0.9); }
+/* Faint text, measured (WCAG AA wants 4.5:1 for small text). Dim labels at /25-/45 sat at
+   2-4:1 in both themes, so each opacity is raised to a floor that clears 4.5:1 on the page and on
+   cards in every colour mood; /20 stays the deliberate whisper (~3:1). The colour follows the
+   mood's own text token (--fg-rgb), so neon palettes get their own ink, not Classic brown. */
+html:not(.dark) .text-ink\/20 { color: rgb(var(--fg-rgb) / 0.45); }
+html:not(.dark) .text-ink\/25 { color: rgb(var(--fg-rgb) / 0.62); }
+html:not(.dark) .text-ink\/30 { color: rgb(var(--fg-rgb) / 0.62); }
+html:not(.dark) .text-ink\/35 { color: rgb(var(--fg-rgb) / 0.64); }
+html:not(.dark) .text-ink\/40 { color: rgb(var(--fg-rgb) / 0.66); }
+html:not(.dark) .text-ink\/45 { color: rgb(var(--fg-rgb) / 0.68); }
+html:not(.dark) .text-ink\/50 { color: rgb(var(--fg-rgb) / 0.7); }
+html:not(.dark) .text-ink\/55 { color: rgb(var(--fg-rgb) / 0.72); }
+html:not(.dark) .text-ink\/60 { color: rgb(var(--fg-rgb) / 0.75); }
+html:not(.dark) .text-ink\/65 { color: rgb(var(--fg-rgb) / 0.8); }
+html:not(.dark) .text-ink\/70 { color: rgb(var(--fg-rgb) / 0.82); }
+html:not(.dark) .text-ink\/75 { color: rgb(var(--fg-rgb) / 0.85); }
+html:not(.dark) .text-ink\/80 { color: rgb(var(--fg-rgb) / 0.9); }
+html:not(.dark) .text-parchment\/20 { color: rgb(var(--fg-rgb) / 0.45); }
+html:not(.dark) .text-parchment\/25 { color: rgb(var(--fg-rgb) / 0.62); }
+html:not(.dark) .text-parchment\/30 { color: rgb(var(--fg-rgb) / 0.62); }
+html:not(.dark) .text-parchment\/35 { color: rgb(var(--fg-rgb) / 0.64); }
+html:not(.dark) .text-parchment\/40 { color: rgb(var(--fg-rgb) / 0.66); }
+html:not(.dark) .text-parchment\/45 { color: rgb(var(--fg-rgb) / 0.68); }
+html:not(.dark) .text-parchment\/50 { color: rgb(var(--fg-rgb) / 0.7); }
+html:not(.dark) .text-parchment\/55 { color: rgb(var(--fg-rgb) / 0.72); }
+html:not(.dark) .text-parchment\/60 { color: rgb(var(--fg-rgb) / 0.75); }
+html:not(.dark) .text-parchment\/65 { color: rgb(var(--fg-rgb) / 0.8); }
+html:not(.dark) .text-parchment\/70 { color: rgb(var(--fg-rgb) / 0.82); }
+html:not(.dark) .text-parchment\/75 { color: rgb(var(--fg-rgb) / 0.85); }
+html:not(.dark) .text-parchment\/80 { color: rgb(var(--fg-rgb) / 0.9); }
+html.dark .text-ink\/20 { color: rgb(var(--fg-rgb) / 0.4); }
+html.dark .text-ink\/25 { color: rgb(var(--fg-rgb) / 0.52); }
+html.dark .text-ink\/30 { color: rgb(var(--fg-rgb) / 0.52); }
+html.dark .text-ink\/35 { color: rgb(var(--fg-rgb) / 0.55); }
+html.dark .text-ink\/40 { color: rgb(var(--fg-rgb) / 0.57); }
+html.dark .text-ink\/45 { color: rgb(var(--fg-rgb) / 0.6); }
+html.dark .text-ink\/50 { color: rgb(var(--fg-rgb) / 0.62); }
+html.dark .text-ink\/55 { color: rgb(var(--fg-rgb) / 0.64); }
+html.dark .text-parchment\/20 { color: rgb(var(--fg-rgb) / 0.4); }
+html.dark .text-parchment\/25 { color: rgb(var(--fg-rgb) / 0.52); }
+html.dark .text-parchment\/30 { color: rgb(var(--fg-rgb) / 0.52); }
+html.dark .text-parchment\/35 { color: rgb(var(--fg-rgb) / 0.55); }
+html.dark .text-parchment\/40 { color: rgb(var(--fg-rgb) / 0.57); }
+html.dark .text-parchment\/45 { color: rgb(var(--fg-rgb) / 0.6); }
+html.dark .text-parchment\/50 { color: rgb(var(--fg-rgb) / 0.62); }
+html.dark .text-parchment\/55 { color: rgb(var(--fg-rgb) / 0.64); }
 html:not(.dark) .placeholder\:text-ink\/30::placeholder,
 html:not(.dark) .placeholder\:text-parchment\/30::placeholder,
-html:not(.dark) .placeholder\:text-parchment\/25::placeholder { color: rgb(36 30 21 / 0.5); }
+html:not(.dark) .placeholder\:text-parchment\/35::placeholder,
+html:not(.dark) .placeholder\:text-parchment\/25::placeholder { color: rgb(var(--fg-rgb) / 0.55); }
+html.dark .placeholder\:text-ink\/30::placeholder,
+html.dark .placeholder\:text-parchment\/30::placeholder,
+html.dark .placeholder\:text-parchment\/35::placeholder,
+html.dark .placeholder\:text-parchment\/25::placeholder { color: rgb(var(--fg-rgb) / 0.48); }
+/* Classic dark: ember (2.2:1), moss (2.6:1) and gold-dim (3.9:1) are tuned as quiet fills and are
+   too dark to read as text on near-black. Text uses lifted versions (5.9 / 7.9 / 5.6:1); fills keep the
+   originals. A custom accent re-tints gold-dim inline, so that override steps aside for it. */
+html.dark:not([data-palette]) .text-ember, html.dark:not([data-palette]) .hover\:text-ember:hover { color: #e0705a; }
+html.dark:not([data-palette]) .text-ember\/80 { color: rgb(224 112 90 / 0.8); }
+html.dark:not([data-palette]) .text-moss { color: #8fb381; }
+html.dark:not([data-palette]) .text-moss\/80 { color: rgb(143 179 129 / 0.8); }
+html.dark:not([data-palette]):not([style*="--gold-dim"]) .text-gold-dim { color: #a8875a; }
+html.dark:not([data-palette]):not([style*="--gold-dim"]) .text-gold-dim\/80 { color: rgb(168 135 90 / 0.8); }
 html:not(.dark) .text-\[\#cf8f78\] { color: #9e4028; }
 html:not(.dark) .text-\[\#e0a093\] { color: #8c3a24; }
 html:not(.dark) .text-\[\#7fa871\] { color: #435f3b; }
