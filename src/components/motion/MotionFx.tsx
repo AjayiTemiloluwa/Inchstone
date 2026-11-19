@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { gsap, ScrollTrigger, prefersReducedMotion, isTouch, scroller } from '@/lib/gsap'
-import { order, play, pose, showFor, type Entrance } from '@/lib/motion/choreo'
+import { mirror, order, play, pose, showFor, type Entrance, type Flow } from '@/lib/motion/choreo'
 
 /**
  * MotionFx — the shared motion layer, wired by selectors so screens need no
@@ -148,21 +148,32 @@ export function MotionFx() {
     const flushEntrances = () => {
       if (!entering.length) return
       const batch = entering.splice(0)
-      batch.forEach((el) => {
-        const e = show.deal()
+      // Deal a fresh move and park the card in its starting pose (only ever while it is off screen).
+      const ready = (el: Element, fromAbove: boolean) => {
+        const e = fromAbove ? mirror(show.deal()) : show.deal()
         dealt.set(el, e)
+        // a fast scroll can leave before the last entrance finished (the tilt's own tweens stay)
+        gsap.killTweensOf(el, 'autoAlpha,opacity,visibility,x,y,scale,scaleX,scaleY,skewX,rotation,clipPath,filter')
         pose(el, e)
-      })
+      }
+      const enter = (els: Element[], flow: Flow) =>
+        order(els as HTMLElement[], flow, show.rng).forEach((el, i) => {
+          const e = dealt.get(el)
+          // the entrance clears its transform at rest; give the 3D tilt its depth back
+          if (e) play(el, e, { delay: i * 0.07, onComplete: () => gsap.set(el, { transformPerspective: 900 }) })
+          dealt.delete(el)
+        })
+      batch.forEach((el) => ready(el, false))
+      // Not once: every time a card scrolls fully out and back, it is dealt a new move. Scrolling
+      // back up, the move is mirrored (it arrives from above) and the group runs in reverse.
       const sts = ScrollTrigger.batch(batch, {
         scroller: main,
-        start: 'top 96%',
-        once: true,
-        onEnter: (els) =>
-          order(els as HTMLElement[], show.flow, show.rng).forEach((el, i) => {
-            const e = dealt.get(el)
-            // the entrance clears its transform at rest; give the 3D tilt its depth back
-            if (e) play(el, e, { delay: i * 0.07, onComplete: () => gsap.set(el, { transformPerspective: 900 }) })
-          }),
+        start: 'top 98%',
+        end: 'bottom 2%',
+        onEnter: (els) => enter(els, show.flow),
+        onEnterBack: (els) => enter(els, show.flow === 'cascade' ? 'reverse' : show.flow === 'reverse' ? 'cascade' : show.flow),
+        onLeave: (els) => els.forEach((el) => ready(el, true)),
+        onLeaveBack: (els) => els.forEach((el) => ready(el, false)),
       })
       cleanups.push(() => sts.forEach((s) => s.kill()))
     }

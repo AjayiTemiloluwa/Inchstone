@@ -24,6 +24,7 @@ import { RouteCurtain } from "@/components/motion/RouteCurtain";
 import { MotionFx } from "@/components/motion/MotionFx";
 import { PageSignature } from "@/components/motion/PageSignature";
 import { ImpactFx } from "@/components/motion/ImpactFx";
+import { ScrollStage } from "@/components/motion/ScrollStage";
 import { Welcome } from "@/components/fun/Welcome";
 
 export default function AppLayout({
@@ -50,6 +51,7 @@ export default function AppLayout({
         <MotionFx />
         <PageSignature />
         <ImpactFx />
+        <ScrollStage />
         <Welcome />
         <GLProvider>
         <div className="app-shell relative flex h-screen h-dvh w-full overflow-hidden">

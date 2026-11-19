@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { gsap, ScrollTrigger, SplitText, prefersReducedMotion, scroller } from '@/lib/gsap'
-import { ENTRANCES, GRID_FROM, order, play, pose, showFor, type Entrance } from '@/lib/motion/choreo'
+import { ENTRANCES, GRID_FROM, mirror, order, play, pose, showFor, type Entrance } from '@/lib/motion/choreo'
 
 /**
  * PageSignature — each screen's own entrance, on top of MotionFx's shared
@@ -100,6 +100,22 @@ export function PageSignature() {
       const st = ScrollTrigger.create({ trigger: el, scroller: main, start, once: true, onEnter: fn })
       kills.push(() => st.kill())
     }
+    /**
+     * Not once: a group plays every time it scrolls into view. When it scrolls fully out, `reset`
+     * deals it a new move (mirrored if it will come back from above), so it never returns the same way.
+     */
+    const replay = (el: Element, enter: (fromAbove: boolean) => void, reset: (fromAbove: boolean) => void) => {
+      const st = ScrollTrigger.create({
+        trigger: el, scroller: main, start: 'top 96%', end: 'bottom 4%',
+        onEnter: () => enter(false), onEnterBack: () => enter(true),
+        onLeave: () => reset(true), onLeaveBack: () => reset(false),
+      })
+      kills.push(() => st.kill())
+    }
+    const MOVING = 'autoAlpha,opacity,visibility,x,y,scale,scaleX,scaleY,skewX,rotation,rotationX,rotationY,clipPath,filter'
+    const repose = (els: Element[], e: Entrance) => { gsap.killTweensOf(els, MOVING); pose(els, e) }
+    const back = (f: typeof show.flow) => (f === 'cascade' ? 'reverse' : f === 'reverse' ? 'cascade' : f)
+    const GRID_BACK: Record<string, (typeof GRID_FROM)[number]> = { start: 'end', end: 'start' }
     const fresh = (el: Element) => {
       if (seen.has(el)) return false
       seen.add(el)
@@ -141,10 +157,14 @@ export function PageSignature() {
           const cells = [...g.children] as HTMLElement[]
           if (cells.length < 7 || !fresh(g) || !visible(g)) return
           if (cells.some((c) => c.getBoundingClientRect().height > 220)) return // a layout grid, not a calendar
-          const e = dealFrom(GRID_MOVES)
+          let e = dealFrom(GRID_MOVES)
           const from = show.pick('grid-from', GRID_FROM)
           pose(cells, e)
-          onView(g, () => play(cells, e, { duration: Math.min(e.duration, 0.75), stagger: { grid: 'auto', from, amount: 0.7 } }))
+          replay(
+            g,
+            (up) => play(cells, e, { duration: Math.min(e.duration, 0.75), stagger: { grid: 'auto', from: up ? GRID_BACK[from] ?? from : from, amount: 0.7 } }),
+            (up) => { e = up ? mirror(dealFrom(GRID_MOVES)) : dealFrom(GRID_MOVES); repose(cells, e) },
+          )
         })
       }
 
@@ -191,9 +211,13 @@ export function PageSignature() {
         if (!fresh(tb) || !visible(tb)) return
         const rows = [...tb.querySelectorAll<HTMLElement>(':scope > tr')].slice(0, 40)
         if (!rows.length) return
-        const e = dealFrom(ROW_MOVES)
+        let e = dealFrom(ROW_MOVES)
         pose(rows, e)
-        onView(tb, () => order(rows, show.flow, show.rng).forEach((r, i) => play(r, e, { duration: Math.min(e.duration, 0.7), delay: i * 0.035 })))
+        replay(
+          tb,
+          (up) => order(rows, up ? back(show.flow) : show.flow, show.rng).forEach((r, i) => play(r, e, { duration: Math.min(e.duration, 0.7), delay: i * 0.035 })),
+          (up) => { e = up ? mirror(dealFrom(ROW_MOVES)) : dealFrom(ROW_MOVES); repose(rows, e) },
+        )
       })
 
       // ── primary buttons are magnetic: they lean toward a nearby pointer ──
@@ -227,9 +251,13 @@ export function PageSignature() {
         if (items.length < 2 || !fresh(list) || !visible(list) || list.closest('nav')) return
         // each list gets its own move from the deck, and its rows arrive in this visit's flow
         const shown = items.slice(0, 30)
-        const e = show.deal()
+        let e = show.deal()
         pose(shown, e)
-        onView(list, () => order(shown, show.flow, show.rng).forEach((li, i) => play(li, e, { duration: Math.min(e.duration, 0.8), delay: i * 0.045 })))
+        replay(
+          list,
+          (up) => order(shown, up ? back(show.flow) : show.flow, show.rng).forEach((li, i) => play(li, e, { duration: Math.min(e.duration, 0.8), delay: i * 0.045 })),
+          (up) => { e = up ? mirror(show.deal()) : show.deal(); repose(shown, e) },
+        )
       })
 
       // ── charts: bars grow from the baseline, lines draw themselves ──

@@ -48,6 +48,18 @@ export const ENTRANCES: Entrance[] = [
 const REST: gsap.TweenVars = { autoAlpha: 1, x: 0, y: 0, z: 0, rotation: 0, rotationX: 0, rotationY: 0, scale: 1, scaleX: 1, scaleY: 1, skewX: 0 }
 const CLEAR = 'transform,opacity,visibility,filter,clipPath,transformOrigin'
 
+/**
+ * The same move, arriving from above instead of below (for content scrolled back into view):
+ * vertical offsets and 3D tips flip sign, and top-anchored hinges swap to the bottom.
+ */
+export function mirror(e: Entrance): Entrance {
+  const flip = (v: unknown) => (typeof v === 'number' ? -v : typeof v === 'function' ? (...a: unknown[]) => -(v as (...b: unknown[]) => number)(...a) : v)
+  const from: gsap.TweenVars = { ...e.from }
+  for (const k of ['y', 'rotationX'] as const) if (k in from) from[k] = flip(from[k]) as never
+  if (typeof from.transformOrigin === 'string') from.transformOrigin = from.transformOrigin.replace(/(\S+) 0%$/, '$1 100%')
+  return { ...e, name: `${e.name}-from-above`, from }
+}
+
 /** Put an element in an entrance's starting pose (hidden, ready to play). */
 export function pose(el: Element | Element[], e: Entrance) {
   gsap.set(el, e.from)
