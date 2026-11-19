@@ -13,7 +13,7 @@ export function Card({ children, className = '', onClick }: CardProps) {
       className={`
         min-w-0 rounded-[8px] p-5 border hairline
         transition-colors duration-200
-        ${onClick ? 'cursor-pointer hover:border-gold/40 hover:bg-[rgba(243,239,230,0.02)]' : ''}
+        ${onClick ? 'cursor-pointer hover:border-gold/40 hover:bg-parchment/[0.03]' : ''}
         ${className}
       `}
       onClick={onClick}

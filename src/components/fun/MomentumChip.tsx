@@ -162,7 +162,7 @@ export function MomentumChip() {
           <span className="mt-1 font-mono text-[10px] text-parchment/50">{lp.toNext} XP to go</span>
         </span>
         {combo > 1 && (
-          <span key={combo} className="combo-badge absolute -top-2 left-6 rounded-full bg-ember px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
+          <span key={combo} className="combo-badge absolute -top-2 left-6 rounded-full bg-ember px-1.5 py-0.5 font-mono text-[10px] font-bold text-ink">
             ×{combo}
           </span>
         )}

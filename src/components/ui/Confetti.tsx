@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Lightweight canvas confetti burst — gold/moss/parchment palette.
+ * Lightweight canvas confetti burst â€” gold/moss/parchment palette.
  * Self-contained: creates an overlay canvas, animates once, removes itself.
  */
 
@@ -16,7 +16,10 @@ export function fireConfetti(x = window.innerWidth / 2, y = window.innerHeight /
   if (typeof window === 'undefined') return
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-  const COLORS = ['#b8935a', '#d4af37', '#cbaa6f', '#7fa871', '#f3efe6', '#8fa3bf']
+  // The mood's own colours (accent, its glow, second neon, success, danger), read when the burst fires.
+  const css = getComputedStyle(document.documentElement)
+  const tok = (name: string, fallback: string) => { const v = css.getPropertyValue(name).trim(); return v ? `rgb(${v.split(/\s+/).join(', ')})` : fallback }
+  const COLORS = [tok('--gold-rgb', '#b8935a'), tok('--gold-glow-rgb', '#d4af37'), tok('--volt-rgb', '#cbaa6f'), tok('--good-rgb', '#7fa871'), tok('--danger-rgb', '#e0705a'), tok('--hue-sky-rgb', '#8fa3bf')]
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
 
   const canvas = document.createElement('canvas')

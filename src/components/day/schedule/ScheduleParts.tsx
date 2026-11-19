@@ -10,6 +10,8 @@ import { parseEditCommand, parseQuickAdd, type EditCommand, type QuickAdd } from
 import { label12 } from '@/lib/schedule/layout'
 import { openAssistant } from '@/lib/uiEvents'
 import type { ScheduleEvent } from './DaySchedule'
+import { DeedColorPicker } from '../DeedColorPicker'
+import { deedCss } from '@/lib/deedColors'
 
 // ── Header: the day as a title, its score, and the week around it ────────────
 
@@ -133,7 +135,7 @@ export function MagicAdd({ onSubmit, busy }: { onSubmit: (q: QuickAdd) => Promis
   }
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-gold/20 bg-surface-solid p-2 shadow-[0_8px_30px_rgba(0,0,0,0.18)] focus-within:border-gold/45">
+    <form onSubmit={submit} className="rounded-2xl border border-gold/20 bg-surface-solid p-2 shadow-[0_8px_30px_rgb(var(--shadow-rgb)/0.18)] focus-within:border-gold/45">
       <div className="flex items-center gap-2">
         <Wand2 className="ml-2 h-5 w-5 shrink-0 text-gold" strokeWidth={1.7} aria-hidden />
         <input
@@ -185,6 +187,8 @@ export interface QuickCreateValues {
   kind: 'deed' | 'event'
   frog: boolean
   important: boolean
+  /** A deed colour from lib/deedColors.ts ('' = follow the accent). */
+  color: string
 }
 
 const toInput = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -204,21 +208,22 @@ export function QuickCreate({
   busy: boolean
   onChange: (start: number, end: number) => void
   onSubmit: (v: QuickCreateValues) => void
-  onMore: (title: string) => void
+  onMore: (title: string, color: string) => void
   onClose: () => void
 }) {
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<'deed' | 'event'>('deed')
   const [frog, setFrog] = useState(false)
   const [important, setImportant] = useState(false)
+  const [color, setColor] = useState('')
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => { ref.current?.focus() }, [])
 
   return (
     <form
-      onSubmit={(e) => { e.preventDefault(); if (title.trim()) onSubmit({ title: title.trim(), start, end, kind, frog, important }) }}
+      onSubmit={(e) => { e.preventDefault(); if (title.trim()) onSubmit({ title: title.trim(), start, end, kind, frog, important, color }) }}
       onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
-      className="space-y-3 rounded-2xl border border-gold/35 bg-surface-solid p-4 shadow-[0_16px_40px_rgba(0,0,0,0.3)] animate-fadeIn"
+      className="space-y-3 rounded-2xl border border-gold/35 bg-surface-solid p-4 shadow-[0_16px_40px_rgb(var(--shadow-rgb)/0.3)] animate-fadeIn"
     >
       <div className="flex items-center gap-2">
         <input ref={ref} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'event' ? 'Event title' : 'What will you do?'}
@@ -248,9 +253,10 @@ export function QuickCreate({
           ))}
         </div>
       )}
+      {kind === 'deed' && <DeedColorPicker value={color} onChange={setColor} size="sm" />}
       <div className="flex items-center justify-between gap-2">
         {kind === 'deed'
-          ? <button type="button" onClick={() => onMore(title)} className="text-xs text-parchment/50 underline-offset-2 hover:text-gold hover:underline">More options</button>
+          ? <button type="button" onClick={() => onMore(title, color)} className="text-xs text-parchment/50 underline-offset-2 hover:text-gold hover:underline">More options</button>
           : <span />}
         <Button type="submit" variant="primary" size="sm" disabled={!title.trim() || busy}>{busy ? 'Saving…' : `Save ${label12(start)}`}</Button>
       </div>
@@ -297,6 +303,7 @@ export function TasksLane({
                 className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-md border', t.completed ? 'border-moss bg-moss text-ink' : 'border-gold/40 hover:border-gold')}>
                 {t.completed && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
               </button>
+              {t.color && <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: deedCss(t.color) }} />}
               <button type="button" onClick={() => onOpen(t)} className={cx('min-w-0 flex-1 truncate text-left text-sm', t.completed ? 'text-parchment/40 line-through' : 'text-parchment')}>
                 {t.isFrog && '🐸 '}{t.title}
               </button>
@@ -320,7 +327,7 @@ export function TasksLane({
 export function EventCard({ ev, onClose, onDelete }: { ev: ScheduleEvent; onClose: () => void; onDelete?: () => void }) {
   const s = new Date(ev.startTime), e = new Date(ev.endTime)
   return (
-    <div role="dialog" aria-label={ev.title} className="flex items-start gap-3 rounded-2xl border border-parchment/20 bg-surface-solid p-4 shadow-[0_16px_40px_rgba(0,0,0,0.3)] animate-fadeIn">
+    <div role="dialog" aria-label={ev.title} className="flex items-start gap-3 rounded-2xl border border-parchment/20 bg-surface-solid p-4 shadow-[0_16px_40px_rgb(var(--shadow-rgb)/0.3)] animate-fadeIn">
       <span className="mt-1 h-3 w-3 shrink-0 rounded-sm bg-parchment/40" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="font-display text-lg text-parchment">{ev.title}</p>

@@ -266,7 +266,7 @@ export function BottleContentsModal({
         {/* Pour history */}
         <div className="py-4">
           {loading && <p className="py-8 text-center text-sm text-parchment/40">Opening the bottle…</p>}
-          {!loading && error && <p className="py-8 text-center text-sm text-[#cf8f78]">{error}</p>}
+          {!loading && error && <p className="py-8 text-center text-sm text-danger">{error}</p>}
           {!loading && !error && groups.length === 0 && (
             <p className="py-8 text-center text-sm text-parchment/40">
               {query ? 'No pours match your search.' : 'This bottle is empty — pour something in!'}
@@ -291,7 +291,7 @@ export function BottleContentsModal({
                     <button
                       onClick={() => handleRemove(e)}
                       disabled={removing}
-                      className="shrink-0 rounded-md p-2 sm:p-1 text-parchment/25 opacity-0 transition hover:bg-ember/15 hover:text-[#cf8f78] focus:opacity-100 group-hover:opacity-100 disabled:opacity-40"
+                      className="shrink-0 rounded-md p-2 sm:p-1 text-parchment/25 opacity-0 transition hover:bg-ember/15 hover:text-danger focus:opacity-100 group-hover:opacity-100 disabled:opacity-40"
                       aria-label="Remove pour"
                       title="Remove pour"
                     >

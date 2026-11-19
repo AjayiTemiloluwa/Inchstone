@@ -7,6 +7,7 @@ import type { Task } from '@/stores/hierarchyStore'
 import { CountdownChip } from './CountdownChip'
 import { SwipeRow } from '@/components/motion/SwipeRow'
 import type { GoogleEventView } from './types'
+import { deedCss } from '@/lib/deedColors'
 
 type AgendaEntry =
   | { kind: 'deed'; at: number; task: Task }
@@ -73,7 +74,7 @@ export function DeedAgenda({
         }
 
         const t = entry.task
-        const accent = t.color || (t.completed ? '#8fbc8f' : 'var(--gold)')
+        const accent = deedCss(t.color, { completed: t.completed })
         return (
           <li key={t.id}>
             {/* swipe right to mark done (or undo), left for details */}

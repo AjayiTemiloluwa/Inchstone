@@ -9,10 +9,10 @@ export function ProgressBar({ progress, colorClass = 'bg-gold', className = '', 
   const safeProgress = Math.min(100, Math.max(0, progress))
 
   // Determine glow color based on the bar color
-  const glowColor = colorClass.includes('sage')
-    ? 'rgba(123,160,91,0.4)'
-    : colorClass.includes('coral')
-      ? 'rgba(232,104,106,0.4)'
+  const glowColor = colorClass.includes('sage') || colorClass.includes('moss')
+    ? 'rgb(var(--moss-rgb) / 0.4)'
+    : colorClass.includes('coral') || colorClass.includes('ember')
+      ? 'rgb(var(--ember-rgb) / 0.4)'
       : 'rgb(var(--gold-rgb) / 0.4)'
 
   return (
@@ -36,7 +36,7 @@ export function ProgressBar({ progress, colorClass = 'bg-gold', className = '', 
           {safeProgress > 10 && (
             <div
               className="absolute inset-0 rounded-full animate-shimmer"
-              style={{ background: 'linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.15) 50%, transparent 70%)', backgroundSize: '200% 100%' }}
+              style={{ background: 'linear-gradient(90deg, transparent 30%, rgb(var(--on-gold-rgb) / 0.22) 50%, transparent 70%)', backgroundSize: '200% 100%' }}
             />
           )}
         </div>

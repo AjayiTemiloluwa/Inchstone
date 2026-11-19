@@ -202,7 +202,7 @@ export function YearDropdown({ onClose, align = 'right' }: { onClose: () => void
       exit={{ opacity: 0, y: -6, scale: 0.96 }}
       transition={{ type: 'spring', stiffness: 520, damping: 34, mass: 0.8 }}
       style={{ transformOrigin: align === 'center' ? 'top center' : 'top right' }}
-      className={`absolute top-full z-[80] mt-2 w-60 overflow-hidden rounded-xl border border-gold/25 bg-[#14110e]/95 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl ${
+      className={`absolute top-full z-[80] mt-2 w-60 overflow-hidden rounded-xl border border-gold/25 bg-dialog/95 shadow-[0_18px_60px_rgb(var(--shadow-rgb)/0.55)] backdrop-blur-xl ${
         align === 'center' ? 'left-1/2 -ml-[120px]' : 'right-0'
       }`}
     >
@@ -259,7 +259,7 @@ export function YearDropdownFloating({
           exit={{ opacity: 0, y: -8, scale: 0.95, x: '-50%' }}
           transition={{ type: 'spring', stiffness: 520, damping: 34, mass: 0.8 }}
           style={{ left: `clamp(136px, ${pos.left}px, calc(100vw - 136px))`, top: pos.top, transformOrigin: 'top center' }}
-          className="fixed z-[86] w-60 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-gold/25 bg-[#14110e]/95 shadow-[0_18px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+          className="fixed z-[86] w-60 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-gold/25 bg-dialog/95 shadow-[0_18px_60px_rgb(var(--shadow-rgb)/0.55)] backdrop-blur-xl"
         >
           <YearMenuContents onClose={onClose} />
         </motion.div>

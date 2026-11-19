@@ -264,7 +264,7 @@ export function Assistant() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-            className="fixed inset-x-0 bottom-0 z-[66] flex h-[min(86dvh,680px)] flex-col overflow-hidden rounded-t-3xl border border-gold/20 bg-surface-solid shadow-[0_-18px_60px_rgba(0,0,0,0.5)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(80dvh,640px)] sm:w-[420px] sm:rounded-3xl"
+            className="fixed inset-x-0 bottom-0 z-[66] flex h-[min(86dvh,680px)] flex-col overflow-hidden rounded-t-3xl border border-gold/20 bg-surface-solid shadow-[0_-18px_60px_rgb(var(--shadow-rgb)/0.5)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(80dvh,640px)] sm:w-[420px] sm:rounded-3xl"
           >
             <header className="flex items-center gap-2 border-b border-gold/10 px-3 py-3">
               {view === 'history' ? (

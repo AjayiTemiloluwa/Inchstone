@@ -5,6 +5,7 @@ import { Bell, Check, Repeat, Star } from 'lucide-react'
 import type { Task } from '@/stores/hierarchyStore'
 import { cx } from '@/components/ds'
 import { clampDay, label12, layoutColumns, snap } from '@/lib/schedule/layout'
+import { deedCss } from '@/lib/deedColors'
 
 /**
  * The day as a calendar (v2): 24 hour rows, deeds and events as blocks.
@@ -234,24 +235,29 @@ export function DaySchedule({
             }
             const t = item.task!
             const dragging = drag && drag.kind !== 'select' && drag.task.id === t.id
+            // The deed's own colour (lib/deedColors.ts), tuned to the mood; none = the accent, done = moss.
+            const hasHue = !!t.color
+            const tint = (a: number) => deedCss(t.color, { alpha: a, completed: t.completed })
+            const blockStyle = { ...style, borderColor: tint(t.completed ? 0.25 : 0.4), background: tint(t.completed ? 0.07 : 0.15), ...(dragging ? { boxShadow: `0 12px 30px rgb(var(--shadow-rgb) / 0.4), 0 0 0 2px ${tint(0.7)}` } : {}) }
             return (
-              <div key={item.id} data-block role="button" tabIndex={0} style={style}
+              <div key={item.id} data-block role="button" tabIndex={0} style={blockStyle}
                 onPointerDown={(e) => startBlockDrag(e, t, item.start, item.end, 'move')}
                 onClick={(e) => { if (e.detail === 0 || touchTap.current) { touchTap.current = false; onOpenTask(t) } }}
                 onKeyDown={(e) => { if (e.key === 'Enter') onOpenTask(t) }}
                 className={cx(
                   'group absolute z-10 select-none overflow-hidden rounded-lg border px-2 py-1 text-left transition-[box-shadow,background-color]',
                   'pointer-fine:cursor-grab focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50',
-                  t.completed ? 'border-moss/30 bg-moss/[0.12]' : 'border-gold/30 bg-gold/[0.14] hover:bg-gold/[0.2]',
-                  dragging && 'z-30 shadow-[0_12px_30px_rgba(0,0,0,0.4)] ring-2 ring-gold/60',
+                  !t.completed && 'hover:brightness-110',
+                  dragging && 'z-30',
                 )}
               >
-                <span className={cx('absolute inset-y-1 left-0 w-[3px] rounded-full', t.completed ? 'bg-moss' : t.isFrog ? 'bg-ember' : 'bg-gold')} />
+                <span className={cx('absolute inset-y-1 left-0 w-[3px] rounded-full', !hasHue && (t.completed ? 'bg-moss' : t.isFrog ? 'bg-ember' : 'bg-gold'))} style={hasHue ? { background: tint(t.completed ? 0.55 : 1) } : undefined} />
                 <div className="flex items-start gap-1.5 pl-1">
                   <button data-tick type="button" onClick={(e) => { e.stopPropagation(); onToggle(t) }}
                     aria-label={t.completed ? `Mark "${t.title}" not done` : `Mark "${t.title}" done`}
                     className={cx('mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
-                      t.completed ? 'border-moss bg-moss text-ink' : 'border-gold/50 hover:border-gold')}>
+                      t.completed ? 'border-moss bg-moss text-ink' : 'border-gold/50 hover:border-gold')}
+                    style={hasHue && !t.completed ? { borderColor: tint(0.75) } : undefined}>
                     {t.completed && <Check className="h-3 w-3" strokeWidth={3} />}
                   </button>
                   <span className={cx('min-w-0 flex-1 truncate text-xs font-semibold', t.completed ? 'text-parchment/50 line-through' : 'text-parchment')}>{t.title}</span>
@@ -271,7 +277,7 @@ export function DaySchedule({
                   onPointerDown={(e) => startBlockDrag(e, t, item.start, item.end, 'resize')}
                   className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100"
                 >
-                  <span className="mx-auto mt-0.5 block h-1 w-6 rounded-full bg-gold/60" />
+                  <span className="mx-auto mt-0.5 block h-1 w-6 rounded-full" style={{ background: tint(0.6) }} />
                 </span>
               </div>
             )

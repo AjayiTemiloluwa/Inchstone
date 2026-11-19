@@ -9,6 +9,10 @@ import { BottleMentionTextarea } from '@/components/ui/BottleMentionTextarea'
 import { useDialog } from '@/components/ui/useDialog'
 import { compactCountdownLabel, formatCountdown } from '@/lib/useCountdown'
 import { BACKDROP_CLASS, SHEET_SAFE_AREA, type DeedModalData } from './types'
+import { DeedColorPicker } from './DeedColorPicker'
+import { DEED_HUES, deedCss } from '@/lib/deedColors'
+
+const CATEGORY_HUES = DEED_HUES.map((h) => h.id)
 
 /**
  * Deed detail / edit modal. A bottom sheet on phones, a centred card from sm up.
@@ -96,19 +100,19 @@ export function DeedDetailModal({
                       <span>{selectedDeed.task.completed ? 'Completed' : 'Mark Complete'}</span>
                     </button>
                     {selectedDeed.task.isFrog && (
-                      <span className="flex items-center space-x-1 px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full">
+                      <span className="flex items-center space-x-1 px-2 py-1 bg-gold/10 text-gold border border-gold/30 rounded-full">
                         <Target className="w-3 h-3" />
                         <span>Frog</span>
                       </span>
                     )}
                     {selectedDeed.task.isImportant && (
-                      <span className="flex items-center space-x-1 px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full">
-                        <Star className="w-3 h-3 fill-amber-400" />
+                      <span className="flex items-center space-x-1 px-2 py-1 bg-gold/10 text-gold border border-gold/30 rounded-full">
+                        <Star className="w-3 h-3 fill-gold" />
                         <span>Important</span>
                       </span>
                     )}
                     {selectedDeed.task.isHabit && (
-                      <span className="flex items-center space-x-1 px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">
+                      <span className="flex items-center space-x-1 px-2 py-1 bg-moss/10 text-good border border-moss/30 rounded-full">
                         <Repeat className="w-3 h-3" />
                         <span>Habit</span>
                       </span>
@@ -180,7 +184,7 @@ export function DeedDetailModal({
                     </button>
                     <button
                       onClick={() => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, startTime: null, endTime: null } })}
-                      className="px-3 py-1 text-[10px] font-bold text-ink/50 border border-dashed border-white/20 rounded-lg hover:border-ember/60 hover:text-[#e0a093] transition"
+                      className="px-3 py-1 text-[10px] font-bold text-ink/50 border border-dashed border-white/20 rounded-lg hover:border-ember/60 hover:text-danger transition"
                     >
                       Clear time
                     </button>
@@ -202,11 +206,11 @@ export function DeedDetailModal({
                         isLive ? 'border-moss/40 bg-moss/10' : isSoon ? 'border-ember/40 bg-ember/10' : 'border-gold/30 bg-gold/10'
                       }`}
                     >
-                      <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isLive ? 'bg-moss/20 text-sage' : isSoon ? 'bg-ember/20 text-[#e0a093]' : 'bg-gold/20 text-gold'}`}>
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isLive ? 'bg-moss/20 text-sage' : isSoon ? 'bg-ember/20 text-danger' : 'bg-gold/20 text-gold'}`}>
                         {isLive ? <Activity className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
                       </span>
                       <div className="min-w-0">
-                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isLive ? 'text-sage' : isSoon ? 'text-[#e0a093]' : 'text-gold'}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${isLive ? 'text-sage' : isSoon ? 'text-danger' : 'text-gold'}`}>
                           {isLive ? '● In progress' : isSoon ? 'Starting soon' : 'Countdown'}
                         </p>
                         <p className="font-mono text-lg font-bold text-ink tabular-nums leading-tight">{label}</p>
@@ -351,8 +355,9 @@ export function DeedDetailModal({
                     No tag
                   </button>
                   {categories.map((cat, idx) => {
-                    const catColors = ['#d4af37', '#8fbc8f', '#6495ed', '#ff7f50', '#9370db', '#3cb371', '#ffd700', '#00bfff']
-                    const color = catColors[idx % catColors.length]
+                    // Categories take the deed palette in turn, so they follow the mood too.
+                    const hue = CATEGORY_HUES[idx % CATEGORY_HUES.length]
+                    const color = deedCss(hue)
                     return (
                       <button
                         key={cat.id}
@@ -361,7 +366,7 @@ export function DeedDetailModal({
                           ? 'border-current text-ink'
                           : 'border-white/10 text-ink/50 hover:border-white/30'
                           }`}
-                        style={selectedDeed.task.categoryId === cat.id ? { borderColor: color, backgroundColor: `${color}15`, color } : {}}
+                        style={selectedDeed.task.categoryId === cat.id ? { borderColor: color, backgroundColor: deedCss(hue, { alpha: 0.1 }), color } : {}}
                       >
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
                         <span>{cat.title}</span>
@@ -370,6 +375,13 @@ export function DeedDetailModal({
                   })}
                 </div>
               </div>
+
+              {/* Colour on the schedule */}
+              <DeedColorPicker
+                value={selectedDeed.task.color}
+                onChange={(color) => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, color } })}
+                label="Colour on the schedule"
+              />
 
               {/* Recurrence */}
               <div className="space-y-2">
@@ -444,7 +456,7 @@ export function DeedDetailModal({
                 onClick={async (e) => {
                   await onDelete(e, selectedDeed.task.id)
                 }}
-                className="flex items-center space-x-1.5 px-3 py-2 text-xs text-[#cf8f78] hover:bg-ember/10 rounded-xl transition"
+                className="flex items-center space-x-1.5 px-3 py-2 text-xs text-danger hover:bg-ember/10 rounded-xl transition"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Delete</span>

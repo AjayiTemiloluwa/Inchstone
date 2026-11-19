@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {/* Toasts overlay */}
             <div className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 sm:right-6 left-4 sm:left-auto z-[100] items-end flex flex-col space-y-3 pointer-events-none">
                 {toasts.map(t => (
-                    <div key={t.id} className={`pointer-events-auto flex items-center justify-between p-4 min-w-[250px] rounded-[8px]  shadow-black/20 border backdrop-blur-xl animate-slideUp ${t.type === 'error' ? 'bg-ember/20 border-red-500/30 text-red-100' : t.type === 'success' ? 'bg-sage/20 border-sage/30 text-sage-100' : 'bg-black/40 border-white/10 text-white'}`}>
+                    <div key={t.id} className={`pointer-events-auto flex items-center justify-between p-4 min-w-[250px] rounded-[8px] border border-l-4 bg-dialog/95 shadow-[0_12px_36px_rgb(var(--shadow-rgb)/0.28)] backdrop-blur-xl animate-slideUp ${t.type === 'error' ? 'border-ember/40 border-l-ember text-danger' : t.type === 'success' ? 'border-moss/40 border-l-moss text-good' : 'border-gold/25 border-l-gold text-parchment'}`}>
                         <span className="text-sm font-bold">{t.message}</span>
                         <button onClick={() => setToasts(prev => prev.filter(toast => toast.id !== t.id))} className="ml-4 opacity-50 hover:opacity-100 transition-opacity">
                             <X className="w-4 h-4" />

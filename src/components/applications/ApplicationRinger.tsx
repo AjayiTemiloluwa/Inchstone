@@ -110,7 +110,7 @@ export function ApplicationRinger() {
         aria-labelledby="app-ring-title"
         className={urgent
           ? 'w-full max-w-sm rounded-3xl border border-gold/25 bg-surface-solid p-8 text-center shadow-[0_0_80px_rgb(var(--gold-rgb)_/_0.25)] animate-fadeIn'
-          : 'pointer-events-auto w-full max-w-md rounded-2xl border border-gold/40 bg-surface-solid p-4 shadow-[0_10px_40px_rgba(0,0,0,0.35)] animate-fadeIn'}
+          : 'pointer-events-auto w-full max-w-md rounded-2xl border border-gold/40 bg-surface-solid p-4 shadow-[0_10px_40px_rgb(var(--shadow-rgb)/0.35)] animate-fadeIn'}
       >
         <div className={urgent ? '' : 'flex items-start gap-3'}>
           <CalendarClock className={urgent ? 'mx-auto h-10 w-10 animate-bounce text-gold' : 'mt-0.5 h-5 w-5 shrink-0 text-gold'} aria-hidden="true" />

@@ -42,7 +42,7 @@ export function UnscheduledDeeds({
                       </div>
                       <button
                         onClick={(e) => onDelete(e, t.id)}
-                        className="shrink-0 p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]"
+                        className="shrink-0 p-1 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-danger"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

@@ -231,7 +231,7 @@ export function HabitTracker({
                 ) : (
                   <span className="hidden shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink/40 sm:inline-block">Today</span>
                 )}
-                <button onClick={(e) => onDelete(e, task.id)} className="shrink-0 p-1.5 -m-0.5 rounded hover:bg-ember/15 transition sm:opacity-0 sm:p-1 sm:m-0 sm:group-hover:opacity-100 text-ink/30 hover:text-[#cf8f78]" title="Delete">
+                <button onClick={(e) => onDelete(e, task.id)} className="shrink-0 p-1.5 -m-0.5 rounded hover:bg-ember/15 transition sm:opacity-0 sm:p-1 sm:m-0 sm:group-hover:opacity-100 text-ink/30 hover:text-danger" title="Delete">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
                 <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-ink/30 transition-transform ${expanded ? 'rotate-180 text-gold' : ''}`} />

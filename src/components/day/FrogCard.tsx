@@ -44,7 +44,7 @@ export function FrogCard({
                     <span className="text-[9px] font-bold text-gold bg-gold/10 px-2 py-0.5 rounded-full shrink-0 uppercase">Frog #{idx + 1}</span>
                     <span className={`min-w-[120px] flex-[1_1_160px] break-words text-sm font-medium leading-snug sm:min-w-0 sm:flex-1 ${task.completed ? 'line-through text-ink/50' : 'text-ink'}`}>{task.title}</span>
                     {task.startTime && <span className="text-[10px] font-mono text-ink/40 shrink-0">{format(new Date(task.startTime), 'h:mm a')}</span>}
-                    <button onClick={(e) => onDelete(e, task.id)} className="p-1 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78] shrink-0" title="Delete">
+                    <button onClick={(e) => onDelete(e, task.id)} className="p-1 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-danger shrink-0" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>

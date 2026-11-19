@@ -160,7 +160,7 @@ export function WidgetCard() {
         </div>
         {copied && <p className="text-xs text-gold">Copied {copied === 'host' ? 'the server address' : 'the pairing secret'}.</p>}
         {/* Proof that it works: when the phone last fetched its widget */}
-        <div className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${fresh ? 'border-emerald-500/30 text-emerald-300' : 'hairline text-parchment/60'}`}>
+        <div className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${fresh ? 'border-moss/30 text-good' : 'hairline text-parchment/60'}`}>
           <Smartphone className="w-4 h-4 shrink-0" strokeWidth={1.5} />
           {synced
             ? <span>Phone last synced <b>{synced}</b>{lastSync.agent ? <span className="text-parchment/40"> · {lastSync.agent}</span> : null}</span>

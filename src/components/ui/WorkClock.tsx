@@ -99,13 +99,13 @@ export function WorkClock({
     >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#b8935a" />
-          <stop offset="100%" stopColor="#8a6d42" />
+          <stop offset="0%" style={{ stopColor: 'rgb(var(--gold-rgb))' }} />
+          <stop offset="100%" style={{ stopColor: 'rgb(var(--gold-dim-rgb))' }} />
         </linearGradient>
       </defs>
 
       {/* Dial face */}
-      <circle cx={cx} cy={cx} r={r} fill="rgba(243,239,230,0.03)" />
+      <circle cx={cx} cy={cx} r={r} style={{ fill: 'rgb(var(--fg-rgb) / 0.04)' }} />
 
       {/* Track ring + the work done in the current period */}
       <circle
@@ -113,7 +113,7 @@ export function WorkClock({
         cy={cx}
         r={r}
         fill="none"
-        stroke="rgba(138,109,66,0.28)"
+        style={{ stroke: 'rgb(var(--gold-dim-rgb) / 0.3)' }}
         strokeWidth={ringStroke}
       />
       <circle
@@ -140,7 +140,7 @@ export function WorkClock({
             y1={tickOuter}
             x2={cx}
             y2={tickOuter - (long ? size * 0.075 : size * 0.04)}
-            stroke={long ? 'rgba(243,239,230,0.35)' : 'rgba(243,239,230,0.18)'}
+            style={{ stroke: long ? 'rgb(var(--fg-rgb) / 0.42)' : 'rgb(var(--fg-rgb) / 0.22)' }}
             strokeWidth={long ? 1.5 : 1}
             transform={`rotate(${a} ${cx} ${cx})`}
           />
@@ -157,7 +157,7 @@ export function WorkClock({
           y1={cx}
           x2={cx}
           y2={cx - size * 0.24}
-          stroke="#b8935a"
+          style={{ stroke: 'rgb(var(--gold-rgb))' }}
           strokeWidth={Math.max(2, size * 0.028)}
           strokeLinecap="round"
         />
@@ -173,7 +173,7 @@ export function WorkClock({
           y1={cx}
           x2={cx}
           y2={cx - size * 0.33}
-          stroke="rgba(243,239,230,0.85)"
+          style={{ stroke: 'rgb(var(--fg-rgb) / 0.85)' }}
           strokeWidth={Math.max(1.5, size * 0.02)}
           strokeLinecap="round"
         />
@@ -189,15 +189,15 @@ export function WorkClock({
           y1={cx + size * 0.07}
           x2={cx}
           y2={cx - size * 0.36}
-          stroke="#8a6d42"
+          style={{ stroke: 'rgb(var(--danger-rgb))' }}
           strokeWidth={Math.max(1, size * 0.011)}
           strokeLinecap="round"
         />
       </g>
 
       {/* Centre pin */}
-      <circle cx={cx} cy={cx} r={Math.max(1.8, size * 0.02)} fill="#b8935a" />
-      <circle cx={cx} cy={cx} r={Math.max(0.9, size * 0.009)} fill="#0a0908" />
+      <circle cx={cx} cy={cx} r={Math.max(1.8, size * 0.02)} style={{ fill: 'rgb(var(--gold-rgb))' }} />
+      <circle cx={cx} cy={cx} r={Math.max(0.9, size * 0.009)} style={{ fill: 'rgb(var(--ink-rgb))' }} />
 
       {/* Mono complications — the same three readings the compass carried */}
       {!compact && dayLabel && (
@@ -205,7 +205,7 @@ export function WorkClock({
           x={cx}
           y={cx - size * 0.3}
           textAnchor="middle"
-          fill="rgba(243,239,230,0.55)"
+          style={{ fill: 'rgb(var(--fg-rgb) / 0.6)' }}
           fontFamily="var(--font-mono), monospace"
           fontSize={size * 0.06}
         >
@@ -217,11 +217,10 @@ export function WorkClock({
           x={cx}
           y={cx + size * 0.13}
           textAnchor="middle"
-          fill="#b8935a"
           fontFamily="var(--font-mono), monospace"
           fontWeight={700}
           fontSize={size * 0.115}
-          style={{ fontVariantNumeric: 'tabular-nums' }}
+          style={{ fill: 'rgb(var(--gold-rgb))', fontVariantNumeric: 'tabular-nums' }}
         >
           {primary}
         </text>
@@ -231,7 +230,7 @@ export function WorkClock({
           x={cx}
           y={cx + size * 0.21}
           textAnchor="middle"
-          fill="rgba(243,239,230,0.5)"
+          style={{ fill: 'rgb(var(--fg-rgb) / 0.55)' }}
           fontFamily="var(--font-mono), monospace"
           fontSize={size * 0.048}
           letterSpacing="0.08em"

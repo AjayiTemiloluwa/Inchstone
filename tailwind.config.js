@@ -17,6 +17,10 @@ module.exports = {
                 'gold-dim': 'rgb(var(--gold-dim-rgb) / <alpha-value>)', // gold at rest
                 ember: 'rgb(var(--ember-rgb) / <alpha-value>)', // warnings / destructive
                 moss: 'rgb(var(--moss-rgb) / <alpha-value>)', // completed / achieved
+                // semantic, mood-aware (globals.css "Semantic tokens"): readable text + solid surfaces
+                danger: 'rgb(var(--danger-rgb) / <alpha-value>)', // red TEXT (errors, delete)
+                good: 'rgb(var(--good-rgb) / <alpha-value>)', // green TEXT (done, saved)
+                dialog: 'rgb(var(--dialog-rgb) / <alpha-value>)', // solid dialogs, popovers, toasts
                 // ── deprecated aliases (mapped to token vars; components migrating off these) ──
                 'gold-glow': 'rgb(var(--gold-glow-rgb) / <alpha-value>)', // hover brass
                 sage: 'rgb(var(--moss-rgb) / <alpha-value>)', // → moss

@@ -302,7 +302,7 @@ export function AlarmRinger() {
             : 'Up next: '
     return (
       <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[90] flex justify-center px-4 lg:bottom-10">
-        <div className={`flex items-center gap-2.5 rounded-full border bg-surface-solid px-4 py-2.5 shadow-[0_10px_40px_rgba(0,0,0,0.35)] animate-fadeIn ${tone === 'gold' ? 'border-gold/40' : 'border-moss/40'}`}>
+        <div className={`flex items-center gap-2.5 rounded-full border bg-surface-solid px-4 py-2.5 shadow-[0_10px_40px_rgb(var(--shadow-rgb)/0.35)] animate-fadeIn ${tone === 'gold' ? 'border-gold/40' : 'border-moss/40'}`}>
           <span className={`flex h-6 w-6 items-center justify-center rounded-full ${tone === 'gold' ? 'bg-gold/20' : 'bg-moss/20'}`}>
             {tone === 'gold' ? (
               <Clock className="h-3.5 w-3.5 text-gold" strokeWidth={2.5} />
@@ -329,7 +329,7 @@ export function AlarmRinger() {
     const headline = 'Very important'
     return (
       <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
-        <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-[#161311]/95 p-8 text-center shadow-[0_0_80px_rgb(var(--gold-rgb)_/_0.25)]">
+        <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-dialog/95 p-8 text-center shadow-[0_0_80px_rgb(var(--gold-rgb)_/_0.25)]">
           {ringingTask.isImportant ? (
             <Star className="mx-auto h-10 w-10 fill-gold text-gold animate-bounce" />
           ) : (
@@ -371,7 +371,7 @@ export function AlarmRinger() {
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
-      <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-[#161311]/95 p-8 text-center shadow-[0_0_80px_rgb(var(--gold-rgb)_/_0.25)]">
+      <div className="w-full max-w-sm rounded-3xl border border-gold/25 bg-dialog/95 p-8 text-center shadow-[0_0_80px_rgb(var(--gold-rgb)_/_0.25)]">
         <BellRing className="mx-auto h-10 w-10 text-gold animate-bounce" />
         <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.3em] text-parchment/40">Alarm</p>
         <p className="mt-1 font-display text-6xl tabular-nums text-parchment">{ringing.time}</p>

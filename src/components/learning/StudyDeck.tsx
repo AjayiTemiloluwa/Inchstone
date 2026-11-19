@@ -78,12 +78,12 @@ export function StudyDeck({ cards, title, onClose, onGraded }: { cards: StudyCar
                 className="relative block aspect-[4/3] w-full sm:aspect-[3/2]"
                 aria-label={flipped ? 'Answer. Tap to see the question' : 'Question. Tap to see the answer'}
               >
-                <span className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl border border-gold/25 bg-surface-solid p-8 text-center shadow-[0_30px_80px_rgba(0,0,0,0.45)] [backface-visibility:hidden]">
+                <span className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl border border-gold/25 bg-surface-solid p-8 text-center shadow-[0_30px_80px_rgb(var(--shadow-rgb)/0.45)] [backface-visibility:hidden]">
                   <span className="mb-4 font-mono text-[10px] uppercase tracking-[0.24em] text-gold-dim">Question</span>
                   <span className="font-display text-2xl leading-snug text-parchment sm:text-3xl">{card.front}</span>
                   <span className="mt-6 text-caption text-parchment/40">Tap or press Space to flip</span>
                 </span>
-                <span className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl border border-moss/30 bg-surface-solid p-8 text-center shadow-[0_30px_80px_rgba(0,0,0,0.45)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                <span className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl border border-moss/30 bg-surface-solid p-8 text-center shadow-[0_30px_80px_rgb(var(--shadow-rgb)/0.45)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
                   <span className="mb-4 font-mono text-[10px] uppercase tracking-[0.24em] text-moss">Answer</span>
                   <span className="whitespace-pre-wrap text-lg leading-relaxed text-parchment/90 sm:text-xl">{card.back}</span>
                 </span>
