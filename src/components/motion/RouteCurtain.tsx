@@ -10,7 +10,7 @@ import { gsap, prefersReducedMotion, scroller } from '@/lib/gsap'
  *
  * Every navigation (sidebar links, the phone dock, the command palette — any
  * code that calls `navigateWithCurtain`, plus every internal <a>) plays one
- * of four covers, chosen at random and never twice in a row:
+ * of six covers, chosen at random and never twice in a row:
  *
  *   iris     an ink circle opens from the exact point you tapped or
  *            clicked, edged with a gold ring (the phone default feels like
@@ -18,6 +18,8 @@ import { gsap, prefersReducedMotion, scroller } from '@/lib/gsap'
  *   shutter  ink leaves close from top and bottom with a gold seam
  *   sweep    three ink panels sweep across, each with a gold leading edge
  *   fold     the screen folds away in 3D like a page being turned
+ *   mosaic   tiles flip shut outward from your click, then shatter away
+ *   slash    a slanted gold-edged band cuts across the screen and slides off
  *
  * The destination's name is set in Playfair over the cover while a fine
  * gold line draws under it; then the route swaps and the cover lifts.
@@ -117,6 +119,52 @@ const VARIANTS: Record<string, Make> = {
         gsap.set(leaf, { transformOrigin: '100% 50%', borderLeft: 'none', borderRight: `2px solid ${GOLD}` })
         tl.to(leaf, { rotationY: -95, duration: 0.7, ease: 'power3.inOut' }, 0).to(shade, { opacity: 0, duration: 0.5 }, 0.2)
       },
+    }
+  },
+
+  // tiles flip shut from where you clicked, then shatter away from the centre
+  mosaic(stage, o) {
+    stage.style.perspective = '1200px'
+    const cols = window.innerWidth < 640 ? 4 : 7
+    const rows = window.innerWidth < 640 ? 7 : 5
+    const w = 100 / cols
+    const h = 100 / rows
+    const tiles: HTMLElement[] = []
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++)
+        tiles.push(el(stage, { inset: 'auto', left: `${c * w}%`, top: `${r * h}%`, width: `${w + 0.2}%`, height: `${h + 0.2}%`, background: INK, boxShadow: `inset 0 0 0 1px rgb(var(--gold-rgb) / 0.35)` }))
+    gsap.set(tiles, { rotationY: 90, scale: 0.6, autoAlpha: 0 })
+    const fx = o.x / window.innerWidth
+    const fy = o.y / window.innerHeight
+    const near = [Math.min(cols - 1, Math.floor(fx * cols)), Math.min(rows - 1, Math.floor(fy * rows))]
+    return {
+      cover: (tl) =>
+        tl.to(tiles, { rotationY: 0, scale: 1, autoAlpha: 1, duration: 0.45, ease: 'back.out(1.6)', stagger: { grid: [rows, cols], from: near as [number, number], amount: 0.35 } }, 0),
+      reveal: (tl) =>
+        tl.to(tiles, {
+          rotationX: () => rand(-120, 120), rotationY: () => rand(-120, 120), x: () => rand(-80, 80), y: () => rand(60, 220), scale: 0.3, autoAlpha: 0,
+          duration: 0.7, ease: 'power3.in', stagger: { grid: [rows, cols], from: 'center', amount: 0.3 },
+        }, 0),
+    }
+  },
+
+  // a diagonal slash of ink with a gold blade cuts across, then slides off the other way
+  slash(stage) {
+    // A slanted band: its leading edge sweeps across to cover, its trailing edge follows to reveal.
+    const ltr = Math.random() < 0.5
+    const blade = el(stage, { background: GOLD })
+    const fill = el(stage, { background: INK })
+    const P = (a: number, b: number, c: number, d: number) =>
+      ltr ? `polygon(${a}% 0%, ${b}% 0%, ${c}% 100%, ${d}% 100%)` : `polygon(${100 - b}% 0%, ${100 - a}% 0%, ${100 - d}% 100%, ${100 - c}% 100%)`
+    const startA = P(-60, -60, -100, -100)
+    const shut = P(-60, 160, 120, -100)
+    const endA = P(160, 160, 120, 120)
+    gsap.set([blade, fill], { clipPath: startA })
+    return {
+      cover: (tl) =>
+        tl.to(blade, { clipPath: shut, duration: 0.55, ease: 'power4.inOut' }, 0).to(fill, { clipPath: shut, duration: 0.55, ease: 'power4.inOut' }, 0.06),
+      reveal: (tl) =>
+        tl.to(fill, { clipPath: endA, duration: 0.6, ease: 'power4.inOut' }, 0).to(blade, { clipPath: endA, duration: 0.6, ease: 'power4.inOut' }, 0.06),
     }
   },
 }
