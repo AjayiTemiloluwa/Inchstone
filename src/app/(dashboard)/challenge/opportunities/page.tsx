@@ -8,19 +8,23 @@ import { Badge, Button, EmptyState, Field, IconButton, Meter, Page, PageHeader, 
 import { ChallengeTabs } from '@/components/applications/ChallengeTabs'
 import { EmailDigestSettings } from '@/components/applications/EmailDigestSettings'
 import { APPLICATION_TYPES } from '@/lib/applications'
+import { ScoutSections } from '@/components/applications/ScoutSections'
+import { SECTIONS } from '@/lib/scoutSections'
 
 interface Opp {
   id: string; title: string; organization: string | null; url: string; type: string; scope: 'local' | 'global'
   location: string | null; deadline: string | null; value: string | null; summary: string | null; eligibility: string | null
   source: string | null; match: number; matchReason: string | null; status: 'new' | 'approved' | 'dismissed'; applicationId: string | null; foundAt: string
 }
-interface Profile { interests: string; homeCountry: string; types: string; sources: string[]; builtIn: boolean; emailDigest: boolean; lastRunAt: string | null; lastRunNote: string | null }
+interface Profile {
+  interests: string; education: string; expertise: string; homeCountry: string; types: string; sources: string[]; builtIn: boolean
+  sectionMode: string; sections: unknown; emailDigest: boolean; lastRunAt: string | null; lastRunNote: string | null
+}
 
 type View = 'new' | 'approved' | 'dismissed'
 type Scope = 'all' | 'local' | 'global'
 type Sort = 'match' | 'deadline' | 'newest'
 
-const SCOUT_TYPES = ['scholarship', 'fellowship', 'job', 'internship', 'grant', 'competition', 'school']
 const typeLabel = (v: string) => APPLICATION_TYPES.find((t) => t.value === v)?.label ?? 'Other'
 const DAY = 86_400_000
 
@@ -109,15 +113,26 @@ export default function OpportunitiesPage() {
 
   if (loading) return <Loader routeKey="challenge" />
 
-  const inView = opps.filter((o) => o.status === view)
+  const inView = opps.filter((o) => o.status === view && (type === 'all' || o.type === type))
   const scopeCount = (s: 'local' | 'global') => inView.filter((o) => o.scope === s).length
+  // Section tabs: every section the scout looks for, plus any other kind that has finds waiting.
+  const inStatus = opps.filter((o) => o.status === view && (scope === 'all' || o.scope === scope))
+  const lookFor = (profile?.types ?? '').split(',').filter(Boolean)
+  const tailoredSet = new Set(profile?.sectionMode === 'tailored' ? Object.entries((profile.sections ?? {}) as Record<string, { custom?: boolean }>).filter(([, v]) => v?.custom).map(([k]) => k) : [])
+  const sectionTabs = [
+    { value: 'all', label: 'All', count: inStatus.length, tailored: false },
+    ...SECTIONS.filter((s) => lookFor.includes(s.type) || inStatus.some((o) => o.type === s.type))
+      .map((s) => ({ value: s.type as string, label: s.label, count: inStatus.filter((o) => o.type === s.type).length, tailored: tailoredSet.has(s.type) })),
+    ...(inStatus.some((o) => !SECTIONS.some((s) => s.type === o.type))
+      ? [...new Set(inStatus.filter((o) => !SECTIONS.some((s) => s.type === o.type)).map((o) => o.type))].map((t) => ({ value: t, label: typeLabel(t), count: inStatus.filter((o) => o.type === t).length, tailored: false }))
+      : []),
+  ]
   const shownIds = shown.map((o) => o.id)
   const allPicked = shownIds.length > 0 && shownIds.every((id) => selected.has(id))
   const picked = shownIds.filter((id) => selected.has(id))
   const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const ago = (iso: string) => { const h = Math.round((nowMs - +new Date(iso)) / 3_600_000); return h < 1 ? 'just now' : h < 24 ? `${h} h ago` : `${Math.round(h / 24)} d ago` }
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setDraft((d) => d && { ...d, [k]: v })
-  const typesOn = (draft?.types ?? '').split(',').filter(Boolean)
 
   return (
     <Page width="wide">
@@ -139,29 +154,28 @@ export default function OpportunitiesPage() {
       {/* Settings: what to look for and where */}
       {settings && draft && (
         <Panel className="space-y-5 animate-fadeIn">
-          <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <Field label="Your interests" hint="Fields, roles and goals, separated by commas. The scout searches and scores with these.">
-              <textarea value={draft.interests} onChange={(e) => set('interests', e.target.value)} rows={3} placeholder="fintech, data science, software engineering, MBA, women in tech"
+          {/* Your profile: flows down to every section unless a section sets its own */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="What you want to do" hint="Goals, roles and fields, separated by commas. The scout searches and scores with these.">
+              <textarea value={draft.interests} onChange={(e) => set('interests', e.target.value)} rows={3} placeholder="fintech, data science, a funded Master's abroad, women in tech"
                 className={cx(inputClass, 'py-2.5')} />
             </Field>
+            <div className="grid gap-4">
+              <Field label="Your education / field of study" hint="Your degree, what you are studying, or the level you are applying for.">
+                <input value={draft.education} onChange={(e) => set('education', e.target.value)} placeholder="BSc Economics, applying for a Master's" className={inputClass} />
+              </Field>
+              <Field label="Your expertise" hint="Skills and experience opportunities should match.">
+                <input value={draft.expertise} onChange={(e) => set('expertise', e.target.value)} placeholder="Python, financial modelling, research writing" className={inputClass} />
+              </Field>
+            </div>
             <Field label="Where you live" hint="Opportunities here, or only for people from here, count as Local.">
               <input value={draft.homeCountry} onChange={(e) => set('homeCountry', e.target.value)} placeholder="Nigeria" className={inputClass} />
             </Field>
           </div>
-          <fieldset className="space-y-2">
-            <legend className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">Look for</legend>
-            <div className="flex flex-wrap gap-1.5">
-              {SCOUT_TYPES.map((t) => {
-                const on = typesOn.includes(t)
-                return (
-                  <button key={t} type="button" aria-pressed={on} onClick={() => set('types', (on ? typesOn.filter((x) => x !== t) : [...typesOn, t]).join(','))}
-                    className={cx('min-h-11 pointer-fine:min-h-9 rounded-full border px-3 text-sm transition-colors', on ? 'border-gold/60 bg-gold/10 text-gold' : 'border-gold/15 text-parchment/60 hover:border-gold/35')}>
-                    {typeLabel(t)}
-                  </button>
-                )
-              })}
-            </div>
-          </fieldset>
+          <ScoutSections
+            profile={draft}
+            onChange={(next) => setDraft((d) => d && { ...d, ...next })}
+          />
           <div className="space-y-2">
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/50">Sites to check</p>
             <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const s = site.trim(); if (s && !draft.sources.includes(s)) set('sources', [...draft.sources, s]); setSite('') }}>
@@ -211,6 +225,19 @@ export default function OpportunitiesPage() {
           ]}
           value={view} onChange={(v) => { setView(v); setSelected(new Set()) }} ariaLabel="Opportunity status" />
 
+        {/* Sections: one tab per kind of opportunity, each with what is waiting in it */}
+        <div role="tablist" aria-label="Opportunity sections" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          {sectionTabs.map((t) => (
+            <button key={t.value} type="button" role="tab" aria-selected={type === t.value} onClick={() => { setType(t.value); setSelected(new Set()) }}
+              className={cx('inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm transition-colors',
+                type === t.value ? 'border-gold/60 bg-gold/10 font-semibold text-gold' : 'border-gold/15 text-parchment/65 hover:border-gold/35 hover:text-parchment')}>
+              {t.label}
+              <span className={cx('rounded-full px-1.5 font-mono text-[10px] tabular-nums', type === t.value ? 'bg-gold/20' : 'bg-parchment/10')}>{t.count}</span>
+              {t.tailored && <span className="h-1.5 w-1.5 rounded-full bg-gold" title="This section has its own settings" aria-label="tailored" />}
+            </button>
+          ))}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1 rounded-xl border border-gold/15 p-1" role="group" aria-label="Local or global">
             {([['all', `All · ${inView.length}`], ['local', `Local · ${scopeCount('local')}`], ['global', `Global · ${scopeCount('global')}`]] as const).map(([v, label]) => (
@@ -218,10 +245,6 @@ export default function OpportunitiesPage() {
                 className={cx('min-h-8 rounded-lg px-3 text-xs font-medium transition-colors', scope === v ? 'bg-gold/15 text-gold' : 'text-parchment/55 hover:text-parchment')}>{label}</button>
             ))}
           </div>
-          <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Type" className={cx(inputClass, 'h-10 w-auto')}>
-            <option value="all">Every type</option>
-            {APPLICATION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
           <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort" className={cx(inputClass, 'h-10 w-auto')}>
             <option value="match">Best match first</option>
             <option value="deadline">Closing soonest</option>

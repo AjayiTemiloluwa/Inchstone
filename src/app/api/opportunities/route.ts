@@ -3,9 +3,11 @@ import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { BUILT_IN_SOURCES, approveOpportunities, runScout, scoutProfile, sendDigest } from '@/lib/scout'
 import { safeUrl } from '@/lib/web'
+import { parseSections } from '@/lib/scoutSections'
 
 // GET  /api/opportunities — the scout profile, built-in sources and every opportunity found
-// PUT  /api/opportunities — save the profile { interests, homeCountry, types[], sources[], builtIn } and the digest
+// PUT  /api/opportunities — save the profile { interests, education, expertise, homeCountry, types[], sources[], builtIn,
+//                           sectionMode: 'flow' | 'tailored', sections: { <type>: { custom, goal, field, expertise, level, scope } } } and the digest
 //                           { emailDigest, digestFrequency, digestHour, digestDay, digestMinMatch, digestScope, digestTypes[], digestMax, digestOnlyNew, tz }
 // POST /api/opportunities — { action: 'scout' } run now
 //                           { action: 'approve' | 'dismiss' | 'restore', ids: string[] }  (approve copies into the tracker)
@@ -32,6 +34,11 @@ export async function PUT(req: Request) {
   const b = await req.json().catch(() => ({}))
   const data: Record<string, unknown> = {}
   if (typeof b.interests === 'string') data.interests = b.interests.slice(0, 1000)
+  if (typeof b.education === 'string') data.education = b.education.slice(0, 500)
+  if (typeof b.expertise === 'string') data.expertise = b.expertise.slice(0, 500)
+  if (b.sectionMode === 'flow' || b.sectionMode === 'tailored') data.sectionMode = b.sectionMode
+  // per-section preferences, cleaned to known sections and fields (lib/scoutSections.ts)
+  if (b.sections && typeof b.sections === 'object') data.sections = parseSections(b.sections)
   if (typeof b.homeCountry === 'string' && b.homeCountry.trim()) data.homeCountry = b.homeCountry.trim().slice(0, 80)
   if (Array.isArray(b.types)) data.types = b.types.map(String).filter(Boolean).slice(0, 12).join(',')
   if (typeof b.builtIn === 'boolean') data.builtIn = b.builtIn

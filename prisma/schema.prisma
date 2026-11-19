@@ -764,7 +764,13 @@ model CheckIn {
 model ScoutProfile {
   id           String    @id @default(uuid())
   userId       String    @unique
-  interests    String    @default("") // free text: "fintech, data science, MBA, women in tech"
+  interests    String    @default("") // what they want to do: "fintech, data science, MBA, women in tech"
+  education    String    @default("") // their field / level of study: "BSc Economics, applying for a Master's"
+  expertise    String    @default("") // skills to be matched on: "Python, financial modelling, research"
+  // Sections (lib/scoutSections.ts): "flow" = the profile above drives every section;
+  // "tailored" = sections may set their own goal / field / expertise / level / local-global.
+  sectionMode  String    @default("flow")
+  sections     Json      @default("{}") // { scholarship: { custom, goal, field, expertise, level, scope }, ... }
   homeCountry  String    @default("Nigeria") // decides local vs global
   types        String    @default("scholarship,fellowship,job,internship,grant,competition")
   sources      Json      @default("[]") // ["https://site.com", ...] the user's own sites

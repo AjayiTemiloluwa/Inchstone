@@ -11,6 +11,7 @@ import { readFeed, readPage, webSearch } from '@/lib/web'
 import { sendEmail } from '@/lib/email'
 import { describeSchedule, digestSelection } from '@/lib/digest'
 import { digestEmailHtml } from '@/lib/digestEmail'
+import { describe, effectiveSections, sectionQueries, type Effective } from '@/lib/scoutSections'
 
 /** Opportunity sites with reliable RSS feeds, read when "built-in sources" is on. */
 export const BUILT_IN_SOURCES = [
@@ -51,14 +52,16 @@ function queriesFor(interests: string, types: string[], country: string) {
   return qs.slice(0, 4)
 }
 
-async function judge(batch: Candidate[], p: { interests: string; homeCountry: string; types: string[] }): Promise<Judged[]> {
+async function judge(batch: Candidate[], p: { homeCountry: string; sections: Effective[] }): Promise<Judged[]> {
   const today = new Date().toISOString().slice(0, 10)
   const list = batch.map((c, i) => `#${i + 1} ${c.title}\nURL: ${c.url}\n${c.text.slice(0, 350)}`).join('\n\n')
   const reply = await chat([
     {
       role: 'system',
       content: `You screen opportunities (scholarships, jobs, internships, fellowships, grants, competitions, school admissions, conferences) for one person. Today is ${today}.
-Person: lives in ${p.homeCountry}. Interests: ${p.interests || 'not given; judge general usefulness'}. Wants: ${p.types.join(', ')}.
+Person: lives in ${p.homeCountry}. They want these kinds of opportunity, each with its own wants:
+${p.sections.map((e) => `- ${e.type} (${e.label}): ${describe(e)}`).join('\n')}
+Score "match" against the wants of the kind the opportunity belongs to (a fellowship against the fellowship wants, a job against the job wants). Set keep false for kinds not in this list.
 For each numbered candidate decide if it is ONE specific, real opportunity that is still open (deadline today or later, or not stated), and not a list/roundup article, ad or news story. Reply with JSON only:
 {"items":[{"n":1,"keep":true,"title":"official name","organization":"who offers it","type":"one of ${TYPES.join('|')}","scope":"local if it is in or only for ${p.homeCountry}, otherwise global","location":"city/country or Remote","deadline":"YYYY-MM-DD or null","value":"what it is worth, short","summary":"one sentence","eligibility":"who can apply, short","match":0-100,"reason":"why it fits or not, under 15 words"}]}
 Use only facts in the text; leave a field out when unknown. Set keep false for closed, irrelevant or roundup items.`,
@@ -78,6 +81,9 @@ export async function runScout(userId: string, budgetMs = 50_000) {
   const left = () => budgetMs - (Date.now() - started)
   const p = await scoutProfile(userId)
   const types = p.types.split(',').map((t) => t.trim()).filter(Boolean)
+  // Each section searches and scores with its own wants (or the main profile, flowing down).
+  const sections = effectiveSections(p)
+  const everything = [p.interests, p.education, p.expertise].filter(Boolean).join(', ')
   const userSources = ((p.sources as unknown as string[]) ?? []).filter((s) => typeof s === 'string')
   const known = new Set((await prisma.opportunity.findMany({ where: { userId }, select: { url: true } })).map((o) => o.url))
   const fresh = (url: string) => !known.has(url)
@@ -102,12 +108,17 @@ export async function runScout(userId: string, budgetMs = 50_000) {
 
   // 2. Web searches shaped by the user's interests.
   if (left() > 25_000) {
-    const hits = await Promise.all(queriesFor(p.interests, types, p.homeCountry).map((q) => webSearch(q, 8).catch(() => [])))
+    // Tailored: a couple of searches per section, from that section's own wants. Flowing: the
+    // whole profile shapes the searches, as before.
+    const queries = p.sectionMode === 'tailored' && sections.length
+      ? [...new Set(sections.flatMap((e) => sectionQueries(e, p.homeCountry, sections.length > 3 ? 1 : 2)))].slice(0, 6)
+      : queriesFor(everything, types, p.homeCountry)
+    const hits = await Promise.all(queries.map((q) => webSearch(q, 8).catch(() => [])))
     for (const h of hits.flat()) if (fresh(h.url)) cands.push({ title: h.title, url: h.url, text: h.snippet, source: 'Web search' })
   }
 
   // 3. Best first, deduped, then the AI judges them in parallel batches.
-  const keys = words(`${p.interests} ${types.join(' ')} ${p.homeCountry}`)
+  const keys = words(`${sections.map((e) => `${e.goal} ${e.field} ${e.expertise} ${e.level}`).join(' ')} ${types.join(' ')} ${p.homeCountry}`)
   const seen = new Set<string>()
   const ranked = cands
     .filter((c) => { const k = c.url.replace(/[?#].*$/, '').replace(/\/$/, ''); if (seen.has(k)) return false; seen.add(k); return true })
@@ -121,7 +132,7 @@ export async function runScout(userId: string, budgetMs = 50_000) {
   await Promise.all(batches.map(async (batch) => {
     if (left() < 12_000) return
     let judged: Judged[] = []
-    try { judged = await judge(batch, { interests: p.interests, homeCountry: p.homeCountry, types }) } catch { notes.push('the AI was busy for one batch'); return }
+    try { judged = await judge(batch, { homeCountry: p.homeCountry, sections }) } catch { notes.push('the AI was busy for one batch'); return }
     const rows = judged
       .filter((j) => j.keep && batch[j.n - 1])
       .map((j) => {
@@ -143,6 +154,8 @@ export async function runScout(userId: string, budgetMs = 50_000) {
         }
       })
       .filter((r) => !r.deadline || r.deadline >= now)
+      // a section set to Local only / Global only keeps just those
+      .filter((r) => { const sec = sections.find((e) => e.type === r.type); return !sec || sec.scope === 'both' || sec.scope === r.scope })
     if (rows.length) added += (await prisma.opportunity.createMany({ data: rows, skipDuplicates: true })).count
   }))
 
