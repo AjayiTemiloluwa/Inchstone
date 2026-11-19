@@ -6,6 +6,7 @@ import { CheckCircle2, Circle, Star, Trash2 } from 'lucide-react'
 import type { Item, Task } from '@/stores/hierarchyStore'
 import { CountdownChip } from './CountdownChip'
 import type { GoogleEventView } from './types'
+import { deedCss } from '@/lib/deedColors'
 
 export const HOUR_HEIGHT = 64
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -160,7 +161,7 @@ export function DeedTimeline({
               {nowLineTop !== null && (
                 <button
                   onClick={() => scrollRef.current?.scrollTo({ top: Math.max(0, nowLineTop - 150), behavior: 'smooth' })}
-                  className="absolute right-3 top-3 z-30 rounded-full border border-ember/40 bg-ember/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#e0a093] backdrop-blur hover:bg-ember/25 transition"
+                  className="absolute right-3 top-3 z-30 rounded-full border border-ember/40 bg-ember/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-danger backdrop-blur hover:bg-ember/25 transition"
                 >
                   Jump to now
                 </button>
@@ -179,7 +180,7 @@ export function DeedTimeline({
                 ))}
                 {nowLineTop !== null && (
                   <div className="absolute left-0 right-0 flex items-center z-20 pointer-events-none" style={{ top: `${nowLineTop}px` }}>
-                    <span className="rounded-full bg-ember px-1.5 py-0.5 font-mono text-[9px] font-bold text-white shadow-md">{format(now, 'h:mm')}</span>
+                    <span className="rounded-full bg-ember px-1.5 py-0.5 font-mono text-[9px] font-bold text-ink shadow-md">{format(now, 'h:mm')}</span>
                     <div className="flex-1 h-px bg-ember/80" />
                   </div>
                 )}
@@ -209,7 +210,7 @@ export function DeedTimeline({
                   // var (not a hex) so it follows the chosen accent — and since a hex
                   // alpha suffix can't be appended to a variable, the translucent
                   // variants go through color-mix, which renders user colours identically.
-                  const taskBorderColor = task.color || (task.completed ? '#8fbc8f' : 'var(--gold)')
+                  const taskBorderColor = deedCss(task.color, { completed: task.completed })
                   return (
                     <div
                       key={task.id}
@@ -228,7 +229,7 @@ export function DeedTimeline({
                           <span className={`font-semibold truncate ${task.completed ? 'line-through' : ''}`}>{task.title}</span>
                           {task.isImportant && <Star className="w-3 h-3 shrink-0 fill-gold text-gold" />}
                         </div>
-                        <button onClick={(e) => onDelete(e, task.id)} className="shrink-0 p-0.5 opacity-0 group-hover/task:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78]" title="Delete">
+                        <button onClick={(e) => onDelete(e, task.id)} className="shrink-0 p-0.5 opacity-0 group-hover/task:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-danger" title="Delete">
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>

@@ -32,12 +32,12 @@ export function ProgressRing({
   }, [])
   const strokeDashoffset = drawn ? targetOffset : circumference
 
-  // Quiet token palette — no glows (v2 F2). Completed rollups → readable moss,
-  // most progress → gold, low → readable ember. Explicit colorClass wins.
+  // Quiet token palette â€” no glows (v2 F2). Completed rollups â†’ readable moss,
+  // most progress â†’ gold, low â†’ readable ember. Explicit colorClass wins.
   const progressColor =
-    safeProgress >= 100 ? '#7fa871'
-    : safeProgress >= 40 ? '#b8935a'
-    : '#cf8a68'
+    safeProgress >= 100 ? 'rgb(var(--good-rgb))'
+    : safeProgress >= 40 ? 'rgb(var(--gold-rgb))'
+    : 'rgb(var(--danger-rgb))'
   const useAutoColor = colorClass === 'text-gold'
 
   return (
@@ -63,13 +63,14 @@ export function ProgressRing({
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
           strokeLinecap="round"
-          stroke={useAutoColor ? progressColor : 'currentColor'}
+          stroke="currentColor"
           className={useAutoColor ? '' : colorClass}
           fill="transparent"
           r={radius}
           cx={size / 2}
           cy={size / 2}
           style={{
+            ...(useAutoColor ? { stroke: progressColor } : {}),
             transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1), stroke 0.5s ease',
             '--circumference': `${circumference}`,
           } as React.CSSProperties}
@@ -78,7 +79,7 @@ export function ProgressRing({
       <div className="absolute flex items-center justify-center font-mono font-bold"
         style={{ fontSize: size < 48 ? '9px' : '11px' }}>
         {Math.round(safeProgress)}
-        <span style={{ fontSize: size < 48 ? '7px' : '9px', color: 'rgba(243,239,230,0.35)' }}>%</span>
+        <span style={{ fontSize: size < 48 ? '7px' : '9px', color: 'rgb(var(--fg-rgb) / 0.45)' }}>%</span>
       </div>
     </div>
   )

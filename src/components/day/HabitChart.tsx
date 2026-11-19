@@ -5,7 +5,8 @@ import { format, parseISO } from 'date-fns'
 import { buildHabitGraph } from './habitGraph'
 import type { GraphRange, HabitHistoryEntry } from './types'
 
-const GOLD = 'rgb(212, 175, 55)'
+// The chart draws in currentColor; the <svg> takes the mood's accent (text-gold).
+const GOLD = 'currentColor'
 const CHART_HEIGHT = 192
 
 function safeLabel(iso: string): string {
@@ -75,7 +76,7 @@ export function HabitChart({
           width={graph.width}
           height={graph.height}
           viewBox={`0 0 ${graph.width} ${graph.height}`}
-          className="block"
+          className="block text-gold"
           role="img"
           aria-label="Habit completion over time"
         >
@@ -103,7 +104,7 @@ export function HabitChart({
             const y = graph.padding.top + graph.chartH - (pct / 100) * graph.chartH
             return (
               <g key={pct}>
-                <line x1={graph.padding.left} y1={y} x2={graph.width - graph.padding.right} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="3,4" />
+                <line x1={graph.padding.left} y1={y} x2={graph.width - graph.padding.right} y2={y} style={{ stroke: 'rgb(var(--fg-rgb) / 0.08)' }} strokeWidth="1" strokeDasharray="3,4" />
                 <text x={graph.padding.left - 8} y={y + 3.5} textAnchor="end" fontSize="10" fontWeight="500" className="fill-ink/40 font-mono">{pct}%</text>
               </g>
             )
@@ -116,8 +117,8 @@ export function HabitChart({
 
           {hoverPoint && (
             <g pointerEvents="none">
-              <line x1={hoverPoint.x} y1={graph.padding.top} x2={hoverPoint.x} y2={graph.padding.top + graph.chartH} stroke="rgba(243,239,230,0.25)" strokeWidth="1" />
-              <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4.5" fill="#f3efe6" stroke={GOLD} strokeWidth="2" />
+              <line x1={hoverPoint.x} y1={graph.padding.top} x2={hoverPoint.x} y2={graph.padding.top + graph.chartH} style={{ stroke: 'rgb(var(--fg-rgb) / 0.25)' }} strokeWidth="1" />
+              <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4.5" stroke={GOLD} style={{ fill: 'rgb(var(--ink-rgb))' }} strokeWidth="2" />
             </g>
           )}
 

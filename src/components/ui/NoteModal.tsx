@@ -70,7 +70,7 @@ export function NoteModal({ onClose, onSaved }: NoteModalProps) {
             />
           </div>
           {error && (
-            <p className="text-xs text-[#cf8f78]">{error}</p>
+            <p className="text-xs text-danger">{error}</p>
           )}
           <div className="flex justify-end space-x-3">
             <button

@@ -73,26 +73,26 @@ export function InstallPrompt() {
     if (!canInstall) return null
 
     return (
-        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg  p-4 z-[60] md:bottom-4">
+        <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-4 right-4 md:left-auto md:right-4 md:w-80 bg-dialog border border-gold/25 rounded-lg shadow-[0_12px_36px_rgb(var(--shadow-rgb)/0.28)] p-4 z-[60] md:bottom-4">
             <div className="flex items-start gap-3">
                 <div className="flex-1">
-                    <h3 className="font-semibold text-sm mb-1">Install Inchstone</h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                    <h3 className="font-semibold text-sm mb-1 text-parchment">Install Inchstone</h3>
+                    <p className="text-xs text-parchment/70 mb-3">
                         Install this app on your phone for quick access and offline use.
                     </p>
                     <button
                         onClick={handleInstall}
-                        className="w-full bg-black text-white dark:bg-white dark:text-black text-sm font-medium py-2 px-4 rounded-lg hover:opacity-80 transition-opacity"
+                        className="w-full bg-gold text-ink text-sm font-semibold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity"
                     >
                         Install App
                     </button>
                     {hint && (
-                        <p role="status" className="mt-2 text-xs text-gray-600 dark:text-gray-400">{hint}</p>
+                        <p role="status" className="mt-2 text-xs text-parchment/70">{hint}</p>
                     )}
                 </div>
                 <button
                     onClick={handleDismiss}
-                    className="flex-shrink-0 p-2 -m-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    className="flex-shrink-0 p-2 -m-1 text-parchment/50 hover:text-parchment transition-colors"
                     aria-label="Dismiss install prompt"
                 >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

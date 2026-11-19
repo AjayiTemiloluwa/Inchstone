@@ -174,7 +174,7 @@ export function DoneView({ tasks, onDeleteTask, className = '' }: DoneViewProps)
                     {onDeleteTask && (
                       <button
                         onClick={(e) => { e.stopPropagation(); void handleDelete(t.id) }}
-                        className="p-1.5 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] shrink-0"
+                        className="p-1.5 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-danger shrink-0"
                         title="Delete"
                       >
                         <DelIcon />
@@ -219,7 +219,7 @@ export function DoneView({ tasks, onDeleteTask, className = '' }: DoneViewProps)
                       {onDeleteTask && (
                         <button
                           onClick={(e) => { e.stopPropagation(); void handleDelete(t.id) }}
-                          className="p-1.5 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-[#cf8f78] shrink-0"
+                          className="p-1.5 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-ember/15 rounded transition text-ink/30 hover:text-danger shrink-0"
                           title="Delete"
                         >
                           <DelIcon />

@@ -88,9 +88,9 @@ export function DeleteScopeDialog({
                   onClick={() => onDelete('all')}
                   className="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-ember/10"
                 >
-                  <Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-[#cf8f78]" />
+                  <Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium text-[#cf8f78]">The entire series</span>
+                    <span className="block text-sm font-medium text-danger">The entire series</span>
                     <span className="block text-[11px] text-ink/45">
                       {target.isHabit
                         ? 'Every instance, past and future — this erases the history too.'

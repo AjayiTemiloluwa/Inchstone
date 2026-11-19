@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useHierarchyStore, Item, Task } from '@/stores/hierarchyStore'
@@ -61,7 +61,7 @@ export default function DayPage() {
   const [selectedDeed, setSelectedDeed] = useState<DeedModalData | null>(null)
   const [deedReflection, setDeedReflection] = useState('')
   const [addingDeed, setAddingDeed] = useState(false)
-  const [addPrefill, setAddPrefill] = useState({ start: '', end: '' })
+  const [addPrefill, setAddPrefill] = useState({ start: '', end: '', color: '' })
   const [savingDeed, setSavingDeed] = useState(false)
   const [dayNotes, setDayNotes] = useState<DayNote[]>([])
   const [showNoteModal, setShowNoteModal] = useState(false)
@@ -511,8 +511,8 @@ export default function DayPage() {
   const handleWeightChange = (task: Task, weight: number) => { void handleUpdateTaskField(task, 'weight', weight) }
 
   // ── Add deed ──────────────────────────────────────────────────────────
-  const openAddDeed = (start = '', end = '') => {
-    setAddPrefill({ start, end })
+  const openAddDeed = (start = '', end = '', color = '') => {
+    setAddPrefill({ start, end, color })
     setAddingDeed(true)
   }
 
@@ -708,7 +708,7 @@ export default function DayPage() {
   const submitQuick = async (v: QuickCreateValues) => {
     const ok = v.kind === 'event'
       ? await createEvent(v.title, hhmm(v.start), hhmm(v.end))
-      : await handleAddDeed({ ...blankDeed(v.title, hhmm(v.start), hhmm(v.end)), isFrog: v.frog, isImportant: v.important })
+      : await handleAddDeed({ ...blankDeed(v.title, hhmm(v.start), hhmm(v.end)), isFrog: v.frog, isImportant: v.important, color: v.color })
     if (ok) setQuick(null)
   }
 
@@ -926,6 +926,7 @@ export default function DayPage() {
                 initialStart={addPrefill.start}
                 initialEnd={addPrefill.end}
                 initialWeight={suggestedWeight()}
+                initialColor={addPrefill.color}
                 dayTotalPoints={totalWeight}
                 categories={activeCategories}
                 saving={savingDeed}
@@ -942,7 +943,7 @@ export default function DayPage() {
               busy={savingDeed}
               onChange={(a, b) => setQuick({ start: a, end: b })}
               onSubmit={submitQuick}
-              onMore={() => { openAddDeed(hhmm(quick.start), hhmm(quick.end)); setQuick(null) }}
+              onMore={(_title, color) => { openAddDeed(hhmm(quick.start), hhmm(quick.end), color); setQuick(null) }}
               onClose={() => setQuick(null)}
             />
           )}

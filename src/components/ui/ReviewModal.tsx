@@ -133,7 +133,7 @@ export function ReviewModal({ onClose, onSaved }: ReviewModalProps) {
             <textarea value={tomorrowTop3} onChange={e => setTomorrowTop3(e.target.value)} className={`${fieldCls} h-20 resize-none`} placeholder={'1.\n2.\n3.'} />
           </div>
 
-          {error && <p className="text-sm text-[#cf8f78]">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
         </div>
 
         <div className="flex shrink-0 justify-end gap-3 border-t border-gold-dim/20 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">

@@ -219,7 +219,7 @@ export function RichNoteModal({ onClose, onSaved, note, defaultDate }: RichNoteM
 
                 {/* Footer */}
                 <div className="flex shrink-0 items-center justify-between border-t border-gold-dim/20 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
-                    <button onClick={handleDownloadPDF} className="flex items-center gap-2 rounded-md px-4 py-2 text-sm text-parchment/70 transition-colors hover:text-[#cf8f78]">
+                    <button onClick={handleDownloadPDF} className="flex items-center gap-2 rounded-md px-4 py-2 text-sm text-parchment/70 transition-colors hover:text-danger">
                         <Download className="w-4 h-4" strokeWidth={1.5} />
                         <span>Download PDF</span>
                     </button>

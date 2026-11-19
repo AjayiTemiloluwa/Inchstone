@@ -55,8 +55,8 @@ export function GoalCards({
                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
                           ancestor.layer === 0 ? 'bg-gold-dim/20 text-gold-dim' :
                             ancestor.layer === 1 ? 'bg-gold/15 text-gold' :
-                              ancestor.layer === 2 ? 'bg-moss/15 text-[#7fa871]' :
-                                ancestor.layer === 3 ? 'bg-ember/15 text-[#cf8f78]' :
+                              ancestor.layer === 2 ? 'bg-moss/15 text-good' :
+                                ancestor.layer === 3 ? 'bg-ember/15 text-danger' :
                                   ancestor.layer === 4 ? 'bg-parchment/10 text-parchment/70' :
                                     'bg-mist/30 text-parchment/60'
                         }`}>

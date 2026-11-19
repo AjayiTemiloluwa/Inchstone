@@ -92,7 +92,7 @@ export function PushNotificationManager() {
                     <button
                         onClick={handleTestNotification}
                         disabled={testing}
-                        className="text-xs font-medium text-blue-500 hover:underline disabled:opacity-50 ml-2"
+                        className="text-xs font-medium text-gold hover:underline disabled:opacity-50 ml-2"
                     >
                         {testing ? 'Sending...' : 'Test'}
                     </button>

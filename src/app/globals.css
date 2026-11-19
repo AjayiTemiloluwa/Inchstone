@@ -66,7 +66,7 @@
   --gold: #b8935a; /* the single accent — muted brass */
   --gold-dim: #8a6d42; /* gold at rest / secondary */
   --ember: #7a3b2e; /* warnings / overdue / destructive */
-  --moss: #4a5d45; /* completed / rollup-achieved */
+  --moss: rgb(var(--moss-rgb)); /* completed / rollup-achieved */
 
   /* RGB triplets (Tailwind alpha support) */
   --ink-rgb: 10 9 8;
@@ -81,14 +81,14 @@
   --bg: #0a0908;
   --fg: #f3efe6;
   --fg-rgb: 243 239 230;
-  --surface: rgba(10, 9, 8, 0.6);
+  --surface: rgb(var(--ink-rgb) / 0.6);
   --surface-solid: #16120f;
   --mist: rgba(243, 239, 230, 0.08);
   --mist-solid: #191512;
   --mist-solid-rgb: 25 21 18;
-  --glass: rgba(243, 239, 230, 0.04);
+  --glass: rgb(var(--fg-rgb) / 0.04);
   --glass-border: rgba(243, 239, 230, 0.1);
-  --glass-strong: rgba(10, 9, 8, 0.9);
+  --glass-strong: rgb(var(--ink-rgb) / 0.9);
   --glass-gold-bg: rgb(var(--gold-rgb) / 0.1);
   --glass-gold-border: rgb(var(--gold-rgb) / 0.2);
 }
@@ -185,6 +185,66 @@ html.dark[data-palette] {
   --mist: rgb(var(--parchment-rgb) / 0.08);
   --glass: rgb(var(--parchment-rgb) / 0.04);
   --glass-border: rgb(var(--parchment-rgb) / 0.1);
+}
+
+/* ── Semantic tokens — every mood × theme defines them, so no component bakes in a Classic hex.
+   danger / good  readable red / green TEXT (ember & moss are tuned as fills; classic-dark ones are too dark to read)
+   shadow         the tint of drop shadows (warm brown on paper, a mood-tinted shade on white, black on ink)
+   dialog         solid surface for dialogs, popovers and toasts
+   on-gold/moss/ember  text that sits ON a solid accent fill (bg-gold text-ink etc.) */
+:root {
+  --danger-rgb: 158 64 40; --good-rgb: 67 95 59;
+  --shadow-rgb: 88 67 28; --dialog-rgb: 255 253 246;
+  --on-gold-rgb: 255 253 246; --on-moss-rgb: 255 253 246; --on-ember-rgb: 255 253 246;
+}
+.dark {
+  --danger-rgb: 224 112 90; --good-rgb: 143 179 129;
+  --shadow-rgb: 0 0 0; --dialog-rgb: 22 18 15;
+  --on-gold-rgb: 10 9 8; --on-moss-rgb: 243 239 230; --on-ember-rgb: 243 239 230;
+}
+html[data-palette] {
+  --danger-rgb: var(--ember-rgb); --good-rgb: var(--moss-rgb);
+  --dialog-rgb: 255 255 255;
+  --on-gold-rgb: 255 255 255; --on-moss-rgb: 255 255 255; --on-ember-rgb: 255 255 255;
+}
+html[data-palette='voltage'] { --shadow-rgb: 22 44 6; }
+html[data-palette='pulse'] { --shadow-rgb: 66 14 70; }
+html[data-palette='aurora'] { --shadow-rgb: 6 42 66; }
+html.dark[data-palette] {
+  --shadow-rgb: 0 0 0;
+  --on-gold-rgb: var(--ink-rgb); --on-moss-rgb: var(--ink-rgb); --on-ember-rgb: var(--ink-rgb);
+}
+html.dark[data-palette='voltage'] { --dialog-rgb: 18 22 20; }
+html.dark[data-palette='pulse'] { --dialog-rgb: 21 17 31; }
+html.dark[data-palette='aurora'] { --dialog-rgb: 14 21 32; }
+
+/* Text on a solid accent fill. The app maps .text-ink to the page text colour, so "bg-gold text-ink"
+   used to print page text on the accent (pale on neon in the dark moods). It now takes the fill's own ink. */
+.text-ink:is(.bg-gold, .bg-gold\/90, .bg-gold\/95, .bg-gold\/80, .bg-gold-glow),
+.hover\:bg-gold:hover.text-ink { color: rgb(var(--on-gold-rgb)); }
+.text-ink:is(.bg-moss, .bg-moss\/90, .bg-sage, .bg-sage\/90) { color: rgb(var(--on-moss-rgb)); }
+.text-ink:is(.bg-ember, .bg-ember\/90, .bg-coral) { color: rgb(var(--on-ember-rgb)); }
+
+/* ── Deed colours (lib/deedColors.ts) — one name, four tunings. ── */
+:root {
+  --hue-coral-rgb: 178 72 42;  --hue-amber-rgb: 150 98 8;   --hue-lime-rgb: 86 116 20;
+  --hue-mint-rgb: 28 122 88;   --hue-teal-rgb: 12 112 122;  --hue-sky-rgb: 28 100 170;
+  --hue-indigo-rgb: 72 80 180; --hue-violet-rgb: 124 68 172; --hue-rose-rgb: 178 48 100;
+}
+.dark {
+  --hue-coral-rgb: 226 128 100; --hue-amber-rgb: 222 172 84;  --hue-lime-rgb: 168 196 98;
+  --hue-mint-rgb: 112 196 156;  --hue-teal-rgb: 92 188 196;   --hue-sky-rgb: 116 168 230;
+  --hue-indigo-rgb: 146 152 240; --hue-violet-rgb: 186 146 230; --hue-rose-rgb: 230 128 166;
+}
+html[data-palette] {
+  --hue-coral-rgb: 200 60 30;  --hue-amber-rgb: 160 100 0;  --hue-lime-rgb: 70 122 0;
+  --hue-mint-rgb: 0 128 92;    --hue-teal-rgb: 0 118 134;   --hue-sky-rgb: 0 104 196;
+  --hue-indigo-rgb: 72 72 220; --hue-violet-rgb: 134 56 216; --hue-rose-rgb: 200 22 106;
+}
+html.dark[data-palette] {
+  --hue-coral-rgb: 255 120 88;  --hue-amber-rgb: 255 200 61;  --hue-lime-rgb: 198 255 61;
+  --hue-mint-rgb: 61 255 197;   --hue-teal-rgb: 61 232 255;   --hue-sky-rgb: 92 172 255;
+  --hue-indigo-rgb: 136 146 255; --hue-violet-rgb: 190 144 255; --hue-rose-rgb: 255 92 170;
 }
 
 /* The veil over the living sky takes the mood's own ink, lit by two neon
@@ -430,7 +490,7 @@ textarea,
 }
 
 .bg-ink\/90 {
-  background: rgba(10, 9, 8, 0.9);
+  background: rgb(var(--ink-rgb) / 0.9);
 }
 
 .bg-black\/20 {
@@ -526,7 +586,7 @@ textarea,
 }
 
 .focus\:border-gold\/40:focus {
-  border-color: rgba(212 175 55 / 0.4);
+  border-color: rgb(var(--gold-rgb) / 0.4);
 }
 
 .dark .bg-black\/20 {
@@ -542,25 +602,25 @@ textarea,
    these overrides keep them legible on paper. The tints sit a touch stronger
    than dark mode's so fields, hairlines and cards keep their structure on
    paper — light-on-light is where layouts quietly fall apart. */
-html:not(.dark) .bg-black\/10 { background-color: rgb(36 30 21 / 0.06); }
-html:not(.dark) .bg-black\/15 { background-color: rgb(36 30 21 / 0.07); }
-html:not(.dark) .bg-black\/20 { background-color: rgb(36 30 21 / 0.085); }
-html:not(.dark) .bg-black\/25 { background-color: rgb(36 30 21 / 0.1); }
-html:not(.dark) .bg-black\/30 { background-color: rgb(36 30 21 / 0.12); }
-html:not(.dark) .bg-black\/40 { background-color: rgb(36 30 21 / 0.16); }
-html:not(.dark) .bg-black\/50 { background-color: rgb(36 30 21 / 0.2); }
-html:not(.dark) .border-white\/5 { border-color: rgb(36 30 21 / 0.1); }
-html:not(.dark) .border-white\/10 { border-color: rgb(36 30 21 / 0.14); }
-html:not(.dark) .border-white\/15 { border-color: rgb(36 30 21 / 0.18); }
-html:not(.dark) .border-white\/20 { border-color: rgb(36 30 21 / 0.22); }
-html:not(.dark) .bg-white\/5 { background-color: rgb(36 30 21 / 0.06); }
-html:not(.dark) .bg-white\/\[0\.02\] { background-color: rgb(36 30 21 / 0.035); }
-html:not(.dark) .bg-white\/\[0\.03\] { background-color: rgb(36 30 21 / 0.045); }
-html:not(.dark) .bg-white\/\[0\.04\] { background-color: rgb(36 30 21 / 0.055); }
-html:not(.dark) .bg-white\/\[0\.06\] { background-color: rgb(36 30 21 / 0.07); }
-html:not(.dark) .bg-white\/\[0\.07\] { background-color: rgb(36 30 21 / 0.08); }
-html:not(.dark) .divide-white\/\[0\.04\] > :not([hidden]) ~ :not([hidden]) { border-color: rgb(36 30 21 / 0.09); }
-html:not(.dark) .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]) { border-color: rgb(36 30 21 / 0.1); }
+html:not(.dark) .bg-black\/10 { background-color: rgb(var(--fg-rgb) / 0.06); }
+html:not(.dark) .bg-black\/15 { background-color: rgb(var(--fg-rgb) / 0.07); }
+html:not(.dark) .bg-black\/20 { background-color: rgb(var(--fg-rgb) / 0.085); }
+html:not(.dark) .bg-black\/25 { background-color: rgb(var(--fg-rgb) / 0.1); }
+html:not(.dark) .bg-black\/30 { background-color: rgb(var(--fg-rgb) / 0.12); }
+html:not(.dark) .bg-black\/40 { background-color: rgb(var(--fg-rgb) / 0.16); }
+html:not(.dark) .bg-black\/50 { background-color: rgb(var(--fg-rgb) / 0.2); }
+html:not(.dark) .border-white\/5 { border-color: rgb(var(--fg-rgb) / 0.1); }
+html:not(.dark) .border-white\/10 { border-color: rgb(var(--fg-rgb) / 0.14); }
+html:not(.dark) .border-white\/15 { border-color: rgb(var(--fg-rgb) / 0.18); }
+html:not(.dark) .border-white\/20 { border-color: rgb(var(--fg-rgb) / 0.22); }
+html:not(.dark) .bg-white\/5 { background-color: rgb(var(--fg-rgb) / 0.06); }
+html:not(.dark) .bg-white\/\[0\.02\] { background-color: rgb(var(--fg-rgb) / 0.035); }
+html:not(.dark) .bg-white\/\[0\.03\] { background-color: rgb(var(--fg-rgb) / 0.045); }
+html:not(.dark) .bg-white\/\[0\.04\] { background-color: rgb(var(--fg-rgb) / 0.055); }
+html:not(.dark) .bg-white\/\[0\.06\] { background-color: rgb(var(--fg-rgb) / 0.07); }
+html:not(.dark) .bg-white\/\[0\.07\] { background-color: rgb(var(--fg-rgb) / 0.08); }
+html:not(.dark) .divide-white\/\[0\.04\] > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--fg-rgb) / 0.09); }
+html:not(.dark) .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--fg-rgb) / 0.1); }
 
 /* Light theme, second pass: the states and opacities the block above misses.
    1. Hover / focus: hover:bg-white/5 is cream-on-cream (invisible) on paper.
@@ -569,26 +629,26 @@ html:not(.dark) .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]) { bor
       so light mode raises those alphas; dark mode is untouched.
    4. Pastel status text (#cf8f78 / #e0a093 / #7fa871) is tuned for a dark surface. */
 html:not(.dark) .hover\:bg-white\/5:hover,
-html:not(.dark) .hover\:bg-white\/\[0\.05\]:hover { background-color: rgb(36 30 21 / 0.07); }
+html:not(.dark) .hover\:bg-white\/\[0\.05\]:hover { background-color: rgb(var(--fg-rgb) / 0.07); }
 html:not(.dark) .hover\:bg-white\/10:hover,
 html:not(.dark) .hover\:bg-white\/\[0\.06\]:hover,
-html:not(.dark) .focus-visible\:bg-white\/\[0\.06\]:focus-visible { background-color: rgb(36 30 21 / 0.1); }
-html:not(.dark) .hover\:bg-black\/40:hover { background-color: rgb(36 30 21 / 0.16); }
-html:not(.dark) .hover\:border-white\/20:hover { border-color: rgb(36 30 21 / 0.3); }
-html:not(.dark) .hover\:border-white\/30:hover { border-color: rgb(36 30 21 / 0.38); }
-html:not(.dark) .bg-white\/10 { background-color: rgb(36 30 21 / 0.09); }
-html:not(.dark) .bg-white\/20 { background-color: rgb(36 30 21 / 0.13); }
-html:not(.dark) .bg-black\/\[0\.04\] { background-color: rgb(36 30 21 / 0.05); }
-html:not(.dark) .bg-black\/\[0\.05\] { background-color: rgb(36 30 21 / 0.06); }
-html:not(.dark) .border-white\/30 { border-color: rgb(36 30 21 / 0.3); }
-html:not(.dark) .border-white\/40 { border-color: rgb(36 30 21 / 0.4); }
-html:not(.dark) .border-white\/\[0\.06\] { border-color: rgb(36 30 21 / 0.1); }
-html:not(.dark) .border-white\/\[0\.07\] { border-color: rgb(36 30 21 / 0.11); }
+html:not(.dark) .focus-visible\:bg-white\/\[0\.06\]:focus-visible { background-color: rgb(var(--fg-rgb) / 0.1); }
+html:not(.dark) .hover\:bg-black\/40:hover { background-color: rgb(var(--fg-rgb) / 0.16); }
+html:not(.dark) .hover\:border-white\/20:hover { border-color: rgb(var(--fg-rgb) / 0.3); }
+html:not(.dark) .hover\:border-white\/30:hover { border-color: rgb(var(--fg-rgb) / 0.38); }
+html:not(.dark) .bg-white\/10 { background-color: rgb(var(--fg-rgb) / 0.09); }
+html:not(.dark) .bg-white\/20 { background-color: rgb(var(--fg-rgb) / 0.13); }
+html:not(.dark) .bg-black\/\[0\.04\] { background-color: rgb(var(--fg-rgb) / 0.05); }
+html:not(.dark) .bg-black\/\[0\.05\] { background-color: rgb(var(--fg-rgb) / 0.06); }
+html:not(.dark) .border-white\/30 { border-color: rgb(var(--fg-rgb) / 0.3); }
+html:not(.dark) .border-white\/40 { border-color: rgb(var(--fg-rgb) / 0.4); }
+html:not(.dark) .border-white\/\[0\.06\] { border-color: rgb(var(--fg-rgb) / 0.1); }
+html:not(.dark) .border-white\/\[0\.07\] { border-color: rgb(var(--fg-rgb) / 0.11); }
 html:not(.dark) .border-white { border-color: var(--fg); }
-html:not(.dark) .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(36 30 21 / 0.1); }
-html:not(.dark) .text-white\/10 { color: rgb(36 30 21 / 0.12); }
-html:not(.dark) .from-black\/30 { --tw-gradient-from: rgb(36 30 21 / 0.1) var(--tw-gradient-from-position); --tw-gradient-to: rgb(36 30 21 / 0) var(--tw-gradient-to-position); }
-html:not(.dark) .to-black\/10 { --tw-gradient-to: rgb(36 30 21 / 0.04) var(--tw-gradient-to-position); }
+html:not(.dark) .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--fg-rgb) / 0.1); }
+html:not(.dark) .text-white\/10 { color: rgb(var(--fg-rgb) / 0.12); }
+html:not(.dark) .from-black\/30 { --tw-gradient-from: rgb(var(--fg-rgb) / 0.1) var(--tw-gradient-from-position); --tw-gradient-to: rgb(var(--fg-rgb) / 0) var(--tw-gradient-to-position); }
+html:not(.dark) .to-black\/10 { --tw-gradient-to: rgb(var(--fg-rgb) / 0.04) var(--tw-gradient-to-position); }
 /* Faint text, measured (WCAG AA wants 4.5:1 for small text). Dim labels at /25-/45 sat at
    2-4:1 in both themes, so each opacity is raised to a floor that clears 4.5:1 on the page and on
    cards in every colour mood; /20 stays the deliberate whisper (~3:1). The colour follows the
@@ -646,15 +706,12 @@ html.dark .placeholder\:text-parchment\/25::placeholder { color: rgb(var(--fg-rg
 /* Classic dark: ember (2.2:1), moss (2.6:1) and gold-dim (3.9:1) are tuned as quiet fills and are
    too dark to read as text on near-black. Text uses lifted versions (5.9 / 7.9 / 5.6:1); fills keep the
    originals. A custom accent re-tints gold-dim inline, so that override steps aside for it. */
-html.dark:not([data-palette]) .text-ember, html.dark:not([data-palette]) .hover\:text-ember:hover { color: #e0705a; }
-html.dark:not([data-palette]) .text-ember\/80 { color: rgb(224 112 90 / 0.8); }
-html.dark:not([data-palette]) .text-moss { color: #8fb381; }
-html.dark:not([data-palette]) .text-moss\/80 { color: rgb(143 179 129 / 0.8); }
+html.dark:not([data-palette]) .text-ember, html.dark:not([data-palette]) .hover\:text-ember:hover { color: rgb(var(--danger-rgb)); }
+html.dark:not([data-palette]) .text-ember\/80 { color: rgb(var(--danger-rgb) / 0.8); }
+html.dark:not([data-palette]) .text-moss { color: rgb(var(--good-rgb)); }
+html.dark:not([data-palette]) .text-moss\/80 { color: rgb(var(--good-rgb) / 0.8); }
 html.dark:not([data-palette]):not([style*="--gold-dim"]) .text-gold-dim { color: #a8875a; }
 html.dark:not([data-palette]):not([style*="--gold-dim"]) .text-gold-dim\/80 { color: rgb(168 135 90 / 0.8); }
-html:not(.dark) .text-\[\#cf8f78\] { color: #9e4028; }
-html:not(.dark) .text-\[\#e0a093\] { color: #8c3a24; }
-html:not(.dark) .text-\[\#7fa871\] { color: #435f3b; }
 
 /* Dialogs sit on a dark scrim, so a translucent .glass card disappears into it on paper.
    In light mode every dialog gets the solid cream surface, a real border and a warm shadow. */
@@ -662,37 +719,37 @@ html:not(.dark) [role="dialog"].glass,
 html:not(.dark) [role="alertdialog"].glass,
 html:not(.dark) [role="dialog"].glass-strong,
 html:not(.dark) [role="alertdialog"].glass-strong {
-  background: #fffdf6;
-  border-color: rgb(36 30 21 / 0.16);
-  box-shadow: 0 24px 60px rgba(88, 67, 28, 0.28);
+  background: rgb(var(--dialog-rgb));
+  border-color: rgb(var(--fg-rgb) / 0.16);
+  box-shadow: 0 24px 60px rgb(var(--shadow-rgb) / 0.28);
 }
 html:not(.dark) [role="dialog"],
 html:not(.dark) [role="alertdialog"] {
-  box-shadow: 0 24px 60px rgba(88, 67, 28, 0.28);
+  box-shadow: 0 24px 60px rgb(var(--shadow-rgb) / 0.28);
 }
 /* A scrim darker than the page is fine, but black-60 over cream reads as mud; use a warm, lighter one. */
-html:not(.dark) .bg-black\/60 { background-color: rgb(36 30 21 / 0.42); }
+html:not(.dark) .bg-black\/60 { background-color: rgb(var(--fg-rgb) / 0.42); }
 
 /* Hardcoded near-black popovers & takeovers → warm cream cards.
    The category dropdown, alarm takeover and year menus bake in dark hexes;
    without these they land as heavy black boxes floating on paper. */
 html:not(.dark) .bg-\[\#16120f\] {
-  background-color: #fffdf6;
+  background-color: rgb(var(--dialog-rgb));
 }
 html:not(.dark) .bg-\[\#161311\]\/95 {
-  background-color: rgba(255, 253, 246, 0.97);
+  background-color: rgb(var(--dialog-rgb) / 0.97);
 }
 html:not(.dark) .bg-\[\#14110e\]\/95 {
-  background-color: rgba(255, 253, 246, 0.97);
+  background-color: rgb(var(--dialog-rgb) / 0.97);
 }
 
 /* Popover shadows: replace the near-black dark-mode bloom with a soft,
    warm paper shadow so menus lift without looming. */
 html:not(.dark) .shadow-\[0_18px_50px_rgba\(0\,0\,0\,0\.55\)\] {
-  box-shadow: 0 18px 50px rgba(88, 67, 28, 0.18);
+  box-shadow: 0 18px 50px rgb(var(--shadow-rgb) / 0.18);
 }
 html:not(.dark) .shadow-\[0_18px_60px_rgba\(0\,0\,0\,0\.55\)\] {
-  box-shadow: 0 18px 60px rgba(88, 67, 28, 0.18);
+  box-shadow: 0 18px 60px rgb(var(--shadow-rgb) / 0.18);
 }
 html:not(.dark) .shadow-\[0_0_80px_rgb\(var\(--gold-rgb\)_\/_0\.25\)\] {
   box-shadow: 0 0 80px rgb(var(--gold-rgb) / 0.14);
@@ -702,10 +759,10 @@ html:not(.dark) .shadow-\[0_0_80px_rgb\(var\(--gold-rgb\)_\/_0\.25\)\] {
    light mode — raise the paper veil so the sky reads as a whisper of
    weather behind the page instead of mud under the cards. */
 html:not(.dark) .app-overlay {
-  background: linear-gradient(180deg, rgba(250, 246, 238, 0.93) 0%, rgba(250, 246, 238, 0.87) 40%, rgba(250, 246, 238, 0.96) 100%);
+  background: linear-gradient(180deg, rgb(var(--ink-rgb) / 0.93) 0%, rgb(var(--ink-rgb) / 0.87) 40%, rgb(var(--ink-rgb) / 0.96) 100%);
 }
 html:not(.dark) .app-shell {
-  background: linear-gradient(180deg, rgba(246, 241, 231, 0.66) 0%, rgba(246, 241, 231, 0.76) 45%, rgba(246, 241, 231, 0.9) 100%);
+  background: linear-gradient(180deg, rgb(var(--ink-rgb) / 0.66) 0%, rgb(var(--ink-rgb) / 0.76) 45%, rgb(var(--ink-rgb) / 0.9) 100%);
 }
 /* Stars, rain and storm flashes are night-scenery — at night under the
    light veil they read as grey specks on paper, so quiet them down. */
@@ -772,7 +829,7 @@ html:not(.dark) .ambient-flash { opacity: 0.18 !important; }
 }
 
 .dark .bottom-nav-glass {
-  background: rgba(10, 9, 8, 0.92);
+  background: rgb(var(--ink-rgb) / 0.92);
 }
 
 /* ── Glow Effects (v2: deprecated — no glows) ── */
@@ -1061,9 +1118,9 @@ html:not(.dark) .ambient-flash { opacity: 0.18 !important; }
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.05));
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  color: #f5d76e;
+  background: linear-gradient(135deg, rgb(var(--gold-rgb) / 0.2), rgb(var(--gold-rgb) / 0.05));
+  border: 1px solid rgb(var(--gold-rgb) / 0.3);
+  color: rgb(var(--gold-glow-rgb));
 }
 
 .streak-badge {
@@ -1074,9 +1131,9 @@ html:not(.dark) .ambient-flash { opacity: 0.18 !important; }
   font-size: 10px;
   font-weight: 700;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(232, 104, 106, 0.2), rgba(232, 104, 106, 0.05));
-  border: 1px solid rgba(232, 104, 106, 0.3);
-  color: #E8686A;
+  background: linear-gradient(135deg, rgb(var(--ember-rgb) / 0.2), rgb(var(--ember-rgb) / 0.05));
+  border: 1px solid rgb(var(--ember-rgb) / 0.3);
+  color: rgb(var(--danger-rgb));
 }
 
 /* ── Range slider restyle ── */
@@ -1123,13 +1180,13 @@ input[type="range"]::-moz-range-thumb {
 }
 
 input[type="range"].accent-sage::-webkit-slider-thumb {
-  background: #7BA05B;
-  box-shadow: 0 0 8px rgba(123, 160, 91, 0.3);
+  background: rgb(var(--moss-rgb));
+  box-shadow: 0 0 8px rgb(var(--moss-rgb) / 0.3);
 }
 
 input[type="range"].accent-sage::-moz-range-thumb {
-  background: #7BA05B;
-  box-shadow: 0 0 8px rgba(123, 160, 91, 0.3);
+  background: rgb(var(--moss-rgb));
+  box-shadow: 0 0 8px rgb(var(--moss-rgb) / 0.3);
 }
 
 /* ── Form / Input overrides ── */
@@ -1176,7 +1233,7 @@ input[type="number"] {
 
 .main-content-wrapper {
   /* Readability floor — content never sits directly on the busy sky */
-  background: rgba(10, 9, 8, 0.3);
+  background: rgb(var(--ink-rgb) / 0.3);
 }
 
 /* ── Chat / Message Bubbles ── */
@@ -1218,11 +1275,11 @@ input[type="number"] {
   position: absolute;
   inset: -50%;
   background:
-    radial-gradient(circle at 20% 30%, rgba(212, 175, 55, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(123, 160, 91, 0.10) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(232, 104, 106, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 70% 20%, rgba(99, 102, 241, 0.06) 0%, transparent 35%),
-    radial-gradient(circle at 30% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 35%);
+    radial-gradient(circle at 20% 30%, rgb(var(--gold-rgb) / 0.12) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgb(var(--moss-rgb) / 0.10) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgb(var(--ember-rgb) / 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 70% 20%, rgb(var(--volt-rgb) / 0.06) 0%, transparent 35%),
+    radial-gradient(circle at 30% 80%, rgb(var(--volt-rgb) / 0.05) 0%, transparent 35%);
   animation: meshShift 25s ease-in-out infinite alternate;
 }
 
@@ -1256,7 +1313,7 @@ input[type="number"] {
 .gamified-orb-1 {
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgba(212, 175, 55, 0.4), transparent 70%);
+  background: radial-gradient(circle, rgb(var(--gold-rgb) / 0.4), transparent 70%);
   top: 10%;
   left: 5%;
   animation-duration: 18s;
@@ -1265,7 +1322,7 @@ input[type="number"] {
 .gamified-orb-2 {
   width: 250px;
   height: 250px;
-  background: radial-gradient(circle, rgba(123, 160, 91, 0.3), transparent 70%);
+  background: radial-gradient(circle, rgb(var(--moss-rgb) / 0.3), transparent 70%);
   bottom: 15%;
   right: 10%;
   animation-duration: 22s;
@@ -1275,7 +1332,7 @@ input[type="number"] {
 .gamified-orb-3 {
   width: 200px;
   height: 200px;
-  background: radial-gradient(circle, rgba(232, 104, 106, 0.25), transparent 70%);
+  background: radial-gradient(circle, rgb(var(--ember-rgb) / 0.25), transparent 70%);
   top: 50%;
   left: 60%;
   animation-duration: 16s;
@@ -1285,7 +1342,7 @@ input[type="number"] {
 .gamified-orb-4 {
   width: 180px;
   height: 180px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.2), transparent 70%);
+  background: radial-gradient(circle, rgb(var(--volt-rgb) / 0.2), transparent 70%);
   top: 70%;
   left: 20%;
   animation-duration: 24s;
@@ -1317,8 +1374,8 @@ input[type="number"] {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(212, 175, 55, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(212, 175, 55, 0.03) 1px, transparent 1px);
+    linear-gradient(rgb(var(--gold-rgb) / 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--gold-rgb) / 0.03) 1px, transparent 1px);
   background-size: 50px 50px;
   animation: gridMove 30s linear infinite;
   mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
@@ -1340,7 +1397,7 @@ input[type="number"] {
   position: absolute;
   width: 4px;
   height: 4px;
-  background: #D4AF37;
+  background: rgb(var(--gold-rgb));
   border-radius: 50%;
   animation: starFloat linear infinite;
   opacity: 0;
@@ -1503,7 +1560,7 @@ p, li, dd { text-wrap: pretty; }
 }
 
 /* Canonical selection */
-::selection { background: rgb(var(--gold-rgb) / 0.35); color: #f3efe6; }
+::selection { background: rgb(var(--gold-rgb) / 0.35); color: var(--fg); }
 
 /* Visible keyboard focus (Section G): 2px gold ring, offset 2px */
 :focus-visible {
@@ -1524,9 +1581,9 @@ p, li, dd { text-wrap: pretty; }
 
 /* Deprecated decorative CSS — neutralized flat (removed per-screen during re-skin) */
 .streak-flame {
-  background: rgba(122, 59, 46, 0.15);
-  border: 1px solid rgba(122, 59, 46, 0.3);
-  color: #cf8f78;
+  background: rgb(var(--ember-rgb) / 0.15);
+  border: 1px solid rgb(var(--ember-rgb) / 0.3);
+  color: rgb(var(--danger-rgb));
   box-shadow: none;
 }
 .stat-card, .achievement-card, .quest-item, .level-badge { box-shadow: none; }
@@ -1545,7 +1602,7 @@ p, li, dd { text-wrap: pretty; }
   box-shadow: none !important;
   opacity: 0 !important;
 }
-.quest-item.completed .quest-check { background: #4a5d45; border-color: #4a5d45; }
+.quest-item.completed .quest-check { background: rgb(var(--moss-rgb)); border-color: rgb(var(--moss-rgb)); }
 
 /* ── v2 F2: ban decorative/template motion — these animate nothing (fade is preserved) ── */
 .animate-slideUp,
@@ -1622,7 +1679,7 @@ p, li, dd { text-wrap: pretty; }
 .xp-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #D4AF37, #f5d76e, #D4AF37);
+  background: linear-gradient(90deg, rgb(var(--gold-rgb)), rgb(var(--gold-glow-rgb)), rgb(var(--gold-rgb)));
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
   transition: width 0.5s ease-out;
@@ -1636,11 +1693,11 @@ p, li, dd { text-wrap: pretty; }
   width: 48px;
   height: 48px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.05));
-  border: 1px solid rgba(212, 175, 55, 0.3);
+  background: linear-gradient(135deg, rgb(var(--gold-rgb) / 0.2), rgb(var(--gold-rgb) / 0.05));
+  border: 1px solid rgb(var(--gold-rgb) / 0.3);
   font-size: 20px;
   font-weight: 800;
-  color: #D4AF37;
+  color: rgb(var(--gold-rgb));
   position: relative;
 }
 
@@ -1649,7 +1706,7 @@ p, li, dd { text-wrap: pretty; }
   position: absolute;
   inset: -2px;
   border-radius: 18px;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), transparent, rgba(212, 175, 55, 0.1));
+  background: linear-gradient(135deg, rgb(var(--gold-rgb) / 0.3), transparent, rgb(var(--gold-rgb) / 0.1));
   z-index: -1;
   animation: pulseRing 3s ease-in-out infinite;
 }
@@ -1667,7 +1724,7 @@ p, li, dd { text-wrap: pretty; }
 
 .achievement-card:hover {
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(212, 175, 55, 0.2);
+  border-color: rgb(var(--gold-rgb) / 0.2);
   transform: translateY(-2px);
 }
 
@@ -1677,8 +1734,8 @@ p, li, dd { text-wrap: pretty; }
 }
 
 .achievement-card.unlocked {
-  border-color: rgba(212, 175, 55, 0.3);
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.08), rgba(212, 175, 55, 0.02));
+  border-color: rgb(var(--gold-rgb) / 0.3);
+  background: linear-gradient(135deg, rgb(var(--gold-rgb) / 0.08), rgb(var(--gold-rgb) / 0.02));
 }
 
 /* ── Stat Card Gamified ── */
@@ -1695,8 +1752,8 @@ p, li, dd { text-wrap: pretty; }
 
 .stat-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(212, 175, 55, 0.2);
-  box-shadow: 0 8px 32px rgba(212, 175, 55, 0.08);
+  border-color: rgb(var(--gold-rgb) / 0.2);
+  box-shadow: 0 8px 32px rgb(var(--gold-rgb) / 0.08);
 }
 
 .stat-card::before {
@@ -1740,7 +1797,7 @@ p, li, dd { text-wrap: pretty; }
 
 .quest-item:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(212, 175, 55, 0.15);
+  border-color: rgb(var(--gold-rgb) / 0.15);
   transform: translateX(4px);
 }
 
@@ -1749,8 +1806,8 @@ p, li, dd { text-wrap: pretty; }
 }
 
 .quest-item.completed .quest-check {
-  background: #7BA05B;
-  border-color: #7BA05B;
+  background: rgb(var(--moss-rgb));
+  border-color: rgb(var(--moss-rgb));
 }
 
 @media (max-width: 768px) {
@@ -1768,11 +1825,11 @@ p, li, dd { text-wrap: pretty; }
   gap: 6px;
   padding: 4px 14px;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(232, 104, 106, 0.15), rgba(232, 104, 106, 0.05));
-  border: 1px solid rgba(232, 104, 106, 0.2);
+  background: linear-gradient(135deg, rgb(var(--ember-rgb) / 0.15), rgb(var(--ember-rgb) / 0.05));
+  border: 1px solid rgb(var(--ember-rgb) / 0.2);
   font-size: 12px;
   font-weight: 700;
-  color: #E8686A;
+  color: rgb(var(--danger-rgb));
 }
 
 .streak-flame .flame-icon {
@@ -1846,7 +1903,7 @@ p, li, dd { text-wrap: pretty; }
   padding: 3px 8px;
   border-radius: 999px;
   background: rgba(var(--gold-rgb) / 0.96);
-  color: #0a0908;
+  color: rgb(var(--on-gold-rgb));
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.24);
   font-family: var(--font-mono), monospace;
@@ -1861,9 +1918,9 @@ p, li, dd { text-wrap: pretty; }
 /* Light theme: the deeper gold needs cream text for punch, and the glow
    reads as a gentle warm pool (multiply) instead of screen (invisible here). */
 html:not(.dark) .cursor-glow-label {
-  color: #fffdf6;
+  color: rgb(var(--on-gold-rgb));
   border-color: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 1px 8px rgba(88, 67, 28, 0.3);
+  box-shadow: 0 1px 8px rgb(var(--shadow-rgb) / 0.3);
 }
 html:not(.dark) .cursor-glow-halo {
   mix-blend-mode: multiply;
@@ -2168,9 +2225,9 @@ summary.text-lit {
 .shimmer {
   background: linear-gradient(
     100deg,
-    rgba(243, 239, 230, 0.04) 40%,
-    rgba(243, 239, 230, 0.09) 50%,
-    rgba(243, 239, 230, 0.04) 60%
+    rgb(var(--fg-rgb) / 0.04) 40%,
+    rgb(var(--fg-rgb) / 0.09) 50%,
+    rgb(var(--fg-rgb) / 0.04) 60%
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s linear infinite;
@@ -2213,7 +2270,7 @@ html.lenis body {
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(10, 9, 8, 0.82) 0%, rgba(10, 9, 8, 0.68) 40%, rgba(10, 9, 8, 0.88) 100%);
+  background: linear-gradient(180deg, rgb(var(--ink-rgb) / 0.82) 0%, rgb(var(--ink-rgb) / 0.68) 40%, rgb(var(--ink-rgb) / 0.88) 100%);
 }
 .scroll-text {
   opacity: 0;
@@ -2379,7 +2436,7 @@ html.lenis body {
 
 /* Translucent app shell — lets the living sky glow through the gaps */
 .app-shell {
-  background: linear-gradient(180deg, rgba(10, 9, 8, 0.5) 0%, rgba(10, 9, 8, 0.66) 45%, rgba(10, 9, 8, 0.78) 100%);
+  background: linear-gradient(180deg, rgb(var(--ink-rgb) / 0.5) 0%, rgb(var(--ink-rgb) / 0.66) 45%, rgb(var(--ink-rgb) / 0.78) 100%);
 }
 
 /* ── Levitation (Float) ───────────────────────────────────────── */
@@ -2520,7 +2577,7 @@ html.lenis body {
   padding: 8px 14px;
   border-radius: 999px;
   background: rgba(var(--gold-rgb) / 0.97);
-  color: #0a0908;
+  color: rgb(var(--on-gold-rgb));
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.32);
   font-family: var(--font-mono), monospace;
@@ -2537,9 +2594,9 @@ html.lenis body {
 }
 /* Clip the pill to the viewport so a hold near the edge never overflows. */
 html:not(.dark) .touch-hint-pill {
-  color: #fffdf6;
+  color: rgb(var(--on-gold-rgb));
   border-color: rgba(255, 255, 255, 0.38);
-  box-shadow: 0 6px 24px rgba(88, 67, 28, 0.32);
+  box-shadow: 0 6px 24px rgb(var(--shadow-rgb) / 0.32);
 }
 
 /* Tap: soft radial wash that lights the whole area under the finger */
@@ -2564,8 +2621,8 @@ html:not(.dark) .touch-hint-pill {
 /* Echo ring — fires 130ms later, thinner and wider, sells the "shockwave" */
 .touch-ripple--echo {
   border-width: 1px;
-  border-color: rgba(232, 122, 106, 0.42);
-  box-shadow: 0 0 16px rgba(232, 122, 106, 0.14);
+  border-color: rgb(var(--ember-rgb) / 0.42);
+  box-shadow: 0 0 16px rgb(var(--ember-rgb) / 0.14);
   opacity: 0.7;
   animation: touch-ripple 1s cubic-bezier(0.16, 1, 0.3, 1) 0.13s forwards;
 }
@@ -2595,7 +2652,7 @@ html:not(.dark) .touch-hint-pill {
   opacity: 1;
   animation: touch-spark 0.75s cubic-bezier(0.12, 0.8, 0.3, 1) forwards;
 }
-.touch-spark--ember { background: #e87a6a; box-shadow: 0 0 8px 1.5px rgba(232, 122, 106, 0.7); }
+.touch-spark--ember { background: rgb(var(--danger-rgb)); box-shadow: 0 0 8px 1.5px rgb(var(--ember-rgb) / 0.7); }
 /* Scroll/drag: comet streak aligned to the swipe vector (--ang in deg) */
 .touch-streak {
   position: absolute;

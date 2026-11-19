@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { Bell, Repeat, Star } from 'lucide-react'
 import type { Item } from '@/stores/hierarchyStore'
 import type { NewDeedValues } from './types'
-
-const SWATCHES = ['#d4af37', '#8fbc8f', '#6495ed', '#ff7f50', '#9370db', '#3cb371', '#ffd700', '#00bfff', '#ff6b6b', '#a8e6cf', '#ffb347', '#ba68c8']
+import { DeedColorPicker } from './DeedColorPicker'
 
 /**
  * Inline "add a deed" form. It owns all of its field state and is only
@@ -15,6 +14,7 @@ export function AddDeedForm({
   initialStart,
   initialEnd,
   initialWeight,
+  initialColor = '',
   dayTotalPoints,
   categories,
   saving,
@@ -24,6 +24,8 @@ export function AddDeedForm({
   initialStart: string
   initialEnd: string
   initialWeight: string
+  /** A colour already chosen (e.g. in the schedule's quick create before "More options"). */
+  initialColor?: string
   /** Points already on the day, to preview this deed's share. */
   dayTotalPoints: number
   categories: Item[]
@@ -45,7 +47,7 @@ export function AddDeedForm({
   const [newDeedNotify, setNewDeedNotify] = useState(true)
   const [newDeedEndWarn, setNewDeedEndWarn] = useState('10')
   const [isHabit, setIsHabit] = useState(false)
-  const [deedColor, setDeedColor] = useState('')
+  const [deedColor, setDeedColor] = useState(initialColor)
 
   // Follow the prefill when the grid is clicked again while the form is open.
   const [seenPrefill, setSeenPrefill] = useState({ start: initialStart, end: initialEnd })
@@ -124,26 +126,8 @@ export function AddDeedForm({
                   </div>
                 </div>
 
-                {/* Color */}
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold uppercase tracking-wider text-ink/40">Accent color</label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {SWATCHES.map(c => (
-                      <button
-                        key={c}
-                        onClick={() => setDeedColor(deedColor === c ? '' : c)}
-                        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all ${
-                          deedColor === c ? 'border-white' : 'border-transparent'
-                        }`}
-                        style={{ backgroundColor: c }}
-                        aria-label={`color ${c}`}
-                      >
-                        {deedColor === c && <span className="text-[#0a0908] font-bold text-xs">✓</span>}
-                      </button>
-                    ))}
-                    <button onClick={() => setDeedColor('')} className={`px-2 py-1 text-[9px] font-bold rounded border ${!deedColor ? 'bg-white/20 border-white/40 text-ink' : 'border-white/10 text-ink/50'}`}>None</button>
-                  </div>
-                </div>
+                {/* Colour: a named hue that re-tunes to the mood and theme */}
+                <DeedColorPicker value={deedColor} onChange={setDeedColor} label="Colour on the schedule" />
           {/* Flags */}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-3">
                   <label className="flex items-center space-x-2 cursor-pointer">

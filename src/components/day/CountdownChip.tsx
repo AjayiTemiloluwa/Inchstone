@@ -17,7 +17,7 @@ export function CountdownChip({ task, now }: { task: Pick<Task, 'startTime' | 'e
     p.state === 'live'
       ? 'bg-moss/15 text-sage border-sage/30'
       : p.soon
-        ? 'bg-ember/15 text-[#e0a093] border-ember/40'
+        ? 'bg-ember/15 text-danger border-ember/40'
         : 'bg-gold/15 text-gold border-gold/30'
   const Icon = p.state === 'live' ? Activity : Clock
   return (

@@ -9,6 +9,7 @@ import { Page, PageHeader, Section, Panel, StatGrid, Stat, EmptyState, Badge, cx
 import Link from 'next/link'
 import { PeriodNav, Meter } from '../calendar/_components/PeriodNav'
 import { dayScoreOf, tasksOnDay } from '@/components/day/dayTasks'
+import { deedCss } from '@/lib/deedColors'
 
 /** Scheduled length of a deed in minutes (start/end gap, else its estimate). */
 function taskMinutes(t: Task): number {
@@ -138,7 +139,7 @@ export default function WeekPage() {
                     <ul className="space-y-1.5">
                       {tasks.map(t => {
                         // The same colour rule the Day page uses: the deed's own colour, else green when done, else gold.
-                        const accent = t.color || (t.completed ? '#8fbc8f' : 'var(--gold)')
+                        const accent = deedCss(t.color, { completed: t.completed })
                         return (
                           <li key={t.id} className="flex items-start gap-2 border-l-2 pl-2 text-caption" style={{ borderLeftColor: accent }}>
                             {t.completed ? (

@@ -139,14 +139,14 @@ export function PendingSuggestions({
                 <div className="flex items-center space-x-2">
                   <button 
                     onClick={() => updateSuggestionStatus(s.id, 'rejected')}
-                    className="p-1.5 hover:bg-ember/15 text-[#cf8f78] rounded-md transition"
+                    className="p-1.5 hover:bg-ember/15 text-danger rounded-md transition"
                     title="Reject"
                   >
                     <X className="w-4 h-4" />
                   </button>
                   <button 
                     onClick={() => handleAccept(s)}
-                    className="p-1.5 bg-sage text-white hover:bg-sage/90 rounded-md transition"
+                    className="p-1.5 bg-sage text-ink hover:bg-sage/90 rounded-md transition"
                     title="Accept & Create"
                   >
                     <Check className="w-4 h-4" />

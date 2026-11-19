@@ -96,7 +96,7 @@ export function DeedTable({
                         <td className="p-3">
                           <button
                             onClick={(e) => onDelete(e, t.id)}
-                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-[#cf8f78]"
+                            className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-ember/15 rounded-lg transition text-ink/30 hover:text-danger"
                             title="Delete"
                           >
                             <Trash2 className="w-4 h-4" />

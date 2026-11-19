@@ -69,7 +69,7 @@ export function Sidebar() {
               role="dialog"
               aria-modal="true"
               data-lenis-prevent
-              className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-gold/15 bg-ink shadow-[18px_0_50px_rgba(0,0,0,0.45)]"
+              className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-gold/15 bg-ink shadow-[18px_0_50px_rgb(var(--shadow-rgb)/0.45)]"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
