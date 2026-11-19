@@ -104,7 +104,8 @@ export function Section({
   return (
     <Tag id={id} aria-labelledby={title && headingId ? headingId : undefined} className={cx('min-w-0', className)}>
       {title && (
-        <div className="mb-4 flex items-center gap-3">
+        // Above the panels below it: a panel leaning toward the pointer (MotionFx tilt) must never cover its heading.
+        <div className="relative z-[2] mb-4 flex items-center gap-3">
           <h2 id={headingId} className="shrink-0 font-mono text-[11px] uppercase tracking-[0.24em] text-parchment/50">{title}</h2>
           <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-gold/15" />
           {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
