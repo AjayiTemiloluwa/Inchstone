@@ -56,10 +56,11 @@ export function MotionFx() {
         const r = el.getBoundingClientRect()
         const px = (e.clientX - r.left) / r.width
         const py = (e.clientY - r.top) / r.height
-        const k = r.width < 300 ? 1.4 : 1
+        // Small cards lean more; tall panels (settings, forms) only a little, so their edges stay put.
+        const k = r.width < 300 ? 1.4 : r.height > 360 ? 0.35 : 1
         rx(-(py - 0.5) * 8 * k)
         ry((px - 0.5) * 10 * k)
-        lift(14)
+        lift(r.height > 360 ? 4 : 14)
         el.style.setProperty('--mx', `${e.clientX - r.left}px`)
         el.style.setProperty('--my', `${e.clientY - r.top}px`)
         if (e.pointerType === 'touch') el.classList.add('fx-pressed')
