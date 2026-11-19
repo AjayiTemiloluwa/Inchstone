@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { gsap, ScrollTrigger, SplitText, prefersReducedMotion, scroller } from '@/lib/gsap'
+import { ENTRANCES, GRID_FROM, order, play, pose, showFor, type Entrance } from '@/lib/motion/choreo'
 
 /**
  * PageSignature — each screen's own entrance, on top of MotionFx's shared
@@ -27,11 +28,41 @@ import { gsap, ScrollTrigger, SplitText, prefersReducedMotion, scroller } from '
  *   dashboard · plans · goal                    progress rings sweep to their value
  *   everywhere else                             list rows pop in, one after another
  *
- * Cards themselves are MotionFx's job; `cardEntrance()` below tells it which
- * way each route's cards arrive (pop, drop, flip, slide…).
+ * Nothing here plays the same way twice. Each visit to a route gets its own show
+ * (lib/motion/choreo.ts): the header's arrival (6 looks), the headings' letters
+ * (6 styles, taken in turn), each list's move (dealt from 16, never repeating
+ * next to each other), the order rows arrive in (7 flows), and the grid's burst
+ * origin all rotate. Cards are MotionFx's job, dealt from the same deck.
  */
 
 type Family = 'grid' | 'day' | 'ledger' | 'charts' | 'rings' | 'notes' | 'flip' | 'default'
+
+const R = gsap.utils.random
+
+/** How the page header arrives — one per visit, rotating. */
+const HEADS: { from: gsap.TweenVars; to: gsap.TweenVars; duration: number; ease: string }[] = [
+  { from: { clipPath: 'inset(0 0 100% 0 round 12px)' }, to: { clipPath: 'inset(0 0 0% 0 round 12px)' }, duration: 0.7, ease: 'power4.inOut' },
+  { from: { clipPath: 'inset(0 50% 0 50% round 12px)' }, to: { clipPath: 'inset(0 0% 0 0% round 12px)' }, duration: 0.8, ease: 'expo.inOut' },
+  { from: { clipPath: 'circle(0% at 8% 30%)' }, to: { clipPath: 'circle(160% at 8% 30%)' }, duration: 0.9, ease: 'power3.inOut' },
+  { from: { rotationX: -80, transformOrigin: '50% 0%', transformPerspective: 1000, autoAlpha: 0 }, to: { rotationX: 0, autoAlpha: 1 }, duration: 0.9, ease: 'back.out(1.4)' },
+  { from: { scale: 1.12, filter: 'blur(14px)', autoAlpha: 0 }, to: { scale: 1, filter: 'blur(0px)', autoAlpha: 1 }, duration: 0.8, ease: 'power3.out' },
+  { from: { clipPath: 'polygon(0 0, 0 0, 0 100%, 0 100%)' }, to: { clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }, duration: 0.85, ease: 'power4.inOut' },
+]
+
+/** How a heading's letters arrive — the next one each time, starting at a different place each visit. */
+const TITLES: { mask: boolean; from: () => gsap.TweenVars; duration: number; ease: string; stagger: gsap.StaggerVars | number }[] = [
+  { mask: true, from: () => ({ yPercent: 115, rotationX: -70, transformOrigin: '50% 100%' }), duration: 0.8, ease: 'back.out(1.8)', stagger: 0.022 },
+  { mask: false, from: () => ({ x: () => R(-260, 260), y: () => R(-160, 160), rotation: () => R(-180, 180), scale: 0, autoAlpha: 0 }), duration: 1.1, ease: 'expo.out', stagger: { each: 0.02, from: 'random' } },
+  { mask: true, from: () => ({ yPercent: 120 }), duration: 0.7, ease: 'back.out(2.2)', stagger: { each: 0.03, from: 'center' } },
+  { mask: false, from: () => ({ filter: 'blur(12px)', scale: 1.8, autoAlpha: 0 }), duration: 0.7, ease: 'power3.out', stagger: { each: 0.03, from: 'start' } },
+  { mask: false, from: () => ({ rotationY: 90, autoAlpha: 0, transformOrigin: '50% 50%' }), duration: 0.6, ease: 'power2.out', stagger: { each: 0.035, from: 'end' } },
+  { mask: false, from: () => ({ autoAlpha: 0, y: () => R(-40, 40), color: 'rgb(var(--gold-rgb))' }), duration: 0.45, ease: 'steps(3)', stagger: { each: 0.04, from: 'random' } },
+]
+
+const byName = (names: string[]) => ENTRANCES.filter((e) => names.includes(e.name))
+/** Moves that suit small grid cells and table rows (no clip-path on <tr>). */
+const GRID_MOVES = byName(['pop', 'flip-down', 'slam', 'spring-up', 'focus', 'swirl', 'drop'])
+const ROW_MOVES = byName(['rise', 'dash-left', 'dash-right', 'flip-down', 'focus', 'pop', 'slam'])
 
 export function familyOf(pathname: string): Family {
   const seg = pathname.split('/')[1] ?? ''
@@ -45,27 +76,6 @@ export function familyOf(pathname: string): Family {
   return 'default'
 }
 
-/** How cards arrive on this route (used by MotionFx). Every one ends at rest. */
-export function cardEntrance(pathname: string): { from: gsap.TweenVars; ease: string; stagger: number } {
-  switch (familyOf(pathname)) {
-    case 'notes':
-      return { from: { y: -60, rotation: () => gsap.utils.random(-7, 7), scale: 0.9 }, ease: 'back.out(1.7)', stagger: 0.07 }
-    case 'flip':
-      return { from: { rotationY: -75, x: -20, transformOrigin: '0% 50%' }, ease: 'back.out(1.4)', stagger: 0.08 }
-    case 'ledger':
-      return { from: { x: 48, scale: 0.97 }, ease: 'power4.out', stagger: 0.05 }
-    case 'day':
-      return { from: { x: -40, scale: 0.97 }, ease: 'back.out(1.5)', stagger: 0.05 }
-    case 'grid':
-      return { from: { scale: 0.82, y: 10 }, ease: 'back.out(1.8)', stagger: 0.04 }
-    case 'charts':
-      return { from: { y: 60, rotationX: -28, transformOrigin: '50% 100%' }, ease: 'back.out(1.4)', stagger: 0.07 }
-    default:
-      // the pop: a little up, a little small, and a springy settle
-      return { from: { y: 30, scale: 0.9 }, ease: 'back.out(1.9)', stagger: 0.06 }
-  }
-}
-
 export function PageSignature() {
   const pathname = usePathname()
 
@@ -74,6 +84,15 @@ export function PageSignature() {
     const main = scroller()
     if (!main) return
     const family = familyOf(pathname)
+    // this visit's show (shared with MotionFx): the deck of moves and the flow order
+    const show = showFor(pathname)
+    let titleAt = 0
+    let lastSub: Entrance | null = null
+    const dealFrom = (moves: Entrance[]) => {
+      const pool = moves.filter((m) => m !== lastSub)
+      lastSub = pool[Math.floor(show.rng() * pool.length)]
+      return lastSub
+    }
     const seen = new WeakSet<Element>()
     const kills: (() => void)[] = []
 
@@ -96,7 +115,9 @@ export function PageSignature() {
         const rule = head.querySelector<HTMLElement>('span.h-px')
         const orbs = head.querySelectorAll<HTMLElement>('.hero-orb')
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
-        tl.fromTo(head, { clipPath: 'inset(0 0 100% 0 round 12px)' }, { clipPath: 'inset(0 0 0% 0 round 12px)', duration: 0.7, ease: 'power4.inOut', clearProps: 'clipPath' })
+        // the header's own arrival rotates visit by visit
+        const look = show.pick('head', HEADS)
+        tl.fromTo(head, look.from, { ...look.to, duration: look.duration, ease: look.ease, clearProps: 'clipPath,transform,filter,opacity,visibility,transformOrigin' })
         if (orbs.length) tl.fromTo(orbs, { scale: 0.2, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 1.4, stagger: 0.15, ease: 'elastic.out(1, 0.6)' }, 0.2)
         if (strip) tl.fromTo(strip, { clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)', duration: 0.8, clearProps: 'clipPath' }, 0.25)
         if (rule) tl.fromTo(rule, { scaleX: 0, transformOrigin: '0% 50%' }, { scaleX: 1, duration: 0.8, ease: 'back.out(2)', clearProps: 'transform' }, 0.6)
@@ -114,31 +135,30 @@ export function PageSignature() {
         })
       })
 
-      // ── grid family: cells ripple out from the centre ──
+      // ── grid family: cells burst out, from a different origin and with a different move each visit ──
       if (family === 'grid') {
         main.querySelectorAll<HTMLElement>('.grid').forEach((g) => {
           const cells = [...g.children] as HTMLElement[]
           if (cells.length < 7 || !fresh(g) || !visible(g)) return
           if (cells.some((c) => c.getBoundingClientRect().height > 220)) return // a layout grid, not a calendar
-          gsap.set(cells, { scale: 0.6, autoAlpha: 0 })
-          onView(g, () =>
-            gsap.to(cells, { scale: 1, autoAlpha: 1, duration: 0.55, ease: 'back.out(2.2)', stagger: { grid: 'auto', from: 'center', amount: 0.6 }, clearProps: 'transform,opacity,visibility' }),
-          )
+          const e = dealFrom(GRID_MOVES)
+          const from = show.pick('grid-from', GRID_FROM)
+          pose(cells, e)
+          onView(g, () => play(cells, e, { duration: Math.min(e.duration, 0.75), stagger: { grid: 'auto', from, amount: 0.7 } }))
         })
       }
 
-      // ── headings a page draws itself (no shared PageHeader): letters flip up into place ──
+      // ── headings a page draws itself (no shared PageHeader): the letters arrive a new way each visit ──
       main.querySelectorAll<HTMLElement>('h1').forEach((h) => {
         if (!fresh(h) || !visible(h) || h.closest('[data-sig="head"]') || h.querySelector('[data-reveal], .reveal-line')) return
         if ((h.textContent ?? '').length > 80) return
-        const split = SplitText.create(h, { type: 'words,chars', mask: 'words' })
+        const style = TITLES[(titleAt++ + show.visit) % TITLES.length]
+        const split = SplitText.create(h, { type: 'words,chars', ...(style.mask ? { mask: 'words' as const } : {}) })
         const tw = gsap.from(split.chars, {
-          yPercent: 115,
-          rotationX: -70,
-          transformOrigin: '50% 100%',
-          duration: 0.8,
-          ease: 'back.out(1.8)',
-          stagger: 0.022,
+          ...style.from(),
+          duration: style.duration,
+          ease: style.ease,
+          stagger: style.stagger,
           // hand the heading back to React untouched once it has landed
           onComplete: () => split.revert(),
         })
@@ -171,8 +191,9 @@ export function PageSignature() {
         if (!fresh(tb) || !visible(tb)) return
         const rows = [...tb.querySelectorAll<HTMLElement>(':scope > tr')].slice(0, 40)
         if (!rows.length) return
-        gsap.set(rows, { x: family === 'ledger' ? 60 : -40, autoAlpha: 0 })
-        onView(tb, () => gsap.to(rows, { x: 0, autoAlpha: 1, duration: 0.55, stagger: 0.035, ease: 'power4.out', clearProps: 'transform,opacity,visibility' }))
+        const e = dealFrom(ROW_MOVES)
+        pose(rows, e)
+        onView(tb, () => order(rows, show.flow, show.rng).forEach((r, i) => play(r, e, { duration: Math.min(e.duration, 0.7), delay: i * 0.035 })))
       })
 
       // ── primary buttons are magnetic: they lean toward a nearby pointer ──
@@ -204,12 +225,11 @@ export function PageSignature() {
       main.querySelectorAll<HTMLElement>('ul, ol').forEach((list) => {
         const items = [...list.children].filter((c) => c.tagName === 'LI') as HTMLElement[]
         if (items.length < 2 || !fresh(list) || !visible(list) || list.closest('nav')) return
-        const from = family === 'day' ? { x: -36, autoAlpha: 0 } : family === 'ledger' ? { x: 36, autoAlpha: 0 } : { y: 16, scale: 0.94, autoAlpha: 0 }
+        // each list gets its own move from the deck, and its rows arrive in this visit's flow
         const shown = items.slice(0, 30)
-        gsap.set(shown, from)
-        onView(list, () =>
-          gsap.to(shown, { x: 0, y: 0, scale: 1, autoAlpha: 1, duration: 0.5, stagger: 0.045, ease: family === 'day' ? 'back.out(1.6)' : 'back.out(2)', clearProps: 'transform,opacity,visibility' }),
-        )
+        const e = show.deal()
+        pose(shown, e)
+        onView(list, () => order(shown, show.flow, show.rng).forEach((li, i) => play(li, e, { duration: Math.min(e.duration, 0.8), delay: i * 0.045 })))
       })
 
       // ── charts: bars grow from the baseline, lines draw themselves ──

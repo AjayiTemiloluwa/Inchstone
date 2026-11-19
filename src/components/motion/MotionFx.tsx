@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { gsap, ScrollTrigger, prefersReducedMotion, isTouch, scroller } from '@/lib/gsap'
-import { cardEntrance } from '@/components/motion/PageSignature'
+import { order, play, pose, showFor, type Entrance } from '@/lib/motion/choreo'
 
 /**
  * MotionFx — the shared motion layer, wired by selectors so screens need no
@@ -15,8 +15,10 @@ import { cardEntrance } from '@/components/motion/PageSignature'
  *    phones, and lifts slightly; the app's existing gold sheen (--mx/--my)
  *    follows the finger too. Very large panels and .tilt-card (which has its
  *    own tilt) are left alone.
- *  · Entrances — cards swing up into place in 3D as they scroll into view
- *    inside <main> (batched, so a list arrives as a cascade).
+ *  · Entrances — every card is dealt a different entrance from this visit's
+ *    deck (lib/motion/choreo.ts: rise, drop, door, iris, swirl, focus…) and
+ *    each group arrives in this visit's flow (cascade, centre-out, scatter…),
+ *    so no two neighbours and no two visits move the same way.
  *  · Figures — numbers set in tabular figures (money, counts, points) count
  *    up from zero the first time they appear, keeping their own format
  *    (₦, commas, decimals, k). The text node is updated in place, so React
@@ -139,18 +141,28 @@ export function MotionFx() {
       if (r.height > 900 || el.closest('[role="dialog"], [data-noreveal]')) return
       entering.push(el)
     }
+    // Every card is dealt its own entrance from this visit's deck (lib/motion/choreo.ts), so
+    // neighbours never move alike, and each group arrives in this visit's flow order.
+    const show = showFor(pathname)
+    const dealt = new WeakMap<Element, Entrance>()
     const flushEntrances = () => {
       if (!entering.length) return
       const batch = entering.splice(0)
-      // each route has its own arrival (pop, drop, flip, slide…), see PageSignature
-      const { from, ease, stagger } = cardEntrance(pathname)
-      gsap.set(batch, { autoAlpha: 0, transformPerspective: 900, transformOrigin: '50% 0%', ...from })
+      batch.forEach((el) => {
+        const e = show.deal()
+        dealt.set(el, e)
+        pose(el, e)
+      })
       const sts = ScrollTrigger.batch(batch, {
         scroller: main,
         start: 'top 96%',
         once: true,
         onEnter: (els) =>
-          gsap.to(els, { autoAlpha: 1, x: 0, y: 0, scale: 1, rotation: 0, rotationX: 0, rotationY: 0, duration: 0.75, ease, stagger, overwrite: 'auto' }),
+          order(els as HTMLElement[], show.flow, show.rng).forEach((el, i) => {
+            const e = dealt.get(el)
+            // the entrance clears its transform at rest; give the 3D tilt its depth back
+            if (e) play(el, e, { delay: i * 0.07, onComplete: () => gsap.set(el, { transformPerspective: 900 }) })
+          }),
       })
       cleanups.push(() => sts.forEach((s) => s.kill()))
     }
