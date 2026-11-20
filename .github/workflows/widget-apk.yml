@@ -44,7 +44,8 @@ jobs:
         run: |
           set -o pipefail
           gradle --no-daemon assembleDebug 2>&1 | tee build.log || {
-            grep -E "^e: |error:|What went wrong|^> |Could not|failed" build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            msg=$( { grep -E "^e: |error:|FAILED" build.log; grep -A 6 "What went wrong" build.log; } | grep -v "^> Task.*UP-TO-DATE" | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Android build failed::$msg"
             exit 1
           }
 
