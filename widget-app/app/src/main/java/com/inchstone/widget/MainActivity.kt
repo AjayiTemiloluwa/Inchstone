@@ -44,12 +44,12 @@ class MainActivity : Activity() {
             setPadding(0, pad / 2, 0, pad / 2)
         }
         val input = EditText(this).apply {
-            hint = "Pairing secret"
+            setHint("Pairing secret")
             setTextColor(0xFFF3EFE6.toInt())
             setHintTextColor(0xFF8A8378.toInt())
         }
         val hostInput = EditText(this).apply {
-            hint = "Server (e.g. inchstone.vercel.app)"
+            setHint("Server (e.g. myinchstone.vercel.app)")
             setTextColor(0xFFF3EFE6.toInt())
             setHintTextColor(0xFF8A8378.toInt())
         }

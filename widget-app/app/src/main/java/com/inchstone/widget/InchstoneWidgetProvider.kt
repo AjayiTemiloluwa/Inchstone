@@ -98,13 +98,13 @@ internal fun render(context: Context, manager: AppWidgetManager, appWidgetId: In
     }
 
     val pages = WidgetData.pages(json)
-    if (pages.isEmpty()) {
+    if (pages.length() == 0) {
         drawPlaceholder(views, "No pages configured")
         push(context, manager, appWidgetId, views)
         return
     }
 
-    val pageIndex = WidgetData.currentPage(context, appWidgetId) % pages.size
+    val pageIndex = WidgetData.currentPage(context, appWidgetId) % pages.length()
     // JSONArray.get() is a Java Object in Kotlin — resolve it as a JSONObject.
     val page = pages.optJSONObject(pageIndex)
     if (page == null) {
