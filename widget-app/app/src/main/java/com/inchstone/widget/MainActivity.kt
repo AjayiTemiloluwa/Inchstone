@@ -77,6 +77,13 @@ class MainActivity : Activity() {
         // When launched as the widget's configure step (user just added the
         // widget), we must always return the widget id with a result code —
         // otherwise the launcher cancels the add.
+        // Notifications: Android 13+ asks once. Then start the live card if this phone is already paired.
+        Live.ensureChannels(this)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && !Live.canNotify(this)) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
+        }
+        if (!WidgetData.secret(this).isNullOrEmpty()) Live.syncAsync(this)
+
         val widgetId = intent?.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
             ?: AppWidgetManager.INVALID_APPWIDGET_ID
         if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -97,8 +104,9 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     save.isEnabled = true
                     val paired = problem == null
-                    status.text = if (paired) "Paired ✓ — add the widget to your home screen (long-press the home screen → Widgets → Inchstone)."
+                    status.text = if (paired) "Paired ✓ Your live card is now in the notification bar, and Inchstone will notify you even when it's closed. Optional: add the widget (long-press the home screen → Widgets → Inchstone)."
                     else problem
+                    if (paired) Live.syncAsync(this)
                     // Tell any existing widgets to redraw
                     val manager = AppWidgetManager.getInstance(this)
                     val ids = manager.getAppWidgetIds(ComponentName(this, InchstoneWidgetProvider::class.java))
@@ -112,5 +120,11 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    // Notifications just allowed → show the live card straight away.
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (Live.canNotify(this)) Live.syncAsync(this)
     }
 }

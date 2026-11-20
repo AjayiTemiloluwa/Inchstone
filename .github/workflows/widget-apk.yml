@@ -1,0 +1,64 @@
+name: Android app (APK)
+
+# Builds the Inchstone Android companion app (widget-app/) — the live status card,
+# phone-side alarms and the home-screen widget — whenever it changes.
+#  · Any branch: the APK is attached to the run (Actions → this run → Artifacts).
+#  · main: it is also published at a fixed link you can open on the phone:
+#    https://github.com/AjayiTemiloluwa/Inchstone/releases/download/widget-latest/inchstone-widget.apk
+on:
+  push:
+    paths:
+      - 'widget-app/**'
+      - '.github/workflows/widget-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      # Same signing key every build, so a new APK installs over the old one
+      # instead of asking you to uninstall first.
+      - name: Keep the signing key between builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: inchstone-widget-signing-key-v1
+
+      - name: Build
+        working-directory: widget-app
+        run: gradle --no-daemon assembleDebug
+
+      - name: Name the APK
+        run: cp widget-app/app/build/outputs/apk/debug/app-debug.apk inchstone-widget.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inchstone-widget
+          path: inchstone-widget.apk
+
+      - name: Publish to the fixed download link (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: widget-latest
+          name: Inchstone Android app (latest)
+          body: |
+            Install on your phone: open this page on the phone, tap inchstone-widget.apk, then Install
+            (allow "install unknown apps" for your browser when asked). Open it once, allow notifications,
+            and paste the pairing secret from Inchstone → Settings → Widget.
+          files: inchstone-widget.apk
+          make_latest: false

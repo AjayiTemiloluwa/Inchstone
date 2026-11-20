@@ -4,6 +4,7 @@ import { ALARM_CATCH_UP_HOURS, ALARM_RING_GRACE_MINUTES, computeNextFire, pushAl
 import { logNotification } from '@/lib/notificationLog'
 import { DEADLINE_CLOSED, dueReminders, reminderPayload, stampOffsets } from '@/lib/applications'
 import { sendNotification } from '@/lib/pushNotifications'
+import { phoneAlertsOn } from '@/lib/phoneSchedule'
 import {
   buildTaskPayload,
   dueTaskNotifications,
@@ -43,6 +44,15 @@ export async function GET(req: Request) {
   })
 
   const graceMs = ALARM_RING_GRACE_MINUTES * 60_000
+  // Users whose Android companion app (widget-app 2+) synced recently get deed, alarm and
+  // application notifications from the phone itself, on time even with Inchstone closed. For them
+  // this job only stamps what is due (so nothing is owed later) and never pushes a second copy.
+  const phoneCache = new Map<string, Promise<boolean>>()
+  const onPhone = (userId: string) => {
+    if (!phoneCache.has(userId)) phoneCache.set(userId, phoneAlertsOn(userId, now))
+    return phoneCache.get(userId)!
+  }
+  let leftToPhone = 0
   let sent = 0
   let skippedStale = 0
   for (const alarm of due) {
@@ -52,6 +62,8 @@ export async function GET(req: Request) {
     const overdueMs = fireAt != null ? now.getTime() - fireAt : 0
     if (overdueMs > ALARM_CATCH_UP_HOURS * 3_600_000) {
       skippedStale++
+    } else if (await onPhone(alarm.userId)) {
+      leftToPhone++
     } else {
       try {
         await pushAlarmToUser(alarm.userId, alarm, { late: overdueMs > graceMs })
@@ -95,6 +107,11 @@ export async function GET(req: Request) {
   const missed = new Map<string, { t: (typeof scheduled)[number]; kind: 'start' | 'reminder' }[]>()
   for (const t of scheduled) {
     for (const kind of dueTaskNotifications(t, now, { catchUp: true })) {
+      if (await onPhone(t.userId)) {
+        await stampTaskNotification(t.id, kind, now)
+        leftToPhone++
+        continue
+      }
       if (isLate(t, kind, now)) {
         const list = missed.get(t.userId) ?? []
         // One missed line per deed even if both its reminder and start slipped.
@@ -151,7 +168,8 @@ export async function GET(req: Request) {
   for (const a of apps) {
     const { due: off, silent } = dueReminders(a, now)
     if (off === null && !silent.length) continue
-    if (off !== null) {
+    if (off !== null && (await onPhone(a.userId))) leftToPhone++
+    else if (off !== null) {
       const subs = await prisma.pushSubscription.findMany({ where: { userId: a.userId } })
       const rp = reminderPayload(a, off)
       await logNotification(a.userId, { kind: 'application', title: rp.title, body: rp.body, url: rp.url })
@@ -170,5 +188,5 @@ export async function GET(req: Request) {
       .catch(() => {})
   }
 
-  return NextResponse.json({ ok: true, fired: sent, checked: due.length, skippedStale, taskPushes, applicationPushes })
+  return NextResponse.json({ ok: true, fired: sent, checked: due.length, skippedStale, taskPushes, applicationPushes, leftToPhone })
 }

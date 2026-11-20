@@ -73,6 +73,8 @@ export function DeedCountdown() {
   // start or end. Kept running under reduced motion — nothing here animates.
   const now = useCountdown(CHECK_MS, { respectReducedMotion: false })
   const [timers, setTimers] = useState<DeedTimer[]>([])
+  // The Android companion app is showing the card itself — the web app stays out of the bar.
+  const [phone, setPhone] = useState(false)
   const firedFinish = useRef<Set<string>>(new Set())
   const shown = useRef<{ taskId: string; key: string } | null>(null)
 
@@ -80,8 +82,9 @@ export function DeedCountdown() {
     try {
       const res = await fetch('/api/deed-timers', { cache: 'no-store' })
       if (!res.ok) return
-      const data = (await res.json()) as { timers?: DeedTimer[] }
+      const data = (await res.json()) as { timers?: DeedTimer[]; phone?: boolean }
       if (Array.isArray(data.timers)) setTimers(data.timers)
+      setPhone(!!data.phone)
     } catch {
       /* offline — keep the last known list */
     }
@@ -114,6 +117,7 @@ export function DeedCountdown() {
       .then(async reg => {
         // Deeds whose end passed while the app was open: one quiet "finished" card each.
         for (const s of spans) {
+          if (phone) break
           if (s.t.finished || nowMs < s.end || nowMs - s.end > 10 * 60_000 || firedFinish.current.has(s.t.taskId)) continue
           firedFinish.current.add(s.t.taskId)
           reg.showNotification(`✓ Finished: ${s.t.title}`, {
@@ -138,7 +142,7 @@ export function DeedCountdown() {
         }
         if (firedFinish.current.size > 200) firedFinish.current = new Set([...firedFinish.current].slice(-200))
 
-        const focus = pickFocus(spans, nowMs)
+        const focus = phone ? null : pickFocus(spans, nowMs)
 
         // Close every other deed card (finished, completed, deleted, or simply not the focus).
         const open = await reg.getNotifications()
@@ -175,7 +179,7 @@ export function DeedCountdown() {
         } as NotificationOptions)
       })
       .catch(() => {})
-  }, [now, timers])
+  }, [now, timers, phone])
 
   return null
 }

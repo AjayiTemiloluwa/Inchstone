@@ -27,7 +27,7 @@ object WidgetData {
     /** Older builds defaulted to this address, which is NOT Inchstone; a saved copy is replaced. */
     private const val WRONG_OLD_HOST = "inchstone.vercel.app"
     /** Sent with every call, so Settings → Widget can show which app version last synced. */
-    const val APP_VERSION = "widget-app 1.1"
+    const val APP_VERSION = "widget-app 2.0"
 
     private const val PREFS = "inchstone_widget"
     private const val KEY_SECRET = "secret"

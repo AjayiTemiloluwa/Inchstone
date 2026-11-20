@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { randomBytes } from 'crypto'
+import { phoneSchedule } from '@/lib/phoneSchedule'
 
 export const dynamic = 'force-dynamic'
 
@@ -130,6 +131,14 @@ export async function GET(req: Request) {
     await prisma.widgetConfig.update({ where: { userId }, data: { lastSyncAt: new Date(), lastSyncAgent: (url.searchParams.get('v') || req.headers.get('user-agent') || '').slice(0, 120) } }).catch(() => undefined)
   }
 
+  // ?schedule=1 → the phone app's own notification schedule (deeds for the bar card + the
+  // moments to ring at), so it can notify with Inchstone closed. See lib/phoneSchedule.ts.
+  if (url.searchParams.has('schedule')) {
+    let zone = tz
+    try { new Intl.DateTimeFormat('en-US', { timeZone: zone }) } catch { zone = 'Africa/Lagos' }
+    return NextResponse.json(await phoneSchedule(userId, zone))
+  }
+
   // ?rev=1 → just the tasks revision (one cheap query), so the widget can poll often and only
   // download the full bundle when something actually changed.
   if (url.searchParams.has('rev')) {
@@ -221,9 +230,39 @@ export async function PUT(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const url = new URL(req.url)
+
+  // The phone's notification buttons: POST ?secret=…&task=<id>&op=done|extend.
+  // Same effect as the web app's "Done ✓" / "+15 min", authorised by the pairing secret.
+  const phoneSecret = url.searchParams.get('secret')
+  if (phoneSecret) {
+    const owner = await userIdFromSecret(phoneSecret)
+    if (!owner) return NextResponse.json({ error: 'Invalid secret' }, { status: 401 })
+    const taskId = url.searchParams.get('task') || ''
+    const op = url.searchParams.get('op')
+    const task = taskId ? await prisma.task.findFirst({ where: { id: taskId, userId: owner } }) : null
+    if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    if (op === 'done') {
+      await prisma.task.update({ where: { id: task.id }, data: { completed: true, progress: 100 } })
+    } else if (op === 'extend' && task.startTime) {
+      const ms = 15 * 60_000
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          startTime: new Date(task.startTime.getTime() + ms),
+          ...(task.endTime ? { endTime: new Date(task.endTime.getTime() + ms) } : {}),
+          // New times → the deed's notifications are owed again.
+          reminderNotifiedAt: null, startNotifiedAt: null, countdownNotifiedAt: null, finishNotifiedAt: null, endingNotifiedAt: null,
+        },
+      })
+    } else {
+      return NextResponse.json({ error: 'Unknown op' }, { status: 400 })
+    }
+    return NextResponse.json({ ok: true })
+  }
+
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const url = new URL(req.url)
 
   if (url.searchParams.has('rotate')) {
     const secret = randomBytes(24).toString('base64url')
