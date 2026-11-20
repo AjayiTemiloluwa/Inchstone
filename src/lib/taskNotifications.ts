@@ -189,16 +189,29 @@ export const deedFinishTag = (taskId: string) => `deed-finish-${taskId}`
 
 /** Web-push payload for a task notification (consumed by public/sw.js). */
 export function buildTaskPayload(t: SchedulableTask, kind: TaskNotificationKind, now: Date = new Date(), tz: string = DEFAULT_TZ) {
-  const payload = { ...buildTaskPayloadCore(t, kind, tz), ...taskExtras(t, kind) }
+  const payload = { ...buildTaskPayloadCore(t, kind, tz), ...taskExtras(t, kind), quiet: isQuietUpdate(t, kind) }
   if (!isLate(t, kind, now)) return payload
   return {
     ...payload,
+    quiet: true,
     title: `🕘 Missed ${fmtTime(t.startTime!, tz)}: ${t.title}`,
     body: `This was scheduled for ${fmtWindow(t, tz)} and is still open. Tap to catch up.`,
     requireInteraction: false,
     vibrate: [120, 60, 120],
     late: true,
   }
+}
+
+/**
+ * One buzz per deed. The first card a deed puts in the notification bar rings
+ * once (the 10-min heads-up, or "starting now" if there was no heads-up); after
+ * that the same card just changes its words silently: starting → almost done →
+ * finished. The very-important alarm always rings — the user asked for it.
+ */
+export function isQuietUpdate(t: Pick<SchedulableTask, 'countdownNotifiedAt'>, kind: TaskNotificationKind): boolean {
+  if (kind === 'reminder' || kind === 'countdown') return false
+  if (kind === 'start') return !!ts(t.countdownNotifiedAt)
+  return true // ending, finish
 }
 
 /** A start/reminder push going out after its grace window is a catch-up ("Missed"), not a live cue. */

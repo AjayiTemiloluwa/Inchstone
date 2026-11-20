@@ -1,6 +1,6 @@
 /* Inchstone service worker — offline shell + data cache + write-queue bridge. */
 
-const VERSION = 'v12'
+const VERSION = 'v13'
 const SHELL_CACHE = `inchstone-shell-${VERSION}`
 const RUNTIME_CACHE = `inchstone-runtime-${VERSION}`
 const API_CACHE = `inchstone-api-${VERSION}`
@@ -261,9 +261,15 @@ self.addEventListener('push', function (event) {
         if (Array.isArray(data.actions) && data.actions.length) options.actions = data.actions.slice(0, 2)
         // Countdown/reminder pushes arrive with a tag so an updated
         // notification replaces the previous one instead of stacking up.
+        // A "quiet" push (silent: true) just changes what the card in the bar
+        // says — no sound, no buzz, no pop-up. Only a loud push re-alerts.
         if (data.tag) {
             options.tag = data.tag
-            options.renotify = true
+            options.renotify = data.silent ? false : data.renotify !== false
+        }
+        if (data.silent) {
+            options.silent = true
+            delete options.vibrate
         }
         if (data.requireInteraction) options.requireInteraction = true
 

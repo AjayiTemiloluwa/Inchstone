@@ -122,6 +122,7 @@ export async function GET(req: Request) {
           url: '/dashboard',
           tag: 'missed-digest',
           late: true,
+          quiet: true, // a catch-up sits in the bar; it doesn't ring
         } as unknown as ReturnType<typeof buildTaskPayload>, 'missed-digest')
         taskPushes++
       } else {

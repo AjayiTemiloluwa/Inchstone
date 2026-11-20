@@ -52,6 +52,8 @@ export async function GET() {
         estimatedEnd: end ? new Date(end).toISOString() : null,
         isImportant: t.isImportant,
         color: t.color,
+        // Its "finished" note already went out (here or from the server) — never send it again.
+        finished: !!t.finishNotifiedAt,
       }
     })
     .filter(t => t.estimatedEnd != null)
