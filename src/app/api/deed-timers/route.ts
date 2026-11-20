@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
 import { taskEndTime } from '@/lib/taskNotifications'
+import { phoneAlertsOn } from '@/lib/phoneSchedule'
 
 /**
  * GET /api/deed-timers — the pinned-countdown feed.
@@ -52,9 +53,12 @@ export async function GET() {
         estimatedEnd: end ? new Date(end).toISOString() : null,
         isImportant: t.isImportant,
         color: t.color,
+        // Its "finished" note already went out (here or from the server) — never send it again.
+        finished: !!t.finishNotifiedAt,
       }
     })
     .filter(t => t.estimatedEnd != null)
 
-  return NextResponse.json({ timers })
+  // The Android companion app shows its own always-on card; the web one then stays out of the bar.
+  return NextResponse.json({ timers, phone: await phoneAlertsOn(userId) })
 }

@@ -2,6 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Live status card + alerts with Inchstone closed (Live.kt). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Ring exactly on time. Android 12: granted at install. Android 13+: USE_EXACT_ALARM is
+         granted automatically to sideloaded apps (it's only restricted on the Play Store). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- Android 16: lets the card show as a Live Update chip in the status bar. -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <application
         android:label="Inchstone Widget"
@@ -34,6 +43,22 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
+        </receiver>
+
+        <!-- The phone's own alarms, buttons and re-arming after restarts (Live.kt). -->
+        <receiver
+            android:name=".LiveReceiver"
+            android:exported="false" />
+        <!-- Only system broadcasts reach this one; it can't be used to tick deeds off. -->
+        <receiver
+            android:name=".SystemEventsReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
         </receiver>
     </application>
 </manifest>

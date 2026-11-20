@@ -44,6 +44,12 @@ export async function sendNotification(
         actions?: { action: string; title: string }[]
         /** The deed a "done" action ticks off. */
         taskId?: string
+        /**
+         * Update the card in the notification bar without a sound, buzz or pop-up
+         * (e.g. a deed moving from "up next" to "running"). Only the first card for
+         * something should ring; the rest just change what the bar says.
+         */
+        quiet?: boolean
     }
 ) {
     ensureVapidConfigured()
@@ -71,9 +77,9 @@ export async function sendNotification(
                 ...(payload.actions?.length ? { actions: payload.actions.slice(0, 3) } : {}),
                 // Pass-through options the service worker applies to
                 // showNotification (see public/sw.js).
-                ...(payload.tag ? { tag: payload.tag, renotify: true } : {}),
+                ...(payload.tag ? { tag: payload.tag, renotify: !payload.quiet } : {}),
                 ...(payload.requireInteraction ? { requireInteraction: true } : {}),
-                ...(payload.vibrate ? { vibrate: payload.vibrate } : {}),
+                ...(payload.quiet ? { silent: true } : payload.vibrate ? { vibrate: payload.vibrate } : {}),
             }),
             // Android parks "normal" pushes while the phone dozes or saves battery, so they only show
             // once the app is opened. "high" urgency wakes the device; TTL keeps the message queued
@@ -81,9 +87,9 @@ export async function sendNotification(
             { urgency: 'high', TTL: 60 * 60 * 24 }
         )
         return true
-    } catch (error: any) {
+    } catch (error) {
         // If subscription is expired, return false so caller can clean it up
-        if (error.statusCode === 410) {
+        if ((error as { statusCode?: number }).statusCode === 410) {
             return false
         }
         console.error('Push notification failed', error)
