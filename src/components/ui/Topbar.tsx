@@ -9,6 +9,7 @@ import { YearPickerChip } from "@/components/ui/YearPicker";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { MomentumChip } from "@/components/fun/MomentumChip";
+import { PaintDrops } from "@/components/fun/PaintDrops";
 import { routeMeta } from "@/components/ds/nav";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { openAssistant, openCommand } from "@/lib/uiEvents";
@@ -18,7 +19,7 @@ import { openAssistant, openCommand } from "@/lib/uiEvents";
  *   left   sidebar toggle · breadcrumb "Group › Page" in the UI face
  *          (the page itself carries the big display title, so the bar does not repeat it)
  *   centre search-or-jump field (Ctrl K) on desktop
- *   right  Ask AI · year · theme | avatar — every control the same 32px, square-rounded, ghost
+ *   right  Ask AI · year · paint (throw a colour) · theme | avatar — every control the same 32px, square-rounded, ghost
  */
 const iconBtn = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-parchment/60 transition-colors hover:bg-parchment/[0.06] hover:text-parchment focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40'
 
@@ -78,6 +79,7 @@ export function Topbar() {
         <MomentumChip />
         <YearPickerChip />
         <NotificationBell />
+        <PaintDrops className={iconBtn} />
         <ThemeToggle />
         <span aria-hidden className="mx-1.5 h-5 w-px bg-parchment/10" />
         <span className="flex h-8 w-8 shrink-0 items-center justify-center">

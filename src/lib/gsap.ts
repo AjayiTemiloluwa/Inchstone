@@ -14,10 +14,11 @@ import { InertiaPlugin } from 'gsap/InertiaPlugin'
 import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin'
 import { CustomEase } from 'gsap/CustomEase'
 import { SplitText } from 'gsap/SplitText'
+import { Physics2DPlugin } from 'gsap/Physics2DPlugin'
 import { useGSAP } from '@gsap/react'
 
 if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger, Draggable, InertiaPlugin, ScrambleTextPlugin, CustomEase, SplitText, useGSAP)
+  gsap.registerPlugin(ScrollTrigger, Draggable, InertiaPlugin, ScrambleTextPlugin, CustomEase, SplitText, Physics2DPlugin, useGSAP)
   // the app's signature ease: a quick start and a long, calm settle
   CustomEase.create('settle', 'M0,0 C0.22,1 0.36,1 1,1')
 }
