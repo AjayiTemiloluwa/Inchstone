@@ -43,9 +43,12 @@ export function AccentPicker() {
     const raf = requestAnimationFrame(sync)
     const observer = new MutationObserver(sync)
     observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    // Paint thrown from the top bar's paint wheel (components/fun/PaintDrops.tsx).
+    window.addEventListener('inchstone-accent-change', sync)
     return () => {
       cancelAnimationFrame(raf)
       observer.disconnect()
+      window.removeEventListener('inchstone-accent-change', sync)
     }
   }, [])
 

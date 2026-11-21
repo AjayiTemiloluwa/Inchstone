@@ -137,6 +137,38 @@ function tune(hex: string, lightness: number, saturation = 1): string {
   return toHex(fromHsl(h, clamp(s * saturation, 0, 1), clamp(l * lightness, 0, 1)))
 }
 
+/** WCAG relative luminance (0 = black, 1 = white). */
+function luminance(hex: string): number {
+  const rgb = parseHex(hex)
+  if (!rgb) return 0
+  const lin = (v: number) => {
+    const c = v / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b)
+}
+
+/** WCAG contrast ratio between two colours (1 to 21). */
+export function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+/** The light theme's paper, and the contrast the stock brass already has on it. */
+const PAPER_HEX = '#f6f1e7'
+const PAPER_FLOOR = 3.9
+
+/**
+ * Neon accents (lime, cyan, emerald…) are vivid on ink but vanish on paper. In the light
+ * theme an accent below the stock brass's contrast is darkened step by step until it reads
+ * as well as brass does. Accents that already read well (brass included) are untouched.
+ */
+function readableOnPaper(hex: string): string {
+  let out = hex
+  for (let i = 0; i < 24 && contrast(out, PAPER_HEX) < PAPER_FLOOR; i++) out = tune(out, 0.93)
+  return out
+}
+
 /**
  * Mixes the three tones from one picked colour.
  *
@@ -148,7 +180,7 @@ function tune(hex: string, lightness: number, saturation = 1): string {
  */
 export function mixAccent(base: string, dark: boolean): AccentMix {
   const safe = normaliseHex(base) ?? STOCK_ACCENT_HEX
-  const accent = dark ? safe : tune(safe, 0.729, 1.341)
+  const accent = dark ? safe : readableOnPaper(tune(safe, 0.729, 1.341))
   const rest = tune(safe, 0.75, 0.9)
   const lift = dark ? tune(safe, 1.162, 1.204) : tune(safe, 0.955, 0.956)
   return {

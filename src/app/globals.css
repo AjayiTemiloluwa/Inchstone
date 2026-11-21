@@ -2897,3 +2897,12 @@ html:not(.dark) .touch-hint-pill {
 @media (prefers-reduced-motion: reduce) {
   .combo-badge, .momentum-chip:hover .momentum-emblem { animation: none; }
 }
+
+/* ── Paint flood (fun/PaintDrops.tsx): the new colour opens as a circle from where the paint
+   landed. Scoped to the paint throw so any other view transition keeps its own animation. ── */
+html[data-paint-flood]::view-transition-old(root),
+html[data-paint-flood]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html[data-paint-flood]::view-transition-new(root) { z-index: 2; }
