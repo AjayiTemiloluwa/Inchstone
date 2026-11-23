@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { isFxQuiet } from '@/lib/fxQuiet'
 import { animate } from 'motion'
 
 /**
@@ -47,6 +48,7 @@ export function FluidPress() {
     }
 
     const onDown = (e: PointerEvent) => {
+      if (isFxQuiet(e)) return
       if (e.button !== 0 && e.pointerType === 'mouse') return
       const el = find(e)
       if (!el) return

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { isFxQuiet } from '@/lib/fxQuiet'
 
 /**
  * Global pointer-FX engine (delegated - no per-card JS):
@@ -26,6 +27,7 @@ export function ScrollFx() {
     let litText: HTMLElement | null = null
 
     const update = (e: PointerEvent) => {
+      if (isFxQuiet(e)) return
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
         const target = e.target as HTMLElement | null
@@ -140,6 +142,7 @@ export function ScrollFx() {
       scheduleScrollRipple(e.clientX, e.clientY)
     }
     const onTouchMove = (e: TouchEvent) => {
+      if (isFxQuiet(e)) return
       const t = e.touches[0]
       if (t) scheduleScrollRipple(t.clientX, t.clientY)
     }
