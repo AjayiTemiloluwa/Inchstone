@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react'
+import { isFxQuiet } from '@/lib/fxQuiet'
 
 /* ────────────────────────────────────────────────────────────────
    Fluid & float motion kit — the dion-style "everything levitates
@@ -155,6 +156,7 @@ export function FluidText({
     }
 
     const onMove = (e: PointerEvent) => {
+      if (isFxQuiet(e)) return
       mouse.current.x = e.clientX
       mouse.current.y = e.clientY
       wake()
@@ -165,6 +167,7 @@ export function FluidText({
     // around the mouse; on lift the pointer is parked far away so the
     // glyphs relax back into place.
     const onTouch = (e: TouchEvent) => {
+      if (isFxQuiet(e)) return
       const t = e.touches[0]
       if (!t) return
       mouse.current.x = t.clientX

@@ -361,6 +361,7 @@ export function PaintDrops({ className = '' }: { className?: string }) {
           role="dialog"
           aria-modal="false"
           aria-labelledby={titleId}
+          data-fx-quiet=""
           className={`fixed right-3 z-[9990] w-[min(320px,calc(100vw-24px))] rounded-[28px] border border-parchment/15 p-5 text-parchment sm:right-6 ${
             lite ? 'bg-dialog shadow-[0_16px_40px_rgb(0_0_0/0.35)]' : 'bg-dialog/95 shadow-[0_30px_80px_rgb(0_0_0/0.35)] backdrop-blur-xl'
           }`}

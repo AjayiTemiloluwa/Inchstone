@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useEffect } from 'react'
+import { isFxQuiet } from '@/lib/fxQuiet'
 
 /**
  * TouchFx — mobile/coarse-pointer reactivity layer.
@@ -98,6 +99,7 @@ export function TouchFx() {
     }
 
     const onDown = (e: PointerEvent | TouchEvent) => {
+      if (isFxQuiet(e)) return
       if ('touches' in e) {
         const t = e.touches[0]
         if (t) {
@@ -115,6 +117,7 @@ export function TouchFx() {
     }
 
     const onMove = (e: PointerEvent | TouchEvent) => {
+      if (isFxQuiet(e)) return
       const t =
         'touches' in e
           ? Array.from(e.touches).find(t => t.identifier === activeTouchId)
