@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as RKeyboardEvent, type PointerEvent as RPointerEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent, type PointerEvent as RPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Dices, X } from 'lucide-react'
 import { gsap, Draggable, prefersReducedMotion } from '@/lib/gsap'
@@ -19,18 +19,30 @@ import { ACCENT_CHANGE_EVENT, PAINTS, currentPaintIndex, paintChoice, type Paint
  * dark, and Settings → Accent shows it. The flood is a View Transition; browsers without one get
  * the splash only. Keyboard: arrows move round the wheel, Enter/Space throws, Esc closes.
  * Reduced motion: the colour changes instantly, no splash.
+ *
+ * Phones (touch or small screens) take the "lite" path so nothing ever freezes: no View
+ * Transition (it snapshots the whole app and blocks input until the circle finishes), no blurred
+ * glass, no per-frame React renders while the wheel spins, and the splash + flood are Web
+ * Animations on transform/opacity, which the GPU compositor keeps running even while the main
+ * thread restyles the app for the new colour.
  */
 
 const RING = 248 // wheel diameter
 const R = 96 // radius the drops sit on
 const STEP = 360 / PAINTS.length
 
+/** Touch or small screen: take the cheap, compositor-only path. */
+const isLite = () =>
+  typeof window !== 'undefined' &&
+  (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768)
+
 const isDark = () => document.documentElement.classList.contains('dark')
 /** The colour a paint shows in the current theme (paper gets the readable, deeper shade). */
 const shade = (p: Paint) => (isDark() ? p.hex : mixAccent(p.hex, false).accent)
 const alpha = (hex: string, a: number) => `${hex}${Math.round(a * 255).toString(16).padStart(2, '0')}`
+const farCorner = (x: number, y: number) => Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))
 
-/** Paint splats at a point: a blot, a ring and a burst of droplets under gravity. */
+/** Paint splats at a point: a blot, a ring and a burst of droplets under gravity (desktop). */
 function splat(x: number, y: number, color: string) {
   if (prefersReducedMotion()) return
   const layer = document.createElement('div')
@@ -59,6 +71,48 @@ function splat(x: number, y: number, color: string) {
     }, 0)
 }
 
+/**
+ * The phone splash: a flood circle, a ring and a few droplets — Web Animations on transform and
+ * opacity only, so the compositor plays them smoothly while the app restyles underneath.
+ */
+function liteSplat(x: number, y: number, color: string) {
+  if (prefersReducedMotion()) return
+  const layer = document.createElement('div')
+  layer.setAttribute('aria-hidden', 'true')
+  Object.assign(layer.style, { position: 'fixed', inset: '0', pointerEvents: 'none', zIndex: '9998', overflow: 'hidden', contain: 'strict' })
+  document.body.appendChild(layer)
+  const dot = (size: number, extra: Partial<CSSStyleDeclaration> = {}) => {
+    const d = document.createElement('div')
+    Object.assign(d.style, { position: 'absolute', left: `${x - size / 2}px`, top: `${y - size / 2}px`, width: `${size}px`, height: `${size}px`, borderRadius: '50%', background: color, willChange: 'transform, opacity' }, extra)
+    layer.appendChild(d)
+    return d
+  }
+  const anims: Animation[] = []
+  anims.push(dot(100).animate(
+    [{ transform: 'scale(0)', opacity: 0.45 }, { transform: `scale(${(farCorner(x, y) * 2) / 100})`, opacity: 0 }],
+    { duration: 700, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' },
+  ))
+  anims.push(dot(40, { background: 'transparent', border: `3px solid ${color}` }).animate(
+    [{ transform: 'scale(0.4)', opacity: 1 }, { transform: 'scale(7)', opacity: 0 }],
+    { duration: 650, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
+  ))
+  for (let k = 0; k < 8; k++) {
+    const a = (-170 + (160 * k) / 7 + gsap.utils.random(-8, 8)) * (Math.PI / 180)
+    const v = gsap.utils.random(70, 150)
+    const dx = Math.cos(a) * v
+    const dy = Math.sin(a) * v
+    anims.push(dot(gsap.utils.random(7, 13)).animate(
+      [
+        { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy}px) scale(0.9)`, opacity: 1, offset: 0.45 },
+        { transform: `translate(${dx * 1.4}px, ${dy + 140}px) scale(0.4)`, opacity: 0 },
+      ],
+      { duration: 800, easing: 'cubic-bezier(0.25, 0.6, 0.5, 1)', fill: 'forwards' },
+    ))
+  }
+  Promise.all(anims.map((an) => an.finished)).finally(() => layer.remove())
+}
+
 /** Apply a paint, flooding outward from (x, y) where the browser can. */
 function throwPaint(p: Paint, x: number, y: number) {
   const set = () => {
@@ -66,6 +120,13 @@ function throwPaint(p: Paint, x: number, y: number) {
     window.dispatchEvent(new CustomEvent(ACCENT_CHANGE_EVENT, { detail: p.id }))
   }
   const color = shade(p)
+  if (isLite()) {
+    // Splash first (it runs on the compositor), the app-wide restyle two frames later so the
+    // splash is already moving when the main thread gets busy.
+    liteSplat(x, y, color)
+    requestAnimationFrame(() => requestAnimationFrame(set))
+    return
+  }
   const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } }
   if (prefersReducedMotion() || !doc.startViewTransition) {
     set()
@@ -73,7 +134,7 @@ function throwPaint(p: Paint, x: number, y: number) {
     return
   }
   const root = document.documentElement
-  const far = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))
+  const far = farCorner(x, y)
   // Switches off the browser's default cross-fade for this one transition (globals.css).
   root.dataset.paintFlood = ''
   const t = doc.startViewTransition(set)
@@ -93,7 +154,9 @@ export function PaintDrops({ className = '' }: { className?: string }) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
   const [focus, setFocus] = useState(0)
-  const [, setTick] = useState(0) // re-render on a theme flip (drops show that theme's shade)
+  const [theme, setTheme] = useState(0) // bumps on a theme flip (drops show that theme's shade)
+  const [lite, setLite] = useState(false)
+  const focusRef = useRef(0)
   const button = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const wheel = useRef<HTMLDivElement>(null)
@@ -104,9 +167,14 @@ export function PaintDrops({ className = '' }: { className?: string }) {
 
   useEffect(() => {
     const sync = () => setActive(currentPaintIndex())
-    const raf = requestAnimationFrame(sync)
+    const raf = requestAnimationFrame(() => { sync(); setLite(isLite()) })
     window.addEventListener(ACCENT_CHANGE_EVENT, sync)
-    const mo = new MutationObserver(() => setTick((n) => n + 1))
+    let dark: boolean | null = null
+    const mo = new MutationObserver(() => {
+      // the class list changes for many reasons; only a real theme flip re-colours the drops
+      const d = isDark()
+      if (d !== dark) { dark = d; setTheme((n) => n + 1) }
+    })
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
     return () => { cancelAnimationFrame(raf); window.removeEventListener(ACCENT_CHANGE_EVENT, sync); mo.disconnect() }
   }, [])
@@ -115,6 +183,20 @@ export function PaintDrops({ className = '' }: { className?: string }) {
     setOpen(false)
     button.current?.focus()
   }, [])
+
+  /** Only re-render when the colour under the ▼ really changes, not on every spin frame. */
+  const showFocus = useCallback((i: number) => {
+    if (focusRef.current === i) return
+    focusRef.current = i
+    setFocus(i)
+  }, [])
+
+  // The drops' colours: the colour maths runs once per opening / theme flip, not on every render.
+  const shades = useMemo(
+    () => (open && theme >= 0 ? PAINTS.map(shade) : PAINTS.map((p) => p.hex)),
+    [open, theme],
+  )
+  const conic = useMemo(() => `conic-gradient(${shades.map((c, i) => `${alpha(c, 0.18)} ${i * STEP}deg ${(i + 1) * STEP}deg`).join(', ')})`, [shades])
 
   const dropX = (i: number) => Math.sin((i * STEP * Math.PI) / 180) * R
   const dropY = (i: number) => -Math.cos((i * STEP * Math.PI) / 180) * R
@@ -136,11 +218,20 @@ export function PaintDrops({ className = '' }: { className?: string }) {
   useEffect(() => {
     if (!open || !wheel.current) return
     const start = Math.max(0, currentPaintIndex())
-    setFocus(start)
+    focusRef.current = -1
+    showFocus(start)
     gsap.set(wheel.current, { rotation: -start * STEP })
     if (!prefersReducedMotion()) {
-      gsap.fromTo(panel.current, { scale: 0.6, autoAlpha: 0, transformOrigin: '90% 0%' }, { scale: 1, autoAlpha: 1, duration: 0.5, ease: 'back.out(1.8)' })
-      gsap.fromTo(dropRefs.current, { x: 0, y: 0, scale: 0 }, { x: (i) => dropX(i), y: (i) => dropY(i), scale: 1, duration: 0.7, ease: 'elastic.out(1, 0.55)', stagger: 0.04, delay: 0.08 })
+      if (isLite()) {
+        // one short compositor animation for the whole panel; the drops are already in place
+        panel.current?.animate(
+          [{ transform: 'translateY(-8px) scale(0.96)', opacity: 0 }, { transform: 'none', opacity: 1 }],
+          { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+        )
+      } else {
+        gsap.fromTo(panel.current, { scale: 0.6, autoAlpha: 0, transformOrigin: '90% 0%' }, { scale: 1, autoAlpha: 1, duration: 0.5, ease: 'back.out(1.8)' })
+        gsap.fromTo(dropRefs.current, { x: 0, y: 0, scale: 0 }, { x: (i) => dropX(i), y: (i) => dropY(i), scale: 1, duration: 0.7, ease: 'elastic.out(1, 0.55)', stagger: 0.04, delay: 0.08 })
+      }
     }
     drag.current = Draggable.create(wheel.current, {
       type: 'rotation',
@@ -148,11 +239,11 @@ export function PaintDrops({ className = '' }: { className?: string }) {
       trigger: wheel.current.querySelector('[data-spin]') as Element,
       snap: (v: number) => Math.round(v / STEP) * STEP,
       // the hub names whatever is passing under the ▼ while it spins
-      onDrag() { setFocus(atTop(this.rotation)) },
-      onThrowUpdate() { setFocus(atTop(this.rotation)) },
+      onDrag() { showFocus(atTop(this.rotation)) },
+      onThrowUpdate() { showFocus(atTop(this.rotation)) },
       onThrowComplete() {
         const i = atTop(this.rotation)
-        setFocus(i)
+        showFocus(i)
         throwFrom(i, pointer())
       },
     })[0]
@@ -164,14 +255,14 @@ export function PaintDrops({ className = '' }: { className?: string }) {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     window.addEventListener('pointerdown', onDown)
     window.addEventListener('keydown', onKey)
-    requestAnimationFrame(() => dropRefs.current[start]?.focus())
+    requestAnimationFrame(() => dropRefs.current[start]?.focus({ preventScroll: true }))
     return () => {
       drag.current?.kill()
       drag.current = null
       window.removeEventListener('pointerdown', onDown)
       window.removeEventListener('keydown', onKey)
     }
-  }, [open, close])
+  }, [open, close, showFocus])
 
   /** Roll the dice: the wheel spins hard and lands on a random other colour. */
   const roll = () => {
@@ -180,7 +271,7 @@ export function PaintDrops({ className = '' }: { className?: string }) {
     const pick = others[Math.floor(Math.random() * others.length)]
     const from = gsap.getProperty(wheel.current, 'rotation') as number
     const to = Math.round(from / 360) * 360 - 360 * (3 + Math.floor(Math.random() * 2)) - pick * STEP
-    const land = () => { setFocus(pick); throwFrom(pick, pointer()) }
+    const land = () => { showFocus(pick); throwFrom(pick, pointer()) }
     if (prefersReducedMotion()) { gsap.set(wheel.current, { rotation: -pick * STEP }); land(); return }
     gsap.to(wheel.current, { rotation: to, duration: 2.2, ease: 'power4.out', onComplete: land })
   }
@@ -188,7 +279,7 @@ export function PaintDrops({ className = '' }: { className?: string }) {
   /** Dragging a drop off the wheel: a glob of paint follows the finger; let go on the page to splat. */
   const startGlob = (e: RPointerEvent<HTMLButtonElement>, i: number) => {
     if (e.button !== 0) return
-    const color = shade(PAINTS[i])
+    const color = shades[i]
     const sx = e.clientX
     const sy = e.clientY
     let glob: HTMLDivElement | null = null
@@ -199,7 +290,7 @@ export function PaintDrops({ className = '' }: { className?: string }) {
         glob = document.createElement('div')
         Object.assign(glob.style, {
           position: 'fixed', left: '0', top: '0', width: '44px', height: '44px', margin: '-22px 0 0 -22px', borderRadius: '50%',
-          background: color, boxShadow: `0 10px 30px ${alpha(color, 0.5)}`, pointerEvents: 'none', zIndex: '9999',
+          background: color, boxShadow: lite ? 'none' : `0 10px 30px ${alpha(color, 0.5)}`, pointerEvents: 'none', zIndex: '9999', willChange: 'transform',
         })
         document.body.appendChild(glob)
       }
@@ -215,20 +306,22 @@ export function PaintDrops({ className = '' }: { className?: string }) {
     const up = (ev: PointerEvent) => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
       if (!glob) return // a plain tap: onClick throws it
       const g = glob
       suppressClick.current = true
-      if (panel.current?.contains(document.elementFromPoint(ev.clientX, ev.clientY))) {
+      if (ev.type === 'pointercancel' || panel.current?.contains(document.elementFromPoint(ev.clientX, ev.clientY))) {
         gsap.to(g, { scale: 0, duration: 0.3, ease: 'back.in(2)', onComplete: () => g.remove() })
         return
       }
       g.remove()
-      throwPaint(PAINTS[i], ev.clientX, ev.clientY)
       setActive(i)
       setOpen(false)
+      throwPaint(PAINTS[i], ev.clientX, ev.clientY)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
   }
 
   const onDropKey = (e: RKeyboardEvent, i: number) => {
@@ -236,7 +329,7 @@ export function PaintDrops({ className = '' }: { className?: string }) {
     if (!step) return
     e.preventDefault()
     const n = (i + step + PAINTS.length) % PAINTS.length
-    setFocus(n)
+    showFocus(n)
     dropRefs.current[n]?.focus()
     if (wheel.current) gsap.to(wheel.current, { rotation: -n * STEP, duration: prefersReducedMotion() ? 0 : 0.45, ease: 'back.out(1.6)' })
   }
@@ -268,8 +361,10 @@ export function PaintDrops({ className = '' }: { className?: string }) {
           role="dialog"
           aria-modal="false"
           aria-labelledby={titleId}
-          className="fixed right-3 z-[9990] w-[min(320px,calc(100vw-24px))] rounded-[28px] border border-parchment/15 bg-dialog/95 p-5 text-parchment shadow-[0_30px_80px_rgb(0_0_0/0.35)] backdrop-blur-xl sm:right-6"
-          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 64px)' }}
+          className={`fixed right-3 z-[9990] w-[min(320px,calc(100vw-24px))] rounded-[28px] border border-parchment/15 p-5 text-parchment sm:right-6 ${
+            lite ? 'bg-dialog shadow-[0_16px_40px_rgb(0_0_0/0.35)]' : 'bg-dialog/95 shadow-[0_30px_80px_rgb(0_0_0/0.35)] backdrop-blur-xl'
+          }`}
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 64px)', contain: 'layout paint' }}
         >
           <div className="mb-1 flex items-start justify-between gap-3">
             <div>
@@ -284,18 +379,18 @@ export function PaintDrops({ className = '' }: { className?: string }) {
           <div className="relative mx-auto my-3" style={{ width: RING, height: RING }}>
             {/* the pointer: whatever lands under it wins */}
             <span data-pointer aria-hidden="true" className="absolute left-1/2 top-[-6px] z-20 -translate-x-1/2 text-lg leading-none text-parchment">▼</span>
-            <div ref={wheel} className="absolute inset-0" style={{ touchAction: 'none' }}>
+            <div ref={wheel} className="absolute inset-0" style={{ touchAction: 'none', willChange: 'transform' }}>
               {/* the spin surface */}
               <div
                 data-spin
                 aria-hidden="true"
                 className="absolute inset-0 cursor-grab rounded-full border border-dashed border-parchment/20 active:cursor-grabbing"
-                style={{ background: `conic-gradient(${PAINTS.map((p, i) => `${alpha(shade(p), 0.18)} ${i * STEP}deg ${(i + 1) * STEP}deg`).join(', ')})` }}
+                style={{ background: conic }}
               />
               <div role="radiogroup" aria-label="Paint colours">
                 {PAINTS.map((p, i) => {
                   const on = i === active
-                  const c = shade(p)
+                  const c = shades[i]
                   return (
                     <button
                       key={p.id}
@@ -309,15 +404,17 @@ export function PaintDrops({ className = '' }: { className?: string }) {
                       onPointerDown={(e) => startGlob(e, i)}
                       onClick={(e) => {
                         if (suppressClick.current) { suppressClick.current = false; return }
-                        setFocus(i)
+                        showFocus(i)
                         throwFrom(i, e.currentTarget)
                       }}
                       onKeyDown={(e) => onDropKey(e, i)}
-                      className="absolute left-1/2 top-1/2 z-10 -ml-[22px] -mt-[22px] h-11 w-11 outline-none transition-[box-shadow] focus-visible:ring-4 focus-visible:ring-parchment/40"
+                      className="absolute left-1/2 top-1/2 z-10 -ml-[22px] -mt-[22px] h-11 w-11 outline-none focus-visible:ring-4 focus-visible:ring-parchment/40"
                       style={{
                         transform: `translate(${dropX(i)}px, ${dropY(i)}px)`,
                         background: `radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.55), transparent 42%), ${c}`,
-                        boxShadow: on ? `0 0 0 3px rgb(var(--dialog-rgb)), 0 0 0 6px ${c}, 0 8px 24px ${alpha(c, 0.5)}` : `0 6px 16px ${alpha(c, 0.35)}`,
+                        boxShadow: on
+                          ? `0 0 0 3px rgb(var(--dialog-rgb)), 0 0 0 6px ${c}${lite ? '' : `, 0 8px 24px ${alpha(c, 0.5)}`}`
+                          : lite ? 'none' : `0 6px 16px ${alpha(c, 0.35)}`,
                         borderRadius: '50% 50% 50% 50% / 58% 58% 42% 42%',
                         touchAction: 'none',
                       }}
@@ -328,7 +425,7 @@ export function PaintDrops({ className = '' }: { className?: string }) {
             </div>
             {/* the hub: the colour under the pointer, and the dice */}
             <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 flex h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-parchment/10 bg-dialog text-center shadow-inner">
-              <span className="font-display text-[15px] leading-tight" style={{ color: shade(shown) }}>{shown.name}</span>
+              <span className="font-display text-[15px] leading-tight" style={{ color: shades[focus] ?? shown.hex }}>{shown.name}</span>
               <span className="mt-0.5 px-2 text-[10px] leading-tight text-parchment/65">{shown.vibe}</span>
               <button type="button" onClick={roll} className="pointer-events-auto mt-1.5 inline-flex items-center gap-1 rounded-full border border-parchment/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-parchment/75 transition hover:border-parchment hover:text-parchment" aria-label="Surprise me: spin the wheel">
                 <Dices className="h-3 w-3" aria-hidden="true" /> Spin
