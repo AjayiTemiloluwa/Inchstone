@@ -12,7 +12,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         const { id: taskId } = await params
         const body = await req.json()
-        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, isImportant, reminderMinutes, notifyDeed, endWarnMinutes, extendMinutes } = body
+        const { title, weight, progress, completed, scheduledTime, startTime, endTime, categoryId, estimatedDuration, priority, goalId, color, reflection, isFrog, isHabit, isRecurring, recurrencePattern, recurrenceEnd, isImportant, reminderMinutes, notifyDeed, endWarnMinutes, extendMinutes } = body
 
         const task = await prisma.task.findFirst({
             where: { id: taskId, userId },
@@ -71,6 +71,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (color !== undefined) updateData.color = color
         if (isRecurring !== undefined) updateData.isRecurring = isRecurring
         if (recurrencePattern !== undefined) updateData.recurrencePattern = recurrencePattern
+        // "Repeat until": a YYYY-MM-DD (or ISO) day, inclusive; null means the default (end of this year).
+        const newEnd: Date | null | undefined = recurrenceEnd === undefined ? undefined : recurrenceEnd ? new Date(recurrenceEnd) : null
+        if (newEnd && Number.isNaN(newEnd.getTime())) {
+            return NextResponse.json({ error: 'recurrenceEnd must be a date' }, { status: 400 })
+        }
+        if (newEnd !== undefined) updateData.recurrenceEnd = newEnd
 
         // How far a change on a repeating deed reaches: single | future | all.
         const scope: 'single' | 'future' | 'all' =
@@ -80,6 +86,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         if (scope === 'single' && task.isRecurring) {
             delete updateData.isRecurring
             delete updateData.recurrencePattern
+            delete updateData.recurrenceEnd
         }
 
         await prisma.task.update({
@@ -101,6 +108,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         const becameRecurring = !task.isRecurring && !!finalIsRecurring && !!finalRecurrencePattern
         const patternChanged = task.isRecurring && !!finalIsRecurring && recurrencePattern !== undefined && recurrencePattern !== task.recurrencePattern
         const stoppedRecurring = task.isRecurring && isRecurring === false
+        const endChanged = task.isRecurring && !!finalIsRecurring && newEnd !== undefined && (newEnd?.getTime() ?? null) !== (task.recurrenceEnd?.getTime() ?? null)
 
         const seriesWhere: Prisma.TaskWhereInput = {
             userId,
@@ -139,6 +147,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             if (notifyDeed !== undefined) shared.notifyDeed = notifyDeed
             if (endWarnMinutes !== undefined) shared.endWarnMinutes = endWarnMinutes
             if (recurrencePattern !== undefined) shared.recurrencePattern = recurrencePattern
+            if (newEnd !== undefined) shared.recurrenceEnd = newEnd
             if (isRecurring !== undefined) shared.isRecurring = isRecurring
             if (categoryId !== undefined) shared.categoryId = categoryId
 
@@ -168,9 +177,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         }
 
         // 2. A schedule change (new repeat, new pattern, or repeat turned off)
-        //    reshapes the days AHEAD only: untouched future copies are swapped
+        //    (or a new "repeat until" day) reshapes the days AHEAD only: untouched future copies are swapped
         //    for the new pattern, completed ones and the past stay as they are.
-        const reshape = becameRecurring || ((patternChanged || stoppedRecurring) && scope !== 'single')
+        const reshape = becameRecurring || ((patternChanged || stoppedRecurring || endChanged) && scope !== 'single')
         if (reshape) {
             const from = new Date(Math.max(tomorrow.getTime(), task.date!.getTime() + 86_400_000))
             await prisma.task.deleteMany({

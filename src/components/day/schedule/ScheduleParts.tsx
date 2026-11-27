@@ -11,6 +11,7 @@ import { label12 } from '@/lib/schedule/layout'
 import { openAssistant } from '@/lib/uiEvents'
 import type { ScheduleEvent } from './DaySchedule'
 import { DeedColorPicker } from '../DeedColorPicker'
+import { DatePickerButton } from './DatePickerButton'
 import { deedCss } from '@/lib/deedColors'
 
 // ── Header: the day as a title, its score, and the week around it ────────────
@@ -41,8 +42,11 @@ export function DayHero({
   const isToday = isSameDay(date, today)
   const monday = startOfWeek(date, { weekStartsOn: 1 })
   return (
-    <header data-noreveal className="relative overflow-hidden rounded-2xl border border-gold/15 bg-surface-solid p-5 sm:p-7">
-      <span aria-hidden className="hero-orb pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-gold/[0.09] blur-3xl" />
+    <header data-noreveal className="relative z-20 rounded-2xl border border-gold/15 bg-surface-solid p-5 sm:p-7">
+      {/* The glow is clipped by its own layer, so the date picker can open past the header edge. */}
+      <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+        <span className="hero-orb absolute -right-20 -top-24 h-72 w-72 rounded-full bg-gold/[0.09] blur-3xl" />
+      </span>
       <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-gold/10 pb-3.5 font-mono text-[11px] uppercase tracking-[0.22em] text-parchment/45">
         <span>Week {getISOWeek(date)} · Day {getDayOfYear(date)}</span>
         <div className="flex items-center gap-1">
@@ -52,6 +56,7 @@ export function DayHero({
             className="h-9 rounded-lg border border-gold/25 px-3 font-semibold tracking-[0.14em] text-gold transition-colors hover:bg-gold/10 disabled:opacity-40">Today</button>
           <button type="button" onClick={() => onGo(addDays(date, 1))} aria-label="Next day" title="Next day (→)"
             className="flex h-9 w-9 items-center justify-center rounded-lg text-parchment/60 hover:bg-gold/[0.08] hover:text-parchment"><ChevronRight className="h-4 w-4" /></button>
+          <DatePickerButton date={date} onPick={onGo} />
         </div>
       </div>
 
