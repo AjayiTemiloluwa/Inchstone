@@ -413,7 +413,7 @@ export default function DayPage() {
     track('Time', ['startTime', 'endTime'], () => ({ startTime: task.startTime, endTime: task.endTime }))
     track('Points', ['weight'], () => ({ weight: task.weight }))
     track('Category', ['categoryId'], () => ({ categoryId: task.categoryId }))
-    track('Repeat', ['isRecurring', 'recurrencePattern'], () => ({ isRecurring: task.isRecurring, recurrencePattern: task.recurrencePattern }))
+    track('Repeat', ['isRecurring', 'recurrencePattern', 'recurrenceEnd'], () => ({ isRecurring: task.isRecurring, recurrencePattern: task.recurrencePattern, recurrenceEnd: task.recurrenceEnd }))
     track('Frog', ['isFrog'], () => ({ isFrog: task.isFrog }))
     track('Habit', ['isHabit'], () => ({ isHabit: task.isHabit }))
     track('Reminder', ['isImportant', 'reminderMinutes'], () => ({

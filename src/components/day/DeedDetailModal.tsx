@@ -226,6 +226,44 @@ export function DeedDetailModal({
                   <Target className="w-3.5 h-3.5" />
                   <span>Details</span>
                 </p>
+                {/* Frog: the one hard thing to do first */}
+                <button
+                  type="button"
+                  aria-pressed={!!selectedDeed.task.isFrog}
+                  onClick={() => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, isFrog: !selectedDeed.task.isFrog } })}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl border p-4 text-left transition ${selectedDeed.task.isFrog ? 'border-gold/40 bg-gold/10' : 'border-white/10 bg-black/10 hover:border-white/20'}`}
+                >
+                  <span className="flex items-center space-x-2">
+                    <Target className={`w-4 h-4 shrink-0 ${selectedDeed.task.isFrog ? 'text-gold' : 'text-ink/40'}`} />
+                    <span>
+                      <span className="block text-xs font-bold text-ink">Frog</span>
+                      <span className="block text-[10px] text-ink/50">The hard thing to do first</span>
+                    </span>
+                  </span>
+                  <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider ${selectedDeed.task.isFrog ? 'text-gold' : 'text-ink/40'}`}>{selectedDeed.task.isFrog ? 'On' : 'Off'}</span>
+                </button>
+
+                {/* Habit: tracked on the habit graph; turning it on makes it repeat daily if it did not repeat yet */}
+                <button
+                  type="button"
+                  aria-pressed={!!selectedDeed.task.isHabit}
+                  onClick={() => {
+                    const isHabit = !selectedDeed.task.isHabit
+                    const startRepeat = isHabit && !selectedDeed.task.isRecurring
+                    setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, isHabit, ...(startRepeat ? { isRecurring: true, recurrencePattern: 'daily' } : {}) } })
+                  }}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl border p-4 text-left transition ${selectedDeed.task.isHabit ? 'border-moss/40 bg-moss/10' : 'border-white/10 bg-black/10 hover:border-white/20'}`}
+                >
+                  <span className="flex items-center space-x-2">
+                    <Repeat className={`w-4 h-4 shrink-0 ${selectedDeed.task.isHabit ? 'text-good' : 'text-ink/40'}`} />
+                    <span>
+                      <span className="block text-xs font-bold text-ink">Habit</span>
+                      <span className="block text-[10px] text-ink/50">Tracked on the habit graph; repeats daily unless you pick another repeat</span>
+                    </span>
+                  </span>
+                  <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider ${selectedDeed.task.isHabit ? 'text-good' : 'text-ink/40'}`}>{selectedDeed.task.isHabit ? 'On' : 'Off'}</span>
+                </button>
+
                 {/* Very-important toggle + its alarm lead */}
                 <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 transition ${selectedDeed.task.isImportant ? 'border-gold/40 bg-gold/10' : 'border-white/10 bg-black/10'}`}>
                   <button
@@ -417,6 +455,20 @@ export function DeedDetailModal({
                     </button>
                   ))}
                 </div>
+                {selectedDeed.task.isRecurring && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <label htmlFor="deed-repeat-until" className="text-[9px] text-ink/40 font-bold uppercase">Repeat until</label>
+                    <input
+                      id="deed-repeat-until"
+                      type="date"
+                      min={format(currentDate, 'yyyy-MM-dd')}
+                      value={selectedDeed.task.recurrenceEnd ? selectedDeed.task.recurrenceEnd.slice(0, 10) : ''}
+                      onChange={e => setSelectedDeed({ ...selectedDeed, task: { ...selectedDeed.task, recurrenceEnd: e.target.value ? `${e.target.value}T00:00:00.000Z` : null } })}
+                      className="px-2.5 py-1.5 text-xs bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/30 text-ink/80"
+                    />
+                    {!selectedDeed.task.recurrenceEnd && <span className="text-[10px] text-ink/40">Empty means to the end of the year</span>}
+                  </div>
+                )}
               </div>
 
               {/* Reflection */}
